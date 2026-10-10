@@ -4,7 +4,8 @@ import { accounts } from '../core/account';
 let ac: AudioContext | null = null;
 /** Sound is on unless the signed-in person turned it off (the welcome screen, before sign-in, has sound too). */
 const soundAllowed = () => accounts.current ? accounts.current.settings.sound !== false : true;
-function ctx(): AudioContext | null {
+/** The shared audio context (null when sound is off). Used by the background music too. */
+export function ctx(): AudioContext | null {
   if (!soundAllowed()) return null;
   try {
     ac ??= new AudioContext();

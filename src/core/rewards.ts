@@ -85,6 +85,18 @@ function timeSoFar(id: string): number {
   return Math.max(0, Number(localStorage.getItem(timeKey(id))) || 0);
 }
 
+/** Play bonus: 1–5 Fuzzies for every 30 minutes spent playing (Fuzzy Crossing or Fuzzies Land). */
+export const PLAY_BONUS = { everyMin: 30, min: 1, max: 5 };
+const playKey = (id: string) => `fz.playtime.${id}`;
+const playing = () => /^#\/(play|land)\b/.test(location.hash);
+
+/** Minutes left until the next play bonus. */
+export function minutesToPlayBonus(): number {
+  const a = accounts.current;
+  const done = a ? Math.max(0, Number(localStorage.getItem(playKey(a.id))) || 0) : 0;
+  return Math.max(1, Math.ceil((PLAY_BONUS.everyMin * 60 - done) / 60));
+}
+
 /** Minutes left until the next time bonus, for the signed-in account. */
 export function minutesToTimeBonus(): number {
   const a = accounts.current;
@@ -113,5 +125,15 @@ export function startActivityRewards(): void {
       rewards.earn(n, `Time bonus — thanks for hanging out! ⏰`);
     }
     localStorage.setItem(timeKey(a.id), String(t));
+    // playing a game also counts towards the play bonus
+    if (playing()) {
+      let p = (Number(localStorage.getItem(playKey(a.id))) || 0) + 10;
+      if (p >= PLAY_BONUS.everyMin * 60) {
+        p -= PLAY_BONUS.everyMin * 60;
+        const n = PLAY_BONUS.min + Math.floor(Math.random() * (PLAY_BONUS.max - PLAY_BONUS.min + 1));
+        rewards.earn(n, 'Play bonus — 30 minutes of fun! 🎮');
+      }
+      localStorage.setItem(playKey(a.id), String(p));
+    }
   }, 10_000);
 }

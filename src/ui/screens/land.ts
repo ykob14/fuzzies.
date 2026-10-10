@@ -8,6 +8,7 @@ import type { LandView, Pick } from '../../land/view3d';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { sfx } from '../../game/sound';
+import { music } from '../../game/music';
 import { travel } from '../travel';
 import { h, btn, fuzzyMark, toast, confirmDialog } from '../dom';
 import { mascot } from '../mascot';
@@ -514,7 +515,17 @@ export function landScreen(): Screen {
 
   // ---------- setup ----------
   const stage = h('div', { class: 'land-wrap' }, wrap, overlay, hud, side, bar, placeBar, sheet);
+  const musicBtn = btn(null, { kind: 'soft', size: 'sm', title: 'Music', onClick: () => {
+    accounts.update((x) => (x.settings.music = !x.settings.music));
+    if (accounts.current?.settings.music) music.start(); else music.stop();
+    paintMusic();
+  } });
+  const paintMusic = () => { musicBtn.replaceChildren(accounts.current?.settings.music !== false ? '🎵' : '🔇'); musicBtn.title = accounts.current?.settings.music !== false ? 'Music on — tap to turn off' : 'Music off — tap to turn on'; };
+  paintMusic();
+  // browsers only allow sound after a tap/click: start the music on the first one if it couldn't start yet
+  stage.addEventListener('pointerdown', () => { if (!music.playing) setTimeout(() => music.start(), 50); });
   side.append(...[
+    musicBtn,
     btn(h('span', { class: 'row' }, '🐸', h('span', null, 'Crossing')), { kind: 'soft', size: 'sm', title: 'Play Fuzzy Crossing', onClick: () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id) }),
     isTouch() ? null : btn(null, { icon: 'zoomIn', kind: 'soft', size: 'sm', title: 'Zoom in', onClick: () => view?.zoom(0.8) }),
     isTouch() ? null : btn(null, { icon: 'zoomOut', kind: 'soft', size: 'sm', title: 'Zoom out', onClick: () => view?.zoom(1.25) })].filter((x): x is HTMLButtonElement => !!x));
@@ -539,6 +550,7 @@ export function landScreen(): Screen {
       if (!a.settings.reduceMotion) view.swoopIn();
       setTimeout(() => { if (alive) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       view.start();
+      music.start();
       wrap.classList.remove('loading');
       requestAnimationFrame(() => dispatchEvent(new Event('fz:scene-ready')));
     }).catch((e) => { console.error(e); wrap.classList.remove('loading'); toast('Fuzzies Land couldn’t start 3D graphics', 'bad'); });
@@ -566,7 +578,7 @@ export function landScreen(): Screen {
   const ro = new ResizeObserver(() => view?.resize());
   ro.observe(stage);
   const remember = () => { if (view) try { localStorage.setItem('fz.land.cam', JSON.stringify({ x: view.target.x, z: view.target.z, d: view.dist })); } catch { /* */ } };
-  const onVis = () => { if (document.hidden) { view?.stop(); remember(); save(); } else { view?.start(); adoptRemote(); } };
+  const onVis = () => { if (document.hidden) { view?.stop(); music.stop(); remember(); save(); } else { view?.start(); music.start(); adoptRemote(); } };
   document.addEventListener('visibilitychange', onVis);
   const onHide = () => { remember(); save(); };
   addEventListener('pagehide', onHide);
@@ -577,6 +589,6 @@ export function landScreen(): Screen {
 
   return {
     el: h('div', { class: 'page land' }, stage),
-    destroy: () => { remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
+    destroy: () => { music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
   };
 }

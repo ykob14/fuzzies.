@@ -1,6 +1,6 @@
 /** Rewards shop: everything you can unlock with Fuzzies, plus how to earn them. */
 import type { Screen } from '../app';
-import { rewards, TIME_BONUS, minutesToTimeBonus } from '../../core/rewards';
+import { rewards, TIME_BONUS, minutesToTimeBonus, PLAY_BONUS, minutesToPlayBonus } from '../../core/rewards';
 import { accounts } from '../../core/account';
 import { THEMES, applyTheme } from '../../core/themes';
 import { templates } from '../../content/templates';
@@ -70,6 +70,7 @@ export function rewardsScreen(): Screen {
       h('section', { class: 'earn-grid' }, ...[
         ['🐸', 'Fuzzy Crossing', '+1 per Fuzzy, +5 golden, +2 per nest, +5 per level'],
         ['📅', 'Daily visit', '5 Fuzzies, growing with your streak (max 15)'],
+        ['🎮', 'Play bonus', `${PLAY_BONUS.min}–${PLAY_BONUS.max} for every ${PLAY_BONUS.everyMin} minutes playing Fuzzy Crossing or Fuzzies Land · next in ${minutesToPlayBonus()} min`],
         ['⏰', 'Time bonus', `A surprise ${TIME_BONUS.min}–${TIME_BONUS.max} for every ${TIME_BONUS.everyMin} minutes in the app · next in ${minutesToTimeBonus()} min`],
         ['📤', 'Share designs', '+2 per share or download (5 a day)'],
         ['🎯', 'Missions & badges', '3 new missions a day, plus one-time achievement rewards'],

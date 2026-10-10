@@ -123,6 +123,7 @@ export function settingsScreen(): Screen {
       h('section', { class: 'card' }, h('h3', null, 'Preferences'),
         toggle('Snap to guides', 'Elements snap to the page centre, edges and each other while you drag.', a.settings.snap, (v) => set((s) => (s.snap = v))),
         toggle('Game sounds', 'Blips and bloops in Fuzzy Crossing.', a.settings.sound, (v) => set((s) => (s.sound = v))),
+        toggle('Music in Fuzzies Land', 'Soft background music while you build your town.', a.settings.music !== false, (v) => set((s) => (s.music = v))),
         toggle('Reduce motion', 'Fewer animations across the app.', a.settings.reduceMotion, (v) => set((s) => (s.reduceMotion = v)))),
       appIconCard(),
       h('section', { class: 'card' }, h('h3', null, 'Install Fuzzies'),
