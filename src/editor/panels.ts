@@ -244,9 +244,26 @@ export function buildPanels(ed: Editor): Panels {
       return b;
     }));
     return h('div', null,
+      brandText(),
       add('heading', 'Add a heading', 'th1'), add('subheading', 'Add a subheading', 'th2'), add('body', 'Add a little bit of body text', 'th3'),
       section('Text styles', h('p', { class: 'hint' }, 'Tap to add — or select text first to restyle it.'), styles),
       section('Tips', h('p', { class: 'hint' }, 'Double-click (or double-tap) text to type. Drag a corner to scale the text; drag a side to change the width. Fonts, colours, outline and shadow are in the Edit panel.')));
+  }
+
+  // ---------- brand kit ----------
+  function brandText(): HTMLElement {
+    const b = accounts.current?.brand;
+    const setup = h('button', { class: 'link', type: 'button', onclick: () => { void ed.exit().then(() => (location.hash = '#/settings')); } }, 'Set up your brand kit');
+    if (!b || (!b.colors.length && !b.logo && b.heading === 'Poppins' && b.body === 'DM Sans')) {
+      return h('div', { class: 'brand-cta' }, icon('palette', 18), h('span', null, 'Save your colours, fonts and logo once and use them everywhere. '), setup);
+    }
+    const ink = b.colors[0] ?? '#18171c';
+    const mk = (label: string, font: string, kind: 'heading' | 'body') => {
+      const x = h('button', { class: `text-add brand-${kind}`, type: 'button', style: `font-family:"${font}"` }, label);
+      x.addEventListener('click', () => { ed.addText(kind, { font, fill: kind === 'heading' ? ink : '#18171c', weight: kind === 'heading' ? 700 : 400 }); afterAdd(); });
+      return x;
+    };
+    return h('section', { class: 'pnl-sec brand-sec' }, h('div', { class: 'pnl-label' }, 'Brand kit'), mk('Brand heading', b.heading, 'heading'), mk('Brand body text', b.body, 'body'));
   }
 
   // ---------- uploads ----------
@@ -279,7 +296,9 @@ export function buildPanels(ed: Editor): Panels {
     const up = btn('Upload photos', { kind: 'primary', icon: 'upload', class: 'btn-block', onClick: async () => { const files = await pickFile('image/*', true); if (files.length) { await ed.addFiles(files); afterAdd(); } } });
     uploadsGrid = h('div', { class: 'up-grid' });
     void fillUploads();
-    return h('div', null, up,
+    const logo = accounts.current?.brand.logo;
+    const logoBtn = logo ? btn('Add my logo', { kind: 'soft', icon: 'star', class: 'btn-block', onClick: () => { ed.addImage(`brand-logo-${logo.src.length}`, logo.src, logo.w, logo.h); afterAdd(); } }) : null;
+    return h('div', null, up, logoBtn,
       h('p', { class: 'hint' }, 'Drag & drop or paste (Ctrl/Cmd+V) images straight onto the canvas. On phones you can take a photo or pick from your gallery.'),
       section('Your uploads', uploadsGrid));
   }
@@ -356,8 +375,16 @@ export function buildPanels(ed: Editor): Panels {
     });
     const remove = ed.page.bgAsset ? btn('Remove background photo', { kind: 'ghost', icon: 'trash', class: 'btn-block', onClick: () => { ed.setBackgroundPhoto(null); render(); } }) : null;
     const magic = btn('Shuffle colour palette', { kind: 'soft', icon: 'wand', class: 'btn-block', onClick: () => { recolor(ed, PALETTES[paletteIdx++ % PALETTES.length]); } });
+    const brand = accounts.current?.brand.colors ?? [];
+    const brandBtn = brand.length >= 2 ? btn('Use my brand colours', { kind: 'soft', icon: 'palette', class: 'btn-block', onClick: () => recolor(ed, brand) }) : null;
+    const brandSw = brand.length ? section('Brand colours', h('div', { class: 'swatches' }, ...brand.map((c) => {
+      const b = h('button', { type: 'button', class: 'swatch', style: `background:${c}`, 'aria-label': c });
+      b.addEventListener('click', () => setBg(c));
+      return b;
+    }))) : null;
     return h('div', null,
-      section('Magic', magic, h('p', { class: 'hint' }, 'Recolours the whole page with a matching palette. Tap again for the next one.')),
+      section('Magic', magic, brandBtn, h('p', { class: 'hint' }, 'Recolours the whole page with a matching palette. Tap again for the next one.')),
+      brandSw,
       section('Colours', solid), section('Gradients', grads), section('Custom', custom), section('Photo background', photos, remove));
   }
 

@@ -2,6 +2,7 @@
 import type { Fill, Gradient } from './types';
 import { h } from '../ui/dom';
 import { fillToCss } from './render';
+import { accounts } from '../core/account';
 
 export const PALETTE = [
   '#000000', '#3a3a46', '#737380', '#b7b7c2', '#e6e6ee', '#ffffff',
@@ -107,6 +108,8 @@ export function openPicker(anchor: HTMLElement, value: Fill, opts: PickerOpts): 
         none.addEventListener('click', () => set(''));
         body.append(none);
       }
+      const brand = accounts.current?.brand.colors ?? [];
+      if (brand.length) body.append(h('div', { class: 'picker-label' }, 'Brand colours'), swatchGrid(brand, (v) => set(v)));
       if (opts.docColors?.length) body.append(h('div', { class: 'picker-label' }, 'In this design'), swatchGrid(opts.docColors.slice(0, 12), (v) => set(v)));
       body.append(h('div', { class: 'picker-label' }, 'Palette'), swatchGrid(PALETTE, (v) => set(v)));
       if (opts.gradient) {

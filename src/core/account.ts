@@ -31,6 +31,8 @@ export interface Stats {
   linksShared: number;
 }
 
+export interface BrandKit { colors: string[]; heading: string; body: string; logo?: { src: string; w: number; h: number } }
+
 export interface ScoreEntry { score: number; level: number; at: number; skin: string }
 
 export interface Account {
@@ -53,6 +55,8 @@ export interface Account {
   missions: { day: string; progress: Record<string, number>; done: string[]; bonus: boolean };
   achievements: string[];
   topScores: ScoreEntry[];
+  /** Brand kit: colours, fonts and a logo reused across designs. */
+  brand: BrandKit;
   settings: Settings;
 }
 
@@ -114,6 +118,7 @@ function fresh(username: string, name: string, email: string, guest: boolean): A
     missions: { day: '', progress: {}, done: [], bonus: false },
     achievements: [],
     topScores: [],
+    brand: { colors: [], heading: 'Poppins', body: 'DM Sans' },
     settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real' },
   };
 }
@@ -218,7 +223,7 @@ export const accounts = {
 /** Fill in fields added after an account was first saved. */
 function migrate(a: Account): Account {
   const f = fresh(a.username, a.name, a.email, a.guest);
-  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, missions: { ...f.missions, ...a.missions }, settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
+  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, missions: { ...f.missions, ...a.missions }, brand: { ...f.brand, ...a.brand }, settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
 }
 
 export const isToday = (key: string): boolean => key === todayKey();

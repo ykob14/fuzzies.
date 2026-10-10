@@ -4,11 +4,52 @@ import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { THEMES, ACCENTS, applyTheme } from '../../core/themes';
 import { unlockDialog } from '../unlock';
+import { FONT_PACKS } from '../../content/fonts';
+import { fileToImageData } from '../../core/util';
 import { mascot } from '../mascot';
-import { h, btn, icon, fuzzyMark, toast } from '../dom';
+import { h, btn, icon, fuzzyMark, toast, pickFile } from '../dom';
 
 let installPrompt: (Event & { prompt(): Promise<void> }) | null = null;
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e as typeof installPrompt; });
+
+function brandCard(): HTMLElement {
+  const card = h('section', { class: 'card brand-card', id: 'brand' });
+  const render = () => {
+    const a = accounts.current!;
+    const b = a.brand;
+    const save = (fn: (x: typeof b) => void) => { accounts.update((x) => fn(x.brand)); render(); };
+    const chips = b.colors.map((c, i) => h('span', { class: 'brand-chip', style: `background:${c}` },
+      h('button', { type: 'button', class: 'brand-chip-x', 'aria-label': `Remove ${c}`, title: 'Remove', onclick: () => save((x) => x.colors.splice(i, 1)) }, icon('close', 12))));
+    const picker = h('input', { type: 'color', value: '#d6336c', class: 'native-color', 'aria-label': 'Add a brand colour' });
+    picker.addEventListener('change', () => save((x) => { if (!x.colors.includes(picker.value) && x.colors.length < 8) x.colors.push(picker.value); }));
+    const addColour = b.colors.length < 8 ? h('label', { class: 'brand-add', title: 'Add a colour' }, picker, icon('plus', 18)) : null;
+    // free fonts plus any font pack the user has unlocked
+    const fonts = FONT_PACKS.filter((p) => rewards.isUnlocked(p.id, p.cost)).flatMap((p) => p.fonts);
+    const fontSel = (label: string, cur: string, set: (f: string) => void) => {
+      const s = h('select', { class: 'input input-sm', 'aria-label': label }, ...fonts.map((f) => h('option', { value: f, selected: f === cur }, f)));
+      s.addEventListener('change', () => set(s.value));
+      return h('label', { class: 'field' }, h('span', null, label), s, h('div', { class: 'brand-font-preview', style: `font-family:"${cur}"` }, label === 'Heading font' ? 'Big bold headline' : 'Easy-to-read body text for your designs.'));
+    };
+    const logo = b.logo
+      ? h('div', { class: 'brand-logo' }, h('img', { src: b.logo.src, alt: 'Your logo' }), btn('Remove', { kind: 'ghost', size: 'sm', icon: 'trash', onClick: () => save((x) => delete x.logo) }))
+      : btn('Upload your logo', { kind: 'soft', size: 'sm', icon: 'upload', onClick: async () => {
+          const [f] = await pickFile('image/*');
+          if (!f) return;
+          const img = await fileToImageData(f, 1000);
+          save((x) => (x.logo = { src: img.src, w: img.w, h: img.h }));
+          toast('Logo saved to your brand kit', 'good');
+        } });
+    card.replaceChildren(
+      h('h3', null, 'Brand kit'),
+      h('p', { class: 'muted' }, 'Save your colours, fonts and logo once. They show up first in every colour picker, in the Text and Uploads tabs, and as “Use my brand colours” in Background.'),
+      h('div', { class: 'pnl-label' }, `Colours (${b.colors.length}/8)`),
+      h('div', { class: 'brand-colors' }, ...chips, addColour),
+      h('div', { class: 'brand-fonts' }, fontSel('Heading font', b.heading, (f) => save((x) => (x.heading = f))), fontSel('Body font', b.body, (f) => save((x) => (x.body = f)))),
+      h('div', { class: 'pnl-label' }, 'Logo'), logo);
+  };
+  render();
+  return card;
+}
 
 export function settingsScreen(): Screen {
   const body = h('div');
@@ -42,6 +83,7 @@ export function settingsScreen(): Screen {
         h('div', { class: 'theme-grid' }, themeCard('system', 'Match device', 'linear-gradient(135deg,#ffffff 50%,#1b1825 50%)', 0), ...THEMES.map((t) => themeCard(t.id, t.name, t.swatch, t.cost))),
         h('div', { class: 'pnl-label' }, 'Accent colour'),
         h('div', { class: 'swatches' }, ...ACCENTS.map((c) => h('button', { type: 'button', class: `swatch ${a.settings.accent === c ? 'on' : ''} ${c ? '' : 'auto'}`, style: c ? `background:${c}` : '', title: c || 'Theme default', 'aria-label': c || 'Theme default', onclick: () => set((s) => (s.accent = c)) }, c ? null : 'A')))),
+      brandCard(),
       h('section', { class: 'card' }, h('h3', null, 'Preferences'),
         toggle('Snap to guides', 'Elements snap to the page centre, edges and each other while you drag.', a.settings.snap, (v) => set((s) => (s.snap = v))),
         toggle('Game sounds', 'Blips and bloops in Fuzzy Crossing.', a.settings.sound, (v) => set((s) => (s.sound = v))),
