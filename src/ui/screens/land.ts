@@ -231,6 +231,7 @@ export function landScreen(): Screen {
   // ---------- panels ----------
   function openPanel(p: Panel): void {
     if (placing) cancelPlacing();
+    if (p) document.querySelector('.land-away')?.remove(); // one card at a time
     panel = p;
     view?.select(p?.kind === 'building' ? p.id : null);
     renderPanel();
@@ -551,6 +552,7 @@ export function landScreen(): Screen {
   const pts = new Map<number, { x: number; y: number }>();
   let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean } | null = null;
   let pinch = 0;
+  const lastTap = { t: 0, x: 0, y: 0 };
   function onDown(e: PointerEvent): void {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -603,6 +605,10 @@ export function landScreen(): Screen {
       return;
     }
     const p: Pick = view.pick(e.clientX, e.clientY);
+    // double-tap the ground to zoom in there
+    const now = performance.now();
+    if ((!p || p.kind === 'ground') && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) { view.zoom(0.65, e.clientX, e.clientY); lastTap.t = 0; return; }
+    lastTap.t = now; lastTap.x = e.clientX; lastTap.y = e.clientY;
     if (!p || p.kind === 'ground') { openPanel(null); return; }
     if (p.kind === 'resident') { view.poke(p.index); try { sfx.giggle(); } catch { /* */ } return; }
     tapBuilding(p.id);

@@ -477,7 +477,9 @@ export class LandView {
     const roll = Math.random();
     let goal: Goal = { kind: 'wander' };
     let target: THREE.Vector2 | null = null;
-    if (s && roll < r.persona.homebody * 0.6) {
+    // pop indoors now and then, but most Fuzzies stay out and about where you can see them
+    const indoors = this.residents.filter((x) => x.mode === 'inside' || x.mode === 'enter' || x.goal?.kind === 'visit').length;
+    if (s && roll < r.persona.homebody * 0.35 && indoors < Math.max(1, Math.floor(this.residents.length * 0.3))) {
       const home = pick(s.buildings.filter((p) => !p.doneAt && near(p) && ['house', 'factory', 'special'].includes(item(p.item).kind) && p.item !== 'gate'));
       const d = home && this.doorOf(home);
       if (home && d && this.walkable(Math.floor(d.outside.x), Math.floor(d.outside.y))) { goal = { kind: 'visit', id: home.id, door: d.door, face: d.face }; target = d.outside; }
@@ -1021,7 +1023,7 @@ export class LandView {
       scale = r.mode === 'enter' ? 1 - k : k;
       if (g?.kind === 'visit') r.targetFacing = r.mode === 'enter' ? g.face : g.face + Math.PI;
       if (r.timer <= 0) {
-        if (r.mode === 'enter') { r.mode = 'inside'; r.timer = 4 + Math.random() * 9 * r.persona.homebody; this.puffAt(r.pos.x, r.pos.y); }
+        if (r.mode === 'enter') { r.mode = 'inside'; r.timer = 3 + Math.random() * 4 * r.persona.homebody; this.puffAt(r.pos.x, r.pos.y); }
         else { r.mode = 'idle'; r.goal = null; r.timer = 1 + Math.random() * 2; r.mood = 'happy'; setTimeout(() => { r.mood = 'normal'; }, 1500); }
       }
     } else if (r.mode === 'inside') {

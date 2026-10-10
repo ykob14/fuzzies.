@@ -614,14 +614,15 @@ export function flowerBed(seed: number): THREE.Group {
   return g;
 }
 
-/** A garden path: rounded flagstones with grass peeking between them (joins up with its neighbours). */
+/** A garden path: soft round stepping stones set into the grass (neighbouring tiles read as one walk). */
 export function pathTile(): THREE.Group {
   const g = new THREE.Group();
   const r = GT.rng(23);
-  const cols = ['#ebe3d6', '#e2d8c8', '#f1eadf'];
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-    const st = add(g, rbox(0.29 + (r() - 0.5) * 0.03, 0.04, 0.29 + (r() - 0.5) * 0.03, 0.035), std(cols[(i + j) % 3], 0.9), -0.33 + i * 0.33 + (r() - 0.5) * 0.02, 0.02, -0.33 + j * 0.33 + (r() - 0.5) * 0.02, false);
-    st.rotation.y = (r() - 0.5) * 0.12;
+  const cols = ['#d8cbb4', '#cfc0a6', '#e0d4bf'];
+  for (const [x, z] of [[-0.2, -0.24], [0.18, 0.02], [-0.12, 0.26]] as const) {
+    const st = add(g, new THREE.CylinderGeometry(0.12 + r() * 0.03, 0.13 + r() * 0.03, 0.03, 12), std(cols[Math.floor(r() * 3)], 0.95), x + (r() - 0.5) * 0.06, 0.015, z + (r() - 0.5) * 0.06, false);
+    st.scale.z = 0.8 + r() * 0.2;
+    st.rotation.y = r() * 3;
   }
   return g;
 }
