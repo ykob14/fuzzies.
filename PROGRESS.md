@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-10 (session 2) · by Claude Code · latest work on branch `claude/fuzzies-design-app-jwv4tu`_
+_Last updated: 2026-10-10 (session 2) · by Claude Code · `main` and `claude/fuzzies-design-app-jwv4tu` are identical_
 
 ---
 
@@ -25,8 +25,8 @@ keeps people coming back (the mascot, the game, missions).
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested. |
 | **In progress** | Nothing half-done in code. **The backend (Vercel functions + Neon Postgres) is built and tested locally, but not hosted yet**: the owner needs to import the repo on Vercel, add a Neon database in Vercel → Storage, and redeploy (`BACKEND.md`). |
-| **Branches** | `claude/fuzzies-design-app-jwv4tu` is **ahead of `main`** (game card, rewards "Use", cloud sync). Ask the owner before merging to `main`. |
-| **Deploy** | Vercel-ready (`vercel.json`). Not deployed yet as far as we know. Cloud keys are read at build time (`vite.config.ts`). |
+| **Branches** | `main` = `claude/fuzzies-design-app-jwv4tu` (pushed to `main` on 2026-10-10 at the owner's request: "save everything … to every place needed"). Keep them in step: work on the branch, push, then fast-forward `main` when the owner OKs it. |
+| **Deploy** | Vercel project `fuzzies.` (team scope `silver-swan-special`) deploys `main` automatically; first deploy seen at fuzzies-7w39zxiwx-silver-swan-special.vercel.app. Neon is **not connected yet** (no `DATABASE_URL`), so accounts are still on-device until it is — see `BACKEND.md`. The Vercel connector in Claude sessions got 403 for that team scope (needs re-authorising for it). |
 
 ## 3. Owner preferences (learned — respect these)
 
