@@ -106,7 +106,7 @@ export function icon(name: IconName, size = 20): SVGSVGElement {
 }
 
 /** Flat Fuzzy drawing as an SVG string (token icon, and the mascot's no-3D fallback). */
-export function fuzzySvg(colors: [string, string] = ['#ff7ac2', '#8b5cff'], face: 'open' | 'wink' | 'blink' | 'giggle' = 'open', id = 'fz' + Math.random().toString(36).slice(2, 7)): string {
+export function fuzzySvg(colors: [string, string] = ['#ff8fbf', '#c8326e'], face: 'open' | 'wink' | 'blink' | 'giggle' = 'open', id = 'fz' + Math.random().toString(36).slice(2, 7)): string {
   const spikes: string[] = [];
   const n = 26;
   for (let i = 0; i < n; i++) {
@@ -125,7 +125,7 @@ export function fuzzySvg(colors: [string, string] = ['#ff7ac2', '#8b5cff'], face
 }
 
 /** Fuzzy token mark (the currency icon). */
-export function fuzzyMark(size = 32, colors: [string, string] = ['#ff7ac2', '#8b5cff']): SVGSVGElement {
+export function fuzzyMark(size = 32, colors: [string, string] = ['#ff8fbf', '#c8326e']): SVGSVGElement {
   const wrap = document.createElement('div');
   wrap.innerHTML = fuzzySvg(colors);
   const svg = wrap.firstElementChild as SVGSVGElement;
@@ -139,7 +139,7 @@ export const QUOTE = 'Dream it fuzzy. Make it sharp.';
 export function logo(size: 'sm' | 'lg' = 'sm', withQuote = true): HTMLElement {
   return h('div', { class: `logo logo-${size}` },
     mascot(size === 'lg' ? 64 : 40, { sparkles: true, small: size === 'sm' }),
-    h('div', { class: 'logo-text' }, h('div', { class: 'logo-word' }, 'Fuzzies'), withQuote ? h('div', { class: 'logo-quote' }, QUOTE) : null));
+    h('div', { class: 'logo-text' }, h('div', { class: 'logo-word' }, 'fuzzies'), withQuote ? h('div', { class: 'logo-quote' }, QUOTE) : null));
 }
 
 export function btn(label: string | Node | null, opts: { icon?: IconName; kind?: 'primary' | 'ghost' | 'soft' | 'danger' | 'plain'; onClick?: (e: MouseEvent) => void; title?: string; size?: 'sm' | 'md' | 'lg'; class?: string } = {}): HTMLButtonElement {

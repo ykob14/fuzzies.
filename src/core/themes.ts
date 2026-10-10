@@ -20,8 +20,8 @@ export interface Theme {
 }
 
 export const THEMES: Theme[] = [
-  { id: 'light', name: 'Light', cost: 0, dark: false, bg: '#f6f5fb', surface: '#ffffff', surface2: '#f0eef7', text: '#1c1830', muted: '#6b6684', border: '#e4e1ef', accent: '#7c4dff', accent2: '#ff4f9a', workspace: '#e9e7f2', swatch: 'linear-gradient(135deg,#ffffff 50%,#e9e7f2 50%)' },
-  { id: 'dark', name: 'Dark', cost: 0, dark: true, bg: '#121019', surface: '#1b1825', surface2: '#252133', text: '#f2f0fa', muted: '#a19bb8', border: '#2f2a40', accent: '#9b7bff', accent2: '#ff6fae', workspace: '#0c0a12', swatch: 'linear-gradient(135deg,#1b1825 50%,#0c0a12 50%)' },
+  { id: 'light', name: 'Light', cost: 0, dark: false, bg: '#f6f5f2', surface: '#ffffff', surface2: '#efede9', text: '#18171c', muted: '#67646d', border: '#e4e1dc', accent: '#d6336c', accent2: '#b0245a', workspace: '#e8e6e1', swatch: 'linear-gradient(135deg,#ffffff 50%,#e8e6e1 50%)' },
+  { id: 'dark', name: 'Dark', cost: 0, dark: true, bg: '#121114', surface: '#1b1a1f', surface2: '#252329', text: '#f4f2ee', muted: '#a09ca7', border: '#2e2c33', accent: '#ff6b9a', accent2: '#ff8fb4', workspace: '#0c0b0e', swatch: 'linear-gradient(135deg,#1b1a1f 50%,#0c0b0e 50%)' },
   { id: 'sunset', name: 'Sunset', cost: 0, dark: false, bg: 'linear-gradient(160deg,#fff1e6 0%,#ffe0ec 55%,#f1e4ff 100%)', surface: 'rgba(255,255,255,0.86)', surface2: 'rgba(255,236,226,0.9)', text: '#2b1a24', muted: '#85677a', border: 'rgba(214,160,180,0.35)', accent: '#ff5e62', accent2: '#ff9966', workspace: '#f8e5e4', swatch: 'linear-gradient(135deg,#ff9966,#ff5e62,#c471ed)' },
   { id: 'ocean', name: 'Ocean', cost: 20, dark: true, bg: 'linear-gradient(160deg,#04293a 0%,#064663 60%,#0b5f7a 100%)', surface: 'rgba(8,47,66,0.88)', surface2: 'rgba(12,66,90,0.9)', text: '#e6fbff', muted: '#8fc3d1', border: 'rgba(120,200,220,0.2)', accent: '#2ee6d6', accent2: '#4cc9f0', workspace: '#03202d', swatch: 'linear-gradient(135deg,#04293a,#0b5f7a,#2ee6d6)' },
   { id: 'forest', name: 'Forest', cost: 20, dark: false, bg: 'linear-gradient(160deg,#eef7ec 0%,#e3f1e0 60%,#f4f1df 100%)', surface: 'rgba(255,255,255,0.88)', surface2: 'rgba(230,243,226,0.95)', text: '#14301f', muted: '#5e7d66', border: 'rgba(80,140,90,0.22)', accent: '#2f9e5b', accent2: '#e2a93b', workspace: '#dcebd7', swatch: 'linear-gradient(135deg,#eef7ec,#2f9e5b,#e2a93b)' },
@@ -32,9 +32,19 @@ export const THEMES: Theme[] = [
   { id: 'gold', name: 'Golden Hour', cost: 100, dark: true, bg: 'linear-gradient(160deg,#1a1408 0%,#2a1f0a 60%,#3b2a0c 100%)', surface: 'rgba(36,27,10,0.9)', surface2: 'rgba(54,40,14,0.92)', text: '#fff6df', muted: '#cdb98a', border: 'rgba(240,200,110,0.22)', accent: '#f5c451', accent2: '#ff9f43', workspace: '#120d04', swatch: 'linear-gradient(135deg,#2a1f0a,#f5c451,#ff9f43)' },
 ];
 
-export const ACCENTS = ['', '#7c4dff', '#ff4f9a', '#ff7a1a', '#f5b800', '#22b573', '#0fb5c9', '#2f6bff', '#e5484d'];
+export const ACCENTS = ['', '#d6336c', '#e8590c', '#e5a000', '#2b9a66', '#0c8599', '#2f6bff', '#6741d9', '#18171c'];
 
 const mq = matchMedia('(prefers-color-scheme: dark)');
+
+/** Text colour that reads on top of a given accent (white on deep colours, ink on light ones). */
+function onColor(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return '#ffffff';
+  const n = parseInt(m[1], 16);
+  const lin = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return (1.05) / (L + 0.05) >= 4.5 ? '#ffffff' : '#18171c';
+}
 
 export function resolveTheme(id: string): Theme {
   if (id === 'system') return THEMES[mq.matches ? 1 : 0];
@@ -53,11 +63,12 @@ export function applyTheme(): void {
   r.setProperty('--muted', t.muted);
   r.setProperty('--border', t.border);
   r.setProperty('--accent', accent);
+  r.setProperty('--on-accent', onColor(accent));
   r.setProperty('--accent-2', t.accent2);
   r.setProperty('--workspace', t.workspace);
   document.documentElement.dataset.dark = String(t.dark);
   document.documentElement.dataset.motion = s?.reduceMotion ? 'reduce' : 'full';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.dark ? '#121019' : '#f6f5fb');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.dark ? '#121114' : '#f6f5f2');
 }
 
 mq.addEventListener('change', applyTheme);

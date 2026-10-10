@@ -17,7 +17,7 @@ const LIFE_TIME = 32;
 
 export interface Skin { id: string; name: string; cost: number; colors: [string, string] }
 export const SKINS: Skin[] = [
-  { id: 'classic', name: 'Classic', cost: 0, colors: ['#ff7ac2', '#8b5cff'] },
+  { id: 'classic', name: 'Classic', cost: 0, colors: ['#ff86bb', '#b8235f'] },
   { id: 'mint', name: 'Minty', cost: 15, colors: ['#7dffcf', '#22b5a0'] },
   { id: 'sunny', name: 'Sunny', cost: 15, colors: ['#ffe066', '#ff8c42'] },
   { id: 'ocean', name: 'Ocean', cost: 20, colors: ['#7ad7ff', '#3a5bff'] },

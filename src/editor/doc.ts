@@ -46,7 +46,7 @@ export function makeText(text: string, opts: Partial<TextEl> = {}): TextEl {
 
 export function makeShape(shape: ShapeKind, opts: Partial<ShapeEl> = {}): ShapeEl {
   const line = shape === 'line';
-  return { ...base(0, 0, 300, line ? 12 : 300), type: 'shape', shape, fill: '#7c4dff', stroke: '#1c1830', strokeWidth: 0, radius: 0, ...opts };
+  return { ...base(0, 0, 300, line ? 12 : 300), type: 'shape', shape, fill: '#d6336c', stroke: '#18171c', strokeWidth: 0, radius: 0, ...opts };
 }
 
 export function makeImage(asset: string, w: number, h: number, opts: Partial<ImageEl> = {}): ImageEl {

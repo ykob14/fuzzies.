@@ -6,6 +6,7 @@ const W = (f: string, w: string) => `family=${f.replace(/ /g, '+')}${w ? `:wght@
 
 const FONT_DEFS: [string, string][] = [
   ['Inter', '400;500;600;700;800;900'],
+  ['DM Sans', '400;500;600;700;800'],
   ['Poppins', '400;500;600;700;800;900'],
   ['Montserrat', '400;500;600;700;800;900'],
   ['Nunito', '400;600;700;800;900'],
@@ -36,7 +37,7 @@ const FONT_DEFS: [string, string][] = [
 ];
 
 export const FONT_PACKS: FontPack[] = [
-  { id: 'fonts-basic', name: 'Essentials', cost: 0, fonts: ['Inter', 'Poppins', 'Montserrat', 'Nunito', 'Fredoka', 'Space Grotesk', 'Playfair Display', 'Lora', 'DM Serif Display', 'Oswald', 'Bebas Neue', 'Archivo Black', 'Caveat', 'Pacifico'] },
+  { id: 'fonts-basic', name: 'Essentials', cost: 0, fonts: ['Inter', 'DM Sans', 'Poppins', 'Montserrat', 'Nunito', 'Fredoka', 'Space Grotesk', 'Playfair Display', 'Lora', 'DM Serif Display', 'Oswald', 'Bebas Neue', 'Archivo Black', 'Caveat', 'Pacifico'] },
   { id: 'fonts-script', name: 'Script & Love', cost: 25, fonts: ['Dancing Script', 'Great Vibes', 'Satisfy', 'Lobster'] },
   { id: 'fonts-display', name: 'Big & Bold', cost: 25, fonts: ['Abril Fatface', 'Anton', 'Righteous', 'Bungee', 'Shrikhand'] },
   { id: 'fonts-retro', name: 'Retro Arcade', cost: 35, fonts: ['Monoton', 'Permanent Marker', 'Press Start 2P', 'Rubik Mono One', 'Bungee Shade'] },

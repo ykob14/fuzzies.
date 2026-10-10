@@ -11,7 +11,7 @@ import { furStrands } from './textures3d';
 export type Face = 'open' | 'wink' | 'blink' | 'giggle';
 export type Frames = Record<Face, string>;
 
-export async function renderMascotFrames(colors: [string, string] = ['#ff6fbf', '#7b4dff'], size = 320): Promise<Frames> {
+export async function renderMascotFrames(colors: [string, string] = ['#ff86bb', '#b8235f'], size = 320): Promise<Frames> {
   const SS = 2; // supersample, then scale down for silky fur edges
   const canvas = document.createElement('canvas');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });

@@ -53,7 +53,7 @@ export class Editor {
   pageIndex = 0;
   selection: string[] = [];
   tool: Tool = 'select';
-  drawSettings: DrawSettings = { color: '#7c4dff', width: 12, highlighter: false, eraser: false };
+  drawSettings: DrawSettings = { color: '#d6336c', width: 12, highlighter: false, eraser: false };
   zoom = 1;
   panX = 0;
   panY = 0;
@@ -979,7 +979,7 @@ export class Editor {
 
   addShape(kind: Parameters<typeof makeShape>[0]): void {
     const s = this.unit * 0.35;
-    const el = makeShape(kind, { w: kind === 'arrow' ? s * 1.4 : s, h: kind === 'line' ? Math.max(6, s * 0.03) : kind === 'arrow' ? s * 0.6 : s, fill: kind === 'line' ? '#1c1830' : '#7c4dff', strokeWidth: kind === 'line' ? Math.max(4, s * 0.025) : 0 });
+    const el = makeShape(kind, { w: kind === 'arrow' ? s * 1.4 : s, h: kind === 'line' ? Math.max(6, s * 0.03) : kind === 'arrow' ? s * 0.6 : s, fill: kind === 'line' ? '#18171c' : '#d6336c', strokeWidth: kind === 'line' ? Math.max(4, s * 0.025) : 0 });
     this.add([el]);
   }
 

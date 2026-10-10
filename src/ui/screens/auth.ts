@@ -66,7 +66,7 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
     h('div', { class: 'auth-blob b1' }), h('div', { class: 'auth-blob b2' }), h('div', { class: 'auth-blob b3' }),
     h('div', { class: 'auth-brand' },
       h('div', { class: 'auth-mascot' }, mascot(120)),
-      h('h1', { class: 'auth-word' }, 'Fuzzies'),
+      h('h1', { class: 'auth-word' }, 'fuzzies'),
       h('p', { class: 'auth-quote' }, `“${QUOTE}”`)),
     h('ul', { class: 'auth-features' }, ...features.map(([e, t, s]) => h('li', null, h('span', { class: 'af-ic' }, e), h('div', null, h('b', null, t), h('small', null, s))))));
 

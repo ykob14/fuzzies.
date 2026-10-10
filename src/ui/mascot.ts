@@ -11,7 +11,7 @@ import { sfx } from '../game/sound';
 type Face = 'open' | 'wink' | 'blink' | 'giggle';
 type Frames = Record<Face, string>;
 
-const svgUrl = (face: Face) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fuzzySvg(['#ff7ac2', '#8b5cff'], face, 'm' + face));
+const svgUrl = (face: Face) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fuzzySvg(['#ff8fbf', '#c8326e'], face, 'm' + face));
 let frames: Frames = { open: svgUrl('open'), wink: svgUrl('wink'), blink: svgUrl('blink'), giggle: svgUrl('giggle') };
 let realistic = false;
 const live = new Set<{ img: HTMLImageElement; face: Face }>();

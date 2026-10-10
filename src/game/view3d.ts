@@ -159,7 +159,7 @@ export class View3D implements View {
       const nest = M.makeNest(m);
       nest.position.set(col + 0.5, 0.02, 0.5);
       this.scene.add(nest);
-      const fuzzy = M.makeFuzzy(m, ['#ff7ac2', '#8b5cff'], 0.22, 0.07, 12);
+      const fuzzy = M.makeFuzzy(m, ['#ff86bb', '#b8235f'], 0.22, 0.07, 12);
       fuzzy.group.position.set(col + 0.5, 0.22, 0.52);
       fuzzy.group.visible = false;
       this.scene.add(fuzzy.group);
