@@ -18,6 +18,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (url.origin !== location.origin && !isFont) return;
+  if (url.pathname.includes('/api/')) return; // accounts & sync always go to the server
   if (url.origin === location.origin && ICON_FILES.test(url.pathname)) {
     e.respondWith(caches.open(ICON_CACHE).then((c) => c.match(req)).then((hit) => hit || caches.match(req)).then((hit) => hit || fetch(req)));
     return;

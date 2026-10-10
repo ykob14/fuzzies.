@@ -4,7 +4,7 @@ import { accounts } from '../../core/account';
 import { db } from '../../core/db';
 import { h, btn, avatarEl, fuzzyMark, toast, pickFile, confirmDialog, icon } from '../dom';
 import { fileToImageData, timeAgo } from '../../core/util';
-import { cloud, CheckEmail } from '../../core/cloud';
+import { cloud } from '../../core/cloud';
 import { sync } from '../../core/sync';
 import { signOut } from '../app';
 import { achievementsGrid } from '../missions';
@@ -68,7 +68,7 @@ export function profileScreen(): Screen {
         btn('Save & sync my account', { kind: 'primary', icon: 'cloud', onClick: async () => {
           err.textContent = note.textContent = '';
           try { await cloud.claim({ name: name.value || a.name, username: u.value, email: em.value, password: p.value }); toast('Account saved — it syncs to all your devices now 🎉', 'good', 3500); render(); }
-          catch (e) { if (e instanceof CheckEmail) note.textContent = e.message; else err.textContent = (e as Error).message; }
+          catch (e) { err.textContent = (e as Error).message; }
         } }));
     } else if (a.guest) {
       const u = h('input', { class: 'input', placeholder: 'Pick a username', autocapitalize: 'none' });
@@ -131,7 +131,7 @@ export function profileScreen(): Screen {
         synced: `All saved${sync.lastSynced ? ` · ${timeAgo(sync.lastSynced)}` : ''}`,
         syncing: 'Syncing…',
         offline: 'You’re offline — changes will sync when you’re back',
-        error: 'Couldn’t sync just now — trying again soon',
+        error: sync.error ? `Couldn’t sync: ${sync.error}` : 'Couldn’t sync just now — trying again soon',
         off: 'Not syncing',
       }[sync.state];
     };

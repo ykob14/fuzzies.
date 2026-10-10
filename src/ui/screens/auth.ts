@@ -1,7 +1,7 @@
 /** Welcome, sign up and log in. */
 import type { Screen } from '../app';
 import { accounts } from '../../core/account';
-import { cloud, CheckEmail } from '../../core/cloud';
+import { cloud } from '../../core/cloud';
 import { applyTheme } from '../../core/themes';
 import { h, btn, QUOTE, toast } from '../dom';
 import { mascot } from '../mascot';
@@ -53,19 +53,16 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
           applyTheme();
           toast('Welcome to Fuzzies! Here are 10 Fuzzies to start 🎉', 'fuzzy', 3500);
           location.hash = '#/home';
-        } catch (x) {
-          if (x instanceof CheckEmail) { tab = 'login'; render(); note.textContent = x.message; }
-          else err.textContent = (x as Error).message;
-        } finally { busy(form, false); }
+        } catch (x) { err.textContent = (x as Error).message; } finally { busy(form, false); }
       });
     } else {
       const label = cloud.enabled ? 'Email' : 'Username or email';
       const user = h('input', { class: 'input', type: cloud.enabled ? 'email' : 'text', autocomplete: cloud.enabled ? 'email' : 'username', placeholder: cloud.enabled ? 'you@example.com' : 'Username or email', required: true, autocapitalize: 'none' });
       const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', placeholder: 'Password', required: true });
       const forgot = cloud.enabled ? h('button', { class: 'link small', type: 'button' }, 'Forgot your password?') : null;
-      forgot?.addEventListener('click', async () => {
+      forgot?.addEventListener('click', () => {
         err.textContent = '';
-        try { await cloud.sendReset(user.value); note.textContent = `We sent a reset link to ${user.value.trim()}. Tap it to choose a new password.`; } catch (x) { err.textContent = (x as Error).message; }
+        note.textContent = 'Still logged in on another phone or computer? Change your password there in Profile. Password reset by email is coming soon.';
       });
       form.append(field(label, user), field('Password', pw), err, note, btn('Log in', { kind: 'primary', size: 'lg', class: 'btn-block' }), ...(forgot ? [forgot] : []));
       form.addEventListener('submit', async (e) => {

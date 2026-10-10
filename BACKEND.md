@@ -1,73 +1,59 @@
-# Turning on cloud accounts (log in on any device)
+# Accounts that work on every device (Neon + Vercel)
 
-Fuzzies works on its own with everything saved on the device. Connect a free **Supabase** project and it
-gets real accounts: people sign up with email + password, and their designs, photos, Fuzzies, unlocks and
-settings sync to every phone and computer they log in on.
+Fuzzies works on its own with everything saved on the device. Host it on **Vercel** with a free **Neon** database and it
+gets real accounts: people sign up with email + password, and their designs, photos, Fuzzies, unlocks and settings
+sync to every phone and computer they log in on.
 
-Nothing in the code needs to change. You only give the app two public values: the project URL and the public key.
+Everything is already in the code:
+- the website (`src/`)
+- the backend: small server functions in `api/` that Vercel runs automatically
+- the database setup: the tables create themselves the first time someone uses the app
 
-## 1. Create the database (about 5 minutes)
+You only need to connect the pieces.
 
-**Easiest, if the site is on Vercel:** Vercel project → **Storage** → **Create Database** → **Supabase** → follow the steps.
-Vercel then adds the Supabase settings to the project for you, so you can skip step 3.
+## Setup (about 10 minutes, no code)
 
-**Or directly:** sign up at <https://supabase.com> → **New project** (the free plan is fine) → pick a name and a region near your users.
+1. **Put the project on Vercel.** <https://vercel.com> → sign in with GitHub → **Add New… → Project** → import
+   `ykob14/fuzzies.` → keep the detected settings (Vite) → **Deploy**. You get a link like `https://fuzzies-xyz.vercel.app`.
+   Vercel publishes the `main` branch, so merge the latest work into `main` first.
+2. **Add the database.** In the Vercel project → **Storage** → **Create Database** → **Neon** (Serverless Postgres) →
+   pick the free plan and a region near your users → **Connect** it to the project (all environments).
+   This gives the project its `DATABASE_URL` automatically.
+3. **Redeploy.** **Deployments** → the latest one → **⋯** → **Redeploy**. (The app checks for the database while it's
+   being built, so it needs one fresh build after step 2.)
+4. **Check it.** Open your link: the welcome screen should say
+   "…saved privately in your account — log in on any phone or computer". Make an account, then log in with it on your phone.
 
-## 2. Add the Fuzzies tables
-
-Supabase dashboard → **SQL Editor** → **New query** → paste everything from [`supabase/schema.sql`](supabase/schema.sql) → **Run**.
-This adds the tables for profiles, designs and photos, and the privacy rules that make sure everyone can only see their own things.
-It's safe to run again.
-
-## 3. Give the app its two keys (skip if Vercel added them)
-
-Supabase → **Project Settings** → **API** (called **Data API** and **API Keys** in newer dashboards): copy the **Project URL** and the **anon / publishable** key.
-Then, in Vercel → your project → **Settings** → **Environment Variables**, add:
-
-| Name | Value |
-|---|---|
-| `VITE_SUPABASE_URL` | the Project URL |
-| `VITE_SUPABASE_ANON_KEY` | the anon / publishable key |
-
-Never use the **service_role** or **secret** key here: those must stay private. The app only reads the URL and the public key.
-The names Vercel's integration uses (`SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, …) work too.
-
-For local development, put the same two lines in a file called `.env.local` (it's ignored by git).
-
-## 4. Tell Supabase where the app lives
-
-Supabase → **Authentication** → **URL Configuration**:
-- **Site URL**: your live address, e.g. `https://fuzzies.vercel.app`
-- **Redirect URLs**: add the same address, plus `http://localhost:5173/**` for testing on your computer
-
-This is where the "confirm your email" and "reset password" links send people back to.
-
-## 5. Emails
-
-Supabase can email people a link to confirm their address (on by default) and to reset a forgotten password.
-**Its built-in email service only sends a few emails an hour and is meant for testing.** Before launching, either:
-- add your own email sender under **Authentication** → **Emails** → **SMTP Settings** (e.g. Resend, Postmark or SendGrid; most have a free tier), or
-- turn off **Confirm email** (**Authentication** → **Sign In / Providers** → **Email**) so people can start right away.
-
-## 6. Redeploy
-
-Redeploy on Vercel (the keys are baked in at build time). The welcome screen now says
-"…saved privately in your account — log in on any phone or computer", and **Profile** shows a **Sync** card.
+That's it. Optional: add an environment variable `AUTH_SECRET` (any long random text) in Vercel → Settings →
+Environment Variables. Logins are signed with it; without it, a key is derived from the database password.
+Changing it later logs everyone out once.
 
 ## How it behaves
 
-- **Offline first:** everything is still saved on the device first, then sent to the cloud a moment later, or when the device is back online.
+- **Offline first:** everything is saved on the device first, then sent to the cloud a moment later, or when the device is back online.
 - **Two devices at once:** each design keeps its newest version. The account is merged, so Fuzzies earned on the phone and an unlock on the laptop both count.
-- **Guests and old on-device accounts:** Profile → **Save your account** moves their designs and Fuzzies into a cloud account.
+- **Guests and old on-device accounts:** Profile → **Save your account** moves their designs and Fuzzies into a real account.
 - **Signing out** removes the copy on that device once everything is uploaded (good for shared computers).
-- **Delete account** removes the login and every row from the cloud, and the copy on the device.
+- **Changing your password** logs out your other devices. **Delete account** removes everything from the database and the device.
+- **Privacy:** every request is checked against the logged-in person; nobody can read or change anyone else's data.
+  Passwords are stored scrambled (scrypt) and repeated wrong passwords are slowed down (10 tries per 15 minutes).
+
+## Not included yet
+
+- **Password reset by email** and **email confirmation** need an email service (e.g. Resend). It's a small next step.
+- **Big photos:** a single design upload can be at most ~4.5 MB (Vercel's limit). Designs with many large photos won't sync
+  and Profile shows a message. Moving photos to Vercel Blob storage is the fix.
+- Neon's free plan holds about 0.5 GB, which is plenty to start.
 
 ## For developers
 
-- Code: `src/core/supabase.ts` (connection), `src/core/cloud.ts` (sign up / log in / claim / reset / delete),
-  `src/core/sync.ts` (queue + pull/push), `src/core/merge.ts` (three-way account merge).
-- Tables: `profiles` (one JSON `data` column per account + `updated_at` version), `designs`, `uploads`
-  (`data` JSON, `deleted` tombstones, `updated_at`). Row-level security: `auth.uid()` must own the row.
-- A profile save only overwrites the version this device last saw (`updated_at` check); on a clash the app merges and retries.
-- Testing locally: `npx supabase start`, run `supabase/schema.sql` against `postgresql://postgres:postgres@127.0.0.1:54322/postgres`,
-  then `VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_ANON_KEY=<anon key from supabase start> npm run dev`.
+- Server: `api/auth.ts` (signup / login / me / password / delete / username), `api/data.ts` (profile + designs/uploads
+  rows), shared code in `api/_lib/` (`db.ts`: pg pool + auto-created tables; `auth.ts`: scrypt, HMAC tokens, JSON helpers).
+  Web-standard handlers (`export function POST(request: Request)`), which Vercel's Node runtime supports.
+- Tables: `fz_users`, `fz_profiles` (account JSON + `updated_at` version), `fz_designs` / `fz_uploads`
+  (primary key `(owner, id)`, JSON `data`, `deleted` tombstones), `fz_login_fails`.
+- App: `src/core/api.ts` (fetch + token), `src/core/cloud.ts` (account flows), `src/core/sync.ts` (queue + pull/push),
+  `src/core/merge.ts` (three-way account merge). Cloud mode turns on at build time when `DATABASE_URL`/`POSTGRES_URL`
+  exists (`vite.config.ts`; only the yes/no reaches the browser). Force it with `VITE_CLOUD=1` or `0`.
+- Local: put `DATABASE_URL=…` in `.env.local` (a Neon branch, `vercel env pull`, or a local Postgres) and run `npm run dev`.
+  Vite serves `/api/*` with the same functions.

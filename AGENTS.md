@@ -7,8 +7,8 @@
 4. **Save to GitHub often:** commit and push after each working feature. Work on a branch, then ask the owner before
    merging to `main` (unless they've already said to). Don't open pull requests unless asked.
 5. **Keep it simple:** no UI framework, no new runtime dependencies without a good reason, no image assets
-   (textures and models are procedural). Data is on-device first; the optional Supabase backend syncs it (see `BACKEND.md`).
-   Never commit secrets — only the public Supabase URL/anon key are ever used by the app.
+   (textures and models are procedural). Data is on-device first; the backend (`api/` on Vercel + Neon Postgres) syncs it
+   (see `BACKEND.md`). Never commit secrets (`DATABASE_URL`, `AUTH_SECRET`) — they live in Vercel / `.env.local` only.
 6. **Keep saved data compatible:** new account fields go into `fresh()` in `src/core/account.ts` so `migrate()` fills them in.
 7. **At the end of your session, update `PROGRESS.md`:** the "Status" table, a row in the "Build log", "Known limitations"
    and "Next up", plus the "Last updated" line. Commit it with your work so the next agent can pick up where you left off.

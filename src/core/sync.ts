@@ -7,7 +7,7 @@
  * Conflicts: the newest copy of each design wins; the profile is merged field by field (core/merge.ts)
  * against the last copy both sides agreed on, so Fuzzies and unlocks from two devices add up.
  */
-import { supa, cloudEnabled } from './supabase';
+import { api, ApiError, cloudEnabled } from './api';
 import { accounts, migrateAccount, type Account } from './account';
 import { merge3, same } from './merge';
 import { db, type Upload } from './db';
@@ -103,38 +103,44 @@ function pullProfile(me: string, row: ProfileRow | null, q: Queue): boolean {
   return true;
 }
 
+async function getProfile(): Promise<ProfileRow | null> {
+  return (await api<{ profile: ProfileRow | null }>('data', 'profile.get')).profile;
+}
+
+/** Send one design/upload. A row too big for the server is skipped (reported once) so it can't block the rest. */
+let tooBig = '';
+async function putRow(kind: Kind, row: CloudRow): Promise<void> {
+  try {
+    await api('data', 'rows.put', { kind, row: { id: row.id, data: row.data, deleted: row.deleted, updated_at: row.updated_at } });
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 413) { tooBig = e.message; console.warn('Fuzzies sync: skipped', row.id, e.message); return; }
+    throw e;
+  }
+}
+
 /** Send the profile. Only overwrites the version we last saw, so a change from another device is merged first, never lost. */
 async function pushProfile(me: string, attempt = 0): Promise<void> {
   const a = accounts.current?.id === me ? accounts.current : accounts.get(me);
   if (!a) return;
-  const sb = await supa();
   const data = profileData(a);
   const base = readBase(me);
   if (base && same(data, base.data)) return;
   const at = Math.max(Date.now(), (base?.at ?? 0) + 1);
-  const row = { username: a.username, data, updated_at: at };
-  const res = base
-    ? await sb.from('profiles').update(row).eq('id', me).eq('updated_at', base.at).select('updated_at')
-    : await sb.from('profiles').insert({ id: me, ...row }).select('updated_at');
-  const conflict = base ? !res.error && !res.data?.length : res.error?.code === '23505' && !res.error.message.includes('username');
-  if (conflict && attempt < 3) {
+  const res = await api<{ ok?: boolean; conflict?: boolean }>('data', 'profile.put', { data, at, ifVersion: base?.at ?? null });
+  if (res.conflict) {
+    if (attempt >= 3) throw new Error('Your account changed on another device — will try again.');
     // someone else saved first: fetch their copy, merge, and try again
-    const { data: cur, error } = await sb.from('profiles').select('username,data,updated_at').eq('id', me).maybeSingle();
-    if (error) throw error;
-    pullProfile(me, cur as ProfileRow | null, { profile: 0, designs: {}, uploads: {} });
+    pullProfile(me, await getProfile(), { profile: 0, designs: {}, uploads: {} });
     return pushProfile(me, attempt + 1);
   }
-  if (res.error) throw res.error;
   writeBase(me, { at, data });
 }
 
 const inEditor = (id: string) => document.body.classList.contains('in-editor') && location.hash.includes(id);
 
 async function pullKind(kind: Kind, q: Queue, me: string): Promise<number> {
-  const sb = await supa();
-  const { data, error } = await sb.from(kind).select('id,updated_at,deleted');
-  if (error) throw error;
-  const remote = new Map((data as Row[]).map((r) => [r.id, r]));
+  const { rows: list } = await api<{ rows: Row[] }>('data', 'rows.list', { kind });
+  const remote = new Map(list.map((r) => [r.id, r]));
   const localList: { id: string; t: number }[] = kind === 'designs'
     ? (await db.listDesigns(me)).map((d) => ({ id: d.id, t: d.updatedAt }))
     : (await db.listUploads(me)).map((u) => ({ id: u.id, t: u.createdAt }));
@@ -153,9 +159,8 @@ async function pullKind(kind: Kind, q: Queue, me: string): Promise<number> {
   }
   // fetch the full rows a few at a time (designs can carry photos, so rows can be big)
   for (let i = 0; i < need.length; i += 8) {
-    const { data: rows, error: e2 } = await sb.from(kind).select('id,data').in('id', need.slice(i, i + 8));
-    if (e2) throw e2;
-    for (const r of rows as { id: string; data: Design | Upload }[]) {
+    const { rows } = await api<{ rows: { id: string; data: Design | Upload | null }[] }>('data', 'rows.get', { kind, ids: need.slice(i, i + 8) });
+    for (const r of rows) {
       if (!r.data) continue;
       if (uid !== me) return changed; // signed out meanwhile
       if (kind === 'designs') await db.putDesign({ ...(r.data as Design), owner: me }, true);
@@ -202,12 +207,9 @@ export const sync = {
       if (!navigator.onLine) { setState('offline'); return; }
       setState('syncing');
       try {
-        const sb = await supa();
         const q = readQueue(me);
         let changed = 0;
-        const { data: row, error } = await sb.from('profiles').select('username,data,updated_at').eq('id', me).maybeSingle();
-        if (error) throw error;
-        if (pullProfile(me, row as ProfileRow | null, q)) changed++;
+        if (pullProfile(me, await getProfile(), q)) changed++;
         changed += await pullKind('designs', q, me);
         changed += await pullKind('uploads', q, me);
         if (uid !== me) return;
@@ -237,7 +239,7 @@ export const sync = {
       setState('syncing');
       const done: Queue = { profile: 0, designs: {}, uploads: {} };
       try {
-        const sb = await supa();
+        tooBig = '';
         if (q.profile) {
           await pushProfile(me);
           done.profile = q.profile;
@@ -246,19 +248,17 @@ export const sync = {
           if (uid !== me) return;
           const d = await db.getDesign(id);
           const row: CloudRow = d && d.owner === me ? { id, owner: me, data: d, deleted: false, updated_at: d.updatedAt } : { id, owner: me, data: null, deleted: true, updated_at: Date.now() };
-          const { error } = await sb.from('designs').upsert(row);
-          if (error) throw error;
+          await putRow('designs', row);
           done.designs[id] = q.designs[id];
         }
         for (const id of Object.keys(q.uploads)) {
           if (uid !== me) return;
           const u = await db.getUpload(id);
           const row: CloudRow = u && u.owner === me ? { id, owner: me, data: u, deleted: false, updated_at: u.createdAt } : { id, owner: me, data: null, deleted: true, updated_at: Date.now() };
-          const { error } = await sb.from('uploads').upsert(row);
-          if (error) throw error;
+          await putRow('uploads', row);
           done.uploads[id] = q.uploads[id];
         }
-        setState('synced');
+        if (tooBig) setState('error', tooBig); else setState('synced');
       } catch (e) {
         console.warn('Fuzzies sync (push):', e);
         setState(navigator.onLine ? 'error' : 'offline', (e as Error).message ?? String(e));

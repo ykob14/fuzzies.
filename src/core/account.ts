@@ -1,7 +1,7 @@
 /**
  * Accounts and profiles. The signed-in account is always kept on this device (localStorage), so the
  * app works offline. Local accounts store a salted PBKDF2 password hash. Cloud accounts (`cloud: true`,
- * see core/cloud.ts) log in through Supabase and are synced to every device; their id is the cloud user id.
+ * see core/cloud.ts) log in through the Fuzzies backend (api/, Neon) and are synced to every device; their id is the cloud user id.
  */
 import { uid, todayKey } from './util';
 
@@ -45,7 +45,7 @@ export interface Account {
   name: string;
   bio: string;
   guest: boolean;
-  /** Logged in through the cloud (Supabase) and synced across devices. */
+  /** Logged in through the Fuzzies backend (Neon) and synced across devices. */
   cloud: boolean;
   hash: string;
   salt: string;
