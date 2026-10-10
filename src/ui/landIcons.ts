@@ -3,8 +3,9 @@
  * outline and a soft white highlight. Drawn as inline SVG so nothing extra ships.
  */
 export type LandIcon =
-  | 'coin' | 'star' | 'pop' | 'hammer' | 'crate' | 'barn' | 'sparkles' | 'music' | 'musicOff' | 'gate'
-  | 'zoomIn' | 'zoomOut' | 'back' | 'house' | 'wheat' | 'workshop' | 'flower' | 'clock' | 'lock';
+  | 'coin' | 'star' | 'pop' | 'hammer' | 'crate' | 'barn' | 'sparkles' | 'music' | 'musicOff'
+  | 'zoomIn' | 'zoomOut' | 'back' | 'house' | 'wheat' | 'workshop' | 'flower' | 'clock' | 'lock'
+  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash';
 
 const O = 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const HL = 'fill="#fff" opacity=".55"';
@@ -39,10 +40,6 @@ const ART: Record<LandIcon, string> = {
   musicOff: `<path d="M12 22V8.5l13-3V19" fill="none" stroke="#9a9590" stroke-width="2.6" stroke-linejoin="round"/>
     <ellipse cx="9" cy="22.5" rx="4.2" ry="3.4" fill="#c9c3bb" stroke="#9a9590" ${O}/><ellipse cx="22" cy="19.5" rx="4.2" ry="3.4" fill="#c9c3bb" stroke="#9a9590" ${O}/>
     <path d="M5 5l22 22" stroke="#d6336c" stroke-width="3" stroke-linecap="round"/>`,
-  gate: `<ellipse cx="16" cy="18" rx="11" ry="9" fill="#6cc35a" stroke="#3f8f3a" ${O}/>
-    <circle cx="10.5" cy="10.5" r="4.3" fill="#6cc35a" stroke="#3f8f3a" ${O}/><circle cx="21.5" cy="10.5" r="4.3" fill="#6cc35a" stroke="#3f8f3a" ${O}/>
-    <circle cx="10.5" cy="10.5" r="2.2" fill="#fff"/><circle cx="21.5" cy="10.5" r="2.2" fill="#fff"/><circle cx="11" cy="10.8" r="1.2" fill="#18171c"/><circle cx="22" cy="10.8" r="1.2" fill="#18171c"/>
-    <path d="M11 19.5q5 4 10 0" fill="none" stroke="#2b6b2a" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="18" r="1.6" fill="#ff9fc8"/><circle cx="23.5" cy="18" r="1.6" fill="#ff9fc8"/>`,
   zoomIn: `<path d="M16 7v18M7 16h18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>`,
   zoomOut: `<path d="M7 16h18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>`,
   back: `<path d="M19 7l-9 9 9 9" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`,
@@ -59,6 +56,41 @@ const ART: Record<LandIcon, string> = {
   clock: `<circle cx="16" cy="16" r="11" fill="#fff4e3" stroke="#c9a77e" ${O}/><path d="M16 9.5V16l4 2.5" fill="none" stroke="#a8325a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`,
   lock: `<path d="M10.5 14v-3.5a5.5 5.5 0 0 1 11 0V14" fill="none" stroke="#9a9590" stroke-width="3"/>
     <rect x="7" y="13.5" width="18" height="14" rx="4" fill="#c9c3bb" stroke="#9a9590" ${O}/><circle cx="16" cy="20" r="2.2" fill="#7d7872"/>`,
+  // ---- the dock's big illustrated icons (white sticker outline so they pop on coloured buttons) ----
+  basket: `<g stroke="#fff" stroke-width="3.2" stroke-linejoin="round"><path d="M5 15h22l-2.4 11.2a2 2 0 0 1-2 1.6H9.4a2 2 0 0 1-2-1.6z" fill="#c98b55"/><circle cx="11" cy="12" r="4" fill="#ff6b6b"/><circle cx="17.5" cy="10.5" r="4.2" fill="#ffd43b"/><circle cx="22" cy="13" r="3.4" fill="#7ad36b"/></g>
+    <path d="M5 15h22l-2.4 11.2a2 2 0 0 1-2 1.6H9.4a2 2 0 0 1-2-1.6z" fill="#c98b55" stroke="#8a5a30" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M8.5 19.5h15M9.3 23.5h13.4" stroke="#8a5a30" stroke-width="1.6" stroke-linecap="round"/><path d="M13 15v12M19 15v12" stroke="#a8713f" stroke-width="1.4"/>
+    <circle cx="11" cy="12" r="4" fill="#ff6b6b"/><circle cx="17.5" cy="10.5" r="4.2" fill="#ffd43b"/><circle cx="22" cy="13" r="3.4" fill="#7ad36b"/>
+    <ellipse cx="16.3" cy="9" rx="1.4" ry=".9" fill="#fff" opacity=".7"/><ellipse cx="9.8" cy="10.6" rx="1.2" ry=".8" fill="#fff" opacity=".6"/>
+    <path d="M26.5 4l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z" fill="#fff"/>`,
+  build: `<g stroke="#fff" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"><path d="M4 17L13 9l9 8v10H4z" fill="#fff4e3"/><path d="M17.5 14.5l9-9" /><path d="M21 6.5l4-3 3.5 3.5-3 4z" fill="#8f9bb0"/></g>
+    <path d="M6 16.5V27h14V16.5L13 10.2z" fill="#fff4e3" stroke="#c9a77e" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M3.5 17.5L13 9l9.5 8.5" fill="none" stroke="#e45a78" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="10.5" y="19.5" width="5" height="7.5" rx="2.5" fill="#c98b55"/>
+    <path d="M17.5 14.5l9-9" stroke="#c98b55" stroke-width="2.6" stroke-linecap="round"/><path d="M21 6.5l4-3 3.5 3.5-3 4z" fill="#8f9bb0" stroke="#58627a" stroke-width="1.4" stroke-linejoin="round"/>`,
+  parcel: `<g stroke="#fff" stroke-width="3.4" stroke-linejoin="round"><rect x="4.5" y="10" width="23" height="17" rx="3" fill="#e2b77f"/><path d="M3.5 10.5h25v-3a2 2 0 0 0-2-2h-21a2 2 0 0 0-2 2z" fill="#edc791"/></g>
+    <rect x="4.5" y="10" width="23" height="17" rx="3" fill="#e2b77f" stroke="#a87a45" stroke-width="1.5"/>
+    <path d="M3.5 10.5h25v-3a2 2 0 0 0-2-2h-21a2 2 0 0 0-2 2z" fill="#edc791" stroke="#a87a45" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M16 5.5V27" stroke="#e45a78" stroke-width="3.2"/><path d="M16 5.5c-3-4-7.5-3-6.5-.3.8 2 4.6 1.3 6.5.3zM16 5.5c3-4 7.5-3 6.5-.3-.8 2-4.6 1.3-6.5.3z" fill="#e45a78" stroke="#b8325a" stroke-width="1.2"/>
+    <rect x="19.5" y="17" width="5.5" height="5" rx="1" fill="#fffaf2" stroke="#a87a45" stroke-width="1"/><path d="M20.6 19h3.2M20.6 20.6h2" stroke="#a87a45" stroke-width=".9"/>`,
+  barnBig: `<g stroke="#fff" stroke-width="3.4" stroke-linejoin="round"><path d="M3.5 14.5L16 4.5l12.5 10V28h-25z" fill="#f2785c"/></g>
+    <path d="M3.5 14.5L16 4.5l12.5 10V28h-25z" fill="#f2785c" stroke="#b84f36" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M3 15L16 4.5 29 15" fill="none" stroke="#fff4e3" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="10" y="16" width="12" height="12" fill="#fff4e3" stroke="#b84f36" stroke-width="1.4"/><path d="M10 16l12 12M22 16L10 28" stroke="#f2785c" stroke-width="2"/>
+    <rect x="13.6" y="9" width="4.8" height="4" rx="1" fill="#fff4e3" stroke="#b84f36" stroke-width="1"/><path d="M15 6.5c1-1.2 3-1.2 2 .5" fill="#ffd43b"/>`,
+  portal: `<path d="M6 28V14a10 10 0 0 1 20 0v14" fill="none" stroke="#58a14a" stroke-width="5" stroke-linecap="round"/>
+    <path d="M6 28V14a10 10 0 0 1 20 0v14" fill="none" stroke="#7ad36b" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="9" cy="10" r="1.6" fill="#ff9fc8"/><circle cx="16" cy="5.2" r="1.6" fill="#ffd43b"/><circle cx="23" cy="10" r="1.6" fill="#fff"/>
+    <path d="M9 28V15a7 7 0 0 1 14 0v13z" fill="#ffd6ea"/>
+    <circle cx="16" cy="21" r="5.6" fill="#ff86bb" stroke="#d6336c" stroke-width="1.4"/>
+    <circle cx="14" cy="20.2" r="1.3" fill="#fff"/><circle cx="18" cy="20.2" r="1.3" fill="#fff"/><circle cx="14.2" cy="20.5" r=".7" fill="#18171c"/><circle cx="18.2" cy="20.5" r=".7" fill="#18171c"/>
+    <path d="M14.6 23q1.4 1.2 2.8 0" fill="none" stroke="#18171c" stroke-width=".9" stroke-linecap="round"/>`,
+  chevDown: `<path d="M9 12l7 7 7-7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  chevUp: `<path d="M9 20l7-7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  chevRight: `<path d="M12 9l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  chevLeft: `<path d="M20 9l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  rotate: `<path d="M24 12a9 9 0 1 0 1.5 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M25.5 5.5v7h-7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+  trash: `<path d="M7 10h18M13 10V7h6v3M9 10l1.2 15a2 2 0 0 0 2 1.8h7.6a2 2 0 0 0 2-1.8L23 10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`,
 };
 
 /** One of Fuzzies Land's sticker icons as an inline SVG element. */

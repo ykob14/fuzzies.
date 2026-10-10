@@ -35,6 +35,7 @@ const NAV: { id: string; label: string; icon: IconName }[] = [
 ];
 
 let current: Screen | null = null;
+const SIDEBAR_KEY = 'fz.sidebar';
 const root = () => document.getElementById('app')!;
 
 export function balanceChip(): HTMLElement {
@@ -45,11 +46,29 @@ export function balanceChip(): HTMLElement {
 
 function shell(active: string, content: HTMLElement): HTMLElement {
   const a = accounts.current!;
-  const navLink = (n: (typeof NAV)[number]) => h('a', { class: `nav-link ${n.id === active ? 'on' : ''}`, href: `#/${n.id}` }, icon(n.icon, 20), h('span', null, n.label));
+  const navLink = (n: (typeof NAV)[number]) => h('a', { class: `nav-link ${n.id === active ? 'on' : ''}`, href: `#/${n.id}`, title: n.label }, icon(n.icon, 20), h('span', null, n.label));
 
-  const sidebar = h('aside', { class: 'sidebar' },
+  // the side navigation folds into a slim icon rail (remembered on this device) to give the page more room
+  const mini = (() => { try { return localStorage.getItem(SIDEBAR_KEY) === 'mini'; } catch { return false; } })();
+  const fold = h('button', { class: 'sidebar-fold', type: 'button' });
+  const paintFold = (on: boolean) => {
+    document.documentElement.classList.toggle('side-mini', on);
+    fold.replaceChildren(icon(on ? 'chevR' : 'chevL', 18));
+    fold.title = on ? 'Show the menu' : 'Fold the menu away';
+    fold.setAttribute('aria-label', fold.title);
+    fold.setAttribute('aria-expanded', String(!on));
+  };
+  fold.addEventListener('click', () => {
+    const on = !document.documentElement.classList.contains('side-mini');
+    try { localStorage.setItem(SIDEBAR_KEY, on ? 'mini' : 'full'); } catch { /* private mode */ }
+    paintFold(on);
+    dispatchEvent(new Event('resize')); // canvases (the editor, the game) re-fit the new space
+  });
+  paintFold(mini);
+
+  const sidebar = h('aside', { class: 'sidebar' }, fold,
     h('a', { href: '#/home', class: 'sidebar-logo' }, logo('sm')),
-    h('button', { class: 'btn btn-primary btn-lg btn-block create-btn', type: 'button', onclick: () => createDialog() }, icon('plus', 20), h('span', null, 'Create a design')),
+    h('button', { class: 'btn btn-primary btn-lg btn-block create-btn', type: 'button', title: 'Create a design', onclick: () => createDialog() }, icon('plus', 20), h('span', null, 'Create a design')),
     h('nav', { class: 'nav' }, ...NAV.map(navLink)),
     h('a', { class: 'side-card', href: '#/play' },
       h('div', { class: 'side-card-top' }, mascot(38, { small: true, sparkles: false, interactive: false }), h('div', null, h('b', null, 'Take a fuzzy break'), h('small', null, 'Play to unlock rewards'))),

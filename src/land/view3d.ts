@@ -16,33 +16,45 @@ import * as ENV from './environment';
 import * as M from '../game/models3d';
 import * as GT from '../game/textures3d';
 import * as LM from './models';
-import { MAP, bounds, cropProgress, finished, item, footprint, good, population, walkway, type LandState, type Placed } from './rules';
+import { MAP, NAMES, bounds, cropProgress, finished, item, footprint, good, population, walkway, type LandState, type Placed } from './rules';
 
 const PITCH = THREE.MathUtils.degToRad(50);
 const YAW = THREE.MathUtils.degToRad(45);
 const ease = (k: number) => { k = Math.min(1, Math.max(0, k)); return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; };
-const SKINS: [string, string][] = [['#ff86bb', '#b8235f'], ['#7dffcf', '#22b5a0'], ['#ffe066', '#ff8c42'], ['#7ad7ff', '#3a5bff'], ['#ff6b8b', '#b0004f'], ['#c77dff', '#5a189a'], ['#ffffff', '#b9c2cf'], ['#ffc078', '#e8590c']];
+const SKINS: [string, string][] = [['#ff86bb', '#b8235f'], ['#7dffcf', '#22b5a0'], ['#ffe066', '#ff8c42'], ['#7ad7ff', '#2f7fe0'], ['#ff6b8b', '#b0004f'], ['#ffb3d9', '#d6337f'], ['#ffffff', '#b9c2cf'], ['#ffc078', '#e8590c'], ['#b8f28a', '#4f9e2f']];
+/** Each Fuzzy's look and character: an outfit, and how fast, chatty, hoppy and home-loving they are. */
+const OUTFITS = ['bow', 'beanie', 'none', 'straw', 'flower', 'scarf', 'beanie', 'bow', 'straw', 'scarf', 'flower', 'none', 'bow', 'beanie'] as const;
+type Outfit = typeof OUTFITS[number];
+interface Persona { speed: number; chatty: number; hoppy: number; homebody: number; farmer: number }
 
 const FOOT = new THREE.SphereGeometry(0.06, 12, 8).scale(1, 0.55, 1.35);
 const BLOB = new THREE.CircleGeometry(0.24, 20).rotateX(-Math.PI / 2);
+const FENCE_MAT = new THREE.MeshStandardMaterial({ color: '#c9925b', roughness: 0.85 });
 const BLOB_MAT = new THREE.MeshBasicMaterial({ map: GT.glow('rgba(0,0,0,0.45)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false });
 const ROAD_MATS = {
-  asphalt: new THREE.MeshStandardMaterial({ color: '#9e978e', roughness: 0.92 }),
-  kerb: new THREE.MeshStandardMaterial({ color: '#efe4d0', roughness: 0.85 }),
-  dash: new THREE.MeshStandardMaterial({ color: '#fff4d8', roughness: 0.7 }),
+  asphalt: new THREE.MeshStandardMaterial({ color: '#a39d96', roughness: 0.92 }),
+  walk: new THREE.MeshStandardMaterial({ color: '#efe6d6', roughness: 0.85 }),
+  dash: new THREE.MeshStandardMaterial({ color: '#fff6e0', roughness: 0.7 }),
+  pole: new THREE.MeshStandardMaterial({ color: '#4a4f5a', roughness: 0.45, metalness: 0.6 }),
+  lamp: new THREE.MeshStandardMaterial({ color: '#fff3c4', emissive: '#ffd36b', emissiveIntensity: 0.9, roughness: 0.3 }),
 };
+/** Sidewalk width and the radius of rounded road ends/turns (tiles). */
+const WALK = 0.17, ROUND = 0.3;
 
 export type Pick = { kind: 'building'; id: number } | { kind: 'resident'; index: number } | { kind: 'ground'; x: number; z: number } | null;
 
 interface Built { node: THREE.Group; placed: Placed; key: string; cropNode?: THREE.Group; cropId?: string; bubble?: HTMLElement; smoke: number }
+type Goal = { kind: 'visit'; id: number; door: THREE.Vector2; face: number } | { kind: 'work'; id: number; face: number } | { kind: 'sit'; id: number; seat: THREE.Vector3; face: number } | { kind: 'wander' };
 interface Resident {
-  model: M.FuzzyModel; skin: number; feet: THREE.Mesh[]; shadow: THREE.Mesh;
-  pos: THREE.Vector2; path: THREE.Vector2[]; facing: number; targetFacing: number;
-  mode: 'walk' | 'idle' | 'hop'; timer: number; phase: number; blinkIn: number; blinking: number;
-  lookIn: number; look: THREE.Vector2; hop: number; bubble?: HTMLElement; bubbleT: number; seed: number;
+  model: M.FuzzyModel; skin: number; feet: THREE.Mesh[]; shadow: THREE.Mesh; name: string; persona: Persona;
+  pos: THREE.Vector2; path: THREE.Vector2[]; facing: number; targetFacing: number; goal: Goal | null;
+  mode: 'walk' | 'idle' | 'hop' | 'enter' | 'inside' | 'exit' | 'work' | 'sit' | 'chat'; timer: number; phase: number; blinkIn: number; blinking: number;
+  lookIn: number; look: THREE.Vector2; hop: number; bubble?: HTMLElement; bubbleT: number; seed: number; mood: 'normal' | 'happy' | 'sleepy'; y: number;
 }
 interface Floater { el: HTMLElement; pos: THREE.Vector3; t: number }
 interface Puff { s: THREE.Sprite; v: THREE.Vector3; life: number; max: number; grow: number }
+
+const Resident_greet = (n: string) => ['Hi {n}!', 'Hey {n}! 👋', 'Nice day, {n}!', 'Ooh, hi {n}!', 'Hug, {n}? 🤗', 'Hehe, {n}!', 'Love your look, {n}!'][Math.floor(Math.random() * 7)].replace('{n}', n);
 
 export class LandView {
   readonly renderer: THREE.WebGLRenderer;
@@ -57,6 +69,8 @@ export class LandView {
   private cover = new THREE.Group();
   private coverKey = '';
   private roads = new THREE.Group();
+  private fences = new THREE.Group();
+  private butterflies: { g: THREE.Group; wings: THREE.Mesh[]; home: THREE.Vector2; ph: number; sp: number }[] = [];
   private clouds!: THREE.Group;
   private vel = new THREE.Vector2();
   private zoomGoal = 24;
@@ -74,7 +88,7 @@ export class LandView {
   private area!: THREE.Mesh;
   private grid!: THREE.LineSegments;
   private ghost: { node: THREE.Group; pad: THREE.Mesh; key: string } | null = null;
-  private selected: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  private selected: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private size = 0;
   private state: LandState | null = null;
   private raf = 0;
@@ -127,7 +141,7 @@ export class LandView {
         }`,
     }));
     this.composer.addPass(new OutputPass());
-    this.selected = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
+    this.selected = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
     this.selected.visible = false;
     this.scene.add(this.selected);
     this.resize();
@@ -146,13 +160,29 @@ export class LandView {
     this.scene.add(ENV.buildTerrain(), ENV.buildRocks());
     this.water = ENV.buildWater(this.time);
     this.clouds = ENV.buildClouds();
-    this.scene.add(this.water, this.clouds, this.forest, this.cover, this.roads);
+    this.scene.add(this.water, this.clouds, this.forest, this.cover, this.roads, this.fences);
+    this.addButterflies();
     // the buildable square shows as a faint frame; a grid appears while placing
     this.area = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.0, depthWrite: false }));
     this.area.position.y = 0.006;
     this.grid = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 }));
     this.grid.visible = false;
     this.scene.add(this.area, this.grid);
+  }
+
+  /** A few butterflies flutter around town (cheap: two little wings each). */
+  private addButterflies(): void {
+    const wing = new THREE.CircleGeometry(0.05, 10).scale(1, 1.3, 1).translate(0.05, 0, 0);
+    const cols = ['#ff9fc8', '#ffd43b', '#ffffff', '#7ad7ff', '#ffb066', '#ff6b9a'];
+    const n = this.mobile ? 5 : 8;
+    for (let i = 0; i < n; i++) {
+      const g = new THREE.Group();
+      const m = new THREE.MeshStandardMaterial({ color: cols[i % cols.length], side: THREE.DoubleSide, roughness: 0.6, emissive: cols[i % cols.length], emissiveIntensity: 0.15 });
+      const wings = [1, -1].map((sx) => { const w = new THREE.Mesh(wing, m); w.scale.x = sx; g.add(w); return w; });
+      g.add(new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.05, 2, 4).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#3b2a20' })));
+      this.scene.add(g);
+      this.butterflies.push({ g, wings, home: new THREE.Vector2(MAP / 2 + (Math.random() - 0.5) * 10, MAP / 2 + (Math.random() - 0.5) * 10), ph: Math.random() * 10, sp: 0.5 + Math.random() * 0.5 });
+    }
   }
 
   /** Trees fill the land you haven't unlocked yet; expanding clears them. */
@@ -171,34 +201,106 @@ export class LandView {
     this.grid.geometry = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
   }
 
-  /** Streets join up by themselves: asphalt, cream kerbs where a road ends or turns, dashes down straight stretches. */
+  /**
+   * Streets join up by themselves: each road tile is asphalt with a raised sidewalk on every side that has no
+   * road next to it. Dead ends and turns get rounded outer corners; junctions get curved sidewalk corners,
+   * zebra crossings on the arms and lane lines down straight stretches. Street lamps stand on the sidewalks.
+   */
   private buildRoads(s: LandState): void {
     this.roads.clear();
     const isRoad = new Set(s.buildings.filter((b) => b.item === 'road').map((b) => `${b.x},${b.z}`));
     if (!isRoad.size) return;
-    const asphalt: THREE.BufferGeometry[] = [], kerb: THREE.BufferGeometry[] = [], dash: THREE.BufferGeometry[] = [];
+    const has = (x: number, z: number) => isRoad.has(`${x},${z}`);
+    const degree = (x: number, z: number) => +has(x, z - 1) + +has(x + 1, z) + +has(x, z + 1) + +has(x - 1, z);
+    const asphalt: THREE.BufferGeometry[] = [], walk: THREE.BufferGeometry[] = [], dash: THREE.BufferGeometry[] = [], poles: THREE.BufferGeometry[] = [], heads: THREE.BufferGeometry[] = [];
+    const K = WALK, R = ROUND, H = 0.07;
+    // corner points of the asphalt for the NE corner of a tile in a canonical frame (u right, v down), given
+    // whether the sides "top" (a) and "right" (b) have road and the diagonal (d) too; rotated for other corners
+    const corner = (a: boolean, b: boolean, d: boolean): [number, number][] => {
+      if (!a && !b) return Array.from({ length: 7 }, (_, i) => { const t = -Math.PI / 2 + (i / 6) * (Math.PI / 2); return [1 - K - R + R * Math.cos(t), K + R + R * Math.sin(t)]; });
+      if (a && b && !d) return Array.from({ length: 6 }, (_, i) => { const t = Math.PI - (i / 5) * (Math.PI / 2); return [1 + K * Math.cos(t), K * Math.sin(t)]; });
+      return [[b ? 1 : 1 - K, a ? 0 : K]];
+    };
+    const rot = (p: [number, number], k: number): [number, number] => { let [u, v] = p; for (let i = 0; i < k; i++) [u, v] = [1 - v, u]; return [u, v]; };
+    const flat = (shape: THREE.Shape, h: number, y0: number) => new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false, curveSegments: 4 }).rotateX(Math.PI / 2).translate(0, y0 + h, 0);
+    let lampN = 0;
     for (const key of isRoad) {
       const [x, z] = key.split(',').map(Number);
-      const cx = x + 0.5, cz = z + 0.5;
-      const n = isRoad.has(`${x},${z - 1}`), so = isRoad.has(`${x},${z + 1}`), e = isRoad.has(`${x + 1},${z}`), w = isRoad.has(`${x - 1},${z}`);
-      asphalt.push(new THREE.BoxGeometry(1, 0.04, 1).translate(cx, 0.02, cz).toNonIndexed());
-      const K = 0.15, H = 0.075;
-      if (!n) kerb.push(new THREE.BoxGeometry(1, H, K).translate(cx, H / 2, z + K / 2).toNonIndexed());
-      if (!so) kerb.push(new THREE.BoxGeometry(1, H, K).translate(cx, H / 2, z + 1 - K / 2).toNonIndexed());
-      if (!e) kerb.push(new THREE.BoxGeometry(K, H, 1).translate(x + 1 - K / 2, H / 2, cz).toNonIndexed());
-      if (!w) kerb.push(new THREE.BoxGeometry(K, H, 1).translate(x + K / 2, H / 2, cz).toNonIndexed());
-      const along = (e || w) && !(n || so) ? 'x' : (n || so) && !(e || w) ? 'z' : '';
-      if (along) for (const off of [-0.25, 0.25]) dash.push(new THREE.BoxGeometry(along === 'x' ? 0.26 : 0.05, 0.006, along === 'x' ? 0.05 : 0.26).translate(cx + (along === 'x' ? off : 0), 0.043, cz + (along === 'z' ? off : 0)).toNonIndexed());
+      const n = has(x, z - 1), e = has(x + 1, z), so = has(x, z + 1), w = has(x - 1, z);
+      const ne = has(x + 1, z - 1), se = has(x + 1, z + 1), sw = has(x - 1, z + 1), nw = has(x - 1, z - 1);
+      const pts: [number, number][] = [
+        ...corner(w, n, nw).map((p) => rot(p, 3)), ...corner(n, e, ne), ...corner(e, so, se).map((p) => rot(p, 1)), ...corner(so, w, sw).map((p) => rot(p, 2)),
+      ];
+      const outline = new THREE.Shape(pts.map(([u, v]) => new THREE.Vector2(x + u, z + v)));
+      asphalt.push(flat(outline, 0.035, 0));
+      // sidewalk pieces (no holes, so triangulation stays clean): a strip along each side without road, a fillet
+      // behind each rounded corner and a quarter-round where two roads meet without the diagonal
+      const piece = (poly: [number, number][], k: number) => walk.push(flat(new THREE.Shape(poly.map((p) => { const [u, v] = rot(p, k); return new THREE.Vector2(x + u, z + v); })), H, 0));
+      const sides: [boolean, boolean, boolean, number][] = [[n, e, ne, 0], [e, so, se, 1], [so, w, sw, 2], [w, n, nw, 3]];
+      for (const [a, b, d, k] of sides) {
+        if (!a) piece([[0, 0], [1, 0], [1, K], [0, K]], k);
+        if (!a && !b) piece(([[1 - K, K], ...corner(false, false, false)] as [number, number][]).reverse(), k);
+        else if (a && b && !d) piece([[1, 0], ...corner(true, true, false)], k);
+      }
+      const deg = degree(x, z);
+      const straightX = e && w && !n && !so, straightZ = n && so && !e && !w;
+      // lane lines down straight stretches; zebra crossings next to a junction
+      if (straightX || straightZ) {
+        const nearJ = straightX ? [[x + 1, z, 1], [x - 1, z, -1]] : [[x, z + 1, 1], [x, z - 1, -1]];
+        const j = nearJ.find(([jx, jz]) => degree(jx, jz) >= 3);
+        if (j) {
+          for (let i = 0; i < 4; i++) {
+            const off = -0.24 + i * 0.16, at = 0.5 - 0.17;
+            const g = straightX ? new THREE.BoxGeometry(0.22, 0.006, 0.08).translate(x + 0.5 + j[2] * at, 0.038, z + 0.5 + off) : new THREE.BoxGeometry(0.08, 0.006, 0.22).translate(x + 0.5 + off, 0.038, z + 0.5 + j[2] * at);
+            dash.push(g.toNonIndexed());
+          }
+        } else for (const off of [-0.25, 0.25]) dash.push(new THREE.BoxGeometry(straightX ? 0.24 : 0.035, 0.006, straightX ? 0.035 : 0.24).translate(x + 0.5 + (straightX ? off : 0), 0.038, z + 0.5 + (straightZ ? off : 0)).toNonIndexed());
+        // a street lamp on every third straight tile, on alternating sides
+        if (deg === 2 && (x * 7 + z * 13) % 3 === 0) {
+          const side = lampN++ % 2 ? 1 : -1;
+          const lx = straightX ? x + 0.5 : x + 0.5 + side * (0.5 - K / 2), lz = straightX ? z + 0.5 + side * (0.5 - K / 2) : z + 0.5;
+          poles.push(new THREE.CylinderGeometry(0.016, 0.022, 0.62, 8).translate(lx, H + 0.31, lz).toNonIndexed());
+          poles.push(new THREE.CylinderGeometry(0.05, 0.035, 0.035, 12).translate(lx, H + 0.64, lz).toNonIndexed());
+          heads.push(new THREE.SphereGeometry(0.05, 14, 10).translate(lx, H + 0.69, lz).toNonIndexed());
+        }
+      }
     }
     const add = (list: THREE.BufferGeometry[], m: THREE.Material, shadow = false) => {
       if (!list.length) return;
-      const mesh = new THREE.Mesh(mergeGeometries(list)!, m);
+      const mesh = new THREE.Mesh(mergeGeometries(list.map((g) => g.index ? g.toNonIndexed() : g))!, m);
       mesh.receiveShadow = true; mesh.castShadow = shadow;
       this.roads.add(mesh);
     };
     add(asphalt, ROAD_MATS.asphalt);
-    add(kerb, ROAD_MATS.kerb, true);
+    add(walk, ROAD_MATS.walk, true);
     add(dash, ROAD_MATS.dash);
+    add(poles, ROAD_MATS.pole, true);
+    add(heads, ROAD_MATS.lamp);
+  }
+
+  /** A rustic wooden fence around each patch of fields (only on the outer edges), so farms look tended. */
+  private buildFences(s: LandState): void {
+    this.fences.clear();
+    const isField = new Set(s.buildings.filter((b) => b.item === 'field').map((b) => `${b.x},${b.z}`));
+    if (!isField.size) return;
+    const parts: THREE.BufferGeometry[] = [];
+    const I = 0.035; // just inside the plot edge
+    for (const key of isField) {
+      const [x, z] = key.split(',').map(Number);
+      const edges: [boolean, number, number, number, number][] = [
+        [!isField.has(`${x},${z - 1}`), x, z + I, x + 1, z + I], [!isField.has(`${x},${z + 1}`), x, z + 1 - I, x + 1, z + 1 - I],
+        [!isField.has(`${x - 1},${z}`), x + I, z, x + I, z + 1], [!isField.has(`${x + 1},${z}`), x + 1 - I, z, x + 1 - I, z + 1],
+      ];
+      for (const [on, x0, z0, x1, z1] of edges) {
+        if (!on) continue;
+        const along = x0 !== x1, len = along ? x1 - x0 : z1 - z0;
+        for (const y of [0.11, 0.2]) parts.push(new THREE.BoxGeometry(along ? len : 0.022, 0.025, along ? 0.022 : len).translate((x0 + x1) / 2, y, (z0 + z1) / 2));
+        for (let k = 0; k <= 2; k++) { const t = k / 2; parts.push(new THREE.BoxGeometry(0.035, 0.26, 0.035).translate(x0 + (x1 - x0) * t, 0.13, z0 + (z1 - z0) * t)); }
+      }
+    }
+    const mesh = new THREE.Mesh(mergeGeometries(parts.map((g) => g.toNonIndexed()))!, FENCE_MAT);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    this.fences.add(mesh);
   }
 
   // ---------- keeping the scene in step with the town ----------
@@ -206,6 +308,7 @@ export class LandView {
     this.state = s;
     if (s.size !== this.size) { this.size = s.size; this.buildForest(s.size); }
     this.buildRoads(s);
+    this.buildFences(s);
     const seen = new Set<number>();
     for (const p of s.buildings) {
       seen.add(p.id);
@@ -217,7 +320,7 @@ export class LandView {
         // roads are drawn together by buildRoads(); their node only exists for picking and bubbles
         const node = p.item === 'road' ? new THREE.Group() : p.doneAt ? LM.constructionSite(f.w, f.d, p.id) : LM.modelFor(p.item, p.id);
         node.position.set(p.x + f.w / 2, 0, p.z + f.d / 2);
-        if (!p.doneAt) node.rotation.y = p.rot ? -Math.PI / 2 : 0;
+        if (!p.doneAt) node.rotation.y = -(p.rot & 3) * Math.PI / 2;
         // soft shadow underneath so buildings sit on the ground
         if (!walkway(p.item) && p.item !== 'field' && p.item !== 'flowers') { const dims = p.doneAt ? f : item(p.item); node.add(LM.contactShadow(dims.w, dims.d)); } // sites aren't rotated, finished buildings are
         // new buildings pop up with a bounce
@@ -232,10 +335,11 @@ export class LandView {
     // which tiles Fuzzies can't walk through
     this.blocked.fill(0);
     for (const p of s.buildings) {
-      if (walkway(p.item)) continue;
       const f = footprint(item(p.item), p.rot);
-      for (let x = p.x; x < p.x + f.w; x++) for (let z = p.z; z < p.z + f.d; z++) this.blocked[z * MAP + x] = 1;
+      for (let x = p.x; x < p.x + f.w; x++) for (let z = p.z; z < p.z + f.d; z++) this.blocked[z * MAP + x] = walkway(p.item) ? 2 : 1;
     }
+    // anyone standing where something was just built steps aside
+    for (const r of this.residents) if (r.mode !== 'inside' && this.blocked[Math.floor(r.pos.y) * MAP + Math.floor(r.pos.x)] === 1 && r.mode !== 'sit') { r.pos.copy(this.freeTile(r.seed)); r.path = []; r.goal = null; r.mode = 'idle'; }
     // grass tufts and wildflowers grow wherever nothing is built (rebuilt only when that changes)
     const taken = new Uint8Array(MAP * MAP);
     for (const p of s.buildings) { const f = footprint(item(p.item), p.rot); for (let x = p.x; x < p.x + f.w; x++) for (let z = p.z; z < p.z + f.d; z++) taken[z * MAP + x] = 1; }
@@ -244,14 +348,30 @@ export class LandView {
       this.coverKey = key;
       this.cover.clear();
       const b = bounds(s);
+      const at = (x: number, z: number) => (x < 0 || z < 0 || x >= MAP || z >= MAP ? 0 : taken[z * MAP + x]);
+      const kind = new Uint8Array(MAP * MAP); // 1 = building/field, 2 = road or path
+      for (const p of s.buildings) { const f = footprint(item(p.item), p.rot); for (let x = p.x; x < p.x + f.w; x++) for (let z = p.z; z < p.z + f.d; z++) kind[z * MAP + x] = walkway(p.item) ? 2 : 1; }
+      const kindAt = (x: number, z: number) => (x < 0 || z < 0 || x >= MAP || z >= MAP ? 0 : kind[z * MAP + x]);
       this.cover.add(ENV.buildGroundCover((x, z) => {
         const tx = Math.floor(x), tz = Math.floor(z);
         if (tx < 0 || tz < 0 || tx >= MAP || tz >= MAP) return true;
         if (taken[tz * MAP + tx]) return false;
-        // in town, keep the lawn tidy: just a few tufts along the edges of the tiles
+        // in town, keep the lawn tidy: just a few tufts
         const inTown = x >= b.x0 && x < b.x1 && z >= b.z0 && z < b.z1;
-        return !inTown || Math.random() < 0.03;
-      }, this.time, this.mobile));
+        return !inTown || Math.random() < 0.05;
+      }, this.time, this.mobile, (x, z) => {
+        // landscaping weight: hug the sides of buildings and the edges of sidewalks, on free lawn only
+        const tx = Math.floor(x), tz = Math.floor(z);
+        if (at(tx, tz) || !(x >= b.x0 && x < b.x1 && z >= b.z0 && z < b.z1)) return 0;
+        const fx = x - tx, fz = z - tz;
+        let w = 0;
+        for (const [dx, dz, d] of [[1, 0, 1 - fx], [-1, 0, fx], [0, 1, 1 - fz], [0, -1, fz]] as const) {
+          const k = kindAt(tx + dx, tz + dz);
+          if (k === 1 && d < 0.3) w = Math.max(w, 1 - d / 0.3);
+          if (k === 2 && d < 0.18) w = Math.max(w, 0.45 * (1 - d / 0.18));
+        }
+        return w;
+      }, this.mats.leaves));
     }
     this.syncResidents(population(s));
   }
@@ -262,16 +382,20 @@ export class LandView {
     while (this.residents.length < want) {
       const i = this.residents.length;
       const skin = i % SKINS.length;
-      const model = M.makeFuzzy(this.mats, SKINS[skin], 0.2, 0.06, 9);
+      const model = M.makeFuzzy(this.mats, SKINS[skin], 0.2, 0.06, this.mobile ? 7 : 9);
       const start = this.freeTile(i * 97 + 3);
       model.group.position.set(start.x, 0.26, start.y);
-      // little feet that step when walking, and a soft shadow on the ground
+      // little feet that step when walking, an outfit, and a soft shadow on the ground
       const footMat = LM.std(SKINS[skin][1], 0.8);
       const feet = [-1, 1].map((sx) => { const f = new THREE.Mesh(FOOT, footMat); f.position.set(sx * 0.09, -0.21, 0.05); f.castShadow = true; model.group.add(f); return f; });
+      const outfit = LM.fuzzyOutfit(OUTFITS[i % OUTFITS.length] as Outfit, i);
+      if (outfit) model.body.add(outfit);
       const shadow = new THREE.Mesh(BLOB, BLOB_MAT);
       shadow.renderOrder = 1;
       this.scene.add(model.group, shadow);
-      this.residents.push({ model, skin, feet, shadow, pos: start.clone(), path: [], facing: 0, targetFacing: 0, mode: 'idle', timer: 1 + Math.random() * 3, phase: Math.random() * 10, blinkIn: 1 + Math.random() * 3, blinking: 0, lookIn: 2, look: new THREE.Vector2(), hop: 0, bubbleT: 0, seed: i * 7 + 1 });
+      const r = GT.rng(i * 31 + 7);
+      const persona: Persona = { speed: 0.85 + r() * 0.4, chatty: 0.2 + r() * 0.6, hoppy: 0.05 + r() * 0.2, homebody: 0.2 + r() * 0.6, farmer: 0.2 + r() * 0.6 };
+      this.residents.push({ model, skin, feet, shadow, name: NAMES[i % NAMES.length], persona, pos: start.clone(), path: [], facing: 0, targetFacing: 0, goal: null, mode: 'idle', timer: 1 + Math.random() * 3, phase: Math.random() * 10, blinkIn: 1 + Math.random() * 3, blinking: 0, lookIn: 2, look: new THREE.Vector2(), hop: 0, bubbleT: 0, seed: i * 7 + 1, mood: 'normal', y: 0 });
     }
   }
 
@@ -279,7 +403,7 @@ export class LandView {
     const b = this.state ? bounds(this.state) : { x0: 0, z0: 0, x1: MAP, z1: MAP };
     return x >= b.x0 && z >= b.z0 && x < b.x1 && z < b.z1;
   }
-  private walkable = (x: number, z: number) => this.inArea(x, z) && !this.blocked[z * MAP + x];
+  private walkable = (x: number, z: number) => this.inArea(x, z) && this.blocked[z * MAP + x] !== 1;
 
   private freeTile(seed: number): THREE.Vector2 {
     const r = GT.rng(seed + Math.floor(Math.random() * 1e6));
@@ -290,28 +414,105 @@ export class LandView {
     return new THREE.Vector2(MAP / 2, MAP / 2);
   }
 
-  /** Shortest walk over free tiles (breadth-first search on the grid). */
+  /**
+   * The nicest walk between two tiles: Dijkstra over free tiles where streets and paths are cheaper than the
+   * lawn, so Fuzzies keep to the pavements when there are some, and cut across the grass when there aren't.
+   */
   private route(from: THREE.Vector2, to: THREE.Vector2): THREE.Vector2[] {
     const sx = Math.floor(from.x), sz = Math.floor(from.y), tx = Math.floor(to.x), tz = Math.floor(to.y);
-    const prev = new Int32Array(MAP * MAP).fill(-1);
-    const q = [sz * MAP + sx];
-    prev[q[0]] = q[0];
-    for (let h = 0; h < q.length; h++) {
-      const cur = q[h];
-      if (cur === tz * MAP + tx) break;
+    const N = MAP * MAP, start = sz * MAP + sx, end = tz * MAP + tx;
+    if (!this.walkable(tx, tz)) return [];
+    const dist = new Float32Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1);
+    const heap: number[] = [start]; // a small binary heap of tile indices keyed by dist
+    dist[start] = 0; prev[start] = start;
+    const up = (i: number) => { while (i > 0) { const p = (i - 1) >> 1; if (dist[heap[p]] <= dist[heap[i]]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const down = (i: number) => { for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < heap.length && dist[heap[l]] < dist[heap[m]]) m = l; if (r < heap.length && dist[heap[r]] < dist[heap[m]]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } };
+    const done = new Uint8Array(N);
+    while (heap.length) {
+      const cur = heap[0];
+      const last = heap.pop()!;
+      if (heap.length) { heap[0] = last; down(0); }
+      if (done[cur]) continue;
+      done[cur] = 1;
+      if (cur === end) break;
       const x = cur % MAP, z = (cur / MAP) | 0;
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, nz = z + dz, n = nz * MAP + nx;
-        if (nx < 0 || nz < 0 || nx >= MAP || nz >= MAP || prev[n] !== -1 || !this.walkable(nx, nz)) continue;
-        prev[n] = cur;
-        q.push(n);
+        if (nx < 0 || nz < 0 || nx >= MAP || nz >= MAP || done[n] || !this.walkable(nx, nz)) continue;
+        const cost = this.blocked[n] === 2 ? 1 : 2.4;
+        if (dist[cur] + cost < dist[n]) { dist[n] = dist[cur] + cost; prev[n] = cur; heap.push(n); up(heap.length - 1); }
       }
     }
-    const end = tz * MAP + tx;
     if (prev[end] === -1) return [];
     const out: THREE.Vector2[] = [];
-    for (let c = end; c !== prev[c]; c = prev[c]) out.push(new THREE.Vector2((c % MAP) + 0.5 + (Math.random() - 0.5) * 0.3, ((c / MAP) | 0) + 0.5 + (Math.random() - 0.5) * 0.3));
+    for (let c = end; c !== prev[c]; c = prev[c]) {
+      const onWalk = this.blocked[c] === 2;
+      const j = onWalk ? 0.12 : 0.3; // on pavements they keep closer to the middle
+      out.push(new THREE.Vector2((c % MAP) + 0.5 + (Math.random() - 0.5) * j, ((c / MAP) | 0) + 0.5 + (Math.random() - 0.5) * j));
+    }
     return out.reverse();
+  }
+
+  /** Where a building's front door is (world x/z), the tile just outside it, and which way to face to go in. */
+  private doorOf(p: Placed): { door: THREE.Vector2; outside: THREE.Vector2; face: number } | null {
+    const b = this.built.get(p.id);
+    if (!b || p.doneAt) return null;
+    const d = b.node.userData.door as THREE.Vector3 | undefined;
+    if (!d) return null;
+    b.node.updateMatrixWorld();
+    const w = d.clone().applyMatrix4(b.node.matrixWorld);
+    const dir = [[0, 1], [-1, 0], [0, -1], [1, 0]][p.rot & 3];
+    const f = footprint(item(p.item), p.rot);
+    const cx = p.x + f.w / 2, cz = p.z + f.d / 2;
+    const half = dir[0] ? f.w / 2 : f.d / 2;
+    const outside = new THREE.Vector2(Math.floor(cx + dir[0] * (half + 0.5) + (dir[0] ? 0 : w.x - cx)) + 0.5, Math.floor(cz + dir[1] * (half + 0.5) + (dir[1] ? 0 : w.z - cz)) + 0.5);
+    return { door: new THREE.Vector2(w.x + dir[0] * 0.12, w.z + dir[1] * 0.12), outside, face: Math.atan2(-dir[0], -dir[1]) };
+  }
+
+  /** Pick something to do: pop home, tend a field, sit on a bench, or stroll somewhere. */
+  private plan(r: Resident, T: number): void {
+    const s = this.state;
+    const pick = <X,>(list: X[]): X | undefined => list[Math.floor(Math.random() * list.length)];
+    const near = (p: Placed) => Math.hypot(p.x - r.pos.x, p.z - r.pos.y) < 12;
+    const roll = Math.random();
+    let goal: Goal = { kind: 'wander' };
+    let target: THREE.Vector2 | null = null;
+    if (s && roll < r.persona.homebody * 0.6) {
+      const home = pick(s.buildings.filter((p) => !p.doneAt && near(p) && ['house', 'factory', 'special'].includes(item(p.item).kind) && p.item !== 'gate'));
+      const d = home && this.doorOf(home);
+      if (home && d && this.walkable(Math.floor(d.outside.x), Math.floor(d.outside.y))) { goal = { kind: 'visit', id: home.id, door: d.door, face: d.face }; target = d.outside; }
+    } else if (s && roll < 0.55 + r.persona.farmer * 0.3) {
+      if (Math.random() < 0.45) {
+        const bench = pick(s.buildings.filter((p) => p.item === 'bench' && near(p)));
+        if (bench) {
+          const dir = [[0, 1], [-1, 0], [0, -1], [1, 0]][bench.rot & 3];
+          const o = new THREE.Vector2(bench.x + 0.5 + dir[0], bench.z + 0.5 + dir[1]);
+          if (this.walkable(Math.floor(o.x), Math.floor(o.y)) && !this.residents.some((x) => x.goal?.kind === 'sit' && x.goal.id === bench.id)) {
+            goal = { kind: 'sit', id: bench.id, seat: new THREE.Vector3(bench.x + 0.5 + dir[0] * 0.08, 0.36, bench.z + 0.5 + dir[1] * 0.08), face: Math.atan2(dir[0], dir[1]) };
+            target = o;
+          }
+        }
+      }
+      if (!target) {
+        const f = pick(s.buildings.filter((p) => p.item === 'field' && near(p)));
+        if (f) {
+          const spots = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dz]) => [f.x + dx, f.z + dz]).filter(([x, z]) => this.walkable(x, z));
+          const sp = pick(spots);
+          if (sp) { goal = { kind: 'work', id: f.id, face: Math.atan2(f.x - sp[0], f.z - sp[1]) }; target = new THREE.Vector2(sp[0] + 0.5 - (sp[0] - f.x) * 0.25, sp[1] + 0.5 - (sp[1] - f.z) * 0.25); }
+        }
+      }
+    }
+    if (!target) {
+      // a stroll: most often along the streets
+      const walks = s?.buildings.filter((p) => walkway(p.item)) ?? [];
+      const w = Math.random() < 0.65 ? pick(walks) : undefined;
+      target = w ? new THREE.Vector2(w.x + 0.5, w.z + 0.5) : this.freeTile(r.seed + Math.floor(T * 10));
+    }
+    if (target.distanceTo(r.pos) > 14) { r.timer = 1; return; }
+    r.path = this.route(r.pos, target);
+    if (goal.kind === 'visit') r.path.push(goal.door.clone());
+    if (goal.kind === 'work') r.path.push(target.clone());
+    if (r.path.length) { r.mode = 'walk'; r.goal = goal; } else r.timer = 1;
   }
 
   // ---------- camera ----------
@@ -350,10 +551,10 @@ export class LandView {
     const node = LM.modelFor(itemId, 3);
     scene.add(node);
     const sphere = new THREE.Box3().setFromObject(node).getBoundingSphere(new THREE.Sphere());
-    const off = new THREE.Vector3().setFromSphericalCoords(sphere.radius / Math.sin(THREE.MathUtils.degToRad(14)) * 1.02, THREE.MathUtils.degToRad(56), YAW);
+    const off = new THREE.Vector3().setFromSphericalCoords(sphere.radius / Math.sin(THREE.MathUtils.degToRad(14)) * 0.9, THREE.MathUtils.degToRad(56), YAW);
     cam.position.copy(sphere.center).add(off);
     cam.lookAt(sphere.center);
-    const r = this.renderer, pr = r.getPixelRatio(), N = 192, n = N / pr;
+    const r = this.renderer, pr = r.getPixelRatio(), N = Math.min(320, Math.floor(Math.min(this.canvas.width, this.canvas.height) * 0.9)), n = N / pr;
     const size = r.getSize(new THREE.Vector2());
     const clear = r.getClearColor(new THREE.Color()), alpha = r.getClearAlpha();
     r.setRenderTarget(null);
@@ -443,9 +644,9 @@ export class LandView {
     const c = MAP / 2;
     this.target.set(c + 3, 0, c + 3);
     this.dist = 110;
-    // frames the crossroads and the Town Hall; tall phone screens look a little further up the street
-    if (this.camera.aspect < 0.8) this.flyTo(c - 2, c - 1.5, 25, 2.4);
-    else this.flyTo(c - 0.5, c, 21, 2.4);
+    // frames the main street, the Town Hall and the cottages; tall phone screens look a little further up
+    if (this.camera.aspect < 0.8) this.flyTo(c - 1, c - 2, 25, 2.4);
+    else this.flyTo(c - 0.5, c - 1.8, 21, 2.4);
   }
 
   // ---------- picking ----------
@@ -491,7 +692,7 @@ export class LandView {
   }
 
   // ---------- placing ----------
-  setGhost(g: { item: string; x: number; z: number; rot: 0 | 1; ok: boolean } | null): void {
+  setGhost(g: { item: string; x: number; z: number; rot: number; ok: boolean } | null): void {
     this.grid.visible = !!g;
     if (!g) { if (this.ghost) { this.ghost.node.removeFromParent(); this.ghost.pad.removeFromParent(); this.ghost = null; } return; }
     const key = `${g.item}:${g.rot}`;
@@ -499,7 +700,7 @@ export class LandView {
       this.setGhost(null);
       this.grid.visible = true;
       const node = LM.modelFor(g.item, 1);
-      node.rotation.y = g.rot ? -Math.PI / 2 : 0;
+      node.rotation.y = -(g.rot & 3) * Math.PI / 2;
       const pad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5, depthWrite: false }));
       this.scene.add(node, pad);
       this.ghost = { node, pad, key };
@@ -516,8 +717,14 @@ export class LandView {
     this.selected.visible = !!b;
     if (!b) return;
     const f = footprint(item(b.placed.item), b.placed.rot);
-    this.selected.scale.set(f.w + 0.2, 1, f.d + 0.2);
-    this.selected.position.set(b.placed.x + f.w / 2, 0.02, b.placed.z + f.d / 2);
+    // a soft rounded outline around the footprint
+    const rr = (sh: THREE.Path, w: number, d: number, r: number) => { sh.moveTo(-w / 2 + r, -d / 2); sh.lineTo(w / 2 - r, -d / 2); sh.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r); sh.lineTo(w / 2, d / 2 - r); sh.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2); sh.lineTo(-w / 2 + r, d / 2); sh.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r); sh.lineTo(-w / 2, -d / 2 + r); sh.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2); return sh; };
+    const outer = rr(new THREE.Shape(), f.w + 0.24, f.d + 0.24, 0.26) as THREE.Shape;
+    outer.holes.push(rr(new THREE.Path(), f.w + 0.08, f.d + 0.08, 0.2));
+    this.selected.geometry.dispose();
+    this.selected.geometry = new THREE.ShapeGeometry(outer, 6).rotateX(Math.PI / 2);
+    this.selected.scale.set(1, 1, 1);
+    this.selected.position.set(b.placed.x + f.w / 2, 0.09, b.placed.z + f.d / 2);
     b.node.userData.boing = 0;
   }
 
@@ -564,7 +771,8 @@ export class LandView {
   poke(i: number): void {
     const r = this.residents[i];
     if (!r) return;
-    r.mode = 'hop'; r.hop = 0; r.path = [];
+    if (r.mode === 'inside' || r.mode === 'enter') return;
+    r.mode = 'hop'; r.hop = 0; r.path = []; r.goal = null; r.y = 0; r.mood = 'happy';
     r.targetFacing = this.facingCamera(r);
     this.say(r, this.phrase(r.seed + Math.floor(Math.random() * 100)), 3.2);
   }
@@ -578,7 +786,9 @@ export class LandView {
     r.bubble?.remove();
     const el = document.createElement('div');
     el.className = 'land-say';
-    el.textContent = text;
+    const who = document.createElement('b');
+    who.textContent = r.name;
+    el.append(who, text);
     this.overlay.append(el);
     r.bubble = el;
     r.bubbleT = secs;
@@ -590,14 +800,39 @@ export class LandView {
     this.last = performance.now();
     const tick = (t: number) => {
       this.raf = requestAnimationFrame(tick);
-      const dt = Math.min(0.05, Math.max(0, (t - this.last) / 1000)); // the first frame time can be slightly in the past
+      const raw = Math.max(0, (t - this.last) / 1000); // the first frame time can be slightly in the past
+      const dt = Math.min(0.05, raw);
       this.last = t;
       this.frame(dt);
+      this.adapt(raw);
     };
     this.raf = requestAnimationFrame(tick);
   }
 
   stop(): void { cancelAnimationFrame(this.raf); this.raf = 0; }
+
+  /**
+   * Automatic quality: if frames take too long for a few seconds (an older phone), step down — fewer pixels
+   * first, then no MSAA, then softer shadows — so the town stays smooth. Never steps back up mid-visit.
+   */
+  private perf = { n: 0, sum: 0, level: 0 };
+  private adapt(raw: number): void {
+    if (raw <= 0 || raw > 0.5 || document.hidden) return; // ignore hiccups and tab switches
+    const p = this.perf;
+    p.n++; p.sum += raw;
+    if (p.n < 120) return;
+    const avg = p.sum / p.n;
+    p.n = 0; p.sum = 0;
+    if (avg < 1 / 42 || p.level >= 3) return;
+    p.level++;
+    if (p.level === 1) this.renderer.setPixelRatio(Math.min(this.renderer.getPixelRatio(), 1.25));
+    if (p.level === 2) { this.renderer.setPixelRatio(1); for (const t of [this.composer.renderTarget1, this.composer.renderTarget2]) { t.samples = 0; t.dispose(); } }
+    if (p.level === 3) { this.sun.shadow.mapSize.set(1024, 1024); this.sun.shadow.map?.dispose(); this.sun.shadow.map = null; }
+    this.resize();
+  }
+
+  /** Current automatic quality step (0 = best). */
+  get quality(): number { return this.perf.level; }
 
   /** One frame (also callable directly, e.g. by tests). */
   frame(dt: number): void {
@@ -682,6 +917,16 @@ export class LandView {
         const yarn = n.getObjectByName('yarn');
         if (yarn && busy) yarn.rotation.y += dt * 2;
       }
+      // doors swing open when someone goes in or out; homes puff a little chimney smoke
+      if (n.userData.doorLeaf === undefined) n.userData.doorLeaf = n.getObjectByName('doorleaf') ?? null;
+      const leaf = n.userData.doorLeaf as THREE.Object3D | null;
+      if (leaf) {
+        if (n.userData.doorOpen > 0) n.userData.doorOpen -= dt;
+        const want = n.userData.doorOpen > 0 ? -1.3 : 0;
+        leaf.rotation.y += (want - leaf.rotation.y) * Math.min(1, dt * 7);
+      }
+      const ch = n.userData.chimney as THREE.Vector3 | undefined;
+      if (ch && !p.doneAt && item(p.item).kind === 'house') { b.smoke -= dt; if (b.smoke <= 0) { b.smoke = 1.4 + Math.random() * 1.6; this.smoke(ch.clone().applyMatrix4(n.matrixWorld)); } }
       const portal = n.getObjectByName('portal');
       if (portal) { (portal as THREE.Mesh).scale.set(1 + Math.sin(T * 2) * 0.05, 1 + Math.sin(T * 2.6) * 0.04, 1); ((portal as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.65 + Math.sin(T * 3) * 0.25; }
       const flag = n.getObjectByName('flag');
@@ -704,9 +949,19 @@ export class LandView {
         this.toScreen(b.bubble, new THREE.Vector3(n.position.x, p.item === 'field' ? 0.85 : p.doneAt ? 1.6 : 2.1, n.position.z), timer ? 0 : Math.sin(T * 4 + p.id) * 4);
       } else if (b.bubble) { b.bubble.remove(); b.bubble = undefined; }
     }
-    this.selected.material.opacity = 0.25 + Math.sin(T * 4) * 0.1;
+    this.selected.material.opacity = 0.7 + Math.sin(T * 4) * 0.25;
     if (this.ghost) this.ghost.node.position.y = 0.12 + Math.sin(T * 5) * 0.05;
     for (const r of this.residents) this.live(r, dt, T);
+    for (const f of this.butterflies) {
+      const t = T * f.sp + f.ph;
+      const x = f.home.x + Math.sin(t * 0.7) * 2.2 + Math.sin(t * 1.9) * 0.4, z = f.home.y + Math.cos(t * 0.53) * 1.8 + Math.cos(t * 2.3) * 0.3;
+      const y = 0.45 + Math.sin(t * 2.7) * 0.15 + Math.sin(t * 7) * 0.04;
+      const dx = x - f.g.position.x, dz = z - f.g.position.z;
+      f.g.position.set(x, y, z);
+      if (dx * dx + dz * dz > 1e-8) f.g.rotation.y = Math.atan2(dx, dz);
+      const flap = 0.25 + Math.abs(Math.sin(T * 22 + f.ph)) * 1.1;
+      f.wings[0].rotation.y = -flap; f.wings[1].rotation.y = flap;
+    }
     // particles
     this.puffs = this.puffs.filter((p) => {
       p.life += dt;
@@ -736,35 +991,72 @@ export class LandView {
     el.style.visibility = v.z > 1 ? 'hidden' : '';
   }
 
-  /** A resident's little life: walk somewhere, stop and breathe, look around, blink, notice you, chat. */
+  /** A resident's little life: walk somewhere (on the pavements), pop into a house, tend a field, sit on a bench, chat, breathe, blink. */
   private live(r: Resident, dt: number, T: number): void {
     const m = r.model;
     r.phase += dt;
     r.timer -= dt;
-    let bob = 0, sx = 1, sy = 1, lean = 0;
+    let bob = 0, sx = 1, sy = 1, lean = 0, scale = 1;
+    const g = r.goal;
     if (r.mode === 'walk') {
       const next = r.path[0];
-      if (!next) { r.mode = 'idle'; r.timer = 2 + Math.random() * 5; }
+      if (!next) this.arrive(r);
       else {
         const d = next.clone().sub(r.pos);
         const len = d.length();
-        const step = dt * 1.05;
+        const step = dt * 1.05 * r.persona.speed;
         if (len <= step) { r.pos.copy(next); r.path.shift(); }
         else r.pos.addScaledVector(d.divideScalar(len), step);
-        r.targetFacing = Math.atan2(d.x, d.y);
+        if (len > 1e-3) r.targetFacing = Math.atan2(d.x, d.y);
         // little hops: up, then a squashy landing
-        const k = (r.phase * 2.6) % 1;
+        const k = (r.phase * 2.6 * r.persona.speed) % 1;
         bob = Math.sin(k * Math.PI) * 0.07;
         const land = Math.max(0, 1 - k * 6) + Math.max(0, (k - 0.9) * 10);
         sx = 1 + land * 0.08 - Math.sin(k * Math.PI) * 0.03; sy = 1 - land * 0.1 + Math.sin(k * Math.PI) * 0.06;
         lean = 0.12;
       }
+    } else if (r.mode === 'enter' || r.mode === 'exit') {
+      // squeeze through the door (it swings open for them)
+      const k = Math.min(1, 1 - r.timer / 0.5);
+      scale = r.mode === 'enter' ? 1 - k : k;
+      if (g?.kind === 'visit') r.targetFacing = r.mode === 'enter' ? g.face : g.face + Math.PI;
+      if (r.timer <= 0) {
+        if (r.mode === 'enter') { r.mode = 'inside'; r.timer = 4 + Math.random() * 9 * r.persona.homebody; this.puffAt(r.pos.x, r.pos.y); }
+        else { r.mode = 'idle'; r.goal = null; r.timer = 1 + Math.random() * 2; r.mood = 'happy'; setTimeout(() => { r.mood = 'normal'; }, 1500); }
+      }
+    } else if (r.mode === 'inside') {
+      scale = 0;
+      if (r.timer <= 0 && g?.kind === 'visit') { this.openDoor(g.id); r.mode = 'exit'; r.timer = 0.5; }
+      else if (r.timer <= 0) { r.mode = 'idle'; r.goal = null; }
+    } else if (r.mode === 'work') {
+      // tending the crops: bob down and up, now and then a puff of soil
+      const k = (r.phase * 1.6) % 1;
+      lean = 0.35 + Math.sin(k * Math.PI * 2) * 0.25;
+      sy = 1 - Math.max(0, Math.sin(k * Math.PI * 2)) * 0.08; sx = 2 - sy;
+      if (g?.kind === 'work') r.targetFacing = g.face;
+      if (Math.random() < dt * 1.2) this.dust(r.pos.x + Math.sin(r.facing) * 0.3, r.pos.y + Math.cos(r.facing) * 0.3);
+      if (r.timer <= 0) { r.mode = 'idle'; r.goal = null; r.timer = 1 + Math.random() * 2; }
+    } else if (r.mode === 'sit') {
+      if (g?.kind === 'sit') {
+        const k = Math.min(1, r.hop / 0.35);
+        r.hop += dt;
+        if (k < 1) { r.pos.lerp(new THREE.Vector2(g.seat.x, g.seat.z), k); bob = Math.sin(k * Math.PI) * 0.25; r.y = g.seat.y * k - 0.26 * k * 0.4; }
+        r.targetFacing = g.face;
+        const br = Math.sin(r.phase * 1.6);
+        sy = 0.94 + br * 0.03; sx = 2 - sy;
+        r.mood = 'sleepy';
+      }
+      if (r.timer <= 0) { r.mode = 'hop'; r.hop = 0; r.y = 0; r.mood = 'normal'; if (g?.kind === 'sit') r.pos.set(g.seat.x + Math.sin(g.face) * 0.75, g.seat.z + Math.cos(g.face) * 0.75); r.goal = null; }
+    } else if (r.mode === 'chat') {
+      const br = Math.sin(r.phase * 5);
+      sy = 1 + br * 0.04; sx = 1 - br * 0.02;
+      if (r.timer <= 0) { r.mode = 'idle'; r.mood = 'normal'; r.timer = 2 + Math.random() * 3; }
     } else if (r.mode === 'hop') {
       r.hop += dt;
       const k = r.hop / 0.55;
       bob = Math.sin(Math.min(1, k) * Math.PI) * 0.28;
       sy = k < 0.15 ? 1 - k * 1.2 : k > 0.9 ? 0.88 : 1.06; sx = 2 - sy;
-      if (k >= 1.2) { r.mode = 'idle'; r.timer = 2.5 + Math.random() * 2; }
+      if (k >= 1.2) { r.mode = 'idle'; r.timer = 2.5 + Math.random() * 2; r.mood = 'normal'; }
     } else {
       // idle: breathe and shift weight, like a real little creature
       const br = Math.sin(r.phase * 2.3);
@@ -779,12 +1071,10 @@ export class LandView {
         r.look.set((Math.random() - 0.5) * 0.06, (Math.random() - 0.5) * 0.04);
       }
       if (r.timer <= 0) {
-        if (Math.random() < 0.18) { r.mode = 'hop'; r.hop = 0; }
-        else {
-          const target = this.freeTile(r.seed + Math.floor(T * 10));
-          if (target.distanceTo(r.pos) < 9) r.path = this.route(r.pos, target);
-          if (r.path.length) r.mode = 'walk'; else r.timer = 1;
-        }
+        const friend = Math.random() < r.persona.chatty * 0.5 ? this.residents.find((o) => o !== r && o.mode === 'idle' && o.pos.distanceTo(r.pos) < 2.6) : undefined;
+        if (friend) this.chat(r, friend);
+        else if (Math.random() < r.persona.hoppy) { r.mode = 'hop'; r.hop = 0; }
+        else this.plan(r, T);
       }
     }
     if (r.mode !== 'idle') m.body.rotation.z *= 0.9;
@@ -792,30 +1082,72 @@ export class LandView {
     let df = r.targetFacing - r.facing;
     df = Math.atan2(Math.sin(df), Math.cos(df));
     r.facing += df * Math.min(1, dt * 6);
-    m.group.position.set(r.pos.x, 0.26 + bob, r.pos.y);
+    const hidden = scale < 0.02;
+    m.group.visible = r.shadow.visible = !hidden;
+    m.group.position.set(r.pos.x, 0.26 + bob + r.y, r.pos.y);
     m.group.rotation.y = r.facing;
+    m.group.scale.setScalar(Math.max(0.001, scale));
     // feet: step while walking, tuck in mid-hop; the shadow shrinks as they rise
-    const stride = r.mode === 'walk' ? Math.sin(r.phase * 2.6 * Math.PI) * 0.06 : 0;
+    const stride = r.mode === 'walk' ? Math.sin(r.phase * 2.6 * r.persona.speed * Math.PI) * 0.06 : 0;
     r.feet[0].position.z = 0.05 + stride; r.feet[1].position.z = 0.05 - stride;
     r.feet[0].position.y = r.feet[1].position.y = -0.21 - bob * 0.5;
-    r.shadow.position.set(r.pos.x, 0.05, r.pos.y);
-    r.shadow.scale.setScalar(1 - Math.min(0.5, bob * 1.6));
+    r.shadow.position.set(r.pos.x, 0.05 + (r.y > 0.05 ? 0.33 : 0), r.pos.y);
+    r.shadow.scale.setScalar((1 - Math.min(0.5, bob * 1.6)) * scale);
     m.body.rotation.x = lean;
     m.body.scale.set(sx, sy, sx);
-    // blink
+    // eyes: blink, happy squints, sleepy lids
     r.blinkIn -= dt;
     if (r.blinkIn <= 0) { r.blinking = 0.13; r.blinkIn = 2 + Math.random() * 4; }
     const closed = r.blinking > 0;
     if (closed) r.blinking -= dt;
-    for (const e of m.eyes) e.open.scale.y = closed ? 0.12 : 1;
+    const happy = r.mood === 'happy' || r.mode === 'chat';
+    for (const e of m.eyes) { e.open.visible = !happy; e.lid.visible = happy; e.open.scale.y = closed ? 0.12 : r.mood === 'sleepy' ? 0.45 : 1; }
     for (const p of m.pupils) { p.position.x = r.look.x; p.position.y = r.look.y; }
     // speech bubbles: now and then someone says something
-    if (!r.bubble && Math.random() < dt / 40) this.say(r, this.phrase(r.seed + Math.floor(T)), 3.4);
+    if (!r.bubble && !hidden && Math.random() < dt / 40) this.say(r, this.phrase(r.seed + Math.floor(T)), 3.4);
     if (r.bubble) {
       r.bubbleT -= dt;
-      this.toScreen(r.bubble, new THREE.Vector3(r.pos.x, 0.78 + bob, r.pos.y));
-      if (r.bubbleT <= 0) { r.bubble.remove(); r.bubble = undefined; }
+      this.toScreen(r.bubble, new THREE.Vector3(r.pos.x, 0.78 + bob + r.y, r.pos.y));
+      if (r.bubbleT <= 0 || hidden) { r.bubble.remove(); r.bubble = undefined; }
     }
+  }
+
+  /** Reached the end of a walk: do what we came for. */
+  private arrive(r: Resident): void {
+    const g = r.goal;
+    if (g?.kind === 'visit' && this.built.has(g.id)) { this.openDoor(g.id); r.mode = 'enter'; r.timer = 0.5; return; }
+    if (g?.kind === 'work' && this.built.has(g.id)) { r.mode = 'work'; r.timer = 3.5 + Math.random() * 4 * (0.5 + r.persona.farmer); return; }
+    if (g?.kind === 'sit' && this.built.has(g.id)) { r.mode = 'sit'; r.hop = 0; r.timer = 5 + Math.random() * 8; return; }
+    r.mode = 'idle'; r.goal = null; r.timer = 2 + Math.random() * 5;
+  }
+
+  /** Two Fuzzies stop to say hello. */
+  private chat(a: Resident, b: Resident): void {
+    for (const [x, y] of [[a, b], [b, a]]) {
+      x.mode = 'chat'; x.timer = 3 + Math.random(); x.path = []; x.goal = null;
+      x.targetFacing = Math.atan2(y.pos.x - x.pos.x, y.pos.y - x.pos.y);
+    }
+    this.say(a, Resident_greet(b.name), 2.6);
+    setTimeout(() => { if (b.mode === 'chat') this.say(b, Resident_greet(a.name), 2.4); }, 900);
+  }
+
+  /** Swing a building's front door open for a moment. */
+  private openDoor(id: number): void {
+    const b = this.built.get(id);
+    if (b) b.node.userData.doorOpen = 1.4;
+  }
+
+  private puffAt(x: number, z: number): void {
+    for (let i = 0; i < 4; i++) this.sparkle(x, 0.3, z, 1);
+  }
+
+  /** A little puff of soil (farm work). */
+  private dust(x: number, z: number): void {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.puffTex, transparent: true, depthWrite: false, color: 0xc49a6c, opacity: 0.6 }));
+    s.position.set(x, 0.12, z);
+    s.scale.setScalar(0.1);
+    this.scene.add(s);
+    this.puffs.push({ s, v: new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.5, (Math.random() - 0.5) * 0.4), life: 0, max: 0.7, grow: 0.8 });
   }
 
   /** Camera position that frames a building (for zooming into the Crossing Gate). */

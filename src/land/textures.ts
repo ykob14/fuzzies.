@@ -26,28 +26,31 @@ export function shade(hex: string, amt: number): string {
   return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
 }
 
-/** Rows of rounded clay roof tiles. One tile of texture ≈ 1 unit. */
+/** Rows of rounded clay roof shingles with a soft shadow under each row. One tile of texture ≈ 0.7 units. */
 export function roofTiles(color: string): THREE.CanvasTexture {
-  return memo('roof' + color, () => {
-    const S = 256, rows = 8, cols = 8;
+  return memo('roof2' + color, () => {
+    const S = 256, rows = 6, cols = 6;
     const [c, x] = canvas(S, S);
     const r = rng(3);
-    x.fillStyle = shade(color, -0.25); x.fillRect(0, 0, S, S);
+    x.fillStyle = shade(color, -0.3); x.fillRect(0, 0, S, S);
     const tw = S / cols, th = S / rows;
-    for (let j = rows; j >= 0; j--) for (let i = -1; i <= cols; i++) {
+    for (let j = 0; j < rows; j++) for (let i = -1; i <= cols; i++) {
       const ox = (j % 2) * tw / 2;
       const px = i * tw + ox, py = j * th;
-      const g = x.createLinearGradient(0, py - th, 0, py + th * 0.4);
-      const v = (r() - 0.5) * 0.12;
-      g.addColorStop(0, shade(color, 0.1 + v)); g.addColorStop(0.75, shade(color, v)); g.addColorStop(1, shade(color, -0.2 + v));
+      const v = (r() - 0.5) * 0.08;
+      const g = x.createLinearGradient(0, py, 0, py + th);
+      g.addColorStop(0, shade(color, -0.08 + v)); g.addColorStop(0.55, shade(color, 0.06 + v)); g.addColorStop(1, shade(color, -0.02 + v));
       x.fillStyle = g;
-      x.beginPath();
-      x.moveTo(px + 1, py - th);
-      x.lineTo(px + tw - 1, py - th);
-      x.lineTo(px + tw - 1, py);
-      x.quadraticCurveTo(px + tw / 2, py + th * 0.55, px + 1, py);
-      x.closePath();
-      x.fill();
+      x.beginPath(); x.roundRect(px + 1.5, py - 2, tw - 3, th + 1, [0, 0, tw * 0.42, tw * 0.42]); x.fill();
+      // a soft highlight along the bottom lip of each shingle
+      x.strokeStyle = `rgba(255,255,255,${0.16 + r() * 0.06})`; x.lineWidth = 2;
+      x.beginPath(); x.moveTo(px + tw * 0.2, py + th - 3); x.quadraticCurveTo(px + tw / 2, py + th + 1, px + tw * 0.8, py + th - 3); x.stroke();
+    }
+    // the shadow each row casts on the one below
+    for (let j = 1; j <= rows; j++) {
+      const g = x.createLinearGradient(0, j * th - 1, 0, j * th + 7);
+      g.addColorStop(0, 'rgba(0,0,0,0.28)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = g; x.fillRect(0, j * th - 1, S, 8);
     }
     return tex(c);
   });
@@ -169,6 +172,17 @@ export function lawn(): THREE.CanvasTexture {
       x.lineWidth = 1 + r() * 0.6;
       const px = r() * S, py = r() * S, l = 2 + r() * 3.5, lean = (r() - 0.5) * 2;
       x.beginPath(); x.moveTo(px, py); x.lineTo(px + lean, py - l); x.stroke();
+    }
+    // clover leaves and the odd tiny daisy, for a lived-in lawn
+    for (let i = 0; i < 90; i++) {
+      const px = r() * S, py = r() * S;
+      x.fillStyle = 'rgba(70,140,52,0.35)';
+      for (let k = 0; k < 3; k++) { const a = k * 2.1 + r(); x.beginPath(); x.arc(px + Math.cos(a) * 2.2, py + Math.sin(a) * 2.2, 1.9, 0, Math.PI * 2); x.fill(); }
+    }
+    for (let i = 0; i < 60; i++) {
+      const px = r() * S, py = r() * S;
+      x.fillStyle = r() < 0.7 ? 'rgba(255,255,255,0.75)' : 'rgba(255,224,102,0.8)';
+      x.beginPath(); x.arc(px, py, 1.1, 0, Math.PI * 2); x.fill();
     }
     return tex(c);
   });

@@ -74,9 +74,16 @@ function doorOn(g: THREE.Group, x: number, z: number, w = 0.28, h = 0.42, color 
   const d = new THREE.Group();
   const wood = textured('door' + color, T.planks(color), [1, 1], 0.7);
   add(d, rbox(w + 0.08, h + 0.04, 0.04, 0.02), std(PAL.trim, 0.6), 0, (h + 0.04) / 2 - 0.02, -0.005);
-  add(d, new THREE.BoxGeometry(w, h - w / 2, 0.05), wood, 0, (h - w / 2) / 2, 0);
-  add(d, new THREE.CylinderGeometry(w / 2, w / 2, 0.05, 20, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2), wood, 0, h - w / 2, 0);
-  add(d, new THREE.SphereGeometry(0.02, 8, 6), gold(), w * 0.3, (h - w / 2) * 0.55, 0.03, false);
+  // a dark doorway behind, and the door leaf on a hinge so it can swing open when a Fuzzy goes in
+  add(d, new THREE.BoxGeometry(w, h - 0.02, 0.02), std('#3b2a20', 0.9), 0, (h - 0.02) / 2, 0.012, false);
+  const leaf = new THREE.Group();
+  leaf.name = 'doorleaf';
+  leaf.position.set(-w / 2, 0, 0.02);
+  add(leaf, new THREE.BoxGeometry(w, h - w / 2, 0.05), wood, w / 2, (h - w / 2) / 2, 0);
+  add(leaf, new THREE.CylinderGeometry(w / 2, w / 2, 0.05, 20, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2), wood, w / 2, h - w / 2, 0);
+  add(leaf, new THREE.SphereGeometry(0.02, 8, 6), gold(), w * 0.8, (h - w / 2) * 0.55, 0.03, false);
+  add(leaf, new THREE.BoxGeometry(w * 0.55, 0.012, 0.012), std(T.shade(color, -0.15), 0.7), w / 2, (h - w / 2) * 0.8, 0.028, false);
+  d.add(leaf);
   add(d, rbox(w + 0.16, 0.05, 0.2, 0.02), std(PAL.stoneDark, 0.9), 0, 0.025, 0.08);
   if (canopy) {
     const c = add(d, rbox(w + 0.22, 0.05, 0.22, 0.02), std(canopy, 0.7), 0, h + 0.1, 0.1);
@@ -86,6 +93,7 @@ function doorOn(g: THREE.Group, x: number, z: number, w = 0.28, h = 0.42, color 
   d.position.set(x, 0, z);
   d.rotation.y = ry;
   g.add(d);
+  if (!g.userData.door && ry === 0) g.userData.door = new THREE.Vector3(x, 0, z + 0.06);
 }
 
 /** A chunky gable roof over a w × d block whose walls end at height y; the ridge runs along x. */
@@ -109,8 +117,78 @@ function gableRoof(g: THREE.Group, w: number, d: number, y: number, rise: number
 }
 
 function chimney(g: THREE.Group, x: number, y: number, z: number, h = 0.38): void {
-  add(g, rbox(0.18, h, 0.18, 0.03), textured('chim', T.bricks('#b0603f'), [1, 1]), x, y + h / 2, z);
-  add(g, rbox(0.24, 0.06, 0.24, 0.02), std('#6b5a52', 0.8), x, y + h, z);
+  add(g, rbox(0.18, h, 0.18, 0.03), textured('chim', T.bricks('#c06a48'), [1, 1]), x, y + h / 2, z);
+  add(g, rbox(0.24, 0.06, 0.24, 0.02), std('#7a6a62', 0.8), x, y + h, z);
+  add(g, new THREE.CylinderGeometry(0.05, 0.05, 0.02, 12), std('#2a2220', 1), x, y + h + 0.03, z, false);
+  if (!g.userData.chimney) g.userData.chimney = new THREE.Vector3(x, y + h + 0.08, z);
+}
+
+/** A little white picket fence from (x0, z) to (x1, z) on the +z side (rotate the group for other sides). */
+function picket(g: THREE.Group, x0: number, x1: number, z: number, h = 0.16, color = '#fffaf2'): void {
+  const n = Math.max(2, Math.round((x1 - x0) / 0.09));
+  const m = std(color, 0.7);
+  for (let i = 0; i <= n; i++) {
+    const x = x0 + ((x1 - x0) * i) / n;
+    add(g, new THREE.BoxGeometry(0.028, h, 0.02), m, x, h / 2, z, false);
+    add(g, new THREE.ConeGeometry(0.02, 0.035, 4).rotateY(Math.PI / 4), m, x, h + 0.015, z, false);
+  }
+  for (const y of [h * 0.35, h * 0.75]) add(g, new THREE.BoxGeometry(x1 - x0, 0.018, 0.012), m, (x0 + x1) / 2, y, z - 0.014, false);
+}
+
+/** A warm lantern on a wall (glows a little). */
+function lantern(g: THREE.Group, x: number, y: number, z: number): void {
+  add(g, new THREE.BoxGeometry(0.02, 0.02, 0.06), std('#3b3a40', 0.5, 0.6), x, y + 0.06, z + 0.03, false);
+  add(g, new THREE.CylinderGeometry(0.035, 0.028, 0.08, 8), mat('lanternglass', () => new THREE.MeshStandardMaterial({ color: '#fff1c2', emissive: '#ffcc66', emissiveIntensity: 0.9, roughness: 0.3 })), x, y, z + 0.07, false);
+  add(g, new THREE.ConeGeometry(0.045, 0.04, 8), std('#3b3a40', 0.5, 0.6), x, y + 0.06, z + 0.07, false);
+}
+
+/** Stepping stones from (x, z0) to (x, z1). */
+function steppingStones(g: THREE.Group, x: number, z0: number, z1: number): void {
+  const n = Math.max(1, Math.round(Math.abs(z1 - z0) / 0.14));
+  for (let i = 0; i <= n; i++) {
+    const z = z0 + ((z1 - z0) * i) / n;
+    const st = add(g, new THREE.CylinderGeometry(0.07 + (i % 2) * 0.012, 0.075, 0.025, 10), std(i % 2 ? '#e6ddd0' : '#d9cfc0', 0.9), x + (i % 2 ? 0.02 : -0.02), 0.012, z, false);
+    st.scale.z = 0.8;
+  }
+}
+
+/** A tiny round mailbox on a post. */
+function mailbox(g: THREE.Group, x: number, z: number, color: string): void {
+  add(g, new THREE.BoxGeometry(0.025, 0.2, 0.025), std(PAL.woodDark, 0.8), x, 0.1, z, false);
+  add(g, new THREE.CapsuleGeometry(0.045, 0.08, 4, 10).rotateX(Math.PI / 2), std(color, 0.5), x, 0.23, z);
+  add(g, new THREE.BoxGeometry(0.008, 0.06, 0.03), std('#e03131', 0.5), x + 0.05, 0.27, z - 0.02, false);
+}
+
+/** Fuzzies' outfits for the residents of Fuzzies Land (sits on the body so it squashes along). */
+export function fuzzyOutfit(kind: string, seed: number): THREE.Group | null {
+  const cols = [PAL.raspberry, PAL.teal, PAL.sky, PAL.butterRoof, PAL.coral, '#ffffff'];
+  const c = cols[seed % cols.length];
+  const g = new THREE.Group();
+  if (kind === 'bow') {
+    for (const s of [-1, 1]) add(g, new THREE.ConeGeometry(0.06, 0.1, 10).rotateZ(s * Math.PI / 2), std(c, 0.5), s * 0.055, 0, 0, false);
+    add(g, new THREE.SphereGeometry(0.03, 10, 8), std(T.shade(c, -0.1), 0.5), 0, 0, 0, false);
+    g.position.set(0.1, 0.22, 0.04); g.rotation.z = -0.4;
+  } else if (kind === 'beanie') {
+    add(g, new THREE.SphereGeometry(0.17, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), std(c, 0.9), 0, 0, 0, false).scale.y = 0.75;
+    add(g, new THREE.TorusGeometry(0.165, 0.025, 8, 24).rotateX(Math.PI / 2), std(T.shade(c, 0.12), 0.9), 0, 0.01, 0, false);
+    add(g, new THREE.IcosahedronGeometry(0.05, 1), std('#ffffff', 0.95), 0, 0.14, 0, false);
+    g.position.set(0, 0.15, -0.01);
+  } else if (kind === 'straw') {
+    add(g, new THREE.CylinderGeometry(0.23, 0.23, 0.014, 24), std('#f1d38a', 0.85), 0, 0, 0, false);
+    add(g, new THREE.CylinderGeometry(0.12, 0.13, 0.1, 18), std('#f1d38a', 0.85), 0, 0.05, 0, false);
+    add(g, new THREE.CylinderGeometry(0.132, 0.132, 0.03, 18), std(c, 0.6), 0, 0.02, 0, false);
+    g.position.set(0, 0.2, 0); g.rotation.z = 0.12;
+  } else if (kind === 'flower') {
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; add(g, new THREE.SphereGeometry(0.035, 8, 6), std(c === '#ffffff' ? '#ff9fc8' : c, 0.5), Math.cos(a) * 0.045, Math.sin(a) * 0.045, 0, false).scale.z = 0.5; }
+    add(g, new THREE.SphereGeometry(0.03, 8, 6), std(PAL.gold, 0.5), 0, 0, 0.01, false);
+    g.position.set(-0.12, 0.2, 0.08); g.rotation.set(-0.3, -0.5, 0.3);
+  } else if (kind === 'scarf') {
+    add(g, new THREE.TorusGeometry(0.17, 0.04, 8, 28).rotateX(Math.PI / 2), std(c, 0.9), 0, 0, 0, false);
+    const tail = add(g, rbox(0.07, 0.14, 0.03, 0.012), std(c, 0.9), 0.09, -0.07, 0.15, false);
+    tail.rotation.z = 0.2;
+    g.position.set(0, -0.12, 0);
+  } else return null;
+  return g;
 }
 
 const bush = (g: THREE.Group, x: number, z: number, r = 0.16) => { const b = new THREE.Mesh(M.bushGeometry(Math.round(x * 31 + z * 17), r * 2.2), baseMats().leaves); b.position.set(x, 0, z); b.castShadow = true; g.add(b); };
@@ -138,8 +216,16 @@ export function cottage(seed: number): THREE.Group {
   // a flower box and a couple of shrubs by the door
   add(g, rbox(0.38, 0.08, 0.1, 0.02), textured('box', T.planks('#a47148'), [1, 1]), 0.3, 0.42, 0.65);
   for (let i = 0; i < 6; i++) add(g, new THREE.IcosahedronGeometry(0.035, 1), std(['#ff6b9a', '#ffd43b', '#ffffff'][i % 3], 0.6), 0.16 + i * 0.055, 0.48, 0.65, false);
-  bush(g, -0.62, 0.76, 0.13);
-  bush(g, 0.66, 0.76, 0.11);
+  bush(g, -0.7, 0.72, 0.12);
+  bush(g, 0.74, -0.7, 0.12);
+  // a front garden: picket fence with a gap for the walk, stepping stones, a mailbox and a lantern by the door
+  picket(g, -0.93, -0.42, 0.9);
+  picket(g, -0.14, 0.93, 0.9);
+  steppingStones(g, -0.28, 0.72, 0.92);
+  mailbox(g, -0.5, 0.82, look.roof);
+  lantern(g, -0.06, 0.62, 0.58);
+  for (let i = 0; i < 5; i++) add(g, new THREE.IcosahedronGeometry(0.03, 1), std(['#ff6b9a', '#ffd43b', '#ffffff', '#ff9fc8', '#ff922b'][(i + seed) % 5], 0.6), 0.1 + i * 0.16, 0.05, 0.8 + (i % 2) * 0.05, false);
+  for (let i = 0; i < 4; i++) bush(g, 0.12 + i * 0.22, 0.78, 0.06);
   return g;
 }
 
@@ -155,6 +241,15 @@ export function mushroomHouse(): THREE.Group {
   windowOn(g, 0.36, 0.74, 0.4, 0.18, 0.2, 0.75);
   windowOn(g, -0.36, 0.74, 0.4, 0.18, 0.2, -0.75);
   bush(g, 0.62, 0.62, 0.12);
+  bush(g, -0.7, 0.4, 0.1);
+  steppingStones(g, 0, 0.62, 0.92);
+  lantern(g, 0.2, 0.62, 0.48);
+  mailbox(g, -0.55, 0.78, PAL.raspberry);
+  // little toadstools and flowers around the garden
+  for (const [x, z, k] of [[0.72, -0.5, 1], [-0.75, -0.45, 0.8], [0.45, 0.82, 0.7]]) {
+    add(g, new THREE.CylinderGeometry(0.025 * k, 0.03 * k, 0.08 * k, 8), std('#fbf1dd', 0.8), x, 0.04 * k, z, false);
+    add(g, new THREE.SphereGeometry(0.07 * k, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std('#ff5a5f', 0.5), x, 0.075 * k, z, true);
+  }
   return g;
 }
 
@@ -167,6 +262,7 @@ export function treehouse(): THREE.Group {
   gableRoof(g, 0.95, 0.8, 1.84, 0.4, PAL.teal, 0.12, '#c98b4e');
   doorOn(g, -0.15, 0.405, 0.2, 0.34, '#6d4c3d');
   g.children[g.children.length - 1].position.y = 1.24;
+  g.userData.door = new THREE.Vector3(0.45, 0, 0.8); // up the ladder
   windowOn(g, 0.22, 1.56, 0.405, 0.18, 0.2, 0, PAL.teal);
   for (let i = 0; i < 7; i++) add(g, new THREE.CylinderGeometry(0.015, 0.015, 0.22, 6), std('#8a5a34'), -0.7 + i * 0.233, 1.35, 0.62, false);
   add(g, new THREE.BoxGeometry(1.45, 0.03, 0.03), std('#8a5a34'), 0, 1.45, 0.62);
@@ -195,6 +291,12 @@ export function villa(): THREE.Group {
   doorOn(g, 0, 0.71, 0.36, 0.6, '#5a6fa8', 0, PAL.sky);
   for (const x of [-0.55, 0.55]) { windowOn(g, x, 0.62, 0.71, 0.3, 0.32, 0, PAL.sky); windowOn(g, x, 1.27, 0.71, 0.3, 0.32, 0, PAL.sky); }
   windowOn(g, 0, 1.27, 0.71, 0.3, 0.32, 0, PAL.sky);
+  add(g, rbox(0.9, 0.05, 0.2, 0.02), std(PAL.trim, 0.6), 0, 1.0, 0.82);
+  for (let i = 0; i < 7; i++) add(g, new THREE.CylinderGeometry(0.014, 0.014, 0.16, 6), std(PAL.trim, 0.6), -0.42 + i * 0.14, 1.1, 0.9, false);
+  add(g, new THREE.BoxGeometry(0.9, 0.025, 0.025), std(PAL.trim, 0.6), 0, 1.18, 0.9, false);
+  for (const sx of [-1, 1]) lantern(g, sx * 0.3, 0.68, 0.71);
+  steppingStones(g, 0, 0.8, 1.38);
+  chimney(g, -0.6, 1.9, -0.35, 0.34);
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2;
     add(g, new THREE.IcosahedronGeometry(0.16 + (i % 3) * 0.04, 2), std('#ffffff', 0.9), Math.cos(a) * 1.25, 0.14, Math.sin(a) * 1.15, false);
@@ -246,37 +348,71 @@ export function townHall(): THREE.Group {
   for (const x of [-0.85, 0.85]) windowOn(g, x, 0.85, 0.61, 0.26, 0.4, 0, PAL.raspberry);
   for (const x of [-1.21]) windowOn(g, x, 0.85, -0.3, 0.26, 0.36, -Math.PI / 2, PAL.raspberry);
   windowOn(g, 1.21, 0.85, -0.3, 0.26, 0.36, Math.PI / 2, PAL.raspberry);
-  // planters and lamps by the steps
+  // planters and lamps by the steps, hedges along the sides, banners on the walls
   for (const sx of [-1, 1]) {
     add(g, rbox(0.26, 0.2, 0.26, 0.04), stoneMat, sx * 1.15, 0.3, 1.2);
     bush(g, sx * 1.15, 1.2, 0.13);
     g.children[g.children.length - 1].position.y = 0.38;
+    lantern(g, sx * 0.35, 0.95, 0.6);
+    for (let i = 0; i < 4; i++) { bush(g, sx * 1.32, -1.15 + i * 0.42, 0.11); g.children[g.children.length - 1].position.y = 0.2; }
+    const banner = add(g, new THREE.PlaneGeometry(0.2, 0.42), mat('banner', () => new THREE.MeshStandardMaterial({ color: PAL.raspberry, roughness: 0.7, side: THREE.DoubleSide })), sx * 0.5, 0.98, 0.615, false);
+    banner.name = 'banner';
+    add(g, new THREE.CircleGeometry(0.05, 16), gold(), sx * 0.5, 1.02, 0.62, false);
   }
+  for (let i = 0; i < 6; i++) add(g, new THREE.IcosahedronGeometry(0.03, 1), std(['#ff6b9a', '#ffd43b', '#ffffff'][i % 3], 0.6), (i % 2 ? 1 : -1) * (1.08 + (i % 3) * 0.06), 0.44, 1.12 + (i % 3) * 0.05, false);
   return g;
 }
 
-/** The Crossing Gate: stone pillars, a flowering hedge arch, a frog-green sign and a shimmering portal over a lily pond. */
+/**
+ * The Crossing Gate: stone pillars with a flowering hedge arch and a shimmering portal, a stepping-stone walk
+ * through it, and a little natural pond tucked inside the plot (irregular shore, pebbles, reeds, lily pads),
+ * well away from the edges so it never meets a road.
+ */
 export function crossingGate(): THREE.Group {
   const g = new THREE.Group();
   const stoneMat = textured('gatestone', T.stoneBlocks(), [1, 2], 0.9, PAL.stone);
-  // a little pond with lily pads in front
-  add(g, new THREE.CylinderGeometry(0.62, 0.66, 0.06, 32), stoneMat, 0, 0.03, 0.42);
-  add(g, new THREE.CylinderGeometry(0.54, 0.54, 0.02, 32), mat('pond', () => new THREE.MeshPhysicalMaterial({ color: 0x46c2c9, roughness: 0.05, clearcoat: 1, envMapIntensity: 1.4 })), 0, 0.065, 0.42, false);
-  for (const [x, z] of [[-0.25, 0.55], [0.22, 0.3], [0.3, 0.62]]) add(g, new THREE.CylinderGeometry(0.11, 0.11, 0.012, 16, 1, false, 0.3, 5.6), std('#5cb547', 0.6), x, 0.08, z, false);
   for (const s of [-1, 1]) {
-    add(g, rbox(0.34, 1.45, 0.38, 0.06), stoneMat, s * 0.74, 0.72, -0.3);
-    add(g, rbox(0.44, 0.1, 0.48, 0.03), std(PAL.stone, 0.85), s * 0.74, 1.48, -0.3);
-    add(g, new THREE.SphereGeometry(0.17, 18, 12), baseMats().leaves, s * 0.74, 1.68, -0.3);
+    add(g, rbox(0.34, 1.45, 0.38, 0.06), stoneMat, s * 0.6, 0.72, -0.35);
+    add(g, rbox(0.44, 0.1, 0.48, 0.03), std(PAL.stone, 0.85), s * 0.6, 1.48, -0.35);
+    add(g, new THREE.SphereGeometry(0.17, 18, 12), baseMats().leaves, s * 0.6, 1.68, -0.35);
   }
   // hedge arch dotted with flowers
-  const arch = add(g, new THREE.TorusGeometry(0.74, 0.17, 12, 36, Math.PI), baseMats().leaves, 0, 1.45, -0.3);
+  const arch = add(g, new THREE.TorusGeometry(0.6, 0.17, 12, 36, Math.PI), baseMats().leaves, 0, 1.45, -0.35);
   arch.scale.set(1, 0.6, 1);
-  for (let i = 0; i < 9; i++) { const a = (i / 8) * Math.PI; add(g, new THREE.IcosahedronGeometry(0.04, 1), std(['#ff9fc8', '#ffffff', '#ffd43b'][i % 3], 0.5), Math.cos(a) * 0.74, 1.45 + Math.sin(a) * 0.44 + 0.08, -0.16, false); }
-  const signMat = mat('gatesign', () => new THREE.MeshStandardMaterial({ map: T.sign('Fuzzy Crossing', '#3aa55a'), roughness: 0.6 }));
-  add(g, rbox(1.32, 0.42, 0.06, 0.03), textured('signwood', T.planks(PAL.wood), [1, 1]), 0, 1.66, -0.08);
-  add(g, new THREE.PlaneGeometry(1.24, 0.36), signMat, 0, 1.66, -0.045, false);
-  const portal = add(g, new THREE.PlaneGeometry(1.1, 1.36), mat('portal', () => new THREE.MeshBasicMaterial({ map: GT.glow('rgba(160,255,215,0.95)', 'rgba(60,200,255,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })), 0, 0.72, -0.3, false);
+  for (let i = 0; i < 9; i++) { const a = (i / 8) * Math.PI; add(g, new THREE.IcosahedronGeometry(0.045, 1), std(['#ff9fc8', '#ffffff', '#ffd43b'][i % 3], 0.5), Math.cos(a) * 0.6, 1.45 + Math.sin(a) * 0.36 + 0.08, -0.2, false); }
+  const signMat = mat('gatesign2', () => new THREE.MeshStandardMaterial({ map: T.sign('Fuzzy Crossing', PAL.raspberry), roughness: 0.6, transparent: true }));
+  add(g, rbox(1.16, 0.38, 0.06, 0.03), textured('signwood', T.planks(PAL.wood), [1, 1]), 0, 1.66, -0.13);
+  add(g, new THREE.PlaneGeometry(1.08, 0.32), signMat, 0, 1.66, -0.095, false);
+  const portal = add(g, new THREE.PlaneGeometry(0.86, 1.36), mat('portal', () => new THREE.MeshBasicMaterial({ map: GT.glow('rgba(255,190,225,0.95)', 'rgba(255,120,180,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })), 0, 0.72, -0.35, false);
   portal.name = 'portal';
+  steppingStones(g, 0, -0.1, 0.9);
+  // the pond: an irregular shoreline (wobbly circle), a grassy rim, pebbles, reeds and lily pads
+  const P = 26, cx = 0.56, cz = 0.46;
+  const outline = (k: number) => {
+    const sh = new THREE.Shape();
+    for (let i = 0; i <= P; i++) {
+      const a = (i / P) * Math.PI * 2, rr = (0.27 + Math.sin(a * 3 + 1) * 0.035 + Math.sin(a * 5) * 0.022) * k;
+      const px = cx + Math.cos(a) * rr * 1.1, pz = cz + Math.sin(a) * rr;
+      if (i === 0) sh.moveTo(px, pz); else sh.lineTo(px, pz);
+    }
+    return sh;
+  };
+  // a sandy, muddy rim, then the water a touch above it
+  add(g, new THREE.ShapeGeometry(outline(1.2), 2).rotateX(Math.PI / 2).translate(0, 0.012, 0), mat('pondrim', () => new THREE.MeshStandardMaterial({ color: '#cdb795', roughness: 1, side: THREE.DoubleSide })), 0, 0, 0, false);
+  const water = new THREE.ShapeGeometry(outline(1), 2).rotateX(Math.PI / 2).translate(0, 0.022, 0);
+  add(g, water, mat('pond2', () => new THREE.MeshPhysicalMaterial({ color: 0x3fbcc4, roughness: 0.06, clearcoat: 1, envMapIntensity: 1.5, side: THREE.DoubleSide })), 0, 0, 0, false);
+  const r = GT.rng(17);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 + r() * 0.3, rr = 0.31 + r() * 0.04;
+    const rock = add(g, new THREE.IcosahedronGeometry(0.035 + r() * 0.03, 1), std(i % 3 ? '#cfc3b2' : '#a99b88', 0.95), cx + Math.cos(a) * rr * 1.1, 0.04, cz + Math.sin(a) * rr, true);
+    rock.scale.y = 0.6;
+  }
+  for (const [x, z] of [[0.42, 0.38], [0.62, 0.52], [0.5, 0.56]]) add(g, new THREE.CylinderGeometry(0.06, 0.06, 0.008, 14, 1, false, 0.3, 5.6), std('#5cb547', 0.6), x, 0.028, z, false);
+  add(g, new THREE.SphereGeometry(0.022, 8, 6), std('#ff9fc8', 0.5), 0.62, 0.042, 0.52, false);
+  for (let i = 0; i < 7; i++) { const reed = add(g, new THREE.CylinderGeometry(0.006, 0.009, 0.22 + r() * 0.1, 4), std('#5f9e3a', 0.8), cx + 0.26 + r() * 0.05, 0.13, cz - 0.15 + i * 0.05, false); reed.rotation.z = (r() - 0.5) * 0.3; }
+  for (let i = 0; i < 3; i++) add(g, new THREE.CapsuleGeometry(0.012, 0.04, 3, 6), std('#7a4a2a', 0.8), cx + 0.27 + r() * 0.04, 0.26, cz - 0.1 + i * 0.1, false);
+  bush(g, -0.72, 0.6, 0.12);
+  bush(g, -0.6, 0.82, 0.08);
   return g;
 }
 
@@ -303,6 +439,11 @@ export function bakery(): THREE.Group {
   const pretzel = add(g, new THREE.TorusKnotGeometry(0.1, 0.03, 48, 8, 2, 3), std('#c98b55', 0.55), 0.82, 0.95, 0.38);
   pretzel.scale.set(1, 1, 0.5);
   bush(g, -0.78, 0.82, 0.12);
+  // flour sacks and a bread rack by the door
+  for (const [x, z] of [[-0.82, 0.55], [-0.72, 0.62]]) { const sack = add(g, new THREE.SphereGeometry(0.09, 12, 10), std('#f3e6cf', 0.95), x, 0.22, z); sack.scale.set(1, 1.2, 0.9); }
+  add(g, rbox(0.3, 0.05, 0.14, 0.015), textured('wood', T.planks(PAL.wood), [1, 1]), 0.72, 0.3, 0.75);
+  for (let i = 0; i < 3; i++) { const b = add(g, new THREE.CapsuleGeometry(0.035, 0.08, 4, 8).rotateZ(Math.PI / 2), std('#d9a05b', 0.6), 0.64 + i * 0.08, 0.35, 0.75, false); b.scale.y = 0.8; }
+  lantern(g, -0.2, 0.62, 0.6);
   g.userData.smoke = new THREE.Vector3(-0.45, 1.75, -0.3);
   return g;
 }
@@ -325,6 +466,11 @@ export function popcornStand(): THREE.Group {
   add(g, new THREE.PlaneGeometry(0.92, 0.2), mat('popsignr', () => new THREE.MeshStandardMaterial({ map: T.sign('Popcorn', PAL.raspberry), roughness: 0.6, transparent: true })), 0, 1.08, 0.607, false);
   bush(g, -0.72, 0.72, 0.12);
   bush(g, 0.72, 0.72, 0.1);
+  // baskets of fresh corn by the counter
+  for (const [x, z] of [[0.6, 0.82], [0.78, 0.66]]) {
+    add(g, new THREE.CylinderGeometry(0.09, 0.07, 0.1, 12), textured('basket', T.planks('#c9925b'), [1, 0.3]), x, 0.2, z);
+    for (let i = 0; i < 3; i++) add(g, new THREE.CapsuleGeometry(0.022, 0.07, 3, 6), std('#ffd43b', 0.6), x + (i - 1) * 0.04, 0.27, z, false).rotation.z = (i - 1) * 0.4;
+  }
   return g;
 }
 
@@ -346,6 +492,11 @@ export function weaver(): THREE.Group {
   yarn.name = 'yarn';
   g.add(yarn);
   for (const [x, c] of [[-0.62, PAL.sky], [0.6, PAL.butterRoof]] as const) add(g, new THREE.SphereGeometry(0.1, 16, 10), std(c, 0.9), x, 0.25, 0.78);
+  // a striped awning and a wool-drying line
+  const awn = add(g, rbox(0.66, 0.04, 0.3, 0.02), textured('awnt', T.stripes(PAL.teal, '#fff4e3', 8), [1, 1], 0.7), 0, 1.02, 0.74);
+  awn.rotation.x = 0.35;
+  chimney(g, -0.45, 1.25, -0.3, 0.36);
+  lantern(g, 0.3, 0.62, 0.6);
   return g;
 }
 
@@ -363,10 +514,12 @@ export function field(): THREE.Group {
   return g;
 }
 
-/** A road tile: smooth paving with a thin kerb line; tiles side by side read as one street. */
+/** A straight piece of street (used for the shop picture and while placing; the town draws joined-up streets itself). */
 export function roadTile(): THREE.Group {
   const g = new THREE.Group();
-  add(g, new THREE.BoxGeometry(1, 0.03, 1), mat('road', () => new THREE.MeshStandardMaterial({ map: (() => { const t = GT.concrete(); t.repeat.set(1, 1); return t; })(), color: '#c9c4bc', roughness: 0.9 })), 0, 0.015, 0, false);
+  add(g, new THREE.BoxGeometry(1, 0.035, 0.66), std('#a39d96', 0.92), 0, 0.0175, 0, false);
+  for (const s of [-1, 1]) add(g, new THREE.BoxGeometry(1, 0.07, 0.17), std('#efe6d6', 0.85), 0, 0.035, s * 0.415);
+  for (const x of [-0.25, 0.25]) add(g, new THREE.BoxGeometry(0.24, 0.006, 0.035), std('#fff6e0', 0.7), x, 0.038, 0, false);
   return g;
 }
 
@@ -461,9 +614,15 @@ export function flowerBed(seed: number): THREE.Group {
   return g;
 }
 
+/** A garden path: rounded flagstones with grass peeking between them (joins up with its neighbours). */
 export function pathTile(): THREE.Group {
   const g = new THREE.Group();
-  add(g, rbox(0.98, 0.05, 0.98, 0.02), textured('path', T.stoneBlocks(), [1, 1], 0.9, '#e9e4dc'), 0, 0.025, 0, false);
+  const r = GT.rng(23);
+  const cols = ['#ebe3d6', '#e2d8c8', '#f1eadf'];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    const st = add(g, rbox(0.29 + (r() - 0.5) * 0.03, 0.04, 0.29 + (r() - 0.5) * 0.03, 0.035), std(cols[(i + j) % 3], 0.9), -0.33 + i * 0.33 + (r() - 0.5) * 0.02, 0.02, -0.33 + j * 0.33 + (r() - 0.5) * 0.02, false);
+    st.rotation.y = (r() - 0.5) * 0.12;
+  }
   return g;
 }
 

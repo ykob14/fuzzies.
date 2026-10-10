@@ -8,6 +8,7 @@ import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferG
 import { rng } from '../game/textures3d';
 import { MAP } from './rules';
 import * as LT from './textures';
+import { bushGeometry } from '../game/models3d';
 
 export const CENTER = MAP / 2;
 export const PALETTE = {
@@ -322,8 +323,11 @@ export function buildForest(size: number, time: { value: number }): THREE.Group 
 }
 
 // ---------- ground details ----------
-/** Grass tufts and tiny wildflowers on free ground; `free(x, z)` says whether a spot is open lawn. */
-export function buildGroundCover(free: (x: number, z: number) => boolean, time: { value: number }, mobile: boolean): THREE.Group {
+/**
+ * Grass tufts and tiny wildflowers on free ground (`free(x, z)` says whether a spot is open lawn), plus landscaping
+ * where `garden(x, z)` is high (next to buildings and along sidewalks): shrubs, flower clusters and pebbles.
+ */
+export function buildGroundCover(free: (x: number, z: number) => boolean, time: { value: number }, mobile: boolean, garden?: (x: number, z: number) => number, leaves?: THREE.Material): THREE.Group {
   const g = new THREE.Group();
   const r = rng(77);
   // a tuft = a few curved blades, dark at the root and bright at the tip
@@ -370,6 +374,38 @@ export function buildGroundCover(free: (x: number, z: number) => boolean, time: 
   const tints = ['#ffffff', '#ffe066', '#ff9fc8', '#ffffff', '#ffd1e3'].map((h) => new THREE.Color(h));
   fl.forEach((p, i) => { flowers.setMatrixAt(i, m4.compose(p, q.identity(), s.setScalar(0.9 + r() * 0.6))); flowers.setColorAt(i, tints[i % tints.length]); });
   g.add(flowers);
+  if (garden) {
+    // landscaping that hugs buildings and sidewalks: round shrubs, bright flower clusters, pebbles
+    const shrubs: THREE.Vector3[] = [], clusters: THREE.Vector3[] = [], pebbles: THREE.Vector3[] = [];
+    const cap = mobile ? 0.6 : 1;
+    for (let k = 0; k < 26000 && shrubs.length + clusters.length + pebbles.length < 900 * cap; k++) {
+      const x = CENTER + (r() - 0.5) * 30, z = CENTER + (r() - 0.5) * 30;
+      const w = garden(x, z);
+      if (w <= 0 || r() > w * 0.5) continue;
+      const roll = r();
+      if (roll < 0.3) { if (shrubs.every((p) => Math.hypot(p.x - x, p.z - z) > 0.22)) shrubs.push(new THREE.Vector3(x, 0, z)); }
+      else if (roll < 0.85) clusters.push(new THREE.Vector3(x, 0, z));
+      else pebbles.push(new THREE.Vector3(x, 0, z));
+    }
+    if (shrubs.length && leaves) {
+      const bush = new THREE.InstancedMesh(bushGeometry(41, 0.3), leaves, shrubs.length);
+      shrubs.forEach((p, i) => { q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * 6.28); bush.setMatrixAt(i, m4.compose(p, q, s.setScalar(0.7 + r() * 0.6))); });
+      bush.castShadow = true; bush.receiveShadow = true;
+      g.add(bush);
+    }
+    if (clusters.length) {
+      const fc = new THREE.InstancedMesh(blossom, fm, clusters.length);
+      const bright = ['#ff6b9a', '#ffd43b', '#ffffff', '#ff9fc8', '#ff922b', '#7ad7ff'].map((h) => new THREE.Color(h));
+      clusters.forEach((p, i) => { fc.setMatrixAt(i, m4.compose(p, q.identity(), s.setScalar(1.3 + r() * 0.8))); fc.setColorAt(i, bright[Math.floor(r() * bright.length)]); });
+      g.add(fc);
+    }
+    if (pebbles.length) {
+      const pb = new THREE.InstancedMesh(lumpy(0.05, 77, 1), new THREE.MeshStandardMaterial({ color: '#d8cfc2', roughness: 0.95 }), pebbles.length);
+      pebbles.forEach((p, i) => { q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * 6.28); pb.setMatrixAt(i, m4.compose(p.clone().setY(0.01), q, s.set(0.7 + r(), 0.5, 0.7 + r()))); });
+      pb.receiveShadow = true;
+      g.add(pb);
+    }
+  }
   return g;
 }
 

@@ -8,6 +8,7 @@
  */
 
 export type Kind = 'house' | 'field' | 'factory' | 'decor' | 'special';
+export type Rot = 0 | 1 | 2 | 3;
 
 export interface ItemDef {
   id: string; name: string; kind: Kind; w: number; d: number;
@@ -18,6 +19,8 @@ export interface ItemDef {
   /** Seconds of construction before it's ready (keeps going while you're away). */
   build?: number;
   sellable?: boolean;
+  /** Has water in it (pond, fountain): keeps a strip of grass between it and any road. */
+  water?: boolean;
 }
 
 export interface Good {
@@ -26,7 +29,8 @@ export interface Good {
 }
 
 export interface Placed {
-  id: number; item: string; x: number; z: number; rot: 0 | 1;
+  /** Which way it faces: 0 = front towards +z (the default), then quarter turns. Odd turns swap width and depth. */
+  id: number; item: string; x: number; z: number; rot: Rot;
   /** fields: what's growing and when it was planted */
   crop?: { good: string; at: number };
   /** workshops: goods being made, in order; each has its own finish time */
@@ -48,6 +52,8 @@ export interface LandState {
   nextId: number;
   stats: { harvests: number; made: number; orders: number; built: number };
   savedAt: number;
+  /** Starter-town layout version (2 = the compact streets). Older towns are tidied up once by migrateLand(). */
+  layout?: number;
 }
 
 export const MAP = 30; // the whole island is MAP × MAP tiles; the buildable square grows with expansions
@@ -76,7 +82,7 @@ export const GOODS: Good[] = [
 export const good = (id: string): Good => GOODS.find((g) => g.id === id)!;
 
 export const ITEMS: ItemDef[] = [
-  { id: 'gate', name: 'Crossing Gate', kind: 'special', w: 2, d: 2, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🐸', blurb: 'Hop over to Fuzzy Crossing', max: () => 1 },
+  { id: 'gate', name: 'Crossing Gate', kind: 'special', w: 2, d: 2, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🌀', blurb: 'Hop over to Fuzzy Crossing', max: () => 1, water: true },
   { id: 'hall', name: 'Town Hall', kind: 'special', w: 3, d: 3, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🏛️', blurb: 'The heart of Fuzzies Land', max: () => 1 },
   { id: 'cottage', name: 'Fuzzy Cottage', kind: 'house', w: 2, d: 2, cost: 40, currency: 'coins', level: 1, xp: 6, pop: 6, emoji: '🏠', blurb: '6 Fuzzies move in', build: 30 },
   { id: 'mushroom', name: 'Mushroom House', kind: 'house', w: 2, d: 2, cost: 140, currency: 'coins', level: 3, xp: 14, pop: 10, emoji: '🍄', blurb: '10 Fuzzies move in', build: 120 },
@@ -92,7 +98,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'path', name: 'Stone Path', kind: 'decor', w: 1, d: 1, cost: 4, currency: 'coins', level: 1, xp: 0, emoji: '🪨', blurb: 'Pretty paths', sellable: true },
   { id: 'bench', name: 'Bench', kind: 'decor', w: 1, d: 1, cost: 40, currency: 'coins', level: 2, xp: 3, emoji: '🪑', blurb: 'Sit and chat', sellable: true },
   { id: 'lamp', name: 'Lamp Post', kind: 'decor', w: 1, d: 1, cost: 50, currency: 'coins', level: 3, xp: 3, emoji: '💡', blurb: 'Glows at night', sellable: true },
-  { id: 'fountain', name: 'Fountain', kind: 'decor', w: 2, d: 2, cost: 300, currency: 'coins', level: 4, xp: 20, emoji: '⛲', blurb: 'Splishy splashy', sellable: true, build: 90 },
+  { id: 'fountain', name: 'Fountain', kind: 'decor', w: 2, d: 2, cost: 300, currency: 'coins', level: 4, xp: 20, emoji: '⛲', blurb: 'Splishy splashy', sellable: true, build: 90, water: true },
   { id: 'statue', name: 'Golden Fuzzy', kind: 'decor', w: 1, d: 1, cost: 25, currency: 'fuzzies', level: 2, xp: 30, emoji: '🏆', blurb: 'A shiny statue — paid in Fuzzies', sellable: false },
   { id: 'rainbow', name: 'Rainbow Arch', kind: 'decor', w: 2, d: 1, cost: 40, currency: 'fuzzies', level: 4, xp: 50, emoji: '🌈', blurb: 'Magical — paid in Fuzzies', sellable: false },
 ];
@@ -122,45 +128,109 @@ export const barnUsed = (s: LandState): number => Object.values(s.barn).reduce((
 export const count = (s: LandState, id: string): number => s.buildings.filter((b) => b.item === id).length;
 
 // ---------- the starting town ----------
+type Spot = [item: string, x: number, z: number];
+const O = (MAP - SIZES[0]) / 2; // first buildable tile (8)
 /**
- * A tidy starter town: two streets cross in the middle of the land; the Town Hall and the Crossing Gate
- * sit on one corner, cottages face the street on the next, a little farm on the third, and the last
- * corner is left free for you to build on.
+ * A tidy starter town (layout 2): a main street with a short side street up to the Town Hall (a T junction,
+ * not a giant crossroads), cottages with front gardens facing the street, the Crossing Gate on a stone path,
+ * a little farm across the road and a free corner to build on.
  */
+const STARTER: Spot[] = [
+  ['hall', O + 5, O], ['gate', O + 1, O + 2], ['cottage', O + 8, O + 4], ['cottage', O + 10, O + 4],
+  ['field', O + 2, O + 9], ['field', O + 3, O + 9], ['field', O + 2, O + 10], ['field', O + 3, O + 10],
+  ['flowers', O + 4, O + 9], ['flowers', O + 7, O + 5],
+  ['tree', O, O], ['tree', O + 2, O], ['tree', O + 12, O], ['tree', O + 9, O + 1], ['tree', O, O + 12], ['tree', O + 13, O + 13],
+];
+const STARTER_ROADS: [number, number][] = [
+  ...Array.from({ length: 12 }, (_, i) => [O + 1 + i, O + 7] as [number, number]), // main street
+  [O + 6, O + 3], [O + 6, O + 4], [O + 6, O + 5], [O + 6, O + 6],                    // up to the Town Hall
+];
+const STARTER_PATHS: [number, number][] = [[O + 1, O + 4], [O + 1, O + 5], [O + 1, O + 6], [O + 2, O + 4], [O + 2, O + 5], [O + 2, O + 6]];
+/** Where the first version of the starter town put things (for tidying up old towns). */
+const OLD_STARTER: Spot[] = [
+  ['hall', O + 3, O + 3], ['gate', O, O + 4], ['cottage', O + 7, O + 4], ['cottage', O + 9, O + 4],
+  ['field', O + 2, O + 8], ['field', O + 3, O + 8], ['field', O + 2, O + 9], ['field', O + 3, O + 9],
+  ['flowers', O + 4, O + 8], ['flowers', O + 7, O + 7],
+];
+const OLD_ROADS: [number, number][] = [...Array.from({ length: 14 }, (_, k) => [O + k, O + 6] as [number, number]), ...Array.from({ length: 14 }, (_, k) => [O + 6, O + k] as [number, number]).filter(([, z]) => z !== O + 6)];
+
 export function freshLand(now = Date.now()): LandState {
   const s: LandState = {
     v: 1, level: 1, xp: 0, coins: 150, size: SIZES[0], buildings: [], barn: { wheat: 4 }, orders: [], nextId: 1,
-    stats: { harvests: 0, made: 0, orders: 0, built: 0 }, savedAt: now,
+    stats: { harvests: 0, made: 0, orders: 0, built: 0 }, savedAt: now, layout: 2,
   };
-  const o = (MAP - SIZES[0]) / 2; // first buildable tile
-  const mid = o + 6;               // the streets run along this row and column
   const add = (it: string, x: number, z: number, extra: Partial<Placed> = {}) => s.buildings.push({ id: s.nextId++, item: it, x, z, rot: 0, builtAt: 0, ...extra });
-  for (let k = o; k < o + SIZES[0]; k++) { add('road', k, mid); if (k !== mid) add('road', mid, k); }
-  add('hall', mid - 3, mid - 3);
-  add('gate', o, mid - 2);
-  add('cottage', mid + 1, mid - 2);
-  add('cottage', mid + 3, mid - 2);
-  for (let i = 0; i < 4; i++) add('field', mid - 4 + (i % 2), mid + 2 + Math.floor(i / 2), i === 0 ? { crop: { good: 'wheat', at: now - 50_000 } } : {});
-  add('flowers', mid - 2, mid + 2);
-  add('flowers', mid + 1, mid + 1);
-  for (const [x, z] of [[o, o], [o + 2, o], [o + 12, o], [o + 9, o + 1], [o, o + 12], [o + 13, o + 13]]) add('tree', x, z);
+  STARTER.forEach(([it, x, z], i) => add(it, x, z, i === 4 ? { crop: { good: 'wheat', at: now - 50_000 } } : {}));
+  for (const [x, z] of STARTER_ROADS) add('road', x, z);
+  for (const [x, z] of STARTER_PATHS) add('path', x, z);
   refillOrders(s, now);
   return s;
 }
 
+/**
+ * Towns made with the first starter layout had two long streets crossing the whole land, with the pond
+ * touching the road. If those streets are still exactly as they were, swap them for the new compact streets
+ * and move the starter buildings that were never moved; everything the player built stays put.
+ */
+function tidyOldStarter(s: LandState): void {
+  const key = (x: number, z: number) => `${x},${z}`;
+  const roads = new Set(s.buildings.filter((b) => b.item === 'road').map((b) => key(b.x, b.z)));
+  if (roads.size !== OLD_ROADS.length || !OLD_ROADS.every(([x, z]) => roads.has(key(x, z)))) return;
+  s.buildings = s.buildings.filter((b) => b.item !== 'road');
+  // lift out the starter buildings that are still where the old layout put them
+  const lifted: { b: Placed; to: Spot }[] = [];
+  OLD_STARTER.forEach(([it, x, z], i) => {
+    const b = s.buildings.find((o) => o.item === it && o.x === x && o.z === z && o.rot === 0 && !lifted.some((l) => l.b === o));
+    if (b) { lifted.push({ b, to: STARTER[i] }); s.buildings.splice(s.buildings.indexOf(b), 1); }
+  });
+  for (const { b, to } of lifted) {
+    const spot = canPlace(s, b.item, to[1], to[2], 0) ? { x: to[1], z: to[2] } : nearestFree(s, b.item, to[1], to[2]) ?? { x: b.x, z: b.z };
+    b.x = spot.x; b.z = spot.z;
+    s.buildings.push(b);
+  }
+  const add = (it: string, x: number, z: number) => { if (canPlace(s, it, x, z, 0)) s.buildings.push({ id: s.nextId++, item: it, x, z, rot: 0, builtAt: 0 }); };
+  for (const [x, z] of STARTER_ROADS) add('road', x, z);
+  for (const [x, z] of STARTER_PATHS) add('path', x, z);
+}
+
+/** The closest spot (spiralling out) where an item fits, or null. */
+export function nearestFree(s: LandState, itemId: string, x: number, z: number, rot: Rot = 0, ignore = -1): { x: number; z: number } | null {
+  for (let r = 1; r < s.size; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    if (canPlace(s, itemId, x + dx, z + dz, rot, ignore)) return { x: x + dx, z: z + dz };
+  }
+  return null;
+}
+
 // ---------- placement ----------
-export const footprint = (it: ItemDef, rot: 0 | 1) => (rot ? { w: it.d, d: it.w } : { w: it.w, d: it.d });
+export const footprint = (it: ItemDef, rot: number) => (rot & 1 ? { w: it.d, d: it.w } : { w: it.w, d: it.d });
 export const bounds = (s: LandState) => { const o = (MAP - s.size) / 2; return { x0: o, z0: o, x1: o + s.size, z1: o + s.size }; };
 
-export function canPlace(s: LandState, itemId: string, x: number, z: number, rot: 0 | 1, ignore = -1): boolean {
-  const f = footprint(item(itemId), rot);
+/** Why an item can't go here ('' = it can). Checks the land's edge, overlaps and the grass strip between water and roads. */
+export function placeProblem(s: LandState, itemId: string, x: number, z: number, rot: number, ignore = -1): string {
+  const it = item(itemId);
+  const f = footprint(it, rot);
   const b = bounds(s);
-  if (x < b.x0 || z < b.z0 || x + f.w > b.x1 || z + f.d > b.z1) return false;
-  return !s.buildings.some((o) => {
-    if (o.id === ignore) return false;
+  if (x < b.x0 || z < b.z0 || x + f.w > b.x1 || z + f.d > b.z1) return 'That’s outside your land.';
+  const overlaps = (o: Placed, pad: number) => {
     const of = footprint(item(o.item), o.rot);
-    return x < o.x + of.w && x + f.w > o.x && z < o.z + of.d && z + f.d > o.z;
-  });
+    return x < o.x + of.w + pad && x + f.w + pad > o.x && z < o.z + of.d + pad && z + f.d + pad > o.z;
+  };
+  if (s.buildings.some((o) => o.id !== ignore && overlaps(o, 0))) return 'Something is already there.';
+  // a pond or fountain never sits right against a road (and a road never runs along one)
+  if (it.water && s.buildings.some((o) => o.id !== ignore && o.item === 'road' && touches(o, x, z, f))) return 'Leave a strip of grass between water and the road.';
+  if (itemId === 'road' && s.buildings.some((o) => o.id !== ignore && item(o.item).water && touches({ x, z, w: f.w, d: f.d }, o.x, o.z, footprint(item(o.item), o.rot)))) return 'Leave a strip of grass between the road and the water.';
+  return '';
+}
+/** Do two footprints share an edge (side by side, not just a corner)? */
+function touches(a: { x: number; z: number; rot?: number; item?: string; w?: number; d?: number }, x: number, z: number, f: { w: number; d: number }): boolean {
+  const af = a.item ? footprint(item(a.item), a.rot ?? 0) : { w: a.w!, d: a.d! };
+  const sx = a.x < x + f.w && a.x + af.w > x, sz = a.z < z + f.d && a.z + af.d > z;
+  return (sx && (a.z + af.d === z || z + f.d === a.z)) || (sz && (a.x + af.w === x || x + f.w === a.x));
+}
+
+export function canPlace(s: LandState, itemId: string, x: number, z: number, rot: number, ignore = -1): boolean {
+  return !placeProblem(s, itemId, x, z, rot, ignore);
 }
 
 /** Why you can't buy this right now ('' = you can). `fuzzies` is the app-wide token balance. */
@@ -182,9 +252,10 @@ export function addXp(s: LandState, xp: number): number[] {
   return ups;
 }
 
-export function place(s: LandState, itemId: string, x: number, z: number, rot: 0 | 1, now = Date.now()): Gain {
+export function place(s: LandState, itemId: string, x: number, z: number, rot: Rot, now = Date.now()): Gain {
   const it = item(itemId);
-  if (!canPlace(s, itemId, x, z, rot)) throw new Error('That spot is taken.');
+  const why = placeProblem(s, itemId, x, z, rot);
+  if (why) throw new Error(why);
   if (it.currency === 'coins') s.coins -= it.cost;
   s.buildings.push({ id: s.nextId++, item: itemId, x, z, rot, builtAt: now, ...(it.kind === 'factory' ? { queue: [] } : {}), ...(it.build ? { doneAt: now + it.build * 1000 } : {}) });
   s.stats.built++;
@@ -203,9 +274,11 @@ export function finishBuild(s: LandState, id: number, now = Date.now()): Gain {
   return { xp: it.xp, levelUps: addXp(s, it.xp) };
 }
 
-export function move(s: LandState, id: number, x: number, z: number, rot: 0 | 1): void {
+export function move(s: LandState, id: number, x: number, z: number, rot: Rot): void {
   const b = s.buildings.find((o) => o.id === id);
-  if (!b || !canPlace(s, b.item, x, z, rot, id)) throw new Error('That spot is taken.');
+  if (!b) throw new Error('That’s gone.');
+  const why = placeProblem(s, b.item, x, z, rot, id);
+  if (why) throw new Error(why);
   b.x = x; b.z = z; b.rot = rot;
 }
 
@@ -359,7 +432,9 @@ export function expand(s: LandState): void {
 export function migrateLand(s: Partial<LandState> | undefined): LandState {
   if (!s || s.v !== 1 || !Array.isArray(s.buildings)) return freshLand();
   const f = freshLand();
-  return { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn } } as LandState;
+  const out = { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn }, buildings: s.buildings.map((b) => ({ ...b, rot: ((b.rot ?? 0) & 3) as Rot })) } as LandState;
+  if (!s.layout) { out.layout = undefined; tidyOldStarter(out); out.layout = 2; }
+  return out;
 }
 
 // ---------- coming back ----------

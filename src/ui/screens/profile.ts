@@ -48,7 +48,7 @@ export function profileScreen(): Screen {
     const s = a.stats;
     const stats = h('div', { class: 'stat-grid' }, ...[
       ['🎨', 'Designs created', s.designs], ['📤', 'Shared & downloaded', s.exports], ['⏱️', 'Minutes creating', s.minutesActive],
-      ['🐸', 'Games played', s.gamesPlayed], ['🏆', 'Best score', s.bestScore], ['🚦', 'Best level', s.bestLevel],
+      ['🎮', 'Games played', s.gamesPlayed], ['🏆', 'Best score', s.bestScore], ['🚦', 'Best level', s.bestLevel],
       ['✨', 'Fuzzies earned', a.totalFuzzies], ['🔓', 'Rewards unlocked', a.unlocked.length],
     ].map(([e, l, v]) => h('div', { class: 'stat' }, h('span', null, String(e)), h('b', null, String(v)), h('small', null, String(l)))));
 

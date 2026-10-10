@@ -11,7 +11,7 @@ export type MissionEvent = 'game' | 'gameFuzzies' | 'nest' | 'level' | 'design' 
 export interface Mission { id: string; text: string; event: MissionEvent; target: number; reward: number; kind: 'game' | 'create'; max?: boolean; icon: string }
 
 export const MISSIONS: Mission[] = [
-  { id: 'play2', text: 'Play 2 rounds of Fuzzy Crossing', event: 'game', target: 2, reward: 5, kind: 'game', icon: '🐸' },
+  { id: 'play2', text: 'Play 2 rounds of Fuzzy Crossing', event: 'game', target: 2, reward: 5, kind: 'game', icon: '🎮' },
   { id: 'fz10', text: 'Collect 10 Fuzzies while playing', event: 'gameFuzzies', target: 10, reward: 8, kind: 'game', icon: '✨' },
   { id: 'fz25', text: 'Collect 25 Fuzzies while playing', event: 'gameFuzzies', target: 25, reward: 15, kind: 'game', icon: '💫' },
   { id: 'nest3', text: 'Fill 3 nests', event: 'nest', target: 3, reward: 8, kind: 'game', icon: '🪺' },
@@ -43,7 +43,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'templates-5', name: 'Template explorer', desc: 'Use 5 templates', icon: '🧩', reward: 10, check: (a) => a.stats.templates >= 5 },
   { id: 'stickers-20', name: 'Sticker bomb', desc: 'Add 20 stickers', icon: '😜', reward: 10, check: (a) => a.stats.stickers >= 20 },
   { id: 'minutes-60', name: 'Hour of art', desc: 'Spend an hour creating', icon: '⏱️', reward: 15, check: (a) => a.stats.minutesActive >= 60 },
-  { id: 'game-1', name: 'First hop', desc: 'Play Fuzzy Crossing', icon: '🐸', reward: 3, check: (a) => a.stats.gamesPlayed >= 1 },
+  { id: 'game-1', name: 'First hop', desc: 'Play Fuzzy Crossing', icon: '🎮', reward: 3, check: (a) => a.stats.gamesPlayed >= 1 },
   { id: 'games-25', name: 'Road regular', desc: 'Play 25 rounds', icon: '🚦', reward: 20, check: (a) => a.stats.gamesPlayed >= 25 },
   { id: 'nests-10', name: 'Nest builder', desc: 'Fill 10 nests', icon: '🪺', reward: 10, check: (a) => a.stats.nests >= 10 },
   { id: 'score-500', name: 'High hopper', desc: 'Score 500 in one game', icon: '🏅', reward: 10, check: (a) => a.stats.bestScore >= 500 },

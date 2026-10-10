@@ -68,7 +68,7 @@ export function rewardsScreen(): Screen {
           daily.available ? btn(`Claim daily +${daily.amount}`, { kind: 'soft', icon: 'gift', onClick: () => { rewards.claimDaily(); render(); } }) : h('span', { class: 'owned-tag' }, icon('check', 16), `Daily bonus claimed · ${daily.streak}-day streak`))),
       missionsCard(),
       h('section', { class: 'earn-grid' }, ...[
-        ['🐸', 'Fuzzy Crossing', '+1 per Fuzzy, +5 golden, +2 per nest, +5 per level'],
+        ['🎮', 'Fuzzy Crossing', '+1 per Fuzzy, +5 golden, +2 per nest, +5 per level'],
         ['📅', 'Daily visit', '5 Fuzzies, growing with your streak (max 15)'],
         ['🎮', 'Play bonus', `${PLAY_BONUS.min}–${PLAY_BONUS.max} for every ${PLAY_BONUS.everyMin} minutes playing Fuzzy Crossing or Fuzzies Land · next in ${minutesToPlayBonus()} min`],
         ['⏰', 'Time bonus', `A surprise ${TIME_BONUS.min}–${TIME_BONUS.max} for every ${TIME_BONUS.everyMin} minutes in the app · next in ${minutesToTimeBonus()} min`],

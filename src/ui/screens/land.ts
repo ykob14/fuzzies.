@@ -32,12 +32,26 @@ export function landScreen(): Screen {
   const overlay = h('div', { class: 'land-overlay', 'aria-hidden': 'true' });
   const hud = h('div', { class: 'land-hud' });
   const side = h('div', { class: 'land-side' });
-  const bar = h('div', { class: 'land-dock' });
+  // the toolbar and the side buttons can be tucked away (remembered on this device)
+  const UI_KEY = 'fz.land.ui';
+  const prefs: { dock: boolean; side: boolean } = (() => { try { return { dock: true, side: true, ...JSON.parse(localStorage.getItem(UI_KEY) || '{}') }; } catch { return { dock: true, side: true }; } })();
+  const savePrefs = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(prefs)); } catch { /* private mode */ } };
+  const tools = h('div', { class: 'land-dock-tools' });
+  const dockHide = h('button', { class: 'land-dock-hide', type: 'button', title: 'Hide the toolbar', 'aria-label': 'Hide the toolbar' }, landIcon('chevDown', 18));
+  const bar = h('div', { class: 'land-dock' }, tools, dockHide);
+  const dockTab = h('button', { class: 'land-dock-tab', type: 'button', title: 'Show the toolbar', 'aria-label': 'Show the toolbar' }, landIcon('chevUp', 20), h('span', null, 'Menu'), h('i', { class: 'land-dock-dot' }));
+  const paintDock = () => {
+    bar.classList.toggle('tucked', !prefs.dock);
+    dockTab.classList.toggle('show', !prefs.dock);
+    dockHide.setAttribute('aria-expanded', String(prefs.dock));
+  };
+  dockHide.addEventListener('click', () => { prefs.dock = false; savePrefs(); paintDock(); });
+  dockTab.addEventListener('click', () => { prefs.dock = true; savePrefs(); paintDock(); });
   const sheet = h('section', { class: 'land-sheet', hidden: true });
   const placeBar = h('div', { class: 'land-place', hidden: true });
   let view: LandView | null = null;
   let panel: Panel = null;
-  let placing: { item: string; x: number; z: number; rot: 0 | 1; moving?: number } | null = null;
+  let placing: { item: string; x: number; z: number; rot: L.Rot; moving?: number } | null = null;
   let alive = true;
 
   // ---------- saving & rewards ----------
@@ -69,8 +83,33 @@ export function landScreen(): Screen {
     renderPanel();
   }
 
+  /** Little coins / stars that fly from where you earned them to the counter at the top. */
+  function burst(kind: 'coin' | 'star', from: { x: number; y: number } | null, n: number): void {
+    if (!from || a.settings.reduceMotion) return;
+    const to = (kind === 'coin' ? hud.querySelector('[data-k="coins"] .land-cap-ic') : hud.querySelector('.land-lvl-n')) as HTMLElement | null;
+    if (!to) return;
+    const r = to.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const tx = r.left + r.width / 2 - sr.left, ty = r.top + r.height / 2 - sr.top;
+    for (let i = 0; i < Math.min(8, Math.max(3, n)); i++) {
+      const el = h('span', { class: 'land-fly' }, landIcon(kind, 26));
+      stage.append(el);
+      const sx = from.x + (Math.random() - 0.5) * 50, sy = from.y + (Math.random() - 0.5) * 30;
+      const mx = (sx + tx) / 2 + (Math.random() - 0.5) * 120, my = Math.min(sy, ty) - 60 - Math.random() * 60;
+      const anim = el.animate([
+        { transform: `translate(${from.x}px, ${from.y}px) scale(.4)`, opacity: 0 },
+        { transform: `translate(${sx}px, ${sy}px) scale(1.1)`, opacity: 1, offset: 0.18 },
+        { transform: `translate(${mx}px, ${my}px) scale(1)`, opacity: 1, offset: 0.55 },
+        { transform: `translate(${tx}px, ${ty}px) scale(.6)`, opacity: 0.9 },
+      ], { duration: 750 + i * 70, easing: 'cubic-bezier(.45,0,.35,1)', delay: i * 45 });
+      anim.onfinish = () => { el.remove(); to.classList.remove('land-hit'); void to.offsetWidth; to.classList.add('land-hit'); };
+    }
+  }
+  const screenAt = (id: number) => { const p = view?.screenOf(id); return p ? { x: p.x, y: p.y } : null; };
+
   function gain(g: L.Gain, at: number, label?: string): void {
     if (label) view?.float(label, at);
+    if (g.coins) burst('coin', screenAt(at), Math.ceil(g.coins / 8));
+    if (g.xp) setTimeout(() => burst('star', screenAt(at), Math.ceil(g.xp! / 4)), 200);
     if (g.xp) setTimeout(() => view?.float(`+${g.xp} XP`, at, 'xp'), 250);
     if (g.fuzzies) rewards.earn(g.fuzzies, 'Fuzzies Land order');
     for (const lv of g.levelUps ?? []) levelUp(lv);
@@ -125,7 +164,7 @@ export function landScreen(): Screen {
     const pop = L.population(s);
     const ready = s.orders.filter((o) => L.canFill(s, o)).length;
     const cap = (ic: Node, key: string, n: number, title: string, href?: string) =>
-      h(href ? 'a' : 'div', { class: 'land-cap', title, ...(href ? { href } : {}) }, h('span', { class: 'land-cap-ic' }, ic), counter(key, n), href ? h('i', { class: 'land-cap-plus' }, '+') : null);
+      h(href ? 'a' : 'div', { class: 'land-cap', 'data-k': key, title, ...(href ? { href } : {}) }, h('span', { class: 'land-cap-ic' }, ic), counter(key, n), href ? h('i', { class: 'land-cap-plus' }, '+') : null);
     hud.replaceChildren(
       h('div', { class: 'land-hud-l' }, backBtn,
         h('div', { class: 'land-lvl', title: `${s.xp} / ${need} XP to level ${s.level + 1}` },
@@ -136,19 +175,26 @@ export function landScreen(): Screen {
         cap(landIcon('pop', 30), 'pop', pop, 'Fuzzies living here'),
         cap(fuzzyMark(30), 'fz', rewards.balance(), 'Your Fuzzies — tap to spend them', '#/rewards'),
         savedEl));
-    const tool = (ic: LandIcon, label: string, onClick: () => void, badge = '', cls = '') => {
-      const b = h('button', { class: `land-dock-btn ${cls}`, type: 'button' }, h('span', { class: 'land-dock-ic' }, landIcon(ic, 34)), h('span', { class: 'land-dock-l' }, label), badge ? h('i', { class: 'land-badge' }, badge) : null);
+    const tool = (key: string, ic: LandIcon, label: string, onClick: () => void, badge = 0, extra: Node | null = null) => {
+      const prev = badges.get(key) ?? 0;
+      badges.set(key, badge);
+      const b = h('button', { class: `land-dock-btn is-${key} ${badge > prev ? 'nudge' : ''}`, type: 'button', 'aria-label': badge ? `${label} (${badge})` : label },
+        h('span', { class: 'land-dock-ic' }, landIcon(ic, 40)), h('span', { class: 'land-dock-l' }, label), extra,
+        badge ? h('i', { class: `land-badge ${badge > prev ? 'pop' : ''}` }, String(badge)) : null);
       b.addEventListener('click', onClick);
       return b;
     };
     const away = L.awaySummary(s);
     const waiting = away.crops + away.goods + away.built;
-    bar.replaceChildren(...[
-      waiting ? tool('sparkles', 'Collect', collectAllNow, String(waiting), 'hot') : null,
-      tool('hammer', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
-      tool('crate', 'Orders', () => openPanel({ kind: 'orders' }), ready ? String(ready) : ''),
-      tool('barn', 'Barn', () => openPanel({ kind: 'barn' }), `${L.barnUsed(s)}/${L.barnCap(s.level)}`, 'soft')].filter((x) => x !== null) as HTMLElement[]);
+    const fill = Math.min(1, L.barnUsed(s) / L.barnCap(s.level));
+    tools.replaceChildren(...[
+      waiting ? tool('collect', 'basket', 'Collect', collectAllNow, waiting) : null,
+      tool('build', 'build', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
+      tool('orders', 'parcel', 'Orders', () => openPanel({ kind: 'orders' }), ready),
+      tool('barn', 'barnBig', 'Barn', () => openPanel({ kind: 'barn' }), 0, h('i', { class: `land-meter ${fill > 0.85 ? 'full' : ''}`, title: `${L.barnUsed(s)} / ${L.barnCap(s.level)}` }, h('b', { style: `width:${fill * 100}%` })))].filter((x) => x !== null) as HTMLElement[]);
+    dockTab.classList.toggle('alert', waiting > 0 || ready > 0);
   }
+  const badges = new Map<string, number>();
 
   /** Harvest, collect and open everything that's ready, in one tap. */
   function collectAllNow(): void {
@@ -252,7 +298,13 @@ export function landScreen(): Screen {
               const g = L.fill(s, o.id);
               sfx.coins();
               const hall = s.buildings.find((b) => b.item === 'hall');
-              gain(g, hall?.id ?? 0, `+${g.coins} 🪙`);
+              const card = document.activeElement?.closest('.land-order') as HTMLElement | null;
+              const rr = (card ?? sheet).getBoundingClientRect(), sr = stage.getBoundingClientRect();
+              const from = { x: rr.left + rr.width / 2 - sr.left, y: rr.top + rr.height / 2 - sr.top };
+              burst('coin', from, Math.ceil(g.coins! / 6));
+              setTimeout(() => burst('star', from, Math.ceil((g.xp ?? 0) / 4)), 180);
+              gain({ ...g, coins: 0, xp: 0, levelUps: g.levelUps }, hall?.id ?? 0, `+${g.coins} 🪙`);
+              if (g.xp) setTimeout(() => view?.float(`+${g.xp} XP`, hall?.id ?? 0, 'xp'), 250);
               save(); renderPanel();
             } catch (e) { toast((e as Error).message, 'info'); }
           } }),
@@ -336,11 +388,11 @@ export function landScreen(): Screen {
           } })
         : h('p', { class: 'muted' }, 'Your land is as big as it gets. 🏝️'));
     } else if (b.item === 'gate') {
-      parts.push(btn('Hop over to Fuzzy Crossing 🐸', { kind: 'primary', onClick: () => goPlay(b.id) }));
+      parts.push(btn('Hop over to Fuzzy Crossing', { kind: 'primary', onClick: () => goPlay(b.id) }));
     }
     const actions: HTMLElement[] = [];
-    actions.push(btn('Move', { kind: 'ghost', size: 'sm', icon: 'hand', onClick: () => startPlacing(b.item, b.id) }));
-    if (it.sellable) actions.push(btn(`Sell${it.currency === 'coins' ? ` · 🪙${Math.floor(it.cost / 2)}` : ''}`, { kind: 'ghost', size: 'sm', icon: 'trash', onClick: async () => {
+    actions.push(btn(L.walkway(b.item) ? 'Move' : 'Move or turn', { kind: 'ghost', size: 'sm', icon: 'hand', onClick: () => startPlacing(b.item, b.id) }));
+    if (it.sellable) actions.push(btn(`${L.walkway(b.item) ? 'Remove' : 'Sell'}${it.currency === 'coins' && it.cost >= 10 ? ` · 🪙${Math.floor(it.cost / 2)}` : ''}`, { kind: 'ghost', size: 'sm', icon: 'trash', onClick: async () => {
       if (b.item === 'field' && b.crop && !(await confirmDialog('Sell this field?', 'What’s growing on it will be lost.', 'Sell'))) return;
       const back = L.sell(s, b.id);
       sfx.coins();
@@ -426,19 +478,38 @@ export function landScreen(): Screen {
       }
     }
     placing = { item: itemId, x, z, rot: existing?.rot ?? 0, moving };
-    updateGhost();
     const it = L.item(itemId);
+    const paint = L.walkway(itemId) && moving === undefined;
+    placeHint = h('small', null, paint ? (isTouch() ? 'Drag across the grass to lay a line' : 'Drag across the grass to lay a line') : isTouch() ? 'Drag it, or tap where it should go' : 'Drag it, or click where it should go');
     placeBar.hidden = false;
     placeBar.replaceChildren(...[
-      h('div', { class: 'land-place-info' }, h('b', null, `${it.emoji} ${it.name}`), h('small', null, isTouch() ? 'Drag it, or tap where it should go' : 'Drag it, or click where it should go')),
-      it.w !== it.d ? btn(null, { icon: 'rotate', kind: 'soft', title: 'Turn', onClick: () => { placing!.rot = placing!.rot ? 0 : 1; updateGhost(); } }) : null,
+      h('div', { class: 'land-place-info' }, h('b', null, it.name), placeHint),
+      !L.walkway(itemId) && itemId !== 'field' ? btn(null, { icon: 'rotate', kind: 'soft', title: 'Turn it', onClick: () => { placing!.rot = ((placing!.rot + 1) % 4) as L.Rot; sfx.hop(); updateGhost(); } }) : null,
       btn(null, { icon: 'close', kind: 'soft', title: 'Cancel', onClick: cancelPlacing }),
       btn(moving !== undefined ? 'Put here' : 'Build here', { kind: 'primary', icon: 'check', onClick: confirmPlacing })].filter((x) => x !== null) as HTMLElement[]);
   }
 
+  let placeHint: HTMLElement | null = null;
   function updateGhost(): void {
     if (!placing) return;
-    view?.setGhost({ ...placing, ok: L.canPlace(s, placing.item, placing.x, placing.z, placing.rot, placing.moving ?? -1) });
+    const why = L.placeProblem(s, placing.item, placing.x, placing.z, placing.rot, placing.moving ?? -1);
+    view?.setGhost({ ...placing, ok: !why });
+    placeBar.classList.toggle('bad', !!why);
+    if (placeHint) {
+      if (why) placeHint.textContent = why;
+      else placeHint.textContent = L.walkway(placing.item) && placing.moving === undefined ? 'Drag across the grass to lay a line' : isTouch() ? 'Drag it, or tap where it should go' : 'Drag it, or click where it should go';
+    }
+  }
+
+  /** Lay a road or path tile right away while dragging (each costs its price). */
+  function paintTile(x: number, z: number): void {
+    if (!placing || placing.moving !== undefined) return;
+    const it = L.item(placing.item);
+    if (L.cantBuy(s, placing.item, rewards.balance()) || !L.canPlace(s, placing.item, x, z, 0)) return;
+    L.place(s, placing.item, x, z, 0);
+    if (it.currency === 'fuzzies') spendFuzzies(it.cost);
+    sfx.plant();
+    save();
   }
 
   function cancelPlacing(): void {
@@ -463,8 +534,8 @@ export function landScreen(): Screen {
         const placed = s.buildings[s.buildings.length - 1];
         if (it.build) toast(`🔨 Building your ${it.name} — ready in ${fmt(it.build * 1000)}. It keeps going while you’re away.`, 'info', 3200);
         else gain(g, placed.id, it.kind === 'house' ? `+${it.pop} 🏡` : undefined);
-        // keep building fields/paths in a row without reopening the shop
-        if ((it.kind === 'field' || p.item === 'path') && !L.cantBuy(s, p.item, rewards.balance())) {
+        // keep building fields, roads and paths in a row without reopening the shop
+        if ((it.kind === 'field' || L.walkway(p.item)) && !L.cantBuy(s, p.item, rewards.balance())) {
           placing = { ...p, x: p.x + 1 };
           if (!L.canPlace(s, p.item, placing.x, placing.z, p.rot)) placing.z += 1;
           updateGhost();
@@ -478,7 +549,7 @@ export function landScreen(): Screen {
 
   // ---------- pointer: pan, pinch, tap, drag the ghost ----------
   const pts = new Map<number, { x: number; y: number }>();
-  let drag: { moved: boolean; sx: number; sy: number; ghost: boolean } | null = null;
+  let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean } | null = null;
   let pinch = 0;
   function onDown(e: PointerEvent): void {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -509,7 +580,14 @@ export function landScreen(): Screen {
     if (drag.ghost && placing) {
       const g = view.ground(e.clientX, e.clientY);
       const f = L.footprint(L.item(placing.item), placing.rot);
-      if (g) { const nx = Math.round(g.x - f.w / 2), nz = Math.round(g.y - f.d / 2); if (nx !== placing.x || nz !== placing.z) { placing.x = nx; placing.z = nz; updateGhost(); } }
+      if (g) {
+        const nx = Math.round(g.x - f.w / 2), nz = Math.round(g.y - f.d / 2);
+        if (nx !== placing.x || nz !== placing.z) {
+          // roads and paths: drawing a line lays every tile you pass over (the first one too)
+          if (L.walkway(placing.item) && placing.moving === undefined) { if (!drag.painted) { paintTile(placing.x, placing.z); drag.painted = true; } paintTile(nx, nz); }
+          placing.x = nx; placing.z = nz; updateGhost();
+        }
+      }
     } else view.pan(e.clientX - prev.x, e.clientY - prev.y);
   }
   function onUp(e: PointerEvent): void {
@@ -544,13 +622,13 @@ export function landScreen(): Screen {
     if (L.barnUsed(s) > L.barnCap(s.level) * 0.85) ctx.push('The barn is nearly full! 😮');
     if (!s.buildings.some((b) => b.item === 'bakery') && s.level >= 2) ctx.push('Can we build a bakery? 🥖');
     if (!s.buildings.some((b) => b.item === 'fountain') && s.level >= 4) ctx.push('A fountain would be sooo nice ⛲');
-    const general = ['This town is so fluffy!', 'I love my cottage 🏠', 'Hehe, hi there! 👋', 'Best. Day. Ever.', 'Have you played Fuzzy Crossing? 🐸', 'Mmm, smells like fresh bread 🍞', '*happy wiggle*', 'Nice weather today ☀️', 'I made a new friend!', 'Let’s grow more Sunwheat 🌾', 'Can I have a hug? 🤗', 'Tickles! Hehe!'];
+    const general = ['This town is so fluffy!', 'I love my cottage 🏠', 'Hehe, hi there! 👋', 'Best. Day. Ever.', 'Have you played Fuzzy Crossing? 🎮', 'Mmm, smells like fresh bread 🍞', '*happy wiggle*', 'Nice weather today ☀️', 'I made a new friend!', 'Let’s grow more Sunwheat 🌾', 'Can I have a hug? 🤗', 'Tickles! Hehe!'];
     const pool = ctx.length && r < 0.6 ? ctx : general;
     return pool[Math.floor(r * 997) % pool.length];
   }
 
   // ---------- setup ----------
-  const stage = h('div', { class: 'land-wrap' }, wrap, overlay, hud, side, bar, placeBar, sheet);
+  const stage = h('div', { class: 'land-wrap' }, wrap, overlay, hud, side, bar, dockTab, placeBar, sheet);
   const round = (ic: Node, title: string, onClick: () => void, cls = '') => {
     const b = h('button', { class: `land-round ${cls}`, type: 'button', title, 'aria-label': title }, ic);
     b.addEventListener('click', onClick);
@@ -569,12 +647,24 @@ export function landScreen(): Screen {
   paintMusic();
   // browsers only allow sound after a tap/click: start the music on the first one if it couldn't start yet
   stage.addEventListener('pointerdown', () => { if (!music.playing) setTimeout(() => music.start(), 50); });
-  side.append(...[
+  const sideToggle = h('button', { class: 'land-side-toggle', type: 'button' }, landIcon('chevRight', 18));
+  const sideBody = h('div', { class: 'land-side-body' }, ...[
     musicBtn,
-    round(landIcon('gate', 30), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
+    round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
       round(landIcon('zoomIn', 20), 'Zoom in', () => view?.zoom(0.8)),
       round(landIcon('zoomOut', 20), 'Zoom out', () => view?.zoom(1.25)))].filter((x) => x !== null) as HTMLElement[]);
+  const paintSide = () => {
+    side.classList.toggle('tucked', !prefs.side);
+    sideToggle.replaceChildren(landIcon(prefs.side ? 'chevRight' : 'chevLeft', 18));
+    sideToggle.title = prefs.side ? 'Hide these buttons' : 'Show the buttons';
+    sideToggle.setAttribute('aria-label', sideToggle.title);
+    sideToggle.setAttribute('aria-expanded', String(prefs.side));
+  };
+  sideToggle.addEventListener('click', () => { prefs.side = !prefs.side; savePrefs(); paintSide(); });
+  side.append(sideToggle, sideBody);
+  paintSide();
+  paintDock();
   renderHud();
 
   const hasWebGL = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } })();
