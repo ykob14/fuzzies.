@@ -1,7 +1,8 @@
 /**
  * The living Fuzzy mascot: bounces with squash & stretch over its own shadow, twinkles with sparkles
  * and fuzzy puffs, winks at you every few seconds, and hops + chimes when you tap it.
- * Wiggle the mouse back and forth over it (or tap three times quickly) to tickle it: it squirms and giggles.
+ * Move the mouse over it (or tap three times quickly) to tickle it: it squirms and giggles "tee hee hee, ha ha ha".
+ * While you hover, its sparkles twinkle with little bell sounds.
  * Starts with a flat drawing and swaps to photos of the real 3D game model once they're rendered.
  */
 import { h, fuzzySvg } from './dom';
@@ -99,9 +100,12 @@ export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean
   const soundOn = () => accounts.current?.settings.sound !== false;
 
   // ---- tickling ----
-  let tickleEnd = 0, lastGiggle = 0;
+  let tickleEnd = 0, giggleUntil = 0, hovering = false, lastHehe = 0;
   const hehe = () => {
-    const words = ['hehe!', 'hee hee', 'tee-hee!', 'haha!', 'stop it!', 'hehe'];
+    const now = performance.now();
+    if (now - lastHehe < 520) return; // one bubble at a time, so they don't pile up
+    lastHehe = now;
+    const words = ['tee hee hee!', 'ha ha ha!', 'hee hee', 'hehehe', 'that tickles!', 'ha ha!', 'hee!'];
     const s = h('span', { class: 'mascot-hehe', style: `--x:${(15 + Math.random() * 70).toFixed(0)}%;--r:${(Math.random() * 24 - 12).toFixed(0)}deg` }, words[Math.floor(Math.random() * words.length)]);
     fx.append(s);
     setTimeout(() => s.remove(), 1100);
@@ -112,9 +116,10 @@ export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean
     tickleEnd = now + 900;
     setFace('giggle');
     el.classList.add('tickle');
-    if (fresh || Math.random() < 0.35) hehe();
-    if (soundOn() && now - lastGiggle > 750) { lastGiggle = now; sfx.giggle(); }
-    if (fresh) burst();
+    hehe();
+    // one giggle phrase at a time, chained for as long as the tickling goes on
+    if (soundOn() && now > giggleUntil) giggleUntil = now + sfx.giggle() * 1000 + 120;
+    if (fresh) { burst(); if (soundOn()) sfx.shimmer(); }
     const settle = () => {
       if (performance.now() < tickleEnd) { setTimeout(settle, 120); return; }
       el.classList.remove('tickle');
@@ -137,9 +142,20 @@ export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean
 
   if (opts.interactive !== false) {
     el.classList.add('ticklish');
-    el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && performance.now() > tickleEnd) wink(); });
-    // a tickle = the mouse changing direction quickly, 3 times in under ~0.7 s
-    let lastX = 0, lastY = 0, dir = 0, travel = 0;
+    el.addEventListener('pointerenter', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      hovering = true;
+      if (soundOn()) sfx.twinkle();
+      if (performance.now() > tickleEnd) wink();
+    });
+    el.addEventListener('pointerleave', () => { hovering = false; });
+    // the sparkles chime while you hover (each star rings as it shines)
+    fx.addEventListener('animationiteration', (e) => {
+      if (!(e.target as HTMLElement).classList.contains('mascot-star')) return;
+      setTimeout(() => { if (hovering && soundOn() && el.isConnected) sfx.twinkle(); }, 900);
+    });
+    // a tickle = moving the mouse over it (any direction), or wiggling back and forth
+    let lastX = 0, lastY = 0, dir = 0, travel = 0, rub = 0, rubAt = 0;
     let turns: number[] = [];
     el.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'touch') return;
@@ -147,6 +163,11 @@ export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean
       lastX = e.clientX; lastY = e.clientY;
       const step = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
       if (Math.abs(step) < 1) return;
+      const nowM = performance.now();
+      if (nowM - rubAt > 400) rub = 0;
+      rubAt = nowM;
+      rub += Math.min(40, Math.hypot(dx, dy));
+      if (rub > Math.max(36, size * 0.45)) { rub = 0; tickle(); }
       const d = Math.sign(step);
       travel += Math.abs(step);
       if (d !== dir) {

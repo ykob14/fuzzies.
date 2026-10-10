@@ -2,13 +2,24 @@
 import { accounts } from '../core/account';
 
 let ac: AudioContext | null = null;
+/** Sound is on unless the signed-in person turned it off (the welcome screen, before sign-in, has sound too). */
+const soundAllowed = () => accounts.current ? accounts.current.settings.sound !== false : true;
 function ctx(): AudioContext | null {
-  if (!accounts.current?.settings.sound) return null;
+  if (!soundAllowed()) return null;
   try {
     ac ??= new AudioContext();
     if (ac.state === 'suspended') void ac.resume();
     return ac;
   } catch { return null; }
+}
+
+/**
+ * Browsers only allow sound after the first click/tap/key press on the page (moving the mouse
+ * doesn't count). Wake the audio up on that first press so hover giggles work from then on.
+ */
+export const audioReady = (): boolean => ac?.state === 'running';
+for (const ev of ['pointerdown', 'keydown', 'touchend']) {
+  addEventListener(ev, () => { if (soundAllowed()) { try { ac ??= new AudioContext(); if (ac.state === 'suspended') void ac.resume(); } catch { /* no audio */ } } }, { capture: true, passive: true });
 }
 
 function tone(freq: number, dur: number, type: OscillatorType = 'sine', vol = 0.15, slide = 0, delay = 0): void {
@@ -49,39 +60,134 @@ function noise(dur: number, from: number, to: number, vol: number, delay = 0): v
   src.start(t);
 }
 
-/** A cute "hee-hee-hee": short voiced blips through a vowel-like filter, with a fast flutter. */
-function giggle(): void {
+type Vowel = 'ee' | 'ah' | 'eh';
+const FORMANTS: Record<Vowel, [number, number][]> = {
+  // [frequency, loudness] of the resonances that make a voice sound like each vowel (a small, high voice)
+  ee: [[390, 1], [2700, 0.55], [3500, 0.25]],
+  ah: [[950, 1], [1500, 0.7], [3000, 0.2]],
+  eh: [[620, 1], [2150, 0.55], [3000, 0.2]],
+};
+
+/** One sung syllable: a breathy "h" (or a "t" click), then a voiced vowel with a little wobble and a falling pitch. */
+function syllable(a: AudioContext, out: AudioNode, t: number, f0: number, vowel: Vowel, len: number, vol: number, onset: 'h' | 't' = 'h'): void {
+  // consonant: a short puff of air
+  const nlen = onset === 't' ? 0.018 : 0.05;
+  const buf = a.createBuffer(1, Math.ceil(a.sampleRate * nlen), a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const air = a.createBufferSource();
+  air.buffer = buf;
+  const hp = a.createBiquadFilter();
+  hp.type = onset === 't' ? 'highpass' : 'bandpass';
+  hp.frequency.value = onset === 't' ? 4200 : FORMANTS[vowel][1][0];
+  hp.Q.value = 0.8;
+  const ag = a.createGain();
+  ag.gain.value = vol * (onset === 't' ? 0.9 : 0.45);
+  air.connect(hp).connect(ag).connect(out);
+  air.start(t);
+  // the voice: a buzzy source shaped by the vowel's resonances
+  const v0 = t + nlen * 0.6;
+  const src = a.createOscillator();
+  src.type = 'sawtooth';
+  src.frequency.setValueAtTime(f0 * 1.12, v0);
+  src.frequency.exponentialRampToValueAtTime(f0 * 0.88, v0 + len);
+  const lfo = a.createOscillator(), depth = a.createGain();
+  lfo.frequency.value = 11 + Math.random() * 4;
+  depth.gain.value = f0 * 0.035;
+  lfo.connect(depth).connect(src.frequency);
+  const env = a.createGain();
+  env.gain.setValueAtTime(0.0001, v0);
+  env.gain.exponentialRampToValueAtTime(vol, v0 + 0.018);
+  env.gain.setValueAtTime(vol * 0.85, v0 + len * 0.55);
+  env.gain.exponentialRampToValueAtTime(0.0001, v0 + len);
+  for (const [freq, amp] of FORMANTS[vowel]) {
+    const bp = a.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = freq;
+    bp.Q.value = 7;
+    const g = a.createGain();
+    g.gain.value = amp * 2.4;
+    src.connect(bp).connect(g).connect(env);
+  }
+  env.connect(out);
+  src.start(v0); lfo.start(v0);
+  src.stop(v0 + len + 0.02); lfo.stop(v0 + len + 0.02);
+}
+
+const GIGGLES: [Vowel, 'h' | 't', number][][] = [
+  // "tee hee hee hee — ha ha ha"
+  [['ee', 't', 0], ['ee', 'h', 1], ['ee', 'h', 2], ['ee', 'h', 3], ['ah', 'h', 4.6], ['ah', 'h', 5.6], ['ah', 'h', 6.6]],
+  // "hee hee hee hee hee"
+  [['ee', 'h', 0], ['ee', 'h', 0.9], ['ee', 'h', 1.8], ['ee', 'h', 2.7], ['ee', 'h', 3.6]],
+  // "ha ha ha — hee hee"
+  [['ah', 'h', 0], ['ah', 'h', 1], ['ah', 'h', 2], ['ee', 'h', 3.5], ['ee', 'h', 4.4]],
+  // "teehee! hehehe"
+  [['ee', 't', 0], ['ee', 'h', 0.8], ['eh', 'h', 2.2], ['eh', 'h', 2.9], ['eh', 'h', 3.6]],
+];
+
+/** A cute giggle phrase like "tee hee hee hee, ha ha ha". Returns how long it lasts (seconds). */
+function giggle(): number {
+  const a = ctx();
+  if (!a) return 0;
+  const out = a.createGain();
+  out.gain.value = 0.55;
+  const comp = a.createDynamicsCompressor();
+  out.connect(comp).connect(a.destination);
+  const phrase = GIGGLES[Math.floor(Math.random() * GIGGLES.length)];
+  const beat = 0.115 + Math.random() * 0.02;
+  const base = 600 + Math.random() * 90; // a small, high voice
+  const t0 = a.currentTime + 0.01;
+  let end = 0;
+  phrase.forEach(([vowel, onset, at], i) => {
+    const t = t0 + at * beat + (Math.random() - 0.5) * 0.012;
+    const f0 = base * (vowel === 'ah' ? 0.86 : 1) * (1 - i * 0.025) * (1 + (i % 2) * 0.04);
+    const len = vowel === 'ah' ? 0.1 : 0.075;
+    syllable(a, out, t, f0, vowel, len, i === 0 ? 0.32 : 0.26, onset);
+    end = Math.max(end, t + len + 0.06 - a.currentTime);
+  });
+  return end;
+}
+
+const PENTA = [1568, 1760, 2093, 2349, 2637, 3136, 3520];
+/** A soft sparkle "ting" (one bell note from a happy scale). */
+function twinkle(): void {
   const a = ctx();
   if (!a) return;
-  const n = 4 + Math.floor(Math.random() * 2);
-  const base = 560 + Math.random() * 80;
-  for (let i = 0; i < n; i++) {
-    const t = a.currentTime + i * 0.1 + Math.random() * 0.015;
-    const o = a.createOscillator();
-    o.type = 'sawtooth';
-    const f0 = base - i * 22 + (i % 2) * 30;
-    o.frequency.setValueAtTime(f0 * 1.08, t);
-    o.frequency.exponentialRampToValueAtTime(f0 * 0.9, t + 0.08);
-    const lfo = a.createOscillator(), depth = a.createGain();
-    lfo.frequency.value = 26;
-    depth.gain.value = f0 * 0.05;
-    lfo.connect(depth).connect(o.frequency);
-    const f1 = a.createBiquadFilter();
-    f1.type = 'bandpass'; f1.frequency.value = 2300; f1.Q.value = 2.2; // "ee" formant
-    const f2 = a.createBiquadFilter();
-    f2.type = 'lowpass'; f2.frequency.value = 3800;
-    const g = a.createGain();
+  const f = PENTA[Math.floor(Math.random() * PENTA.length)];
+  const t = a.currentTime;
+  for (const [mult, vol] of [[1, 0.05], [2.01, 0.018], [3.02, 0.008]] as [number, number][]) {
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'sine';
+    o.frequency.value = f * mult;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.2, t + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.085);
-    o.connect(f1).connect(f2).connect(g).connect(a.destination);
-    o.start(t); lfo.start(t);
-    o.stop(t + 0.1); lfo.stop(t + 0.1);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7 / mult);
+    o.connect(g).connect(a.destination);
+    o.start(t); o.stop(t + 0.75);
   }
+}
+
+/** A quick magical shimmer (a burst of sparkles): a rising run of bell notes. */
+function shimmer(): void {
+  const a = ctx();
+  if (!a) return;
+  [0, 2, 4, 5, 6].forEach((n, i) => {
+    const t = a.currentTime + i * 0.045;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'sine';
+    o.frequency.value = PENTA[n];
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.035, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    o.connect(g).connect(a.destination);
+    o.start(t); o.stop(t + 0.5);
+  });
 }
 
 export const sfx = {
   giggle,
+  twinkle,
+  shimmer,
   wink: () => { tone(1568, 0.09, 'sine', 0.09); tone(2093, 0.16, 'sine', 0.08, 0, 0.08); tone(2637, 0.22, 'triangle', 0.05, 0, 0.15); },
   boing: () => tone(260, 0.28, 'sine', 0.13, 420),
   whoosh: () => noise(0.9, 400, 2600, 0.12),

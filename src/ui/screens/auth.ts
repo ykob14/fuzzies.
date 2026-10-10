@@ -5,6 +5,7 @@ import { cloud } from '../../core/cloud';
 import { applyTheme } from '../../core/themes';
 import { h, btn, QUOTE, toast } from '../dom';
 import { mascot } from '../mascot';
+import { featureArt, type Feature } from '../featureArt';
 
 /** Log in: cloud accounts first; accounts that only live on this device (made before sync existed) still work. */
 async function logIn(login: string, password: string): Promise<void> {
@@ -87,19 +88,25 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
   }
   render();
 
-  const features = [
-    ['🎨', 'Design anything', 'Posters, posts, stories, slides, cards and more'],
-    ['✨', 'Templates & stickers', 'Pro templates, graphics, fonts and text effects'],
-    ['📲', 'Share anywhere', 'Save to your phone or computer in one tap'],
-    ['🐸', 'Play & unlock', 'Collect Fuzzies in Fuzzy Crossing to unlock rewards'],
+  const features: [Feature, string, string][] = [
+    ['design', 'Design anything', 'Posters, posts, stories, slides, cards and more'],
+    ['templates', 'Templates & stickers', 'Pro templates, graphics, fonts and text effects'],
+    ['share', 'Share anywhere', 'Save to your phone or computer in one tap'],
+    ['play', 'Play & unlock', 'Earn Fuzzies in Fuzzy Crossing and Fuzzies Land to unlock rewards'],
   ];
+  // "Tickle me!" until someone does
+  const tickleSpot = h('div', { class: 'auth-mascot' }, mascot(120), h('span', { class: 'auth-tickle' }, 'Tickle me! 🪶'));
+  let rubbed = 0;
+  tickleSpot.addEventListener('pointermove', () => { if (++rubbed > 25) tickleSpot.classList.add('tickled'); });
+  tickleSpot.addEventListener('click', () => tickleSpot.classList.add('tickled'));
+
   const hero = h('div', { class: 'auth-hero' },
     h('div', { class: 'auth-blob b1' }), h('div', { class: 'auth-blob b2' }), h('div', { class: 'auth-blob b3' }),
     h('div', { class: 'auth-brand' },
-      h('div', { class: 'auth-mascot' }, mascot(120)),
+      tickleSpot,
       h('h1', { class: 'auth-word' }, 'fuzzies'),
       h('p', { class: 'auth-quote' }, `“${QUOTE}”`)),
-    h('ul', { class: 'auth-features' }, ...features.map(([e, t, s]) => h('li', null, h('span', { class: 'af-ic' }, e), h('div', null, h('b', null, t), h('small', null, s))))));
+    h('ul', { class: 'auth-features' }, ...features.map(([k, t, s], i) => h('li', { style: `--i:${i}` }, featureArt(k), h('div', null, h('b', null, t), h('small', null, s))))));
 
   return { el: h('div', { class: 'auth' }, hero, h('div', { class: 'auth-side' }, card)) };
 }
