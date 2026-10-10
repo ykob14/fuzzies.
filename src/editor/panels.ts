@@ -1,0 +1,446 @@
+/** Left side panels (bottom sheets on phones): templates, elements, text, uploads, stickers, draw, background, layers. */
+import type { Editor } from './editor';
+import type { El, Fill, ShapeKind } from './types';
+import { SHAPE_KINDS, shapePath } from './shapes';
+import { fillToCss, getImage } from './render';
+import { makeText, elLabel, instantiate } from './doc';
+import { colorButton, GRADIENTS, PALETTE } from './colors';
+import { ART_PACKS, ARTS, artDataUrl } from '../content/art';
+import { STICKER_PACKS } from '../content/stickers';
+import { TEXT_STYLES, FX_PACK } from '../content/textstyles';
+import { CATEGORIES, templates, type Template } from '../content/templates';
+import { templateThumb } from '../ui/thumbs';
+import { unlockDialog } from '../ui/unlock';
+import { rewards } from '../core/rewards';
+import { accounts } from '../core/account';
+import { db } from '../core/db';
+import { h, btn, icon, toast, confirmDialog, pickFile, fuzzyMark, type IconName } from '../ui/dom';
+import { deepClone } from '../core/util';
+
+export interface Panels {
+  rail: HTMLElement;
+  panel: HTMLElement;
+  show(name: string | null): void;
+  refreshUploads(): void;
+  dropPayload(p: DropPayload, at: { x: number; y: number }): void;
+}
+
+type DropPayload = { kind: 'shape'; shape: ShapeKind } | { kind: 'art'; art: string } | { kind: 'emoji'; char: string };
+
+const TABS: { id: string; label: string; icon: IconName }[] = [
+  { id: 'templates', label: 'Templates', icon: 'grid' },
+  { id: 'elements', label: 'Elements', icon: 'shapes' },
+  { id: 'text', label: 'Text', icon: 'text' },
+  { id: 'uploads', label: 'Uploads', icon: 'upload' },
+  { id: 'stickers', label: 'Stickers', icon: 'sticker' },
+  { id: 'draw', label: 'Draw', icon: 'brush' },
+  { id: 'background', label: 'Background', icon: 'palette' },
+  { id: 'layers', label: 'Layers', icon: 'layers' },
+];
+
+const lockBadge = (cost: number) => h('span', { class: 'lock-badge' }, fuzzyMark(14), String(cost));
+
+export function buildPanels(ed: Editor): Panels {
+  let active: string | null = null;
+  const rail = h('nav', { class: 'ed-rail', 'aria-label': 'Editor tools' });
+  const body = h('div', { class: 'ed-panel-body' });
+  const title = h('h3');
+  const panel = h('aside', { class: 'ed-panel', hidden: true },
+    h('div', { class: 'ed-panel-head' }, h('div', { class: 'sheet-grip' }), title, btn(null, { icon: 'close', kind: 'plain', size: 'sm', title: 'Close panel', onClick: () => show(null) })),
+    body);
+
+  const railBtns = new Map<string, HTMLButtonElement>();
+  for (const t of TABS) {
+    const b = h('button', { class: 'rail-btn', type: 'button', title: t.label }, icon(t.icon, 22), h('span', null, t.label));
+    b.addEventListener('click', () => show(active === t.id ? null : t.id));
+    railBtns.set(t.id, b);
+    rail.append(b);
+  }
+
+  function show(name: string | null): void {
+    active = name;
+    for (const [id, b] of railBtns) b.classList.toggle('on', id === name);
+    panel.hidden = !name;
+    ed.root.classList.toggle('panel-open', !!name);
+    if (name) {
+      ed.props.close();
+      title.textContent = TABS.find((t) => t.id === name)?.label ?? '';
+      render();
+    }
+    if (name !== 'draw' && ed.tool === 'draw') ed.setTool('select');
+    requestAnimationFrame(() => ed.requestRender());
+  }
+
+  function render(): void {
+    body.replaceChildren();
+    body.scrollTop = 0;
+    switch (active) {
+      case 'templates': body.append(templatesPanel()); break;
+      case 'elements': body.append(elementsPanel()); break;
+      case 'text': body.append(textPanel()); break;
+      case 'uploads': body.append(uploadsPanel()); break;
+      case 'stickers': body.append(stickersPanel()); break;
+      case 'draw': body.append(drawPanel()); break;
+      case 'background': body.append(backgroundPanel()); break;
+      case 'layers': body.append(layersPanel()); break;
+    }
+  }
+
+  /** On phones, close the sheet after adding something so the result is visible. */
+  const afterAdd = () => { if (innerWidth < 760) show(null); };
+
+  const draggable = (el: HTMLElement, payload: DropPayload) => {
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => e.dataTransfer?.setData('application/x-fuzzies', JSON.stringify(payload)));
+  };
+
+  const section = (label: string, ...kids: (Node | null)[]) => h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, label), ...kids);
+
+  // ---------- templates ----------
+  let tplCat = 'All';
+  let tplQuery = '';
+  function templatesPanel(): HTMLElement {
+    const wrap = h('div');
+    const search = h('input', { class: 'input', placeholder: 'Search templates', value: tplQuery, type: 'search' });
+    const chips = h('div', { class: 'chips' });
+    const grid = h('div', { class: 'tpl-grid' });
+    const fill = () => {
+      chips.replaceChildren(...CATEGORIES.map((c) => {
+        const b = h('button', { class: `chip ${c === tplCat ? 'on' : ''}`, type: 'button' }, c);
+        b.addEventListener('click', () => { tplCat = c; fill(); });
+        return b;
+      }));
+      const q = tplQuery.toLowerCase();
+      const list = templates().filter((t) => (tplCat === 'All' || t.category === tplCat) && (!q || `${t.name} ${t.category}`.toLowerCase().includes(q)));
+      grid.replaceChildren(...list.map((t) => tplCard(t)));
+      if (!list.length) grid.append(h('p', { class: 'muted' }, 'No templates match.'));
+    };
+    search.addEventListener('input', () => { tplQuery = search.value; fill(); });
+    fill();
+    wrap.append(search, chips, grid);
+    return wrap;
+  }
+
+  function tplCard(t: Template): HTMLElement {
+    const locked = !rewards.isUnlocked(t.id, t.cost);
+    const card = h('button', { class: 'tpl-card', type: 'button', title: t.name }, templateThumb(t, 300), locked ? lockBadge(t.cost) : null, h('span', { class: 'tpl-name' }, t.name));
+    card.addEventListener('click', async () => {
+      if (locked) { unlockDialog({ id: t.id, name: t.name, cost: t.cost, kind: `${t.category} template`, preview: templateThumb(t, 300) }, render); return; }
+      if (ed.page.elements.length && !(await confirmDialog('Use this template?', 'It replaces what is on the current page. You can undo this.', 'Use template', false))) return;
+      applyTemplate(t);
+      afterAdd();
+    });
+    return card;
+  }
+
+  function applyTemplate(t: Template): void {
+    const inst = instantiate(t.design, ed.design.owner);
+    const d = ed.design;
+    const sameSize = d.width === inst.width && d.height === inst.height;
+    d.pages.splice(ed.pageIndex, 1, ...inst.pages);
+    Object.assign(d.assets, inst.assets);
+    if (sameSize) ed.commit();
+    else ed.resizeDesign(inst.width, inst.height, false);
+    ed.goToPage(ed.pageIndex);
+    toast(`Template “${t.name}” applied`, 'good');
+  }
+
+  // ---------- elements ----------
+  function shapeIcon(kind: ShapeKind): HTMLCanvasElement {
+    const c = h('canvas', { width: '96', height: '96' });
+    const x = c.getContext('2d')!;
+    const w = kind === 'arrow' ? 80 : 70, hh = kind === 'line' ? 10 : kind === 'arrow' ? 40 : 70;
+    x.translate((96 - w) / 2, (96 - hh) / 2);
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7c4dff';
+    if (kind === 'line' || kind === 'ring') {
+      x.strokeStyle = accent; x.lineWidth = kind === 'line' ? 6 : 9; x.lineCap = 'round';
+      const p = kind === 'ring' ? new Path2D() : shapePath('line', w, hh);
+      if (kind === 'ring') p.ellipse(w / 2, hh / 2, w / 2 - 5, hh / 2 - 5, 0, 0, Math.PI * 2);
+      x.stroke(p);
+    } else { x.fillStyle = accent; x.fill(shapePath(kind, w, hh, 12)); }
+    return c;
+  }
+
+  let elQuery = '';
+  function elementsPanel(): HTMLElement {
+    const wrap = h('div');
+    const search = h('input', { class: 'input', placeholder: 'Search shapes & graphics', value: elQuery, type: 'search' });
+    const list = h('div');
+    const fill = () => {
+      list.replaceChildren();
+      const q = elQuery.toLowerCase();
+      const shapes = SHAPE_KINDS.filter((s) => !q || s.label.toLowerCase().includes(q));
+      if (shapes.length) list.append(section('Shapes & lines', h('div', { class: 'el-grid' }, ...shapes.map((s) => {
+        const b = h('button', { class: 'el-item', type: 'button', title: s.label, 'aria-label': s.label }, shapeIcon(s.kind));
+        b.addEventListener('click', () => { ed.addShape(s.kind); afterAdd(); });
+        draggable(b, { kind: 'shape', shape: s.kind });
+        return b;
+      }))));
+      for (const pack of ART_PACKS) {
+        const arts = ARTS.filter((a) => a.pack === pack.id && (!q || a.name.toLowerCase().includes(q) || pack.name.toLowerCase().includes(q)));
+        if (!arts.length) continue;
+        const locked = !rewards.isUnlocked(pack.id, pack.cost);
+        const head = h('div', { class: 'pnl-label' }, pack.name, locked ? lockBadge(pack.cost) : null);
+        const grid = h('div', { class: `el-grid ${locked ? 'locked' : ''}` }, ...arts.map((a) => {
+          const b = h('button', { class: 'el-item', type: 'button', title: a.name, 'aria-label': a.name }, h('img', { src: artDataUrl(a.id, a.colors), alt: '', loading: 'lazy' }));
+          b.addEventListener('click', () => {
+            if (locked) { unlockDialog({ id: pack.id, name: pack.name, cost: pack.cost, kind: `Graphics pack · ${pack.blurb}` }, fill); return; }
+            ed.addGraphic(a.id); afterAdd();
+          });
+          if (!locked) draggable(b, { kind: 'art', art: a.id });
+          return b;
+        }));
+        list.append(h('section', { class: 'pnl-sec' }, head, grid));
+      }
+      if (!list.childElementCount) list.append(h('p', { class: 'muted' }, 'Nothing found.'));
+    };
+    search.addEventListener('input', () => { elQuery = search.value; fill(); });
+    fill();
+    wrap.append(search, list);
+    return wrap;
+  }
+
+  // ---------- text ----------
+  function textPanel(): HTMLElement {
+    const add = (kind: 'heading' | 'subheading' | 'body', label: string, cls: string) => {
+      const b = h('button', { class: `text-add ${cls}`, type: 'button' }, label);
+      b.addEventListener('click', () => { ed.addText(kind); afterAdd(); });
+      return b;
+    };
+    const fxLocked = !rewards.isUnlocked(FX_PACK.id, FX_PACK.cost);
+    const styles = h('div', { class: 'style-grid' }, ...TEXT_STYLES.map((s) => {
+      const locked = s.premium && fxLocked;
+      const b = h('button', { class: 'style-item', type: 'button', title: s.name }, h('span', { style: s.css }, s.name), locked ? lockBadge(FX_PACK.cost) : null);
+      b.addEventListener('click', () => {
+        if (locked) { unlockDialog({ id: FX_PACK.id, name: FX_PACK.name, cost: FX_PACK.cost, kind: 'Neon, retro, gradient, sticker, glitch & marker text styles' }, render); return; }
+        const u = ed.unit;
+        const sel = ed.selected.filter((e) => e.type === 'text');
+        const style = s.style(u);
+        if (sel.length) {
+          // restyle the selected text but keep its words
+          for (const el of sel) { const { text, ...rest } = style; Object.assign(el, { shadow: null, bg: '', strokeWidth: 0, strokeColor: '' }, rest); void text; }
+          ed.commit();
+          ed.props.refresh();
+        } else {
+          const el = makeText(style.text ?? s.name, { w: ed.design.width * 0.7, ...style });
+          ed.add([el]);
+          afterAdd();
+        }
+      });
+      return b;
+    }));
+    return h('div', null,
+      add('heading', 'Add a heading', 'th1'), add('subheading', 'Add a subheading', 'th2'), add('body', 'Add a little bit of body text', 'th3'),
+      section('Text styles', h('p', { class: 'hint' }, 'Tap to add — or select text first to restyle it.'), styles),
+      section('Tips', h('p', { class: 'hint' }, 'Double-click (or double-tap) text to type. Drag a corner to scale the text; drag a side to change the width. Fonts, colours, outline and shadow are in the Edit panel.')));
+  }
+
+  // ---------- uploads ----------
+  let uploadsGrid: HTMLElement | null = null;
+  async function fillUploads(): Promise<void> {
+    if (!uploadsGrid) return;
+    const owner = accounts.current?.id ?? '';
+    const list = await db.listUploads(owner);
+    const grid = uploadsGrid;
+    grid.replaceChildren(...list.map((u) => {
+      const del = h('button', { class: 'up-del', type: 'button', title: 'Remove from uploads', 'aria-label': 'Remove from uploads' }, icon('close', 14));
+      const b = h('div', { class: 'up-item', role: 'button', tabindex: '0', title: 'Add to design' }, h('img', { src: u.src, alt: '', loading: 'lazy' }), del);
+      b.addEventListener('click', (e) => {
+        if (del.contains(e.target as Node)) return;
+        ed.addImage(u.id, u.src, u.w, u.h);
+        afterAdd();
+      });
+      del.addEventListener('click', async () => {
+        if (!(await confirmDialog('Remove this photo?', 'It is removed from your uploads. Designs that already use it keep their copy.', 'Remove'))) return;
+        await db.deleteUpload(u.id);
+        void fillUploads();
+      });
+      return b;
+    }));
+    if (!list.length) grid.append(h('p', { class: 'muted', style: 'grid-column:1/-1' }, 'Your uploaded photos appear here.'));
+  }
+
+  function uploadsPanel(): HTMLElement {
+    const up = btn('Upload photos', { kind: 'primary', icon: 'upload', class: 'btn-block', onClick: async () => { const files = await pickFile('image/*', true); if (files.length) { await ed.addFiles(files); afterAdd(); } } });
+    uploadsGrid = h('div', { class: 'up-grid' });
+    void fillUploads();
+    return h('div', null, up,
+      h('p', { class: 'hint' }, 'Drag & drop or paste (Ctrl/Cmd+V) images straight onto the canvas. On phones you can take a photo or pick from your gallery.'),
+      section('Your uploads', uploadsGrid));
+  }
+
+  // ---------- stickers ----------
+  function stickersPanel(): HTMLElement {
+    const wrap = h('div');
+    for (const pack of STICKER_PACKS) {
+      const locked = !rewards.isUnlocked(pack.id, pack.cost);
+      wrap.append(h('section', { class: 'pnl-sec' },
+        h('div', { class: 'pnl-label' }, pack.name, locked ? lockBadge(pack.cost) : null),
+        h('div', { class: `emoji-grid ${locked ? 'locked' : ''}` }, ...pack.items.map((ch) => {
+          const b = h('button', { class: 'emoji-item', type: 'button', 'aria-label': `Sticker ${ch}` }, ch);
+          b.addEventListener('click', () => {
+            if (locked) { unlockDialog({ id: pack.id, name: pack.name, cost: pack.cost, kind: 'Sticker pack', preview: h('div', { class: 'unlock-emoji' }, pack.items.slice(0, 6).join(' ')) }, render); return; }
+            ed.addEmoji(ch); afterAdd();
+          });
+          if (!locked) draggable(b, { kind: 'emoji', char: ch });
+          return b;
+        }))));
+    }
+    return wrap;
+  }
+
+  // ---------- draw ----------
+  function drawPanel(): HTMLElement {
+    const s = ed.drawSettings;
+    if (ed.tool !== 'draw') ed.setTool('draw');
+    const modes: { id: 'pen' | 'hl' | 'eraser'; label: string; icon: IconName }[] = [{ id: 'pen', label: 'Pen', icon: 'brush' }, { id: 'hl', label: 'Highlighter', icon: 'edit' }, { id: 'eraser', label: 'Eraser', icon: 'eraser' }];
+    const cur = s.eraser ? 'eraser' : s.highlighter ? 'hl' : 'pen';
+    const seg = h('div', { class: 'seg seg-lg' }, ...modes.map((m) => {
+      const b = h('button', { type: 'button', class: m.id === cur ? 'on' : '' }, icon(m.icon, 16), m.label);
+      b.addEventListener('click', () => { s.eraser = m.id === 'eraser'; s.highlighter = m.id === 'hl'; if (s.highlighter && s.width < 20) s.width = 28; render(); });
+      return b;
+    }));
+    const width = h('input', { type: 'range', class: 'range', min: '1', max: '120', value: String(s.width) });
+    const wl = h('b', null, String(s.width));
+    width.addEventListener('input', () => { s.width = Number(width.value); wl.textContent = width.value; });
+    const sw = h('div', { class: 'swatches' }, ...['#1c1830', '#ffffff', '#ff3b30', '#ff9f1c', '#ffd23f', '#2ec4b6', '#3a86ff', '#7c4dff', '#ff4f9a'].map((c) => {
+      const b = h('button', { type: 'button', class: `swatch ${c === s.color ? 'on' : ''}`, style: `background:${c}`, 'aria-label': c });
+      b.addEventListener('click', () => { s.color = c; render(); });
+      return b;
+    }), colorButton(s.color, { title: 'Custom colour', onInput: (f) => { s.color = typeof f === 'string' ? f : f.stops[0].color; }, onCommit: () => {} }));
+    const done = btn('Done drawing', { kind: 'primary', icon: 'check', class: 'btn-block', onClick: () => { ed.setTool('select'); show(null); } });
+    return h('div', null, seg,
+      s.eraser ? h('p', { class: 'hint' }, 'Drag over a drawing to erase it.') : h('div', null, section('Colour', sw), section('Size', h('div', { class: 'row' }, width, wl))),
+      h('p', { class: 'hint' }, 'Draw with your finger, mouse or pen. Each stroke becomes its own layer you can move, recolour or delete.'),
+      done);
+  }
+
+  // ---------- background ----------
+  let paletteIdx = 0;
+  function backgroundPanel(): HTMLElement {
+    const setBg = (f: Fill) => { ed.setBackground(f); ed.commit(); };
+    const solid = h('div', { class: 'swatches' }, ...PALETTE.map((c) => {
+      const b = h('button', { type: 'button', class: 'swatch', style: `background:${c}`, 'aria-label': c });
+      b.addEventListener('click', () => setBg(c));
+      return b;
+    }));
+    const grads = h('div', { class: 'swatches swatches-lg' }, ...GRADIENTS.map((g) => {
+      const b = h('button', { type: 'button', class: 'swatch', style: `background:${fillToCss(g)}`, 'aria-label': 'Gradient' });
+      b.addEventListener('click', () => setBg(deepClone(g)));
+      return b;
+    }));
+    const custom = h('div', { class: 'row' }, colorButton(ed.page.background, { gradient: true, docColors: ed.docColors(), title: 'Custom background', onInput: (f) => ed.setBackground(f), onCommit: () => ed.commit() }), h('span', null, 'Custom colour or gradient'));
+    const photos = h('div', { class: 'up-grid' });
+    void db.listUploads(accounts.current?.id ?? '').then((list) => {
+      photos.replaceChildren(...list.map((u) => {
+        const b = h('button', { class: 'up-item', type: 'button', title: 'Use as background' }, h('img', { src: u.src, alt: '', loading: 'lazy' }));
+        b.addEventListener('click', () => ed.setBackgroundPhoto(u.id, u.src));
+        return b;
+      }));
+      if (!list.length) photos.append(h('p', { class: 'muted', style: 'grid-column:1/-1' }, 'Upload photos in the Uploads tab to use them here.'));
+    });
+    const remove = ed.page.bgAsset ? btn('Remove background photo', { kind: 'ghost', icon: 'trash', class: 'btn-block', onClick: () => { ed.setBackgroundPhoto(null); render(); } }) : null;
+    const magic = btn('Shuffle colour palette', { kind: 'soft', icon: 'wand', class: 'btn-block', onClick: () => { recolor(ed, PALETTES[paletteIdx++ % PALETTES.length]); } });
+    return h('div', null,
+      section('Magic', magic, h('p', { class: 'hint' }, 'Recolours the whole page with a matching palette. Tap again for the next one.')),
+      section('Colours', solid), section('Gradients', grads), section('Custom', custom), section('Photo background', photos, remove));
+  }
+
+  // ---------- layers ----------
+  function layersPanel(): HTMLElement {
+    const list = h('div', { class: 'layers' });
+    const fill = () => {
+      const els = [...ed.page.elements].reverse();
+      list.replaceChildren(...els.map((el) => layerRow(el)));
+      if (!els.length) list.append(h('p', { class: 'muted' }, 'This page is empty. Add text, shapes or photos!'));
+    };
+    const layerRow = (el: El) => {
+      const sel = ed.selection.includes(el.id);
+      const vis = btn(null, { icon: el.hidden ? 'eyeOff' : 'eye', kind: 'plain', size: 'sm', title: el.hidden ? 'Show' : 'Hide', onClick: (e) => { e.stopPropagation(); el.hidden = !el.hidden; ed.commit(); fill(); } });
+      const lock = btn(null, { icon: el.locked ? 'lock' : 'unlock', kind: 'plain', size: 'sm', title: el.locked ? 'Unlock' : 'Lock', onClick: (e) => { e.stopPropagation(); el.locked = !el.locked; ed.commit(); fill(); } });
+      const up = btn(null, { icon: 'up', kind: 'plain', size: 'sm', title: 'Move up', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('up'); fill(); } });
+      const down = btn(null, { icon: 'down', kind: 'plain', size: 'sm', title: 'Move down', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('down'); fill(); } });
+      const row = h('div', { class: `layer ${sel ? 'on' : ''} ${el.hidden ? 'dim' : ''}`, role: 'button', tabindex: '0' }, layerIcon(el), h('span', { class: 'layer-name' }, elLabel(el)), up, down, vis, lock);
+      row.addEventListener('click', (e) => { ed.select(e.shiftKey ? [...ed.selection, el.id] : [el.id]); fill(); });
+      return row;
+    };
+    fill();
+    return h('div', null, h('p', { class: 'hint' }, 'Top of the list = front of the design.'), list);
+  }
+
+  function layerIcon(el: El): HTMLElement {
+    const box = h('span', { class: 'layer-ic' });
+    if (el.type === 'image') { const src = ed.design.assets[el.asset]; if (src && getImage(src)) box.append(h('img', { src, alt: '' })); }
+    else if (el.type === 'emoji') box.textContent = el.char;
+    else if (el.type === 'graphic') box.append(h('img', { src: artDataUrl(el.art, el.colors), alt: '' }));
+    else if (el.type === 'text') box.append(icon('text', 16));
+    else if (el.type === 'draw') box.append(icon('brush', 16));
+    else box.append(icon('shapes', 16));
+    return box;
+  }
+
+  ed.on('change', () => { if (active === 'layers') render(); });
+  ed.on('select', () => { if (active === 'layers') render(); });
+  ed.on('page', () => { if (active === 'layers' || active === 'background') render(); });
+  ed.on('tool', () => { if (ed.tool !== 'draw' && active === 'draw') { active = null; panel.hidden = true; ed.root.classList.remove('panel-open'); railBtns.forEach((b) => b.classList.remove('on')); } });
+
+  return {
+    rail, panel, show,
+    refreshUploads: () => { if (active === 'uploads') void fillUploads(); },
+    dropPayload(p, at) {
+      if (p.kind === 'shape') { ed.addShape(p.shape); moveLast(at); }
+      if (p.kind === 'art') { ed.addGraphic(p.art); moveLast(at); }
+      if (p.kind === 'emoji') { ed.addEmoji(p.char); moveLast(at); }
+    },
+  };
+
+  function moveLast(at: { x: number; y: number }) {
+    const el = ed.page.elements[ed.page.elements.length - 1];
+    if (!el) return;
+    el.x = at.x - el.w / 2; el.y = at.y - el.h / 2;
+    ed.commit();
+  }
+}
+
+// ---------- palette recolour ----------
+const PALETTES: string[][] = [
+  ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51'],
+  ['#0b132b', '#3a506b', '#5bc0be', '#6fffe9', '#f7f7ff'],
+  ['#2b2d42', '#8d99ae', '#edf2f4', '#ef233c', '#d90429'],
+  ['#3d348b', '#7678ed', '#f7b801', '#f18701', '#f35b04'],
+  ['#1a1423', '#3d1e6d', '#8338ec', '#ff006e', '#ffbe0b'],
+  ['#283618', '#606c38', '#fefae0', '#dda15e', '#bc6c25'],
+  ['#22223b', '#4a4e69', '#9a8c98', '#c9ada7', '#f2e9e4'],
+  ['#03045e', '#0077b6', '#00b4d8', '#90e0ef', '#caf0f8'],
+  ['#590d22', '#a4133c', '#ff4d6d', '#ff8fa3', '#fff0f3'],
+  ['#10002b', '#5a189a', '#9d4edd', '#e0aaff', '#fdf4ff'],
+];
+
+function lum(c: string): number {
+  const x = document.createElement('canvas').getContext('2d')!;
+  x.fillStyle = c;
+  const v = String(x.fillStyle);
+  if (!v.startsWith('#')) { const m = v.match(/[\d.]+/g); if (!m) return 0.5; return (0.2126 * +m[0] + 0.7152 * +m[1] + 0.0722 * +m[2]) / 255; }
+  const n = parseInt(v.slice(1), 16);
+  return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+}
+
+function recolor(ed: Editor, palette: string[]): void {
+  const isClear = (c: string) => /rgba\([^)]*,\s*0(\.0+)?\)$/.test(c.replace(/\s/g, '')) || c === 'transparent' || c === '';
+  const colors = ed.docColors().filter((c) => !isClear(c));
+  if (!colors.length) return;
+  const sorted = [...colors].sort((a, b) => lum(a) - lum(b));
+  const pal = [...palette].sort((a, b) => lum(a) - lum(b));
+  const map = new Map<string, string>();
+  sorted.forEach((c, i) => map.set(c, pal[Math.round((i * (pal.length - 1)) / Math.max(1, sorted.length - 1))]));
+  const sw = (c: string) => map.get(c.toLowerCase()) ?? c;
+  const swF = (f: Fill): Fill => (typeof f === 'string' ? sw(f) : { ...f, stops: f.stops.map((s) => ({ ...s, color: sw(s.color) })) });
+  const p = ed.page;
+  p.background = swF(p.background);
+  for (const el of p.elements) {
+    if (el.type === 'shape' || el.type === 'text') el.fill = swF(el.fill);
+    if (el.type === 'graphic') el.colors = el.colors.map(sw);
+    if (el.type === 'draw') el.color = sw(el.color);
+  }
+  ed.commit();
+}

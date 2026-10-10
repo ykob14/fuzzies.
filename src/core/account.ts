@@ -1,0 +1,209 @@
+/**
+ * Accounts and profiles. Everything lives on this device (localStorage), so the app works offline
+ * with no server. Passwords are salted and hashed with PBKDF2 before they are stored.
+ */
+import { uid, todayKey } from './util';
+
+export interface Avatar { emoji: string; color: string; image?: string }
+
+export interface Settings {
+  theme: string;
+  accent: string; // '' = theme default
+  sound: boolean;
+  snap: boolean;
+  reduceMotion: boolean;
+  skin: string; // Fuzzy Crossing player look
+}
+
+export interface Stats {
+  designs: number;
+  exports: number;
+  gamesPlayed: number;
+  bestScore: number;
+  bestLevel: number;
+  fuzziesFromGame: number;
+  minutesActive: number;
+}
+
+export interface Account {
+  id: string;
+  username: string;
+  email: string;
+  name: string;
+  bio: string;
+  guest: boolean;
+  hash: string;
+  salt: string;
+  createdAt: number;
+  avatar: Avatar;
+  fuzzies: number; // spendable balance
+  totalFuzzies: number; // lifetime earned
+  unlocked: string[];
+  stats: Stats;
+  daily: { last: string; streak: number; exportsToday: number; exportsDay: string };
+  settings: Settings;
+}
+
+const K_ACCOUNTS = 'fz.accounts';
+const K_SESSION = 'fz.session';
+
+type Listener = (a: Account | null) => void;
+const listeners = new Set<Listener>();
+
+function readAll(): Record<string, Account> {
+  try { return JSON.parse(localStorage.getItem(K_ACCOUNTS) || '{}'); } catch { return {}; }
+}
+function writeAll(all: Record<string, Account>): void {
+  localStorage.setItem(K_ACCOUNTS, JSON.stringify(all));
+}
+
+const enc = new TextEncoder();
+const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+
+async function hashPassword(pw: string, salt: string): Promise<string> {
+  if (globalThis.crypto?.subtle) {
+    const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt), iterations: 120_000 }, key, 256);
+    return 'p2:' + hex(bits);
+  }
+  // Non-secure contexts (plain http on a LAN) have no SubtleCrypto: fall back to an iterated FNV mix.
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  const s = salt + ':' + pw;
+  for (let r = 0; r < 4000; r++) {
+    for (let i = 0; i < s.length; i++) {
+      h1 = Math.imul(h1 ^ s.charCodeAt(i), 16777619) >>> 0;
+      h2 = Math.imul(h2 ^ (h1 + r), 2246822519) >>> 0;
+    }
+  }
+  return 'f1:' + h1.toString(16) + h2.toString(16);
+}
+
+const AVATAR_COLORS = ['#ff5fa2', '#7c5cff', '#ffb547', '#2ec4b6', '#4cc9f0', '#f15bb5', '#06d6a0', '#ff7a59'];
+const AVATAR_EMOJI = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐸', '🐙', '🦋', '🐯', '🐨'];
+const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+
+function fresh(username: string, name: string, email: string, guest: boolean): Account {
+  return {
+    id: uid('u_'),
+    username,
+    email,
+    name,
+    bio: '',
+    guest,
+    hash: '',
+    salt: uid(),
+    createdAt: Date.now(),
+    avatar: { emoji: pick(AVATAR_EMOJI), color: pick(AVATAR_COLORS) },
+    fuzzies: 10, // welcome gift
+    totalFuzzies: 10,
+    unlocked: [],
+    stats: { designs: 0, exports: 0, gamesPlayed: 0, bestScore: 0, bestLevel: 0, fuzziesFromGame: 0, minutesActive: 0 },
+    daily: { last: '', streak: 0, exportsToday: 0, exportsDay: '' },
+    settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic' },
+  };
+}
+
+let current: Account | null = null;
+
+export const accounts = {
+  get current(): Account | null { return current; },
+
+  restore(): Account | null {
+    const id = localStorage.getItem(K_SESSION);
+    const all = readAll();
+    current = id && all[id] ? migrate(all[id]) : null;
+    return current;
+  },
+
+  onChange(fn: Listener): () => void {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  },
+
+  /** Persist and notify. Pass a mutator to change the signed-in account. */
+  update(mut?: (a: Account) => void): void {
+    if (!current) return;
+    mut?.(current);
+    const all = readAll();
+    all[current.id] = current;
+    writeAll(all);
+    for (const l of listeners) l(current);
+  },
+
+  async signUp(input: { name: string; username: string; email: string; password: string }): Promise<Account> {
+    const username = input.username.trim().toLowerCase();
+    if (!/^[a-z0-9_.]{3,20}$/.test(username)) throw new Error('Username: 3–20 letters, numbers, dots or underscores.');
+    if (input.password.length < 6) throw new Error('Password needs at least 6 characters.');
+    const all = readAll();
+    if (Object.values(all).some((a) => a.username === username)) throw new Error('That username is taken on this device.');
+    const a = fresh(username, input.name.trim() || username, input.email.trim(), false);
+    a.hash = await hashPassword(input.password, a.salt);
+    all[a.id] = a;
+    writeAll(all);
+    this.setSession(a);
+    return a;
+  },
+
+  async signIn(login: string, password: string): Promise<Account> {
+    const key = login.trim().toLowerCase();
+    const a = Object.values(readAll()).find((x) => !x.guest && (x.username === key || (x.email && x.email.toLowerCase() === key)));
+    if (!a || (await hashPassword(password, a.salt)) !== a.hash) throw new Error('Wrong username or password.');
+    this.setSession(migrate(a));
+    return a;
+  },
+
+  guest(): Account {
+    const a = fresh('guest' + Math.floor(Math.random() * 9000 + 1000), 'Guest', '', true);
+    const all = readAll();
+    all[a.id] = a;
+    writeAll(all);
+    this.setSession(a);
+    return a;
+  },
+
+  /** Turn a guest into a full account, keeping designs and Fuzzies. */
+  async claimGuest(input: { name: string; username: string; email: string; password: string }): Promise<void> {
+    if (!current) return;
+    const username = input.username.trim().toLowerCase();
+    if (!/^[a-z0-9_.]{3,20}$/.test(username)) throw new Error('Username: 3–20 letters, numbers, dots or underscores.');
+    if (input.password.length < 6) throw new Error('Password needs at least 6 characters.');
+    if (Object.values(readAll()).some((a) => a.username === username && a.id !== current!.id)) throw new Error('That username is taken on this device.');
+    const hash = await hashPassword(input.password, current.salt);
+    this.update((a) => { a.username = username; a.name = input.name.trim() || username; a.email = input.email.trim(); a.hash = hash; a.guest = false; });
+  },
+
+  async changePassword(oldPw: string, newPw: string): Promise<void> {
+    if (!current) return;
+    if ((await hashPassword(oldPw, current.salt)) !== current.hash) throw new Error('Current password is wrong.');
+    if (newPw.length < 6) throw new Error('New password needs at least 6 characters.');
+    const hash = await hashPassword(newPw, current.salt);
+    this.update((a) => { a.hash = hash; });
+  },
+
+  setSession(a: Account | null): void {
+    current = a;
+    if (a) localStorage.setItem(K_SESSION, a.id);
+    else localStorage.removeItem(K_SESSION);
+    for (const l of listeners) l(current);
+  },
+
+  signOut(): void { this.setSession(null); },
+
+  remove(): void {
+    if (!current) return;
+    const all = readAll();
+    delete all[current.id];
+    writeAll(all);
+    this.setSession(null);
+  },
+
+  list(): Account[] { return Object.values(readAll()).filter((a) => !a.guest); },
+};
+
+/** Fill in fields added after an account was first saved. */
+function migrate(a: Account): Account {
+  const f = fresh(a.username, a.name, a.email, a.guest);
+  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
+}
+
+export const isToday = (key: string): boolean => key === todayKey();

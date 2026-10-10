@@ -1,0 +1,17 @@
+{
+  "name": "fuzzies",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fuzzies — a friendly design studio for posters, posts and more, with a built-in arcade break.",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2"
+  }
+}

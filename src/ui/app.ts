@@ -1,0 +1,123 @@
+/** App shell (sidebar / top bar / phone tab bar) and the hash router. */
+import { accounts } from '../core/account';
+import { rewards } from '../core/rewards';
+import { applyTheme, resolveTheme } from '../core/themes';
+import { h, icon, logo, fuzzyMark, avatarEl, popMenu, toast, QUOTE, type IconName } from './dom';
+import { authScreen } from './screens/auth';
+import { homeScreen } from './screens/home';
+import { templatesScreen } from './screens/templates';
+import { projectsScreen } from './screens/projects';
+import { playScreen } from './screens/play';
+import { rewardsScreen } from './screens/rewards';
+import { profileScreen } from './screens/profile';
+import { settingsScreen } from './screens/settings';
+import { openEditor } from './screens/editor';
+import { createDialog } from './create';
+
+export interface Screen { el: HTMLElement; destroy?: () => void }
+
+const NAV: { id: string; label: string; icon: IconName }[] = [
+  { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'templates', label: 'Templates', icon: 'grid' },
+  { id: 'projects', label: 'My designs', icon: 'folder' },
+  { id: 'play', label: 'Fuzzy Crossing', icon: 'gamepad' },
+  { id: 'rewards', label: 'Rewards', icon: 'gift' },
+  { id: 'profile', label: 'Profile', icon: 'user' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
+];
+
+let current: Screen | null = null;
+const root = () => document.getElementById('app')!;
+
+export function balanceChip(): HTMLElement {
+  const n = h('b', { class: 'fz-balance' }, String(rewards.balance()));
+  const chip = h('a', { class: 'fz-chip', href: '#/rewards', title: 'Your Fuzzies — tap to see rewards' }, fuzzyMark(22), n);
+  return chip;
+}
+
+function shell(active: string, content: HTMLElement): HTMLElement {
+  const a = accounts.current!;
+  const navLink = (n: (typeof NAV)[number]) => h('a', { class: `nav-link ${n.id === active ? 'on' : ''}`, href: `#/${n.id}` }, icon(n.icon, 20), h('span', null, n.label));
+
+  const sidebar = h('aside', { class: 'sidebar' },
+    h('a', { href: '#/home', class: 'sidebar-logo' }, logo('sm')),
+    h('button', { class: 'btn btn-primary btn-lg btn-block create-btn', type: 'button', onclick: () => createDialog() }, icon('plus', 20), h('span', null, 'Create a design')),
+    h('nav', { class: 'nav' }, ...NAV.map(navLink)),
+    h('a', { class: 'side-card', href: '#/play' },
+      h('div', { class: 'side-card-top' }, fuzzyMark(36), h('div', null, h('b', null, 'Take a fuzzy break'), h('small', null, 'Play to unlock rewards'))),
+      h('div', { class: 'side-card-bal' }, 'Balance ', h('b', { class: 'fz-balance' }, String(rewards.balance())))));
+
+  const av = avatarEl(a, 36);
+  const avBtn = h('button', { class: 'avatar-btn', type: 'button', title: 'Account', 'aria-label': 'Account menu' }, av);
+  avBtn.addEventListener('click', () => {
+    const dark = resolveTheme(a.settings.theme).dark;
+    popMenu(avBtn, [
+      { label: `${a.name} (@${a.username})`, icon: 'user', onClick: () => (location.hash = '#/profile') },
+      { label: dark ? 'Switch to light mode' : 'Switch to dark mode', icon: dark ? 'sun' : 'moon', onClick: () => { accounts.update((x) => (x.settings.theme = dark ? 'light' : 'dark')); applyTheme(); } },
+      { label: 'Settings', icon: 'settings', onClick: () => (location.hash = '#/settings') },
+      null,
+      { label: 'Sign out', icon: 'logout', danger: true, onClick: () => { accounts.signOut(); location.hash = '#/welcome'; } },
+    ]);
+  });
+
+  const top = h('header', { class: 'topbar' },
+    h('a', { href: '#/home', class: 'topbar-logo' }, logo('sm', false)),
+    h('div', { class: 'topbar-quote' }, QUOTE),
+    h('div', { class: 'topbar-right' }, balanceChip(), avBtn));
+
+  const tab = (id: string, label: string, ic: IconName) => h('a', { class: `tab ${id === active ? 'on' : ''}`, href: `#/${id}` }, icon(ic, 22), h('span', null, label));
+  const createTab = h('button', { class: 'tab tab-create', type: 'button', 'aria-label': 'Create a design', onclick: () => createDialog() }, h('span', { class: 'tab-plus' }, icon('plus', 26)));
+  const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' }, tab('home', 'Home', 'home'), tab('projects', 'Designs', 'folder'), createTab, tab('play', 'Play', 'gamepad'), tab('profile', 'Me', 'user'));
+
+  return h('div', { class: 'app' }, sidebar, h('div', { class: 'main' }, top, h('main', { class: 'content', id: 'content' }, content)), tabbar);
+}
+
+export function route(): void {
+  const hash = location.hash.replace(/^#\/?/, '') || 'home';
+  const [name, arg] = hash.split('/');
+  current?.destroy?.();
+  current = null;
+  document.querySelector('.popmenu')?.remove();
+  document.querySelectorAll('.picker').forEach((p) => p.remove());
+
+  if (!accounts.current) {
+    current = authScreen(name === 'login' ? 'login' : name === 'signup' ? 'signup' : 'welcome');
+    root().replaceChildren(current.el);
+    return;
+  }
+  if (name === 'welcome' || name === 'login' || name === 'signup') { location.replace('#/home'); return; }
+
+  if (name === 'edit' && arg) {
+    root().replaceChildren(h('div', { class: 'loading-screen' }, fuzzyMark(64), h('p', null, 'Opening your design…')));
+    void openEditor(arg).then((s) => {
+      if (!s) return;
+      current = s;
+      root().replaceChildren(s.el);
+    });
+    return;
+  }
+
+  const screens: Record<string, () => Screen> = {
+    home: homeScreen, templates: templatesScreen, projects: projectsScreen, play: playScreen,
+    rewards: rewardsScreen, profile: profileScreen, settings: settingsScreen,
+  };
+  const make = screens[name] ?? homeScreen;
+  current = make();
+  root().replaceChildren(shell(screens[name] ? name : 'home', current.el));
+  window.scrollTo(0, 0);
+  document.getElementById('content')?.scrollTo(0, 0);
+}
+
+export function startApp(): void {
+  accounts.restore();
+  applyTheme();
+  accounts.onChange(() => {
+    for (const b of document.querySelectorAll('.fz-balance')) b.textContent = String(rewards.balance());
+  });
+  rewards.onEarn((n, reason) => {
+    if (location.hash.startsWith('#/play')) return; // the game shows its own pop-ups
+    toast(`+${n} Fuzz${n === 1 ? 'y' : 'ies'} · ${reason}`, 'fuzzy');
+  });
+  addEventListener('hashchange', route);
+  route();
+}

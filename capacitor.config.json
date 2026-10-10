@@ -1,0 +1,7 @@
+{
+  "appId": "com.fuzzies.app",
+  "appName": "Fuzzies",
+  "webDir": "dist",
+  "ios": { "contentInset": "never", "backgroundColor": "#14101f" },
+  "android": { "backgroundColor": "#14101f" }
+}
