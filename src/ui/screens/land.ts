@@ -13,6 +13,7 @@ import { travel } from '../travel';
 import { h, btn, fuzzyMark, toast, confirmDialog } from '../dom';
 import { mascot } from '../mascot';
 import { isTouch } from '../../core/util';
+import { landIcon, type LandIcon } from '../landIcons';
 
 type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' };
 
@@ -31,7 +32,7 @@ export function landScreen(): Screen {
   const overlay = h('div', { class: 'land-overlay', 'aria-hidden': 'true' });
   const hud = h('div', { class: 'land-hud' });
   const side = h('div', { class: 'land-side' });
-  const bar = h('div', { class: 'land-bar' });
+  const bar = h('div', { class: 'land-dock' });
   const sheet = h('section', { class: 'land-sheet', hidden: true });
   const placeBar = h('div', { class: 'land-place', hidden: true });
   let view: LandView | null = null;
@@ -76,6 +77,7 @@ export function landScreen(): Screen {
   }
 
   function levelUp(lv: number): void {
+    document.querySelector('.land-away')?.remove(); // one card at a time
     const n = L.levelFuzzies(lv);
     rewards.earn(n, `Fuzzies Land level ${lv}!`);
     sfx.level();
@@ -92,6 +94,26 @@ export function landScreen(): Screen {
   const spendFuzzies = (n: number) => { accounts.update((x) => { x.fuzzies -= n; }); };
 
   // ---------- HUD ----------
+  const shown = new Map<string, number>();
+  /** A number that counts up (or down) to its new value, like a slot machine. */
+  function counter(key: string, n: number): HTMLElement {
+    const el = h('b', { class: 'land-num' }, n.toLocaleString());
+    const from = shown.get(key);
+    shown.set(key, n);
+    if (from !== undefined && from !== n && !a.settings.reduceMotion) {
+      const t0 = performance.now(), dur = Math.min(700, 250 + Math.abs(n - from) * 8);
+      el.classList.add('bump');
+      const step = (t: number) => {
+        const k = Math.min(1, (t - t0) / dur);
+        el.textContent = Math.round(from + (n - from) * (1 - Math.pow(1 - k, 3))).toLocaleString();
+        if (k < 1 && el.isConnected) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+    return el;
+  }
+  const backBtn = h('button', { class: 'land-round land-back', type: 'button', title: 'Back to Fuzzies', 'aria-label': 'Back to Fuzzies' }, landIcon('back', 22));
+  backBtn.addEventListener('click', () => { location.hash = '#/home'; });
   let hudSig = '';
   function renderHud(): void {
     // only rebuild when something shown actually changed (rebuilding every second could swallow a tap)
@@ -99,28 +121,33 @@ export function landScreen(): Screen {
     if (sig === hudSig) return;
     hudSig = sig;
     const need = L.xpFor(s.level);
+    const pct = Math.min(100, (s.xp / need) * 100);
     const pop = L.population(s);
     const ready = s.orders.filter((o) => L.canFill(s, o)).length;
+    const cap = (ic: Node, key: string, n: number, title: string, href?: string) =>
+      h(href ? 'a' : 'div', { class: 'land-cap', title, ...(href ? { href } : {}) }, h('span', { class: 'land-cap-ic' }, ic), counter(key, n), href ? h('i', { class: 'land-cap-plus' }, '+') : null);
     hud.replaceChildren(
-      h('div', { class: 'land-lvl', title: `${s.xp} / ${need} XP` },
-        h('span', { class: 'land-lvl-n', style: `--p:${(s.xp / need) * 100}%` }, h('b', null, String(s.level))),
-        h('div', null, h('b', null, 'Fuzzies Land'), h('div', { class: 'land-xp' }, h('div', { style: `width:${(s.xp / need) * 100}%` })), h('small', null, `${s.xp} / ${need} XP`))),
-      h('div', { class: 'land-chips' }, savedEl,
-        h('span', { class: 'land-chip', title: 'Coins' }, '🪙', h('b', null, s.coins.toLocaleString())),
-        h('span', { class: 'land-chip', title: 'Fuzzies living here' }, '🏡', h('b', null, String(pop))),
-        h('a', { class: 'land-chip', href: '#/rewards', title: 'Your Fuzzies' }, fuzzyMark(18), h('b', { class: 'fz-balance' }, String(rewards.balance())))));
-    const tool = (ic: string, label: string, onClick: () => void, badge = '') => {
-      const b = h('button', { class: 'land-tool', type: 'button' }, h('span', { class: 'land-tool-ic' }, ic), h('span', null, label), badge ? h('i', { class: 'land-badge' }, badge) : null);
+      h('div', { class: 'land-hud-l' }, backBtn,
+        h('div', { class: 'land-lvl', title: `${s.xp} / ${need} XP to level ${s.level + 1}` },
+          h('span', { class: 'land-lvl-n', style: `--p:${pct}%` }, h('b', null, String(s.level))),
+          h('div', { class: 'land-lvl-t' }, h('b', null, 'Fuzzies Land'), h('div', { class: 'land-xp' }, h('div', { style: `width:${pct}%` }), h('small', null, `${s.xp} / ${need}`))))),
+      h('div', { class: 'land-hud-r' },
+        cap(landIcon('coin', 30), 'coins', s.coins, 'Coins'),
+        cap(landIcon('pop', 30), 'pop', pop, 'Fuzzies living here'),
+        cap(fuzzyMark(30), 'fz', rewards.balance(), 'Your Fuzzies — tap to spend them', '#/rewards'),
+        savedEl));
+    const tool = (ic: LandIcon, label: string, onClick: () => void, badge = '', cls = '') => {
+      const b = h('button', { class: `land-dock-btn ${cls}`, type: 'button' }, h('span', { class: 'land-dock-ic' }, landIcon(ic, 34)), h('span', { class: 'land-dock-l' }, label), badge ? h('i', { class: 'land-badge' }, badge) : null);
       b.addEventListener('click', onClick);
       return b;
     };
     const away = L.awaySummary(s);
     const waiting = away.crops + away.goods + away.built;
     bar.replaceChildren(...[
-      waiting ? tool('✨', 'Collect', collectAllNow, String(waiting)) : null,
-      tool('🔨', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
-      tool('📦', 'Orders', () => openPanel({ kind: 'orders' }), ready ? String(ready) : ''),
-      tool('🏚️', 'Barn', () => openPanel({ kind: 'barn' }), `${L.barnUsed(s)}/${L.barnCap(s.level)}`)].filter((x) => x !== null) as HTMLElement[]);
+      waiting ? tool('sparkles', 'Collect', collectAllNow, String(waiting), 'hot') : null,
+      tool('hammer', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
+      tool('crate', 'Orders', () => openPanel({ kind: 'orders' }), ready ? String(ready) : ''),
+      tool('barn', 'Barn', () => openPanel({ kind: 'barn' }), `${L.barnUsed(s)}/${L.barnCap(s.level)}`, 'soft')].filter((x) => x !== null) as HTMLElement[]);
   }
 
   /** Harvest, collect and open everything that's ready, in one tap. */
@@ -167,31 +194,39 @@ export function landScreen(): Screen {
     if (!panel) { sheet.hidden = true; return; }
     sheet.hidden = false;
     const close = btn(null, { icon: 'close', kind: 'plain', size: 'sm', title: 'Close', onClick: () => openPanel(null) });
-    const head = (title: string, sub = '') => h('div', { class: 'land-sheet-head' }, h('div', null, h('h3', null, title), sub ? h('small', { class: 'muted' }, sub) : null), close);
-    if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Tap something, then choose where it goes'), shopBody(panel.tab));
-    else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Fuzzies ask for goods — deliver for coins & XP'), ordersBody());
-    else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', `${L.barnUsed(s)} / ${L.barnCap(s.level)} spaces used`), barnBody());
+    const head = (title: string, sub = '', ic?: Node) => h('div', { class: 'land-sheet-head' }, ic ? h('span', { class: 'land-sheet-ic' }, ic) : null, h('div', null, h('h3', null, title), sub ? h('small', { class: 'muted' }, sub) : null), close);
+    sheet.dataset.kind = panel.kind;
+    if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Tap something, then choose where it goes', landIcon('hammer', 34)), shopBody(panel.tab));
+    else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Fuzzies ask for goods — deliver for coins & XP', landIcon('crate', 34)), ordersBody());
+    else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', `${L.barnUsed(s)} / ${L.barnCap(s.level)} spaces used`, landIcon('barn', 34)), barnBody());
     else {
       const b = s.buildings.find((x) => x.id === (panel as { id: number }).id);
       if (!b) { openPanel(null); return; }
       const it = L.item(b.item);
-      sheet.replaceChildren(head(`${it.emoji} ${it.name}`, it.blurb), buildingBody(b, it));
+      sheet.replaceChildren(head(it.name, it.blurb, thumb(b.item, it.emoji)), buildingBody(b, it));
     }
   }
 
+  /** A 3D picture of a building for panels (falls back to its emoji before the 3D view is ready). */
+  function thumb(itemId: string, emoji: string): HTMLElement {
+    let url = '';
+    try { url = view?.thumbnail(itemId) ?? ''; } catch (e) { console.warn(e); }
+    return url ? h('img', { class: 'land-thumb', src: url, alt: '', draggable: 'false' }) : h('span', { class: 'land-thumb land-thumb-emoji' }, emoji);
+  }
+
   function shopBody(tab: L.Kind | 'farm'): HTMLElement {
-    const tabs: [L.Kind | 'farm', string][] = [['house', '🏠 Houses'], ['farm', '🌾 Farming'], ['factory', '🏭 Workshops'], ['decor', '🌷 Decor']];
+    const tabs: [L.Kind | 'farm', LandIcon, string][] = [['house', 'house', 'Houses'], ['farm', 'wheat', 'Farming'], ['factory', 'workshop', 'Workshops'], ['decor', 'flower', 'Decor']];
     const list = L.ITEMS.filter((i) => (tab === 'farm' ? i.kind === 'field' : i.kind === tab));
     return h('div', null,
-      h('div', { class: 'chips' }, ...tabs.map(([k, label]) => h('button', { class: `chip ${k === tab ? 'on' : ''}`, type: 'button', onclick: () => openPanel({ kind: 'shop', tab: k }) }, label))),
+      h('div', { class: 'land-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) => h('button', { class: `land-tab ${k === tab ? 'on' : ''}`, type: 'button', role: 'tab', 'aria-selected': String(k === tab), onclick: () => openPanel({ kind: 'shop', tab: k }) }, landIcon(ic, 22), h('span', null, label)))),
       h('div', { class: 'land-shop' }, ...list.map((it) => {
         const why = L.cantBuy(s, it.id, rewards.balance());
         const locked = s.level < it.level;
-        const card = h('button', { class: `land-card ${why ? 'off' : ''}`, type: 'button', title: why || it.blurb },
-          h('span', { class: 'land-card-ic' }, locked ? '🔒' : it.emoji),
+        const card = h('button', { class: `land-card ${why ? 'off' : ''} ${locked ? 'locked' : ''}`, type: 'button', title: why || it.blurb },
+          h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), locked ? h('span', { class: 'land-card-lock' }, landIcon('lock', 26), h('small', null, `Level ${it.level}`)) : null),
           h('b', null, it.name),
-          h('small', null, locked ? `Level ${it.level}` : it.blurb),
-          h('span', { class: 'land-price' }, it.currency === 'fuzzies' ? fuzzyMark(14) : '🪙', it.cost ? String(it.cost) : 'Free'),
+          h('small', null, locked ? `Unlocks at level ${it.level}` : it.blurb),
+          h('span', { class: 'land-price' }, it.currency === 'fuzzies' ? fuzzyMark(16) : landIcon('coin', 16), it.cost ? String(it.cost) : 'Free'),
           it.max && !locked ? h('i', { class: 'land-max' }, `${L.count(s, it.id)}/${it.max(s.level)}`) : null);
         card.addEventListener('click', () => {
           if (why) { toast(why, 'info'); return; }
@@ -210,7 +245,7 @@ export function landScreen(): Screen {
           const have = s.barn[k] ?? 0;
           return h('span', { class: have >= n ? 'have' : '' }, `${L.good(k).emoji} ${Math.min(have, n)}/${n}`);
         })),
-        h('div', { class: 'land-order-reward' }, h('span', null, `🪙 ${o.coins}`), h('span', null, `⭐ ${o.xp} XP`), o.fuzzies ? h('span', null, fuzzyMark(14), `+${o.fuzzies}`) : null),
+        h('div', { class: 'land-order-reward' }, h('span', null, landIcon('coin', 16), String(o.coins)), h('span', null, landIcon('star', 16), `${o.xp} XP`), o.fuzzies ? h('span', null, fuzzyMark(16), `+${o.fuzzies}`) : null),
         h('div', { class: 'land-order-btns' },
           btn('Deliver', { kind: ok ? 'primary' : 'soft', size: 'sm', onClick: () => {
             try {
@@ -464,7 +499,7 @@ export function landScreen(): Screen {
     if (pts.size === 2) {
       const [p1, p2] = [...pts.values()];
       const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-      if (pinch) view.zoom(pinch / d);
+      if (pinch) view.zoom(pinch / d, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
       pinch = d;
       return;
     }
@@ -482,6 +517,7 @@ export function landScreen(): Screen {
     if (pts.size < 2) pinch = 0;
     const d = drag;
     drag = null;
+    if (d?.moved && !d.ghost) view?.release();
     if (!d || d.moved || !view) return;
     if (placing) {
       const g = view.ground(e.clientX, e.clientY);
@@ -497,7 +533,7 @@ export function landScreen(): Screen {
   wrap.addEventListener('pointermove', onMove);
   wrap.addEventListener('pointerup', onUp);
   wrap.addEventListener('pointercancel', (e) => { pts.delete(e.pointerId); drag = null; pinch = 0; });
-  wrap.addEventListener('wheel', (e) => { e.preventDefault(); view?.zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+  wrap.addEventListener('wheel', (e) => { e.preventDefault(); view?.zoom(Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
 
   // ---------- what the Fuzzies say ----------
   function phrase(seed: number): string {
@@ -515,20 +551,30 @@ export function landScreen(): Screen {
 
   // ---------- setup ----------
   const stage = h('div', { class: 'land-wrap' }, wrap, overlay, hud, side, bar, placeBar, sheet);
-  const musicBtn = btn(null, { kind: 'soft', size: 'sm', title: 'Music', onClick: () => {
+  const round = (ic: Node, title: string, onClick: () => void, cls = '') => {
+    const b = h('button', { class: `land-round ${cls}`, type: 'button', title, 'aria-label': title }, ic);
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  const musicBtn = round(landIcon('music', 26), 'Music', () => {
     accounts.update((x) => (x.settings.music = !x.settings.music));
     if (accounts.current?.settings.music) music.start(); else music.stop();
     paintMusic();
-  } });
-  const paintMusic = () => { musicBtn.replaceChildren(accounts.current?.settings.music !== false ? '🎵' : '🔇'); musicBtn.title = accounts.current?.settings.music !== false ? 'Music on — tap to turn off' : 'Music off — tap to turn on'; };
+  });
+  const paintMusic = () => {
+    const on = accounts.current?.settings.music !== false;
+    musicBtn.replaceChildren(landIcon(on ? 'music' : 'musicOff', 26));
+    musicBtn.title = on ? 'Music on — tap to turn off' : 'Music off — tap to turn on';
+  };
   paintMusic();
   // browsers only allow sound after a tap/click: start the music on the first one if it couldn't start yet
   stage.addEventListener('pointerdown', () => { if (!music.playing) setTimeout(() => music.start(), 50); });
   side.append(...[
     musicBtn,
-    btn(h('span', { class: 'row' }, '🐸', h('span', null, 'Crossing')), { kind: 'soft', size: 'sm', title: 'Play Fuzzy Crossing', onClick: () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id) }),
-    isTouch() ? null : btn(null, { icon: 'zoomIn', kind: 'soft', size: 'sm', title: 'Zoom in', onClick: () => view?.zoom(0.8) }),
-    isTouch() ? null : btn(null, { icon: 'zoomOut', kind: 'soft', size: 'sm', title: 'Zoom out', onClick: () => view?.zoom(1.25) })].filter((x): x is HTMLButtonElement => !!x));
+    round(landIcon('gate', 30), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
+    isTouch() ? null : h('div', { class: 'land-zoom' },
+      round(landIcon('zoomIn', 20), 'Zoom in', () => view?.zoom(0.8)),
+      round(landIcon('zoomOut', 20), 'Zoom out', () => view?.zoom(1.25)))].filter((x) => x !== null) as HTMLElement[]);
   renderHud();
 
   const hasWebGL = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } })();

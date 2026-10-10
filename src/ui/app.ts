@@ -133,6 +133,8 @@ export function route(): void {
   };
   const make = screens[name] ?? homeScreen;
   current = make();
+  // Fuzzies Land is a full-screen game world: no app sidebar, top bar or tab bar (it has its own back button)
+  if (name === 'land') { root().replaceChildren(current.el); return; }
   root().replaceChildren(shell(screens[name] ? name : 'home', current.el));
   window.scrollTo(0, 0);
   document.getElementById('content')?.scrollTo(0, 0);

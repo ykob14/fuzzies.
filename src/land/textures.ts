@@ -151,13 +151,25 @@ export function lawn(): THREE.CanvasTexture {
     const S = 512;
     const [c, x] = canvas(S, S);
     const r = rng(41);
-    x.fillStyle = '#6aa73f'; x.fillRect(0, 0, S, S);
-    for (let i = 0; i < 4; i++) { x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.03)'; x.fillRect(0, (i * S) / 4, S, S / 4); }
-    for (let i = 0; i < 70; i++) {
-      x.fillStyle = r() < 0.5 ? 'rgba(90,150,50,0.10)' : 'rgba(130,185,80,0.10)';
-      x.beginPath(); x.ellipse(r() * S, r() * S, 20 + r() * 50, 14 + r() * 30, r() * 3, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#8acb5c'; x.fillRect(0, 0, S, S);
+    // soft sunny and shady clumps (drawn wrapped so the texture tiles without seams)
+    const blob = (px: number, py: number, rad: number, col: string) => {
+      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
+        const g = x.createRadialGradient(px + ox, py + oy, 0, px + ox, py + oy, rad);
+        g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+        x.fillStyle = g; x.fillRect(px + ox - rad, py + oy - rad, rad * 2, rad * 2);
+      }
+    };
+    for (let i = 0; i < 22; i++) blob(r() * S, r() * S, 60 + r() * 100, r() < 0.6 ? 'rgba(186,228,118,0.22)' : 'rgba(96,160,66,0.09)');
+    for (let i = 0; i < 50; i++) blob(r() * S, r() * S, 12 + r() * 26, r() < 0.6 ? 'rgba(196,232,128,0.18)' : 'rgba(100,165,70,0.08)');
+    // short blades
+    const tones = ['rgba(80,138,54,0.2)', 'rgba(170,215,110,0.28)', 'rgba(116,172,74,0.22)', 'rgba(204,234,146,0.22)'];
+    for (let i = 0; i < 9000; i++) {
+      x.strokeStyle = tones[Math.floor(r() * tones.length)];
+      x.lineWidth = 1 + r() * 0.6;
+      const px = r() * S, py = r() * S, l = 2 + r() * 3.5, lean = (r() - 0.5) * 2;
+      x.beginPath(); x.moveTo(px, py); x.lineTo(px + lean, py - l); x.stroke();
     }
-    for (let i = 0; i < 7000; i++) { x.fillStyle = ['rgba(70,120,40,0.35)', 'rgba(140,195,90,0.3)', 'rgba(95,155,55,0.35)'][Math.floor(r() * 3)]; x.fillRect(r() * S, r() * S, 1, 2 + r() * 2); }
     return tex(c);
   });
 }
@@ -190,5 +202,29 @@ export function sign(text: string, bg: string, fg = '#fff'): THREE.CanvasTexture
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 8;
     return t;
+  });
+}
+
+/** Light, warm cut-stone blocks (plinths, pillars, paths): soft mortar lines, no harsh speckle. Tint with the material colour. */
+export function stoneBlocks(): THREE.CanvasTexture {
+  return memo('stoneblocks', () => {
+    const S = 256, rows = 4;
+    const [c, x] = canvas(S, S);
+    const r = rng(47);
+    x.fillStyle = '#d9d0c4'; x.fillRect(0, 0, S, S);
+    const bh = S / rows;
+    for (let j = 0; j < rows; j++) {
+      let px = -(j % 2) * 40;
+      while (px < S) {
+        const bw = 60 + r() * 50;
+        const v = (r() - 0.5) * 0.08;
+        const g = x.createLinearGradient(0, j * bh, 0, (j + 1) * bh);
+        g.addColorStop(0, shade('#ffffff', v)); g.addColorStop(1, shade('#f1ece5', v - 0.03));
+        x.fillStyle = g;
+        x.beginPath(); x.roundRect(px + 2, j * bh + 2, bw - 4, bh - 4, 6); x.fill();
+        px += bw;
+      }
+    }
+    return tex(c);
   });
 }

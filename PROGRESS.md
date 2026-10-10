@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-10 (session 2) · by Claude Code · `main` and `claude/fuzzies-design-app-jwv4tu` are identical_
+_Last updated: 2026-10-10 (session 2, Fuzzies Land visual pass) · by Claude Code · see Status for branches_
 
 ---
 
@@ -59,6 +59,11 @@ keeps people coming back (the mascot, the game, missions).
 - Owner's own feedback (session 2): loved the giggle/tickle, the cars' graphics, the unlockable themes and accent colours;
   thought the app is "close to a first version". Asked for: no scrolling on the game instructions (done), unlocked
   rewards should be usable straight away (done), test on mobile (done: phone layouts checked), device sync (done, needs keys).
+- **Fuzzies Land quality bar** (owner, end of session 2): "don't restart — improve the existing game", aim for the polish of
+  a high-quality mobile city-builder with **its own identity**. Priorities in order: visual quality → consistent art direction
+  → gameplay working → UI → camera/island → QA at all sizes. Wanted to **agree on the target look before adding features**,
+  and asked for a status + next-milestone (contents and cost) write-up. The agreed-upon style lives in **`ART.md`** — every
+  new Land asset must follow it.
 
 ## 4. How to run, build and test
 
@@ -131,10 +136,13 @@ src/
     rules.ts           RULES only: items, goods, crops/workshops/orders/levels/expansions, placement; wall-clock timers
     view3d.ts          Three.js island town: sky, ocean, forest, buildings, growing crops, residents (BFS walking,
                        breathing/blinking/looking idle, speech bubbles), camera pan/zoom/swoop, picking, placement ghost
-    models.ts, textures.ts  procedural building/crop/decor models and textures
+    environment.ts     the island: terrain slab + beach, shader water (shore foam), sky dome, instanced swaying forest,
+                       grass tufts/wildflowers, rocks, clouds; PALETTE; islandRadius()
+    models.ts, textures.ts  procedural building/crop/decor models (PAL palette, plinth/gableRoof/windowOn/doorOn helpers) and textures
   ui/
     app.ts             shell (sidebar / top bar / phone tab bar) + hash router
     mascot.ts          the living mascot component (bounce, shadow, sparkles, wink, tap hop, tickle)
+    landIcons.ts       Fuzzies Land's own "sticker" icon set (coin, star, hammer, crate, barn, music, gate…)
     travel.ts          the circle-wipe transition between Fuzzy Crossing and Fuzzies Land (waits for 'fz:scene-ready')
     missions.ts        missions card + badge grid
     screens/           auth, home, templates, projects, editor, play, land, rewards, profile, settings, shared (link viewer)
@@ -178,6 +186,12 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   while the app is closed. Don't rebuild HUD/panel DOM on a timer (taps get lost) — update text in place.
   New buildings/goods = add to `ITEMS`/`GOODS` in `land/rules.ts` + a model in `land/models.ts` (`modelFor`).
   In dev, `window.__land = { view, state }` lets tests step frames (`view.stop(); view.frame(0.05)`).
+  **Art:** follow `ART.md` (palette `PAL` in `land/models.ts`, `PALETTE` in `land/environment.ts`; build new buildings from
+  the helpers `plinth`, `gableRoof`, `windowOn`, `doorOn`, `cornerTrims`, `chimney`, `bush`). Land is **full screen** (the router
+  renders it without the app shell) with its own fixed cream UI tokens (`--lc`, `--link`, `--lacc`… on `.page.land`, which
+  also overrides `--surface`/`--text` so panels look the same in dark mode). Shop cards show 3D pictures from
+  `view.thumbnail(itemId)` (rendered once into a corner of the canvas, cached as PNG data URLs).
+  Rules can be checked without a browser: `node --experimental-strip-types` on a copy of `land/rules.ts` (it has no imports).
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
 - **Theme:** use `var(--accent)`, `var(--on-accent)`, `var(--text)`, etc. Never hard-code purple or gradients in UI chrome.
@@ -209,6 +223,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | `f20b0c1` | **Cuter mascot**: moving the mouse over the Fuzzy tickles it (no wiggle needed); a new syllable-based voice giggles "tee hee hee, ha ha ha" (formant-filtered, chained while you tickle); sparkles chime while hovering, bursts shimmer; sound works on the welcome screen too (audio wakes on the first click/tap — browsers require it). Welcome cards got Fuzzy illustrations (painting, stickers, phone, hopping) with hover animations and a "Tickle me!" hint. |
 | `6ff1b6f` | **Fuzzies Land: saving, offline progress, tidier look.** Buildings now take real time to construct (construction site with scaffolding, crane and a countdown; keeps going while you're away; tap to open; speed up with Fuzzies). "While you were away…" card + a ✨ Collect-all button. Saves after every action and also on leaving/hiding/closing; a "✓ Saved" sign; adopts a newer town from another device; camera position remembered; last saves use `keepalive`. Tidy starter town (crossing streets, hall + gate corner, cottages facing the street, farm corner, free corner), Road item, wooden field edging, contact shadows, smoother lawn, thinner forest. Fixes: HUD/panels no longer rebuild every second (lost taps), negative first-frame time step (camera swoop stuck on slow phones; also in Fuzzy Crossing). |
 | `4cb87c8` | **Soft background music in Fuzzies Land** (`game/music.ts`: live Web Audio — warm pad chords Fmaj7–Dm7–Bbmaj7–C, gentle bass, wandering music-box melody, light reverb; fades in/out; 🎵 button in town + Settings switch, `settings.music`; starts on the first tap if the browser blocked audio). **Play bonus:** 1–5 Fuzzies for every 30 minutes playing Fuzzy Crossing or Fuzzies Land (`PLAY_BONUS` in `core/rewards.ts`, shown in Rewards). |
+| _(this commit)_ | **Fuzzies Land visual pass** (same starting town, much higher polish; owner wanted to agree the look first). `ART.md` art direction. New island (`land/environment.ts`): rounded grassy slab with cliffs and beach, shader sea with shore foam and glints, sky dome + sky reflections, instanced forest and grass/flowers swaying in the wind, rocks, drifting clouds. Lighting: warm sun, soft shadows following the camera, neutral tone mapping, MSAA + gentle grade/vignette. Rebuilt in one style: cottages (4 looks), Mushroom House, Treehouse, Cloud Villa, Town Hall (clock tower, porch, gold dome), Crossing Gate (hedge arch, pond), Bakery, Popcorn Stand, Weaver, raised fields, flower beds; light stone bases. Auto-joining roads with kerbs and lane lines. Camera: 30° lens / 50° pitch, zoom to cursor/pinch point, pan inertia, soft island limits, closer start (phones look further up the street). Residents got feet and soft shadows. **Full-screen Land UI**: back button, level badge with XP ring, resource capsules with count-up numbers, sticker icons (`ui/landIcons.ts`), chunky lip-button dock and side buttons, cream panels, icon tabs, shop cards with 3D building pictures. Checked: 19 rules checks, click-through play test, screenshots at desktop/tablet/phone. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
@@ -227,12 +242,20 @@ and chose a single consistent brand colour instead (see §3).
 - App icon: phones read the icon when Fuzzies is added to the home screen, so a change shows after re-adding it.
 - Share links carry the design in the URL; designs with many photos make long links (warned in the UI; hard cap ~400k chars).
 - 3D performance and the mascot/intro animations were only checked via screenshots in software WebGL — **not on a real phone yet**.
+  Fuzzies Land now uses post-processing (MSAA), soft shadows and instanced foliage; it needs a real-phone check and an automatic
+  quality switch (lower shadows/MSAA/foliage on slow phones) before launch.
+- Fuzzies Land decorations (bench, lamp, fountain, statue, rainbow arch), crops, construction site and path tile still use the
+  older, simpler style; residents are all the same shape (no outfits/variety yet). No first-time tutorial. Prices/timers untuned.
 - The top-scores list on the game-over card was not seen end-to-end in a browser (logic is simple; unit-checked by reading).
 - No automated tests, linting or CI.
 - Old accounts keep their old avatar colour; old designs keep their old colours (only defaults changed).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
+0. **Fuzzies Land milestone 2** (proposed to the owner, waiting for their OK on the look in `ART.md`): finish the art
+   (decor, crops, construction site, day-to-dusk light, smoke/birds/butterflies/boat), character variety + idle actions
+   (wave, sit, nap, carry goods), a guided first 5 minutes + bigger level-up/unlock celebrations, adaptive quality for phones
+   + real-device check, balance levels 1–10, and turn the rules checks into automated tests.
 1. **Deploy on Vercel + add Neon with the owner** (follow `BACKEND.md`), then test on two real devices.
    After that: password-reset emails (Resend), photos → Vercel Blob, real short share links (a `shares` table),
    online leaderboards, change email/username.
