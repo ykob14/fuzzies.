@@ -4,6 +4,7 @@ import { rewards } from '../core/rewards';
 import { applyTheme, resolveTheme } from '../core/themes';
 import { h, btn, icon, logo, fuzzyMark, avatarEl, popMenu, toast, modal, QUOTE, type IconName } from './dom';
 import { cloud } from '../core/cloud';
+import { watchAppIcon } from '../core/appicon';
 import { sync } from '../core/sync';
 import { authScreen } from './screens/auth';
 import { homeScreen } from './screens/home';
@@ -160,6 +161,7 @@ export function startApp(): void {
     toast(`+${n} Fuzz${n === 1 ? 'y' : 'ies'} · ${reason}`, 'fuzzy');
   });
   startAchievements();
+  watchAppIcon();
   upgradeMascots();
   addEventListener('hashchange', route);
   route();

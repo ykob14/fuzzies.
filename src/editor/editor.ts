@@ -403,7 +403,7 @@ export class Editor {
 
     // ---- overlay in screen space ----
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7c4dff';
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#d6336c';
     const outline = (el: El, width: number, dash = false) => {
       const pts = this.corners(el).map(([x, y]) => this.toScreen(x, y));
       ctx.beginPath();

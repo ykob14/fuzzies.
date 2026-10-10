@@ -153,7 +153,7 @@ export function buildPanels(ed: Editor): Panels {
     const x = c.getContext('2d')!;
     const w = kind === 'arrow' ? 80 : 70, hh = kind === 'line' ? 10 : kind === 'arrow' ? 40 : 70;
     x.translate((96 - w) / 2, (96 - hh) / 2);
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7c4dff';
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#d6336c';
     if (kind === 'line' || kind === 'ring') {
       x.strokeStyle = accent; x.lineWidth = kind === 'line' ? 6 : 9; x.lineCap = 'round';
       const p = kind === 'ring' ? new Path2D() : shapePath('line', w, hh);

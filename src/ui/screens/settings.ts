@@ -7,10 +7,46 @@ import { unlockDialog } from '../unlock';
 import { FONT_PACKS } from '../../content/fonts';
 import { fileToImageData } from '../../core/util';
 import { mascot } from '../mascot';
+import { ICON_COLORS, ICON_BGS, iconSvg, applyAppIcon } from '../../core/appicon';
 import { h, btn, icon, fuzzyMark, toast, pickFile } from '../dom';
 
 let installPrompt: (Event & { prompt(): Promise<void> }) | null = null;
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e as typeof installPrompt; });
+
+/** Pick the Fuzzy colour and background of the app icon on your phone / computer. */
+function appIconCard(): HTMLElement {
+  const card = h('section', { class: 'card appicon-card', id: 'app-icon' });
+  const render = () => {
+    const cur = accounts.current!.settings.appIcon;
+    const pick = (patch: Partial<typeof cur>) => {
+      accounts.update((x) => (x.settings.appIcon = { ...x.settings.appIcon, ...patch }));
+      void applyAppIcon();
+      render();
+    };
+    const preview = (rounded: boolean, cls: string) => {
+      const d = h('div', { class: `ai-prev ${cls}` });
+      d.innerHTML = iconSvg(cur, rounded);
+      return d;
+    };
+    card.replaceChildren(
+      h('h3', null, 'App icon'),
+      h('p', { class: 'muted' }, 'Choose your Fuzzy’s colour for the Fuzzies icon on your phone and computer.'),
+      h('div', { class: 'ai-row' },
+        h('div', { class: 'ai-previews' }, preview(false, 'phone'), preview(true, 'desk')),
+        h('div', { class: 'ai-opts' },
+          h('div', { class: 'pnl-label' }, 'Fuzzy colour'),
+          h('div', { class: 'ai-colors' }, ...ICON_COLORS.map((c) => {
+            const b = h('button', { type: 'button', class: `ai-color ${cur.color === c.id ? 'on' : ''}`, title: c.name, 'aria-label': `${c.name} Fuzzy` }, fuzzyMark(34, c.colors), h('small', null, c.name));
+            b.addEventListener('click', () => pick({ color: c.id }));
+            return b;
+          })),
+          h('div', { class: 'pnl-label' }, 'Background'),
+          h('div', { class: 'swatches' }, ...ICON_BGS.map((g) => h('button', { type: 'button', class: `swatch ${cur.bg === g.id ? 'on' : ''}`, style: `background:${g.color}`, title: g.name, 'aria-label': `${g.name} background`, onclick: () => pick({ bg: g.id }) }))))),
+      h('p', { class: 'hint' }, icon('phone', 14), ' Already added Fuzzies to your home screen? Remove it and add it again to see the new icon (Android may update it by itself after a while). The browser tab icon changes right away.'));
+  };
+  render();
+  return card;
+}
 
 function brandCard(): HTMLElement {
   const card = h('section', { class: 'card brand-card', id: 'brand' });
@@ -88,6 +124,7 @@ export function settingsScreen(): Screen {
         toggle('Snap to guides', 'Elements snap to the page centre, edges and each other while you drag.', a.settings.snap, (v) => set((s) => (s.snap = v))),
         toggle('Game sounds', 'Blips and bloops in Fuzzy Crossing.', a.settings.sound, (v) => set((s) => (s.sound = v))),
         toggle('Reduce motion', 'Fewer animations across the app.', a.settings.reduceMotion, (v) => set((s) => (s.reduceMotion = v)))),
+      appIconCard(),
       h('section', { class: 'card' }, h('h3', null, 'Install Fuzzies'),
         h('p', { class: 'muted' }, 'Fuzzies works on phones, tablets and computers. Install it for a full-screen app with its own icon:'),
         h('ul', { class: 'how' },

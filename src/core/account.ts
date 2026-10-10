@@ -15,6 +15,8 @@ export interface Settings {
   reduceMotion: boolean;
   skin: string; // Fuzzy Crossing player look
   gameGfx: 'real' | 'classic';
+  /** Home-screen / desktop app icon: Fuzzy colour + background (see core/appicon.ts). */
+  appIcon: { color: string; bg: string };
 }
 
 export interface Stats {
@@ -123,7 +125,7 @@ function fresh(username: string, name: string, email: string, guest: boolean): A
     achievements: [],
     topScores: [],
     brand: { colors: [], heading: 'Poppins', body: 'DM Sans' },
-    settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real' },
+    settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real', appIcon: { color: 'classic', bg: 'ink' } },
   };
 }
 

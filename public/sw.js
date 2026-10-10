@@ -1,12 +1,15 @@
 // Fuzzies offline support: the app shell and fonts are cached so it opens without a connection.
-const CACHE = 'fuzzies-v1';
+const CACHE = 'fuzzies-v2';
+// your chosen app icon (drawn by the app, see src/core/appicon.ts) — kept across updates
+const ICON_CACHE = 'fuzzies-icon';
+const ICON_FILES = /\/(icon\.svg|icon-192\.png|icon-512\.png|icon-maskable-512\.png|apple-touch-icon\.png)$/;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== ICON_CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', (e) => {
@@ -15,6 +18,10 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (url.origin !== location.origin && !isFont) return;
+  if (url.origin === location.origin && ICON_FILES.test(url.pathname)) {
+    e.respondWith(caches.open(ICON_CACHE).then((c) => c.match(req)).then((hit) => hit || caches.match(req)).then((hit) => hit || fetch(req)));
+    return;
+  }
   if (req.mode === 'navigate') {
     // network first for pages so updates show up, cache as fallback offline
     e.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('./index.html', copy)); return res; }).catch(() => caches.match('./index.html')));
