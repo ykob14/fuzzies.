@@ -174,7 +174,7 @@ export class View3D implements View {
       tree.rotation.y = r() * 6.28;
       this.scene.add(tree);
     }
-    for (const [x, z] of [[-1.2, 6.5], [12.2, 6.5], [-1.2, 12.6], [12.2, 12.6], [4.5, 13.4]] as [number, number][]) {
+    for (const [x, z] of [[-1.2, 6.5], [12.2, 6.5], [-1.2, 12.6], [12.2, 12.6]] as [number, number][]) {
       const lamp = M.makeLamp(m, x < 5 ? 1 : -1);
       lamp.group.position.set(x, CURB, z);
       this.scene.add(lamp.group);

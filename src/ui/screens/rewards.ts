@@ -10,6 +10,8 @@ import { FONT_PACKS } from '../../content/fonts';
 import { FX_PACK, TEXT_STYLES } from '../../content/textstyles';
 import { SKINS } from '../../game/crossing';
 import { templateThumb } from '../thumbs';
+import { missionsCard, achievementsGrid } from '../missions';
+import { ACHIEVEMENTS } from '../../core/missions';
 import { h, btn, fuzzyMark, icon, toast } from '../dom';
 
 interface Item { id: string; name: string; cost: number; kind: string; preview: () => Node; after?: () => void }
@@ -55,12 +57,15 @@ export function rewardsScreen(): Screen {
         h('div', { class: 'rw-actions' },
           btn('Play to earn', { kind: 'primary', icon: 'gamepad', onClick: () => (location.hash = '#/play') }),
           daily.available ? btn(`Claim daily +${daily.amount}`, { kind: 'soft', icon: 'gift', onClick: () => { rewards.claimDaily(); render(); } }) : h('span', { class: 'owned-tag' }, icon('check', 16), `Daily bonus claimed · ${daily.streak}-day streak`))),
+      missionsCard(),
       h('section', { class: 'earn-grid' }, ...[
         ['🐸', 'Fuzzy Crossing', '+1 per Fuzzy, +5 golden, +2 per nest, +5 per level'],
         ['📅', 'Daily visit', '5 Fuzzies, growing with your streak (max 15)'],
         ['⏱️', 'Creative time', '+1 for every 5 minutes you spend designing'],
         ['📤', 'Share designs', '+2 per share or download (5 a day)'],
+        ['🎯', 'Missions & badges', '3 new missions a day, plus one-time achievement rewards'],
       ].map(([e, t, s]) => h('div', { class: 'earn' }, h('span', { class: 'earn-ic' }, e), h('div', null, h('b', null, t), h('small', null, s))))),
+      h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, `Achievements · ${a.achievements.length}/${ACHIEVEMENTS.length}`), h('span', { class: 'muted' }, 'Badges that pay out once')), achievementsGrid()),
       ...gs.map((g) => h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, g.title), h('span', { class: 'muted' }, g.blurb)), h('div', { class: 'rw-grid' }, ...g.items.map(card)))),
     );
   }

@@ -84,6 +84,7 @@ export class Crossing {
     hud: (h: Hud) => void;
     fuzzy: (amount: number) => void;
     over: (r: Result) => void;
+    event?: (e: Fx) => void;
   }) {
     this.buildLanes();
     view.reset(this);
@@ -126,6 +127,11 @@ export class Crossing {
 
   resize(): void { this.view.resize(); }
 
+  private emit(e: Fx): void {
+    this.view.fx(e, this);
+    this.hooks.event?.(e);
+  }
+
   private loop(): void {
     cancelAnimationFrame(this.raf);
     this.last = performance.now();
@@ -162,7 +168,7 @@ export class Crossing {
     // Hopping off a log snaps to the nearest column so lining up with nests is fair.
     const sx = ty !== this.py && !this.onRiver(ty) ? Math.round(tx) : tx;
     this.hop = { fx: this.px, fy: this.py, tx: sx, ty, t: 0 };
-    this.view.fx({ kind: 'hop', x: this.px, row: this.py }, this);
+    this.emit({ kind: 'hop', x: this.px, row: this.py });
     sfx.hop();
   }
 
@@ -245,7 +251,7 @@ export class Crossing {
       this.homesFilled++;
       this.score += 50 + Math.round(this.timer * 2);
       this.give(2);
-      this.view.fx({ kind: 'home', x: col, row: GOAL, amount: 2 }, this);
+      this.emit({ kind: 'home', x: col, row: GOAL, amount: 2 });
       sfx.home();
       if (this.homes.every(Boolean)) this.levelUp();
       this.resetPlayer();
@@ -263,7 +269,7 @@ export class Crossing {
     this.buildLanes();
     this.tokens = [];
     this.view.reset(this);
-    this.view.fx({ kind: 'level', level: this.level, amount: 5 }, this);
+    this.emit({ kind: 'level', level: this.level, amount: 5 });
   }
 
   private spawnToken(): void {
@@ -295,7 +301,7 @@ export class Crossing {
       const n = t.gold ? 5 : 1;
       this.score += t.gold ? 100 : 25;
       this.give(n);
-      this.view.fx({ kind: 'collect', x: t.x, row: t.row, gold: t.gold, amount: n }, this);
+      this.emit({ kind: 'collect', x: t.x, row: t.row, gold: t.gold, amount: n });
       if (t.gold) sfx.gold(); else sfx.collect();
     }
   }
@@ -313,7 +319,7 @@ export class Crossing {
     this.queued = null;
     this.px = vx; this.py = Math.round(vy);
     if (kind === 'splash') sfx.splash(); else sfx.crash();
-    this.view.fx({ kind: 'death', x: vx, row: this.py, how: kind }, this);
+    this.emit({ kind: 'death', x: vx, row: this.py, how: kind });
   }
 
   private afterDeath(): void {

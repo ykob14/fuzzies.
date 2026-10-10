@@ -4,6 +4,8 @@ import { accounts } from '../../core/account';
 import { db } from '../../core/db';
 import { h, btn, avatarEl, fuzzyMark, toast, pickFile, confirmDialog, icon } from '../dom';
 import { fileToImageData } from '../../core/util';
+import { achievementsGrid } from '../missions';
+import { ACHIEVEMENTS } from '../../core/missions';
 
 const EMOJIS = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐸', '🐙', '🦋', '🐯', '🐨', '🐶', '🐱', '🌈', '⭐', '🍕', '🎨', '🚀', '🌸', '👾', '😎'];
 const COLORS = ['#ff5fa2', '#7c5cff', '#ffb547', '#2ec4b6', '#4cc9f0', '#f15bb5', '#06d6a0', '#ff7a59', '#1c1830', '#e5e1f5'];
@@ -75,6 +77,7 @@ export function profileScreen(): Screen {
         h('section', { class: 'card' }, h('h3', null, 'Your look'), avatarPick, field('Display name', name), field('Bio', bio), field('Email', email), saveProfile),
         h('div', null,
           h('section', { class: 'card' }, h('h3', null, 'Your stats'), stats),
+          h('section', { class: 'card' }, h('h3', null, `Badges · ${a.achievements.length}/${ACHIEVEMENTS.length}`), achievementsGrid(true), h('a', { class: 'link', href: '#/rewards' }, 'See all badges →')),
           security,
           h('section', { class: 'card danger-zone' }, h('h3', null, 'Account'),
             h('div', { class: 'btn-row' },

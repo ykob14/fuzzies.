@@ -33,6 +33,8 @@ interface Base {
   flipX?: boolean;
   flipY?: boolean;
   shadow?: Shadow | null;
+  /** Elements sharing a group id move, resize and select together. */
+  group?: string;
 }
 
 export type ShapeKind =

@@ -1,6 +1,7 @@
 /** Fuzzies: the token you collect in Fuzzy Crossing (and a few other ways) to unlock goodies. */
 import { accounts } from './account';
 import { todayKey } from './util';
+import { track } from './missions';
 
 type EarnListener = (amount: number, reason: string) => void;
 const earnListeners = new Set<EarnListener>();
@@ -71,6 +72,7 @@ export const rewards = {
       if (x.daily.exportsToday < 5) { x.daily.exportsToday++; rewarded = true; }
     });
     if (rewarded) this.earn(2, 'Design shared');
+    track('share');
   },
 };
 
@@ -86,7 +88,7 @@ export function startActivityRewards(): void {
   setInterval(() => {
     if (!accounts.current || document.hidden || Date.now() - lastInput > 60_000) return;
     activeSeconds += 10;
-    if (activeSeconds % 60 === 0) accounts.update((a) => { a.stats.minutesActive++; });
+    if (activeSeconds % 60 === 0) { accounts.update((a) => { a.stats.minutesActive++; }); track('minute'); }
     if (activeSeconds >= 300) { activeSeconds = 0; rewards.earn(1, '5 creative minutes'); }
   }, 10_000);
 }

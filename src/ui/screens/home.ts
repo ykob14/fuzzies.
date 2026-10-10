@@ -8,6 +8,7 @@ import { templates } from '../../content/templates';
 import { h, btn, icon, fuzzyMark, QUOTE } from '../dom';
 import { createBlank, createDialog } from '../create';
 import { designCard, templateCard } from './cards';
+import { missionsCard } from '../missions';
 
 export function homeScreen(): Screen {
   const a = accounts.current!;
@@ -66,7 +67,7 @@ export function homeScreen(): Screen {
       btn('Play now', { kind: 'primary', size: 'lg', icon: 'play', onClick: () => (location.hash = '#/play') })),
     h('div', { class: 'gp-art', 'aria-hidden': 'true' }, ...['road', 'river', 'road'].map((k) => h('div', { class: `gp-lane ${k}` })), h('div', { class: 'gp-fuzzy' }, fuzzyMark(64))));
 
-  const el = h('div', { class: 'page home' }, hero, dailyCard,
+  const el = h('div', { class: 'page home' }, hero, dailyCard, missionsCard(),
     h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Start something new')), sizes),
     recentSec, game,
     h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Popular templates'), h('a', { href: '#/templates', class: 'link' }, 'Browse all')), featured));

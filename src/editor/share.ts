@@ -3,7 +3,9 @@ import type { Editor } from './editor';
 import { exportFiles, shareOrDownload, download, copyImage, canShareFiles, type ExportFormat } from './export';
 import { pageCanvas, prepare } from './render';
 import { rewards } from '../core/rewards';
-import { h, btn, modal, toast, icon, type IconName } from '../ui/dom';
+import { makeShareLink, LINK_WARN } from '../core/sharelink';
+import { track } from '../core/missions';
+import { h, btn, modal, toast, icon, type IconName, promptDialog } from '../ui/dom';
 
 const FORMATS: { id: ExportFormat; label: string; sub: string; icon: IconName }[] = [
   { id: 'png', label: 'PNG', sub: 'Best quality image', icon: 'image' },
@@ -78,7 +80,36 @@ export function openShare(ed: Editor): void {
     try { await copyImage(d, ed.pageIndex); toast('Image copied — paste it anywhere', 'good'); } catch { toast('Copy is not allowed in this browser', 'bad'); }
   } }) : null;
 
-  const m = modal('Share your design', h('div', { class: 'share' }, preview, h('div', null, opts,
+  // ---- share as a link (view & remix, no account needed) ----
+  let linkJob: Promise<{ url: string; length: number }> | null = null;
+  const getLink = () => (linkJob ??= makeShareLink(d));
+  const linkNote = h('small', { class: 'muted' }, 'Anyone with the link can see it and remix their own copy — no account needed.');
+  const gotLink = (n: number) => {
+    track('link');
+    if (n > LINK_WARN) linkNote.textContent = 'Link ready! It’s long because of the photos — if an app cuts it off, send the image instead.';
+  };
+  const copyLink = btn('Copy link', { kind: 'soft', icon: 'copy', size: 'sm', onClick: async () => {
+    busy(copyLink, true);
+    try {
+      const { url, length } = await getLink();
+      try { await navigator.clipboard.writeText(url); toast('Link copied — paste it anywhere', 'good'); }
+      catch { await promptDialog('Copy this link', url, 'Done'); }
+      gotLink(length);
+    } catch (e) { toast((e as Error).message, 'bad', 4000); linkJob = null; }
+    busy(copyLink, false);
+  } });
+  const sendLink = typeof navigator.share === 'function' ? btn('Send link', { kind: 'soft', icon: 'share', size: 'sm', onClick: async () => {
+    busy(sendLink!, true);
+    try {
+      const { url, length } = await getLink();
+      await navigator.share({ title: d.name, text: `Check out my design “${d.name}” on Fuzzies ✨`, url });
+      gotLink(length);
+    } catch (e) { if ((e as DOMException).name !== 'AbortError') { toast((e as Error).message, 'bad', 4000); linkJob = null; } }
+    busy(sendLink!, false);
+  } }) : null;
+  const linkBox = h('div', { class: 'link-box' }, h('div', { class: 'pnl-label', style: 'margin-top:0' }, '🔗 Share a link'), h('div', { class: 'row' }, copyLink, sendLink), linkNote);
+
+  const m = modal('Share your design', h('div', { class: 'share' }, preview, h('div', null, linkBox, opts,
     h('p', { class: 'hint' }, 'Sharing earns +2 Fuzzies (up to 5 times a day). On phones, “Share” lets you save straight to Photos or send to any app.'))), {
     wide: true,
     actions: [...(copyBtn ? [copyBtn] : []), saveBtn, shareBtn],

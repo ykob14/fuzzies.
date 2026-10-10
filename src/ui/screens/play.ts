@@ -5,6 +5,7 @@ import { View2D } from '../../game/view2d';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { unlockDialog } from '../unlock';
+import { track } from '../../core/missions';
 import { h, btn, icon, fuzzyMark } from '../dom';
 import { isTouch } from '../../core/util';
 
@@ -95,8 +96,9 @@ export function playScreen(): Screen {
     if (my !== gen) return; // a newer request replaced this one
     game = new Crossing(v, skinOf(), a.stats.bestScore, {
       hud: setHud,
-      fuzzy: (n) => rewards.earn(n, 'Fuzzy Crossing', true),
+      fuzzy: (n) => { rewards.earn(n, 'Fuzzy Crossing', true); track('gameFuzzies', n); },
       over: (r) => showOver(r),
+      event: (e) => { if (e.kind === 'home') track('nest'); if (e.kind === 'level') track('level', e.level); },
     });
     setHud({ score: 0, level: 1, lives: 3, fuzzies: 0, time: 1, best: a.stats.bestScore });
   }
@@ -143,6 +145,7 @@ export function playScreen(): Screen {
         h('li', null, fuzzyMark(16), ' Pink Fuzzy = +1 · ', fuzzyMark(16, ['#fff3b0', '#e0a100']), ' Golden = +5'),
         h('li', null, '🏁 Each nest +2 · clear a level +5'),
         h('li', null, '🌅 The sky changes every level: day, golden hour, dusk')),
+      topList(0, 3),
       h('p', { class: 'pnl-label' }, 'Choose your Fuzzy'), skinPicker(),
       hasWebGL ? h('p', { class: 'pnl-label' }, 'Graphics') : null, gfxPicker()));
   }
@@ -164,6 +167,7 @@ export function playScreen(): Screen {
     const g = game;
     overlay.hidden = true;
     accounts.update((x) => x.stats.gamesPlayed++);
+    track('game');
     (wrap.querySelector('canvas') as HTMLCanvasElement | null)?.focus({ preventScroll: true });
     const go = () => {
       introRunning = false;
@@ -192,9 +196,30 @@ export function playScreen(): Screen {
     } else overlay.hidden = true;
   }
 
+  /** Your best runs, with the one you just played highlighted. */
+  function topList(highlight = 0, n = 5): HTMLElement | null {
+    const list = a.topScores.slice(0, n);
+    if (!list.length) return null;
+    const medal = ['🥇', '🥈', '🥉'];
+    return h('div', { class: 'top-scores' },
+      h('p', { class: 'pnl-label' }, 'Your top scores'),
+      h('ol', null, ...list.map((s, i) => {
+        const sk = SKINS.find((x) => x.id === s.skin) ?? SKINS[0];
+        return h('li', { class: s.at === highlight ? 'me' : '' },
+          h('span', { class: 'ts-rank' }, medal[i] ?? `${i + 1}.`), fuzzyMark(18, sk.colors),
+          h('b', null, s.score.toLocaleString()), h('small', null, `Lv ${s.level} · ${new Date(s.at).toLocaleDateString()}`));
+      })));
+  }
+
   function showOver(r: Result): void {
     const isBest = r.score > a.stats.bestScore;
-    accounts.update((x) => { x.stats.bestScore = Math.max(x.stats.bestScore, r.score); x.stats.bestLevel = Math.max(x.stats.bestLevel, r.level); });
+    const entry = { score: r.score, level: r.level, at: Date.now(), skin: skinOf().id };
+    accounts.update((x) => {
+      x.stats.bestScore = Math.max(x.stats.bestScore, r.score);
+      x.stats.bestLevel = Math.max(x.stats.bestLevel, r.level);
+      if (r.score > 0) x.topScores = [...x.topScores, entry].sort((p, q) => q.score - p.score).slice(0, 10);
+    });
+    const rank = a.topScores.indexOf(a.topScores.find((s) => s.at === entry.at)!) + 1;
     overlay.hidden = false;
     overlay.replaceChildren(h('div', { class: 'go-card' },
       h('h2', null, isBest ? '🏆 New best score!' : 'Game over'),
@@ -203,6 +228,8 @@ export function playScreen(): Screen {
         h('div', null, h('small', null, 'Level'), h('b', null, String(r.level))),
         h('div', null, h('small', null, 'Nests'), h('b', null, String(r.homes)))),
       h('div', { class: 'go-earned' }, fuzzyMark(36), h('div', null, h('b', null, `+${r.fuzzies} Fuzzies`), h('small', null, `Balance: ${rewards.balance()}`))),
+      rank > 0 && !isBest ? h('p', { class: 'hint center' }, `#${rank} in your top 10 scores!`) : null,
+      topList(entry.at),
       btn('Play again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { void newGame().then(begin); } }),
       h('div', { class: 'btn-row' },
         btn('Spend Fuzzies', { kind: 'soft', icon: 'gift', onClick: () => (location.hash = '#/rewards') }),

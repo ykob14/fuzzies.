@@ -70,7 +70,10 @@ export function makeDraw(points: number[], x: number, y: number, w: number, h: n
 
 /** Deep-copy elements with fresh ids. */
 export function cloneEls(els: El[], offset = 0): El[] {
-  return els.map((e) => ({ ...deepClone(e), id: uid('e_'), x: e.x + offset, y: e.y + offset }));
+  // copies keep their grouping, but as a brand-new group
+  const groups = new Map<string, string>();
+  const regroup = (g?: string) => { if (!g) return undefined; if (!groups.has(g)) groups.set(g, uid('g_')); return groups.get(g); };
+  return els.map((e) => ({ ...deepClone(e), id: uid('e_'), x: e.x + offset, y: e.y + offset, group: regroup(e.group) }));
 }
 
 /** Copy a design (e.g. from a template) for a new owner, with fresh ids everywhere. */

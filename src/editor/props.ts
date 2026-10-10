@@ -273,6 +273,9 @@ export function buildProps(ed: Editor): Props {
 
   function multiProps(sel: El[]): Node[] {
     return [
+      h('div', { class: 'btn-row', style: 'margin-top:0' },
+        ed.canGroup ? btn('Group', { icon: 'group', kind: 'primary', size: 'sm', onClick: () => ed.group() }) : null,
+        ed.canUngroup ? btn('Ungroup', { icon: 'grid', kind: 'ghost', size: 'sm', onClick: () => ed.ungroup() }) : null),
       sec('Align to each other', alignRow(), sel.length > 2 ? toggles([{ label: 'Space evenly ↔', title: 'Distribute horizontally', on: false, onClick: () => ed.distribute('x') }, { label: 'Space evenly ↕', title: 'Distribute vertically', on: false, onClick: () => ed.distribute('y') }]) : null),
       sec('Transparency', slider('Opacity', Math.round(sel[0].opacity * 100), 0, 100, 1, (v) => sel.forEach((e) => (e.opacity = v / 100)), (v) => `${Math.round(v)}%`)),
       sec('Order', toggles([

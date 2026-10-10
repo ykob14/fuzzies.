@@ -24,7 +24,14 @@ export interface Stats {
   bestLevel: number;
   fuzziesFromGame: number;
   minutesActive: number;
+  nests: number;
+  photos: number;
+  templates: number;
+  stickers: number;
+  linksShared: number;
 }
+
+export interface ScoreEntry { score: number; level: number; at: number; skin: string }
 
 export interface Account {
   id: string;
@@ -42,6 +49,10 @@ export interface Account {
   unlocked: string[];
   stats: Stats;
   daily: { last: string; streak: number; exportsToday: number; exportsDay: string };
+  /** Today's missions: progress per mission id, and whether today's set was finished. */
+  missions: { day: string; progress: Record<string, number>; done: string[]; bonus: boolean };
+  achievements: string[];
+  topScores: ScoreEntry[];
   settings: Settings;
 }
 
@@ -98,8 +109,11 @@ function fresh(username: string, name: string, email: string, guest: boolean): A
     fuzzies: 10, // welcome gift
     totalFuzzies: 10,
     unlocked: [],
-    stats: { designs: 0, exports: 0, gamesPlayed: 0, bestScore: 0, bestLevel: 0, fuzziesFromGame: 0, minutesActive: 0 },
+    stats: { designs: 0, exports: 0, gamesPlayed: 0, bestScore: 0, bestLevel: 0, fuzziesFromGame: 0, minutesActive: 0, nests: 0, photos: 0, templates: 0, stickers: 0, linksShared: 0 },
     daily: { last: '', streak: 0, exportsToday: 0, exportsDay: '' },
+    missions: { day: '', progress: {}, done: [], bonus: false },
+    achievements: [],
+    topScores: [],
     settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real' },
   };
 }
@@ -204,7 +218,7 @@ export const accounts = {
 /** Fill in fields added after an account was first saved. */
 function migrate(a: Account): Account {
   const f = fresh(a.username, a.name, a.email, a.guest);
-  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
+  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, missions: { ...f.missions, ...a.missions }, settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
 }
 
 export const isToday = (key: string): boolean => key === todayKey();

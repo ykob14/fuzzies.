@@ -12,6 +12,7 @@ import { buildProps, type Props } from './props';
 import { openShare } from './share';
 import { onFontsLoaded } from '../content/fonts';
 import { db } from '../core/db';
+import { track } from '../core/missions';
 import { accounts } from '../core/account';
 import { clamp, debounce, deepClone, fileToImageData, uid } from '../core/util';
 import { h, btn, icon, toast, popMenu, type IconName } from '../ui/dom';
@@ -34,6 +35,8 @@ interface Drag {
   points?: number[];
   additive?: boolean;
   startSel?: string[];
+  /** Clicking an already-selected group without dragging drills in to this single member. */
+  single?: string;
 }
 
 export interface DrawSettings { color: string; width: number; highlighter: boolean; eraser: boolean }
@@ -510,6 +513,8 @@ export class Editor {
     const items: HTMLElement[] = [];
     items.push(b('edit', 'Edit', () => this.props.open(), 'ctx-edit'));
     if (single?.type === 'text') items.push(b('text', 'Edit text', () => this.editText(single)));
+    if (this.canGroup) items.push(b('group', 'Group (Ctrl+G)', () => this.group()));
+    else if (this.canUngroup) items.push(b('grid', 'Ungroup (Ctrl+Shift+G)', () => this.ungroup()));
     items.push(b('copy', 'Duplicate (Ctrl+D)', () => this.duplicate()));
     const locked = sel.every((e) => e.locked);
     items.push(b(locked ? 'lock' : 'unlock', locked ? 'Unlock' : 'Lock', () => { for (const e of this.selected) e.locked = !locked; this.commit(); this.buildCtxBar(); }));
@@ -624,9 +629,11 @@ export class Editor {
     const hit = this.hitEl(p.x, p.y);
     if (hit) {
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+      const members = hit.group && !e.altKey ? this.groupMembers(hit.group) : [hit.id];
+      const wholeGroupSelected = members.length > 1 && members.every((id) => this.selection.includes(id));
       if (additive) {
-        this.select(this.selection.includes(hit.id) ? this.selection.filter((x) => x !== hit.id) : [...this.selection, hit.id]);
-      } else if (!this.selection.includes(hit.id)) this.select([hit.id]);
+        this.select(this.selection.includes(hit.id) ? this.selection.filter((x) => !members.includes(x)) : [...new Set([...this.selection, ...members])]);
+      } else if (!this.selection.includes(hit.id)) this.select(members);
       // double-tap on touch screens opens text editing
       const now = performance.now();
       if (e.pointerType !== 'mouse' && hit.type === 'text' && this.lastTap.id === hit.id && now - this.lastTap.t < 350 && !hit.locked) {
@@ -635,7 +642,7 @@ export class Editor {
         return;
       }
       this.lastTap = { t: now, id: hit.id };
-      this.drag = { ...base, kind: 'move' };
+      this.drag = { ...base, kind: 'move', single: wholeGroupSelected && !additive ? hit.id : undefined };
       for (const el of this.selected) if (!el.locked) this.drag.orig.set(el.id, deepClone(el));
       return;
     }
@@ -707,6 +714,7 @@ export class Editor {
     const d = this.drag;
     if (!d || d.id !== e.pointerId) return;
     this.drag = null;
+    if (d.kind === 'move' && !d.moved && d.single) this.select([d.single]);
     this.guides = [];
     this.canvas.style.cursor = '';
     if (d.kind === 'marquee') { this.marquee = null; this.emit('select'); this.buildCtxBar(); }
@@ -966,6 +974,7 @@ export class Editor {
     }[kind];
     const el = makeText(preset.text, { size: Math.round(preset.size), weight: preset.weight, font: 'Poppins', w: this.design.width * 0.75, fill: '#1c1830', ...opts });
     this.add([el]);
+    track('text');
   }
 
   addShape(kind: Parameters<typeof makeShape>[0]): void {
@@ -975,7 +984,7 @@ export class Editor {
   }
 
   addGraphic(art: string): void { this.add([makeGraphic(art, this.unit * 0.4)]); }
-  addEmoji(char: string): void { this.add([makeEmoji(char, this.unit * 0.2)]); }
+  addEmoji(char: string): void { this.add([makeEmoji(char, this.unit * 0.2)]); track('sticker'); }
 
   addImage(assetId: string, src: string, iw: number, ih: number, at?: { x: number; y: number }): void {
     this.design.assets[assetId] = src;
@@ -994,6 +1003,7 @@ export class Editor {
         const id = uid('a_');
         await db.putUpload({ id, owner, src, w, h: ih, createdAt: Date.now() });
         this.addImage(id, src, w, ih, at);
+        track('photo');
       } catch {
         toast(`Could not open ${f.name}`, 'bad');
       }
@@ -1014,6 +1024,32 @@ export class Editor {
     this.page.elements = this.page.elements.filter((e) => e !== el);
     this.select([]);
     this.commit();
+  }
+
+  groupMembers(g: string): string[] {
+    return this.page.elements.filter((x) => x.group === g && !x.hidden).map((x) => x.id);
+  }
+
+  /** Can the selection be grouped (2+ items not already one group) / ungrouped (has grouped items)? */
+  get canGroup(): boolean { const s = this.selected; return s.length > 1 && !(s[0].group && s.every((x) => x.group === s[0].group)); }
+  get canUngroup(): boolean { return this.selected.some((x) => x.group); }
+
+  group(): void {
+    if (!this.canGroup) return;
+    const g = uid('g_');
+    for (const el of this.selected) el.group = g;
+    this.commit();
+    this.buildCtxBar();
+    this.emit('select');
+    toast('Grouped — they now move together. Click again to pick one item.', 'info', 2600);
+  }
+
+  ungroup(): void {
+    if (!this.canUngroup) return;
+    for (const el of this.selected) delete el.group;
+    this.commit();
+    this.buildCtxBar();
+    this.emit('select');
   }
 
   deleteSelection(): void {
@@ -1204,6 +1240,7 @@ export class Editor {
       if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
       if (mod && k === 'y') { e.preventDefault(); this.redo(); return; }
       if (mod && k === 'd') { e.preventDefault(); this.duplicate(); return; }
+      if (mod && k === 'g') { e.preventDefault(); if (e.shiftKey) this.ungroup(); else this.group(); return; }
       if (mod && k === 'c') { if (this.selection.length) { e.preventDefault(); this.copy(); } return; }
       if (mod && k === 'x') { if (this.selection.length) { e.preventDefault(); this.copy(); this.deleteSelection(); } return; }
       if (mod && k === 'a') { e.preventDefault(); this.select(this.page.elements.filter((x) => !x.hidden).map((x) => x.id)); return; }

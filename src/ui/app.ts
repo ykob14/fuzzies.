@@ -12,7 +12,9 @@ import { rewardsScreen } from './screens/rewards';
 import { profileScreen } from './screens/profile';
 import { settingsScreen } from './screens/settings';
 import { openEditor } from './screens/editor';
+import { sharedScreen, remixShared, REMIX_KEY } from './screens/shared';
 import { createDialog } from './create';
+import { startAchievements } from '../core/missions';
 
 export interface Screen { el: HTMLElement; destroy?: () => void }
 
@@ -80,9 +82,23 @@ export function route(): void {
   document.querySelector('.popmenu')?.remove();
   document.querySelectorAll('.picker').forEach((p) => p.remove());
 
+  // shared design links open for everyone, signed in or not
+  if (name === 's' && arg) {
+    current = sharedScreen(arg);
+    root().replaceChildren(current.el);
+    return;
+  }
+
   if (!accounts.current) {
     current = authScreen(name === 'login' ? 'login' : name === 'signup' ? 'signup' : 'welcome');
     root().replaceChildren(current.el);
+    return;
+  }
+  // someone tapped "Remix" on a shared link before they had an account
+  const pending = sessionStorage.getItem(REMIX_KEY);
+  if (pending) {
+    sessionStorage.removeItem(REMIX_KEY);
+    void remixShared(pending);
     return;
   }
   if (name === 'welcome' || name === 'login' || name === 'signup') { location.replace('#/home'); return; }
@@ -115,9 +131,10 @@ export function startApp(): void {
     for (const b of document.querySelectorAll('.fz-balance')) b.textContent = String(rewards.balance());
   });
   rewards.onEarn((n, reason) => {
-    if (location.hash.startsWith('#/play')) return; // the game shows its own pop-ups
+    if (reason === 'Fuzzy Crossing') return; // the game shows its own pop-ups
     toast(`+${n} Fuzz${n === 1 ? 'y' : 'ies'} · ${reason}`, 'fuzzy');
   });
+  startAchievements();
   addEventListener('hashchange', route);
   route();
 }

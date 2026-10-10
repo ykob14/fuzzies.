@@ -8,11 +8,13 @@ import { unlockDialog } from './unlock';
 import { templateThumb } from './thumbs';
 import { h, btn, modal, toast } from './dom';
 import type { Design } from '../editor/types';
+import { track } from '../core/missions';
 
 async function saveAndOpen(d: Design): Promise<void> {
   try {
     await db.putDesign(d);
     accounts.update((a) => a.stats.designs++);
+    track('design');
     location.hash = `#/edit/${d.id}`;
   } catch {
     toast('Could not create the design — storage may be full.', 'bad');
@@ -32,6 +34,7 @@ export function useTemplate(t: Template): void {
     unlockDialog({ id: t.id, name: t.name, cost: t.cost, kind: `${t.category} template`, preview: templateThumb(t, 300) }, () => useTemplate(t));
     return;
   }
+  track('template');
   void saveAndOpen(instantiate(t.design, a.id, t.name));
 }
 

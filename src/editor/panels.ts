@@ -16,6 +16,7 @@ import { accounts } from '../core/account';
 import { db } from '../core/db';
 import { h, btn, icon, toast, confirmDialog, pickFile, fuzzyMark, type IconName } from '../ui/dom';
 import { deepClone } from '../core/util';
+import { track } from '../core/missions';
 
 export interface Panels {
   rail: HTMLElement;
@@ -224,6 +225,7 @@ export function buildPanels(ed: Editor): Panels {
         } else {
           const el = makeText(style.text ?? s.name, { w: ed.design.width * 0.7, ...style });
           ed.add([el]);
+          track('text');
           afterAdd();
         }
       });
@@ -248,6 +250,7 @@ export function buildPanels(ed: Editor): Panels {
       b.addEventListener('click', (e) => {
         if (del.contains(e.target as Node)) return;
         ed.addImage(u.id, u.src, u.w, u.h);
+        track('photo');
         afterAdd();
       });
       del.addEventListener('click', async () => {
@@ -360,7 +363,7 @@ export function buildPanels(ed: Editor): Panels {
       const lock = btn(null, { icon: el.locked ? 'lock' : 'unlock', kind: 'plain', size: 'sm', title: el.locked ? 'Unlock' : 'Lock', onClick: (e) => { e.stopPropagation(); el.locked = !el.locked; ed.commit(); fill(); } });
       const up = btn(null, { icon: 'up', kind: 'plain', size: 'sm', title: 'Move up', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('up'); fill(); } });
       const down = btn(null, { icon: 'down', kind: 'plain', size: 'sm', title: 'Move down', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('down'); fill(); } });
-      const row = h('div', { class: `layer ${sel ? 'on' : ''} ${el.hidden ? 'dim' : ''}`, role: 'button', tabindex: '0' }, layerIcon(el), h('span', { class: 'layer-name' }, elLabel(el)), up, down, vis, lock);
+      const row = h('div', { class: `layer ${sel ? 'on' : ''} ${el.hidden ? 'dim' : ''}`, role: 'button', tabindex: '0' }, layerIcon(el), h('span', { class: 'layer-name' }, el.group ? h('span', { class: 'layer-group', title: 'Grouped' }, '🔗 ') : null, elLabel(el)), up, down, vis, lock);
       row.addEventListener('click', (e) => { ed.select(e.shiftKey ? [...ed.selection, el.id] : [el.id]); fill(); });
       return row;
     };
