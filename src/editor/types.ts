@@ -105,7 +105,14 @@ export interface DrawEl extends Base {
   highlighter?: boolean;
 }
 
-export type El = ShapeEl | TextEl | ImageEl | GraphicEl | EmojiEl | DrawEl;
+export interface QrEl extends Base {
+  type: 'qr';
+  text: string; // link or message the code opens
+  color: string; // the dark squares
+  bg: string; // background ('' = transparent)
+}
+
+export type El = ShapeEl | TextEl | ImageEl | GraphicEl | EmojiEl | DrawEl | QrEl;
 export type ElType = El['type'];
 
 export interface Page {

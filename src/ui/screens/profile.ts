@@ -8,7 +8,7 @@ import { achievementsGrid } from '../missions';
 import { ACHIEVEMENTS } from '../../core/missions';
 
 const EMOJIS = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐸', '🐙', '🦋', '🐯', '🐨', '🐶', '🐱', '🌈', '⭐', '🍕', '🎨', '🚀', '🌸', '👾', '😎'];
-const COLORS = ['#ff5fa2', '#7c5cff', '#ffb547', '#2ec4b6', '#4cc9f0', '#f15bb5', '#06d6a0', '#ff7a59', '#1c1830', '#e5e1f5'];
+const COLORS = ['#d6336c', '#b0245a', '#ff8fb4', '#ffd6e4', '#18171c', '#5c5864', '#a09ca7', '#efede9', '#e8590c', '#2b9a66'];
 
 export function profileScreen(): Screen {
   const body = h('div');

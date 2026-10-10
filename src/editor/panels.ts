@@ -2,6 +2,7 @@
 import type { Editor } from './editor';
 import type { El, Fill, ShapeKind } from './types';
 import { SHAPE_KINDS, shapePath } from './shapes';
+import { qrMatrix } from './qr';
 import { fillToCss, getImage } from './render';
 import { makeText, elLabel, instantiate } from './doc';
 import { colorButton, GRADIENTS, PALETTE } from './colors';
@@ -170,6 +171,17 @@ export function buildPanels(ed: Editor): Panels {
     const fill = () => {
       list.replaceChildren();
       const q = elQuery.toLowerCase();
+      if (!q || 'qr code link'.includes(q)) {
+        const link = h('input', { class: 'input input-sm', placeholder: 'Paste a link, e.g. https://…', 'aria-label': 'Link for the QR code' });
+        const add = () => {
+          const v = link.value.trim();
+          if (!v) { link.focus(); toast('Type or paste a link first'); return; }
+          try { qrMatrix(v); } catch (x) { toast((x as Error).message, 'bad'); return; }
+          ed.addQr(v); afterAdd();
+        };
+        link.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+        list.append(section('QR code', h('div', { class: 'qr-add' }, link, btn('Add', { kind: 'primary', size: 'sm', icon: 'plus', onClick: add }))));
+      }
       const shapes = SHAPE_KINDS.filter((s) => !q || s.label.toLowerCase().includes(q));
       if (shapes.length) list.append(section('Shapes & lines', h('div', { class: 'el-grid' }, ...shapes.map((s) => {
         const b = h('button', { class: 'el-item', type: 'button', title: s.label, 'aria-label': s.label }, shapeIcon(s.kind));
@@ -378,6 +390,7 @@ export function buildPanels(ed: Editor): Panels {
     else if (el.type === 'graphic') box.append(h('img', { src: artDataUrl(el.art, el.colors), alt: '' }));
     else if (el.type === 'text') box.append(icon('text', 16));
     else if (el.type === 'draw') box.append(icon('brush', 16));
+    else if (el.type === 'qr') box.append(icon('grid', 16));
     else box.append(icon('shapes', 16));
     return box;
   }

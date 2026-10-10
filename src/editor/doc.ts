@@ -1,5 +1,5 @@
 /** Factories for designs, pages and elements, plus the canvas size presets. */
-import type { Design, DrawEl, El, EmojiEl, Fill, GraphicEl, ImageEl, Page, ShapeEl, ShapeKind, TextEl } from './types';
+import type { Design, DrawEl, El, EmojiEl, Fill, GraphicEl, ImageEl, Page, QrEl, ShapeEl, ShapeKind, TextEl } from './types';
 import { DEFAULT_FILTERS } from './types';
 import { uid, deepClone } from '../core/util';
 import { fitText } from './render';
@@ -64,6 +64,10 @@ export function makeEmoji(char: string, size: number, opts: Partial<EmojiEl> = {
   return { ...base(0, 0, size, size), type: 'emoji', char, ...opts };
 }
 
+export function makeQr(text: string, size: number, opts: Partial<QrEl> = {}): QrEl {
+  return { ...base(0, 0, size, size), type: 'qr', text, color: '#18171c', bg: '#ffffff', ...opts };
+}
+
 export function makeDraw(points: number[], x: number, y: number, w: number, h: number, color: string, width: number, highlighter = false): DrawEl {
   return { ...base(x, y, w, h), type: 'draw', points, color, width, highlighter };
 }
@@ -99,5 +103,6 @@ export function elLabel(el: El): string {
     case 'graphic': return artById(el.art)?.name ?? 'Graphic';
     case 'emoji': return `Sticker ${el.char}`;
     case 'draw': return el.highlighter ? 'Highlighter' : 'Drawing';
+    case 'qr': return `QR · ${el.text.replace(/^https?:\/\//, '').slice(0, 22)}`;
   }
 }

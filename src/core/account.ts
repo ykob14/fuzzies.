@@ -90,7 +90,7 @@ async function hashPassword(pw: string, salt: string): Promise<string> {
   return 'f1:' + h1.toString(16) + h2.toString(16);
 }
 
-const AVATAR_COLORS = ['#ff5fa2', '#7c5cff', '#ffb547', '#2ec4b6', '#4cc9f0', '#f15bb5', '#06d6a0', '#ff7a59'];
+const AVATAR_COLORS = ['#d6336c', '#18171c', '#b0245a', '#ff8fb4', '#5c5864'];
 const AVATAR_EMOJI = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐸', '🐙', '🦋', '🐯', '🐨'];
 const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 

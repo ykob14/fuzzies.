@@ -2,7 +2,8 @@
  * Canvas renderer shared by the editor, thumbnails and exports, so what you see is exactly what you download.
  * All drawing happens in design pixels; callers set up the transform.
  */
-import type { Design, DrawEl, El, EmojiEl, Fill, Filters, GraphicEl, ImageEl, Page, ShapeEl, TextEl } from './types';
+import type { Design, DrawEl, El, EmojiEl, Fill, Filters, GraphicEl, ImageEl, Page, QrEl, ShapeEl, TextEl } from './types';
+import { qrMatrix } from './qr';
 import { maskPath, roundRect, shapePath } from './shapes';
 import { artDataUrl } from '../content/art';
 import { ensureFont } from '../content/fonts';
@@ -358,6 +359,31 @@ function drawDraw(ctx: CanvasRenderingContext2D, el: DrawEl): void {
   drawStroke(ctx, el.points, el.w, el.h);
 }
 
+const qrCache = new Map<string, boolean[][] | null>();
+function drawQr(ctx: CanvasRenderingContext2D, el: QrEl): void {
+  let m = qrCache.get(el.text);
+  if (m === undefined) {
+    try { m = qrMatrix(el.text || ' '); } catch { m = null; }
+    if (qrCache.size > 50) qrCache.delete(qrCache.keys().next().value!);
+    qrCache.set(el.text, m);
+  }
+  const quiet = el.bg ? 2 : 0; // a white margin helps phones find the code
+  if (el.bg) { ctx.fillStyle = el.bg; ctx.fill(roundRect(new Path2D(), 0, 0, el.w, el.h, Math.min(el.w, el.h) * 0.04)); }
+  ctx.shadowColor = 'transparent';
+  if (!m) {
+    ctx.fillStyle = 'rgba(214,51,108,0.15)';
+    ctx.fillRect(0, 0, el.w, el.h);
+    return;
+  }
+  const n = m.length + quiet * 2;
+  const cw = el.w / n, ch = el.h / n;
+  ctx.fillStyle = el.color;
+  for (let y = 0; y < m.length; y++) for (let x = 0; x < m.length; x++) {
+    // slightly oversized squares so no hairline gaps appear between neighbours
+    if (m[y][x]) ctx.fillRect((x + quiet) * cw, (y + quiet) * ch, cw + 0.5, ch + 0.5);
+  }
+}
+
 export function drawElement(ctx: CanvasRenderingContext2D, el: El, design: Design): void {
   if (el.hidden) return;
   ctx.save();
@@ -381,6 +407,7 @@ export function drawElement(ctx: CanvasRenderingContext2D, el: El, design: Desig
     case 'graphic': drawGraphic(ctx, el); break;
     case 'emoji': drawEmoji(ctx, el); break;
     case 'draw': drawDraw(ctx, el); break;
+    case 'qr': drawQr(ctx, el); break;
   }
   ctx.restore();
 }

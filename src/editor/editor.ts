@@ -5,7 +5,7 @@
  */
 import type { Design, El, Fill, ImageEl, Page, TextEl } from './types';
 import { drawElement, drawStroke, fitText, fontString, onAssetsLoaded, renderPage, thumbnail } from './render';
-import { cloneEls, makeDraw, makeEmoji, makeGraphic, makeImage, makeShape, makeText, newPage } from './doc';
+import { cloneEls, makeDraw, makeEmoji, makeGraphic, makeImage, makeShape, makeText, newPage, makeQr } from './doc';
 import { firstColor, closePicker } from './colors';
 import { buildPanels, type Panels } from './panels';
 import { buildProps, type Props } from './props';
@@ -335,7 +335,7 @@ export class Editor {
       const add = (hh: Handle, p: [number, number]) => out.push({ h: hh, x: p[0], y: p[1] });
       add('nw', pts[0]); add('ne', pts[1]); add('se', pts[2]); add('sw', pts[3]);
       const big = el.w * this.zoom > 40 || el.h * this.zoom > 40;
-      if (big) {
+      if (big && el.type !== 'qr') { // QR codes only scale from the corners so they stay square
         add('e', mid(1, 2)); add('w', mid(3, 0));
         if (el.type !== 'text') { add('n', mid(0, 1)); add('s', mid(2, 3)); }
       }
@@ -984,6 +984,8 @@ export class Editor {
   }
 
   addGraphic(art: string): void { this.add([makeGraphic(art, this.unit * 0.4)]); }
+  addQr(text: string): void { this.add([makeQr(text, Math.round(this.unit * 0.3))]); }
+
   addEmoji(char: string): void { this.add([makeEmoji(char, this.unit * 0.2)]); track('sticker'); }
 
   addImage(assetId: string, src: string, iw: number, ih: number, at?: { x: number; y: number }): void {

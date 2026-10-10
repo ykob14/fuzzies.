@@ -5,6 +5,7 @@ import { DEFAULT_FILTERS } from './types';
 import { fitText, filterCss } from './render';
 import { colorButton, firstColor } from './colors';
 import { SHAPE_KINDS } from './shapes';
+import { qrMatrix } from './qr';
 import { SIZE_PRESETS } from './doc';
 import { FONT_PACKS, ensureFont } from '../content/fonts';
 import { artById } from '../content/art';
@@ -93,12 +94,13 @@ export function buildProps(ed: Editor): Props {
     if (!sel.length) { title.textContent = 'Page'; body.append(...pageProps()); return; }
     if (sel.length > 1) { title.textContent = `${sel.length} items`; body.append(...multiProps(sel)); return; }
     const e = sel[0];
-    title.textContent = { text: 'Text', shape: 'Shape', image: 'Photo', graphic: 'Graphic', emoji: 'Sticker', draw: 'Drawing' }[e.type];
+    title.textContent = { text: 'Text', shape: 'Shape', image: 'Photo', graphic: 'Graphic', emoji: 'Sticker', draw: 'Drawing', qr: 'QR code' }[e.type];
     if (e.locked) body.append(h('div', { class: 'note' }, icon('lock', 16), 'This item is locked. ', h('button', { class: 'link', type: 'button', onclick: () => { e.locked = false; done(); render(); } }, 'Unlock')));
     if (e.type === 'text') body.append(...textProps(e));
     if (e.type === 'shape') body.append(...shapeProps(e));
     if (e.type === 'image') body.append(...imageProps(e));
     if (e.type === 'graphic') body.append(...graphicProps(e));
+    if (e.type === 'qr') body.append(...qrProps(e));
     if (e.type === 'draw') body.append(sec('Stroke', row('Colour', color(e.color, (f) => (e.color = firstColor(f)))), slider('Width', e.width, 1, 150, 1, (v) => (e.width = v))));
     body.append(...commonProps(e));
   }
@@ -223,6 +225,20 @@ export function buildProps(ed: Editor): Props {
       sec('Shape', masks, e.mask === 'none' ? slider('Corner radius', e.radius, 0, Math.min(e.w, e.h) / 2, 1, (v) => (e.radius = v)) : null),
       sec('Border', row('Colour', color(e.stroke, (f) => (e.stroke = firstColor(f)))), slider('Width', e.strokeWidth, 0, 80, 1, (v) => (e.strokeWidth = v))),
       h('div', { class: 'btn-row' }, replace, btn('Set as background', { kind: 'ghost', icon: 'image', size: 'sm', onClick: () => ed.imageToBackground(e) })),
+    ];
+  }
+
+  function qrProps(e: Extract<El, { type: 'qr' }>): Node[] {
+    const input = h('input', { class: 'input', value: e.text, placeholder: 'https://your-link.com', 'aria-label': 'QR code link or text' });
+    const err = h('p', { class: 'form-err' });
+    input.addEventListener('input', () => {
+      try { qrMatrix(input.value || ' '); err.textContent = ''; live(() => (e.text = input.value)); }
+      catch (x) { err.textContent = (x as Error).message; }
+    });
+    input.addEventListener('change', done);
+    return [
+      sec('Link or text', input, err, h('p', { class: 'hint' }, 'Phones open this when they scan the code. Keep dark squares on a light background so every camera can read it.')),
+      sec('Colours', row('Squares', color(e.color, (f) => (e.color = firstColor(f)))), row('Background', color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true }))),
     ];
   }
 
