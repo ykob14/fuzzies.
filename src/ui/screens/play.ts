@@ -106,7 +106,7 @@ export function playScreen(): Screen {
 
   function gfxPicker(): HTMLElement | null {
     if (!hasWebGL) return null;
-    const seg = h('div', { class: 'seg' });
+    const seg = h('div', { class: 'seg seg-sm' });
     const fill = () => seg.replaceChildren(...(['real', 'classic'] as const).map((m) => {
       const b = h('button', { type: 'button', class: (a.settings.gameGfx ?? 'real') === m ? 'on' : '' }, m === 'real' ? '🌄 Realistic 3D' : '🎨 Classic 2D');
       b.addEventListener('click', () => { accounts.update((x) => (x.settings.gameGfx = m)); fill(); void newGame(); });
@@ -121,7 +121,7 @@ export function playScreen(): Screen {
     const fill = () => row.replaceChildren(...SKINS.map((s) => {
       const owned = rewards.isUnlocked(`skin-${s.id}`, s.cost);
       const on = skinOf().id === s.id;
-      const b = h('button', { type: 'button', class: `skin ${on ? 'on' : ''} ${owned ? '' : 'locked'}`, title: owned ? s.name : `${s.name} · ${s.cost} Fuzzies` }, fuzzyMark(40, s.colors), h('small', null, owned ? s.name : `🔒 ${s.cost}`));
+      const b = h('button', { type: 'button', class: `skin ${on ? 'on' : ''} ${owned ? '' : 'locked'}`, title: owned ? s.name : `${s.name} · ${s.cost} Fuzzies` }, fuzzyMark(32, s.colors), h('small', null, owned ? s.name : `🔒 ${s.cost}`));
       b.addEventListener('click', () => {
         if (!owned) { unlockDialog({ id: `skin-${s.id}`, name: `${s.name} Fuzzy`, cost: s.cost, kind: 'Player look for Fuzzy Crossing', preview: fuzzyMark(90, s.colors) }, () => { accounts.update((x) => (x.settings.skin = s.id)); fill(); newGame(); }); return; }
         accounts.update((x) => (x.settings.skin = s.id));
@@ -136,19 +136,18 @@ export function playScreen(): Screen {
 
   function showStart(): void {
     overlay.hidden = false;
-    overlay.replaceChildren(h('div', { class: 'go-card' },
-      h('div', { class: 'go-title' }, mascot(56), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across. Grab Fuzzies. Fill all 5 nests.'))),
+    const tip = (ic: Node | string, text: string) => h('div', { class: 'how-tip' }, h('span', { class: 'how-ic' }, ic), h('span', null, text));
+    overlay.replaceChildren(h('div', { class: 'go-card start' },
+      h('div', { class: 'go-title' }, mascot(44), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across, grab Fuzzies, fill all 5 nests.'))),
+      h('div', { class: 'how-grid' },
+        tip('🚗', 'Dodge the cars'),
+        tip('🪵', 'Ride logs, skip the water'),
+        tip(fuzzyMark(18), 'Fuzzy +1 · golden +5'),
+        tip('🏁', 'Nest +2 · level +5')),
+      h('div', { class: 'start-opts' }, h('p', { class: 'pnl-label' }, 'Your Fuzzy'), skinPicker()),
+      gfxPicker(),
       btn('Start playing', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: begin }),
-      h('p', { class: 'hint center' }, isTouch() ? 'Swipe on the board or use the arrows.' : 'Arrow keys or WASD to hop · P to pause.'),
-      h('ul', { class: 'how' },
-        h('li', null, '🚗 Dodge cars on the road'),
-        h('li', null, '🪵 Ride logs and lily pads — don’t touch the water'),
-        h('li', null, fuzzyMark(16), ' Pink Fuzzy = +1 · ', fuzzyMark(16, ['#fff3b0', '#e0a100']), ' Golden = +5'),
-        h('li', null, '🏁 Each nest +2 · clear a level +5'),
-        h('li', null, '🌅 The sky changes every level: day, golden hour, dusk')),
-      topList(0, 3),
-      h('p', { class: 'pnl-label' }, 'Choose your Fuzzy'), skinPicker(),
-      hasWebGL ? h('p', { class: 'pnl-label' }, 'Graphics') : null, gfxPicker()));
+      h('p', { class: 'hint center' }, isTouch() ? 'Swipe or tap the board to hop · 3 lives' : 'Arrow keys or WASD to hop · P to pause · 3 lives')));
   }
 
   // Cute intro before each game: zoom in on the Fuzzy, it winks, zoom out to the board. Skippable.
@@ -230,7 +229,7 @@ export function playScreen(): Screen {
         h('div', null, h('small', null, 'Nests'), h('b', null, String(r.homes)))),
       h('div', { class: 'go-earned' }, fuzzyMark(36), h('div', null, h('b', null, `+${r.fuzzies} Fuzzies`), h('small', null, `Balance: ${rewards.balance()}`))),
       rank > 0 && !isBest ? h('p', { class: 'hint center' }, `#${rank} in your top 10 scores!`) : null,
-      topList(entry.at),
+      topList(entry.at, 3),
       btn('Play again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { void newGame().then(begin); } }),
       h('div', { class: 'btn-row' },
         btn('Spend Fuzzies', { kind: 'soft', icon: 'gift', onClick: () => (location.hash = '#/rewards') }),
@@ -267,7 +266,8 @@ export function playScreen(): Screen {
   document.addEventListener('visibilitychange', onVis);
 
   const el = h('div', { class: 'page play' },
-    h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn, overlay), controls));
+    // the start / pause / game-over card covers the whole shell (HUD and arrows too) so it fits on small screens
+    h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn), controls, overlay));
   requestAnimationFrame(() => { void newGame(); showStart(); });
 
   return {

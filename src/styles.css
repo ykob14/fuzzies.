@@ -423,7 +423,7 @@ select.input { appearance: none; padding-right: 30px; background-image: linear-g
 
 /* ===================== game ===================== */
 .page.play { max-width: 640px; padding-top: 16px; }
-.game-shell { display: grid; gap: 10px; }
+.game-shell { display: grid; gap: 10px; position: relative; }
 .game-hud { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 8px 10px; box-shadow: var(--shadow); }
 .hud-item { display: grid; text-align: center; flex: 1; min-width: 0; }
 .hud-item small { font-size: 10.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
@@ -445,8 +445,23 @@ select.input { appearance: none; padding-right: 30px; background-image: linear-g
 .go-title h2 { text-align: left; }
 .how { list-style: none; padding: 0; margin: 4px 0; display: grid; gap: 6px; font-size: 13.5px; }
 .how li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.go-card.start { gap: 10px; padding: 18px; grid-template-columns: minmax(0, 1fr); overflow-x: hidden; }
+.go-card.start .go-title h2 { font-size: 23px; line-height: 1.1; }
+.go-card.start .go-title p { font-size: 13px; margin-top: 2px; }
+.go-card.start .pnl-label { margin: 0 0 4px; }
+.go-card.start .seg { margin: 0; }
+.go-card.start .hint { margin: 0; font-size: 12px; }
+.how-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.how-tip { display: flex; align-items: center; gap: 7px; padding: 7px 9px; border-radius: 11px; background: var(--surface-2); font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+.how-ic { flex: none; font-size: 16px; line-height: 1; display: inline-flex; }
+.seg-sm button { padding: 5px 8px; font-size: 12px; }
+@media (max-width: 760px) {
+  .go-card.start { padding: 14px; gap: 8px; }
+  .go-card.start .go-title h2 { font-size: 21px; }
+  .how-tip { padding: 6px 8px; font-size: 12px; }
+}
 .skins { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-.skin { flex: none; display: grid; justify-items: center; gap: 2px; border: 2px solid transparent; background: var(--surface-2); padding: 6px 4px; border-radius: 12px; width: 64px; font-size: 11px; font-weight: 600; }
+.skin { flex: none; display: grid; justify-items: center; gap: 2px; border: 2px solid transparent; background: var(--surface-2); padding: 5px 3px; border-radius: 12px; width: 58px; font-size: 10.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .skin.on { border-color: var(--accent); }
 .skin.locked svg { opacity: .5; filter: grayscale(.6); }
 .go-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
@@ -484,7 +499,9 @@ select.input { appearance: none; padding-right: 30px; background-image: linear-g
 .rw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
 .rw-card { display: grid; gap: 10px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; transition: transform .15s, box-shadow .15s; }
 .rw-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-.rw-card.owned { opacity: .85; }
+.rw-card { position: relative; }
+.rw-preview.clickable { cursor: pointer; }
+.rw-owned-badge { position: absolute; top: 18px; right: 18px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: #22b573; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
 .rw-preview { height: 130px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; overflow: hidden; }
 .rw-preview > img { width: 100%; height: 100%; object-fit: cover; }
 .rw-meta b { display: block; font-size: 14.5px; }

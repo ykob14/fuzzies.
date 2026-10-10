@@ -11,35 +11,44 @@ import { FX_PACK, TEXT_STYLES } from '../../content/textstyles';
 import { SKINS } from '../../game/crossing';
 import { templateThumb } from '../thumbs';
 import { missionsCard, achievementsGrid } from '../missions';
+import { useTemplate, tryInDesign } from '../create';
 import { ACHIEVEMENTS } from '../../core/missions';
 import { h, btn, fuzzyMark, icon, toast } from '../dom';
 
-interface Item { id: string; name: string; cost: number; kind: string; preview: () => Node; after?: () => void }
+/** `use` is what the button does once the item is yours; `inUse` marks the theme/look you have on right now. */
+interface Item { id: string; name: string; cost: number; kind: string; preview: () => Node; after?: () => void; use: { label: string; run: () => void }; inUse?: () => boolean }
 
 export function rewardsScreen(): Screen {
   const a = accounts.current!;
   const body = h('div');
 
+  const wearTheme = (id: string) => { accounts.update((x) => (x.settings.theme = id)); applyTheme(); };
+
   const groups = (): { title: string; blurb: string; items: Item[] }[] => [
-    { title: 'Premium templates', blurb: 'Pro designs ready to customise', items: templates().filter((t) => t.cost > 0).map((t) => ({ id: t.id, name: t.name, cost: t.cost, kind: t.category, preview: () => templateThumb(t, 260) })) },
-    { title: 'Graphics packs', blurb: 'Recolourable illustrations', items: ART_PACKS.filter((p) => p.cost > 0).map((p) => ({ id: p.id, name: p.name, cost: p.cost, kind: p.blurb, preview: () => h('div', { class: 'rw-arts' }, ...ARTS.filter((x) => x.pack === p.id).slice(0, 4).map((x) => h('img', { src: artDataUrl(x.id, x.colors), alt: '' }))) })) },
-    { title: 'Sticker packs', blurb: 'Fun emoji stickers', items: STICKER_PACKS.filter((p) => p.cost > 0).map((p) => ({ id: p.id, name: p.name, cost: p.cost, kind: `${p.items.length} stickers`, preview: () => h('div', { class: 'rw-emoji' }, p.items.slice(0, 6).join('')) })) },
-    { title: 'Font packs', blurb: 'More ways to say it', items: FONT_PACKS.filter((p) => p.cost > 0).map((p) => ({ id: p.id, name: p.name, cost: p.cost, kind: p.fonts.join(' · '), preview: () => h('div', { class: 'rw-font', style: `font-family:"${p.fonts[0]}"` }, 'Aa') })) },
-    { title: 'Text effects', blurb: 'One-tap magic text', items: [{ id: FX_PACK.id, name: FX_PACK.name, cost: FX_PACK.cost, kind: TEXT_STYLES.filter((s) => s.premium).map((s) => s.name).join(' · '), preview: () => h('div', { class: 'rw-fx' }, h('span', { style: TEXT_STYLES.find((s) => s.id === 'neon')!.css }, 'Neon')) }] },
-    { title: 'App themes', blurb: 'Make Fuzzies feel like yours', items: THEMES.filter((t) => t.cost > 0).map((t) => ({ id: `theme-${t.id}`, name: t.name, cost: t.cost, kind: t.dark ? 'Dark theme' : 'Light theme', preview: () => h('div', { class: 'rw-theme', style: `background:${t.swatch}` }), after: () => { accounts.update((x) => (x.settings.theme = t.id)); applyTheme(); } })) },
-    { title: 'Fuzzy Crossing looks', blurb: 'Dress up your Fuzzy', items: SKINS.filter((s) => s.cost > 0).map((s) => ({ id: `skin-${s.id}`, name: s.name, cost: s.cost, kind: 'Player look', preview: () => fuzzyMark(64, s.colors), after: () => accounts.update((x) => (x.settings.skin = s.id)) })) },
+    { title: 'Premium templates', blurb: 'Pro designs ready to customise', items: templates().filter((t) => t.cost > 0).map((t) => ({ id: t.id, name: t.name, cost: t.cost, kind: t.category, preview: () => templateThumb(t, 260), use: { label: 'Use template', run: () => useTemplate(t) } })) },
+    { title: 'Graphics packs', blurb: 'Recolourable illustrations', items: ART_PACKS.filter((p) => p.cost > 0).map((p) => ({ id: p.id, name: p.name, cost: p.cost, kind: p.blurb, preview: () => h('div', { class: 'rw-arts' }, ...ARTS.filter((x) => x.pack === p.id).slice(0, 4).map((x) => h('img', { src: artDataUrl(x.id, x.colors), alt: '' }))), use: { label: 'Use in a design', run: () => tryInDesign({ panel: 'elements', focus: p.name }) } })) },
+    { title: 'Sticker packs', blurb: 'Fun emoji stickers', items: STICKER_PACKS.filter((p) => p.cost > 0).map((p) => ({ id: p.id, name: p.name, cost: p.cost, kind: `${p.items.length} stickers`, preview: () => h('div', { class: 'rw-emoji' }, p.items.slice(0, 6).join('')), use: { label: 'Use in a design', run: () => tryInDesign({ panel: 'stickers', focus: p.name }) } })) },
+    { title: 'Font packs', blurb: 'More ways to say it', items: FONT_PACKS.filter((p) => p.cost > 0).map((p) => ({ id: p.id, name: p.name, cost: p.cost, kind: p.fonts.join(' · '), preview: () => h('div', { class: 'rw-font', style: `font-family:"${p.fonts[0]}"` }, 'Aa'), use: { label: 'Use in a design', run: () => tryInDesign({ font: p.fonts[0] }) } })) },
+    { title: 'Text effects', blurb: 'One-tap magic text', items: [{ id: FX_PACK.id, name: FX_PACK.name, cost: FX_PACK.cost, kind: TEXT_STYLES.filter((s) => s.premium).map((s) => s.name).join(' · '), preview: () => h('div', { class: 'rw-fx' }, h('span', { style: TEXT_STYLES.find((s) => s.id === 'neon')!.css }, 'Neon')), use: { label: 'Use in a design', run: () => tryInDesign({ panel: 'text', focus: 'Text styles' }) } }] },
+    { title: 'App themes', blurb: 'Make Fuzzies feel like yours', items: THEMES.filter((t) => t.cost > 0).map((t) => ({ id: `theme-${t.id}`, name: t.name, cost: t.cost, kind: t.dark ? 'Dark theme' : 'Light theme', preview: () => h('div', { class: 'rw-theme', style: `background:${t.swatch}` }), after: () => wearTheme(t.id), use: { label: 'Use theme', run: () => { wearTheme(t.id); toast(`${t.name} theme on`, 'good'); render(); } }, inUse: () => a.settings.theme === t.id })) },
+    { title: 'Fuzzy Crossing looks', blurb: 'Dress up your Fuzzy', items: SKINS.filter((s) => s.cost > 0).map((s) => ({ id: `skin-${s.id}`, name: s.name, cost: s.cost, kind: 'Player look', preview: () => fuzzyMark(64, s.colors), after: () => accounts.update((x) => (x.settings.skin = s.id)), use: { label: 'Play as it', run: () => { accounts.update((x) => (x.settings.skin = s.id)); location.hash = '#/play'; } } })) },
   ];
 
   function card(it: Item): HTMLElement {
     const owned = rewards.isUnlocked(it.id, it.cost);
     const afford = rewards.canAfford(it.cost);
-    const action = owned
-      ? h('span', { class: 'owned-tag' }, icon('check', 16), 'Unlocked')
+    const inUse = owned && !!it.inUse?.();
+    const action = inUse
+      ? h('span', { class: 'owned-tag' }, icon('check', 16), 'In use')
+      : owned
+      ? btn(it.use.label, { kind: 'soft', size: 'sm', icon: 'check', onClick: it.use.run })
       : btn(afford ? `Unlock · ${it.cost}` : `${it.cost}`, { kind: afford ? 'primary' : 'soft', size: 'sm', icon: afford ? 'unlock' : 'lock', onClick: () => {
           if (!rewards.canAfford(it.cost)) { toast(`You need ${it.cost - rewards.balance()} more Fuzzies — go play!`, 'info'); return; }
           if (rewards.unlock(it.id, it.cost)) { toast(`${it.name} unlocked!`, 'good'); it.after?.(); render(); }
         } });
-    return h('div', { class: `rw-card ${owned ? 'owned' : ''}` }, h('div', { class: 'rw-preview' }, it.preview()), h('div', { class: 'rw-meta' }, h('b', null, it.name), h('small', null, it.kind)), action);
+    const preview = h('div', { class: 'rw-preview' }, it.preview());
+    if (owned && !inUse) { preview.classList.add('clickable'); preview.title = it.use.label; preview.addEventListener('click', it.use.run); }
+    return h('div', { class: `rw-card ${owned ? 'owned' : ''}` }, preview, owned ? h('span', { class: 'rw-owned-badge', title: 'Yours forever' }, icon('check', 14)) : null, h('div', { class: 'rw-meta' }, h('b', null, it.name), h('small', null, it.kind)), action);
   }
 
   function render(): void {

@@ -4,6 +4,9 @@ import { Editor } from '../../editor/editor';
 import { db } from '../../core/db';
 import { accounts } from '../../core/account';
 import { toast } from '../dom';
+import { takeTryIt } from '../create';
+import { ensureFont } from '../../content/fonts';
+import { makeText } from '../../editor/doc';
 
 export async function openEditor(id: string): Promise<Screen | null> {
   const d = await db.getDesign(id);
@@ -15,6 +18,20 @@ export async function openEditor(id: string): Promise<Screen | null> {
   d.assets ??= {};
   const ed = new Editor(d, () => { location.hash = '#/home'; });
   document.body.classList.add('in-editor');
+  const tryIt = takeTryIt(d.id);
+  if (tryIt) requestAnimationFrame(() => {
+    if (tryIt.font) {
+      ensureFont(tryIt.font, 400, false);
+      const W = ed.design.width, H = ed.design.height;
+      ed.add([makeText('Hello, gorgeous', { font: tryIt.font, weight: 400, size: Math.round(ed.unit * 0.09), w: W * 0.75 })], { x: W / 2, y: H / 2 });
+    }
+    if (tryIt.panel) {
+      ed.panels.show(tryIt.panel);
+      const label = [...ed.root.querySelectorAll<HTMLElement>('.ed-panel-body .pnl-label')].find((l) => tryIt.focus && l.textContent?.startsWith(tryIt.focus));
+      const body = label?.closest<HTMLElement>('.ed-panel-body');
+      if (label && body) body.scrollTop += label.getBoundingClientRect().top - body.getBoundingClientRect().top - 12;
+    }
+  });
   return {
     el: ed.root,
     destroy: () => {

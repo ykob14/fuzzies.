@@ -10,21 +10,42 @@ import { h, btn, modal, toast } from './dom';
 import type { Design } from '../editor/types';
 import { track } from '../core/missions';
 
-async function saveAndOpen(d: Design): Promise<void> {
+/** Something to show as soon as a new design opens: a side panel (scrolled to a pack) or a starter text in a font. */
+export interface TryIt { panel?: string; focus?: string; font?: string }
+const TRY_KEY = 'fz.try';
+
+/** Returns (once) what to show for the design that is opening, if anything. */
+export function takeTryIt(designId: string): TryIt | null {
+  const raw = sessionStorage.getItem(TRY_KEY);
+  sessionStorage.removeItem(TRY_KEY);
+  try {
+    const t = raw ? (JSON.parse(raw) as TryIt & { id: string }) : null;
+    return t && t.id === designId ? t : null;
+  } catch { return null; }
+}
+
+async function saveAndOpen(d: Design, tryIt?: TryIt): Promise<void> {
   try {
     await db.putDesign(d);
     accounts.update((a) => a.stats.designs++);
     track('design');
+    if (tryIt) sessionStorage.setItem(TRY_KEY, JSON.stringify({ ...tryIt, id: d.id }));
     location.hash = `#/edit/${d.id}`;
   } catch {
     toast('Could not create the design — storage may be full.', 'bad');
   }
 }
 
-export function createBlank(name: string, w: number, hh: number): void {
+export function createBlank(name: string, w: number, hh: number, tryIt?: TryIt): void {
   const a = accounts.current;
   if (!a) return;
-  void saveAndOpen(newDesign(a.id, name, w, hh));
+  void saveAndOpen(newDesign(a.id, name, w, hh), tryIt);
+}
+
+/** Start a fresh square design to try out something you just unlocked. */
+export function tryInDesign(tryIt: TryIt): void {
+  const p = SIZE_PRESETS[0];
+  createBlank(p.name, p.w, p.h, tryIt);
 }
 
 export function useTemplate(t: Template): void {
