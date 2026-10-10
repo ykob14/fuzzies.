@@ -249,11 +249,15 @@ function furGeometry(r: number, colors: [string, string]): THREE.SphereGeometry 
   return g;
 }
 
+export interface FuzzyEye { open: THREE.Group; lid: THREE.Mesh }
+
 export interface FuzzyModel {
   group: THREE.Group; // position this
   body: THREE.Group; // squash & stretch this
   face: THREE.Group;
   pupils: THREE.Object3D[];
+  eyes: FuzzyEye[]; // [left, right] from the Fuzzy's point of view facing us: index 1 is on screen-right
+  mouth: THREE.Mesh | null;
   shells: THREE.Mesh[];
   radius: number;
 }
@@ -290,24 +294,34 @@ export function makeFuzzy(m: Mats, colors: [string, string], r: number, fur: num
   const black = new THREE.MeshPhysicalMaterial({ color: 0x0d0b14, roughness: 0.1, clearcoat: 1 });
   const shine = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const pupils: THREE.Object3D[] = [];
+  const eyes: FuzzyEye[] = [];
   for (const sx of [-1, 1]) {
     const ex = sx * 0.36 * R, ey = 0.14 * R, ez = Math.sqrt(Math.max(0, R * R - ex * ex - ey * ey)) * 0.93;
+    // open eye (white + pupil) lives in its own group so it can blink; the "^" lid shows when closed
+    const open = new THREE.Group();
+    open.position.set(ex, ey, ez);
+    face.add(open);
     const eye = new THREE.Mesh(new THREE.SphereGeometry(r * 0.27, 20, 14), white);
     eye.scale.set(1, 1.18, 0.75);
-    eye.position.set(ex, ey, ez);
-    face.add(eye);
+    open.add(eye);
+    const lid = new THREE.Mesh(new THREE.TorusGeometry(r * 0.17, r * 0.04, 8, 18, Math.PI), black);
+    lid.position.set(ex, ey - r * 0.05, ez + r * 0.12);
+    lid.visible = false;
+    face.add(lid);
+    eyes.push({ open, lid });
     const pupilHolder = new THREE.Group();
-    pupilHolder.position.set(ex, ey, ez + r * 0.14);
+    pupilHolder.position.set(0, 0, r * 0.14);
     const pupil = new THREE.Mesh(new THREE.SphereGeometry(r * 0.15, 16, 12), black);
     pupil.scale.set(1, 1.15, 0.6);
     const hl = new THREE.Mesh(new THREE.SphereGeometry(r * 0.045, 8, 6), shine);
     hl.position.set(-r * 0.05, r * 0.07, r * 0.08);
     pupilHolder.add(pupil, hl);
-    face.add(pupilHolder);
+    open.add(pupilHolder);
     pupils.push(pupilHolder);
   }
+  let mouth: THREE.Mesh | null = null;
   if (opts.mouth !== false) {
-    const mouth = new THREE.Mesh(new THREE.TorusGeometry(r * 0.15, r * 0.035, 8, 18, Math.PI), black);
+    mouth = new THREE.Mesh(new THREE.TorusGeometry(r * 0.15, r * 0.035, 8, 18, Math.PI), black);
     mouth.rotation.z = Math.PI;
     mouth.position.set(0, -0.16 * R, R * 0.97);
     face.add(mouth);
@@ -319,7 +333,7 @@ export function makeFuzzy(m: Mats, colors: [string, string], r: number, fur: num
       face.add(b);
     }
   }
-  return { group, body, face, pupils, shells: list, radius: r + fur };
+  return { group, body, face, pupils, eyes, mouth, shells: list, radius: r + fur };
 }
 
 // ---------- scenery ----------

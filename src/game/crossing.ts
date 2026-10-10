@@ -50,6 +50,9 @@ export interface View {
   /** Lanes were rebuilt (new level): drop any per-object visuals. */
   reset(game: Crossing): void;
   destroy(): void;
+  /** Optional cute start: zoom in on the Fuzzy, it winks, zoom out to the game. Calls done() when finished. */
+  playIntro?(game: Crossing, done: () => void): void;
+  skipIntro?(): void;
 }
 
 const CAR_COLORS = ['#c8102e', '#f4a300', '#1f6fd1', '#5b3fd6', '#17a589', '#e84393', '#f2f2f2', '#1c1c22', '#8a9199'];

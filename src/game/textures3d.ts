@@ -256,7 +256,7 @@ export function glow(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)
 }
 
 /** Text label texture for floating "+1" pop-ups. */
-export function label(text: string, color: string): THREE.CanvasTexture {
+export function label(text: string, color: string, outline = true): THREE.CanvasTexture {
   const font = '800 78px Fredoka, Poppins, system-ui, sans-serif';
   const probe = document.createElement('canvas').getContext('2d')!;
   probe.font = font;
@@ -264,7 +264,7 @@ export function label(text: string, color: string): THREE.CanvasTexture {
   x.font = font;
   x.textAlign = 'center'; x.textBaseline = 'middle';
   x.lineWidth = 14; x.strokeStyle = 'rgba(25,20,45,0.85)'; x.lineJoin = 'round';
-  x.strokeText(text, c.width / 2, 66);
+  if (outline) x.strokeText(text, c.width / 2, 66);
   x.fillStyle = color; x.fillText(text, c.width / 2, 66);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;

@@ -1,5 +1,10 @@
 /** Classic flat 2D look for Fuzzy Crossing (also used when a device has no WebGL). */
 import { COLS, ROWS, GOAL, MEDIAN, START, HOMES, type Crossing, type Dir, type Fx, type Obj, type View } from './crossing';
+import { sfx } from './sound';
+
+const INTRO_END = 3.2;
+const smooth = (a: number, b: number, t: number) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+const bump = (t: number, a: number, b: number, s = 0.08) => Math.min(smooth(a, a + s, t), 1 - smooth(b - s, b, t));
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; text?: string; size: number }
 
@@ -25,6 +30,10 @@ export class View2D implements View {
   }
 
   reset(): void {}
+
+  private intro: { t: number; done: () => void; winked: boolean; boinged: boolean } | null = null;
+  playIntro(_g: Crossing, done: () => void): void { this.intro = { t: 0, done, winked: false, boinged: false }; }
+  skipIntro(): void { if (this.intro) this.intro.t = INTRO_END; }
   destroy(): void {}
 
   fx(e: Fx, g: Crossing): void {
@@ -45,8 +54,30 @@ export class View2D implements View {
   render(g: Crossing, dt: number): void {
     const c = this.ctx, s = this.cell, W = COLS * s;
     this.parts = this.parts.filter((p) => { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 6 * dt; return p.life > 0; });
-    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const t = g.clock;
+    // intro: start zoomed in on the Fuzzy, then ease out to the whole board
+    const it = this.intro;
+    let zoom = 1, ox = 0, oy = 0, blink = 0, wink = 0, hopUp = 0;
+    if (it) {
+      it.t += dt;
+      const W0 = COLS * s, H0 = ROWS * s;
+      zoom = 1 + 2.4 * (1 - smooth(1.8, 3.0, it.t)) + 0.15 * smooth(0, 1.6, it.t) * (1 - smooth(1.8, 2.4, it.t));
+      const [px, py] = g.visualPos();
+      const cx = Math.min(Math.max((px + 0.5) * s, W0 / (2 * zoom)), W0 - W0 / (2 * zoom));
+      const cy = Math.min(Math.max((py + 0.5) * s, H0 / (2 * zoom)), H0 - H0 / (2 * zoom));
+      ox = W0 / 2 - zoom * cx; oy = H0 / 2 - zoom * cy;
+      blink = bump(it.t, 0.35, 0.5, 0.05);
+      wink = bump(it.t, 0.85, 1.5);
+      const b = it.t - 1.75;
+      if (b > 0 && b < 0.45) hopUp = Math.sin((b / 0.45) * Math.PI);
+      if (wink > 0.6 && !it.winked) {
+        it.winked = true; sfx.wink();
+        this.parts.push({ x: px + 0.95, y: py + 0.15, vx: 0, vy: -0.25, life: 1, max: 1, color: '#fff', text: '✨', size: 0.45 });
+      }
+      if (b > 0 && !it.boinged) { it.boinged = true; sfx.boing(); this.parts.push({ x: px + 0.9, y: py, vx: 0, vy: -0.4, life: 1.1, max: 1.1, color: '#fff', text: '💖', size: 0.4 }); }
+      if (it.t >= INTRO_END) { const done = it.done; this.intro = null; done(); }
+    }
+    c.setTransform(this.dpr * zoom, 0, 0, this.dpr * zoom, this.dpr * ox, this.dpr * oy);
 
     for (let r = 0; r < ROWS; r++) {
       const y = r * s;
@@ -121,10 +152,11 @@ export class View2D implements View {
       c.fillStyle = 'rgba(0,0,0,0.22)';
       c.beginPath(); c.ellipse(cx, cy + s * 0.32, s * 0.3 * (1 - lift * 0.3), s * 0.1, 0, 0, Math.PI * 2); c.fill();
       c.save();
-      c.translate(cx, cy - lift * s * 0.35);
+      c.translate(cx, cy - lift * s * 0.35 - hopUp * s * 0.35);
+      if (wink) c.rotate(-0.18 * wink);
       if (d?.kind === 'crash' || d?.kind === 'bonk') c.scale(1 + d.t * 1.2, Math.max(0.15, 1 - d.t * 1.8));
       else { const sq = d ? Math.max(0.05, 1 - d.t * 2) : 1; c.scale(sq * (1 + lift * 0.08), sq * (1 - lift * 0.08 + (g.hop ? 0.05 : 0))); }
-      this.drawFuzzy(0, 0, s * 0.4, g.skin.colors, g.facing, t, true);
+      this.drawFuzzy(0, 0, s * 0.4, g.skin.colors, it ? 'down' : g.facing, t, true, false, 0, { blink, wink });
       c.restore();
     }
     if (d?.kind === 'splash') {
@@ -169,7 +201,7 @@ export class View2D implements View {
     c.fillRect(hx, top + hh * 0.7, s * 0.06, hh * 0.18);
   }
 
-  private drawFuzzy(cx: number, cy: number, r: number, colors: [string, string], facing: Dir, t: number, face: boolean, sparkle = false, clock = 0): void {
+  private drawFuzzy(cx: number, cy: number, r: number, colors: [string, string], facing: Dir, t: number, face: boolean, sparkle = false, clock = 0, eyes = { blink: 0, wink: 0 }): void {
     const c = this.ctx;
     const gr = c.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
     gr.addColorStop(0, colors[0]); gr.addColorStop(1, colors[1]);
@@ -192,14 +224,26 @@ export class View2D implements View {
     const ly = facing === 'up' ? -0.1 : facing === 'down' ? 0.08 : 0;
     const er = r * (face ? 0.24 : 0.28);
     for (const sx of [-0.33, 0.33]) {
+      const shut = Math.max(eyes.blink, sx > 0 ? eyes.wink : 0);
+      if (sx > 0 && eyes.wink > 0.6) {
+        // happy closed "^" eye for the wink
+        c.strokeStyle = '#1c1830'; c.lineWidth = Math.max(1.5, r * 0.11); c.lineCap = 'round';
+        c.beginPath(); c.arc(cx + sx * r, cy - r * 0.02, er * 0.85, 1.15 * Math.PI, 1.85 * Math.PI); c.stroke();
+        continue;
+      }
+      c.save();
+      c.translate(cx + sx * r + lx * r, cy - r * 0.1 + ly * r);
+      c.scale(1, Math.max(0.08, 1 - shut));
+      c.translate(-(cx + sx * r + lx * r), -(cy - r * 0.1 + ly * r));
       c.fillStyle = '#fff';
       c.beginPath(); c.ellipse(cx + sx * r + lx * r, cy - r * 0.1 + ly * r, er, er * 1.15, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = '#1c1830';
       c.beginPath(); c.arc(cx + sx * r + lx * r * 1.8, cy - r * 0.06 + ly * r * 1.6, er * 0.55, 0, Math.PI * 2); c.fill();
+      c.restore();
     }
     if (face) {
       c.strokeStyle = '#1c1830'; c.lineWidth = Math.max(1, r * 0.1); c.lineCap = 'round';
-      c.beginPath(); c.arc(cx + lx * r, cy + r * 0.28 + ly * r, r * 0.18, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
+      c.beginPath(); c.arc(cx + lx * r, cy + r * 0.28 + ly * r, r * (0.18 + eyes.wink * 0.07), 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
       c.fillStyle = 'rgba(255,255,255,0.35)';
       for (const sx of [-0.6, 0.6]) { c.beginPath(); c.arc(cx + sx * r, cy + r * 0.3, r * 0.12, 0, Math.PI * 2); c.fill(); }
     }

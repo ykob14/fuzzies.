@@ -8,9 +8,15 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { COLS, GOAL, HOMES, MEDIAN, START, type Crossing, type Fx, type Lane, type Obj, type View } from './crossing';
 import * as T from './textures3d';
 import * as M from './models3d';
+import { sfx } from './sound';
 
 const WORLD_X0 = -40, WORLD_X1 = 51;
 const CAM_H = 7.4, CAM_BACK = 5.8;
+/** Intro timeline in seconds. */
+const INTRO = { blink: 0.4, winkIn: 1.0, winkOut: 1.6, pullBack: 1.75, bounce: 2.05, swoop: 2.75, end: 4.35 };
+const ease = (k: number) => { k = THREE.MathUtils.clamp(k, 0, 1); return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; };
+/** 0→1→0 envelope over [a, b] with soft edges. */
+const bump = (t: number, a: number, b: number, soft = 0.12) => Math.min(THREE.MathUtils.smoothstep(t, a, a + soft), 1 - THREE.MathUtils.smoothstep(t, b - soft, b));
 const WATER_Y = -0.18;
 const CURB = 0.07;
 
@@ -48,6 +54,8 @@ export class View3D implements View {
   private camLook = new THREE.Vector3(5.5, 0, 10);
   private shake = 0;
   private halfW = 6.4;
+  private gameFov = 50;
+  private intro: { t: number; done: () => void; sparkled: boolean; hearted: boolean; winked: boolean; whooshed: boolean } | null = null;
   private lastP = new THREE.Vector3();
   private vel = new THREE.Vector3();
   private furLag = new THREE.Vector3();
@@ -234,8 +242,18 @@ export class View3D implements View {
     this.halfW = THREE.MathUtils.clamp(4.75 + (this.camera.aspect - 0.7) * 3.5, 4.75, 6.4);
     const hfov = 2 * Math.atan(this.halfW / dist);
     const vfov = 2 * Math.atan(Math.tan(hfov / 2) / this.camera.aspect);
-    this.camera.fov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(vfov), 34, 78);
+    this.gameFov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(vfov), 34, 78);
+    this.camera.fov = this.gameFov;
     this.camera.updateProjectionMatrix();
+  }
+
+  // ---------- intro: close-up, wink, pull back to show the fur, swoop out to the game ----------
+  playIntro(_g: Crossing, done: () => void): void {
+    this.intro = { t: 0, done, sparkled: false, hearted: false, winked: false, whooshed: false };
+  }
+
+  skipIntro(): void {
+    if (this.intro) this.intro.t = INTRO.end;
   }
 
   reset(g: Crossing): void {
@@ -359,9 +377,11 @@ export class View3D implements View {
       if (g.homes[i]) { n.fuzzy.body.scale.y = 1 + Math.sin(t * 3 + i) * 0.03; n.fuzzy.face.rotation.x = -0.6; }
     });
 
+    if (this.intro) this.intro.t += dt;
     this.updatePlayer(g, dt, t);
     this.updatePops(dt);
     this.updateCamera(g, dt);
+    if (this.intro && this.intro.t >= INTRO.end) { const done = this.intro.done; this.intro = null; this.resetFace(); done(); }
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -392,6 +412,15 @@ export class View3D implements View {
       else { sy = Math.max(0.12, 1 - d.t * 5); sx = 1 + Math.min(1, d.t * 5) * 0.45; y = base + P.radius * sy * 0.92; }
       if (d.t > 1.05) P.group.visible = false;
     }
+    const it = this.intro;
+    if (it) {
+      // happy little bounce while the camera shows off the fur
+      const b = it.t - INTRO.bounce;
+      if (b > 0 && b < 0.55) { const h = Math.sin((b / 0.55) * Math.PI); y += h * 0.32; sy *= 1 + h * 0.12; sx *= 1 - h * 0.05; }
+      if (b > 0.55 && b < 0.75) { const q = Math.sin(((b - 0.55) / 0.2) * Math.PI); sy *= 1 - q * 0.16; sx *= 1 + q * 0.09; }
+      if (b > 0 && !it.hearted) { it.hearted = true; sfx.boing(); }
+      if (b > 0.5 && b < 0.6 && !it.sparkled) { it.sparkled = true; this.text('💖', '#fff', vx + 0.5 + 0.35, y + 0.45, vy + 0.5, 0.75, 1.2, true); }
+    }
     P.group.position.set(vx + 0.5, y, vy + 0.5);
     P.body.scale.set(sx, sy, sx);
 
@@ -405,12 +434,75 @@ export class View3D implements View {
     this.furLag.lerp(this.vel.clone().multiplyScalar(-0.012), Math.min(1, dt * 10));
     P.shells.forEach((s, i) => { const k = ((i + 1) / P.shells.length) ** 2; s.position.copy(this.furLag).multiplyScalar(k); });
 
+    if (it) { this.introFace(it.t, vx + 0.5, y, vy + 0.5); return; }
     // face looks up at the camera; pupils look where we're heading
     const yaw = g.facing === 'left' ? -0.45 : g.facing === 'right' ? 0.45 : 0;
     P.face.rotation.y += (yaw - P.face.rotation.y) * Math.min(1, dt * 10);
     P.face.rotation.x = -0.6 + (g.facing === 'up' ? -0.08 : g.facing === 'down' ? 0.15 : 0);
     const look = { up: [0, 0.018], down: [0, -0.02], left: [-0.02, 0], right: [0.02, 0] }[g.facing];
     for (const p of P.pupils) { p.userData.base ??= p.position.clone(); p.position.set(p.userData.base.x + look[0], p.userData.base.y + look[1], p.userData.base.z); }
+  }
+
+  /** Blink, then a cheeky wink with a big smile, head tilt and a sparkle. */
+  private introFace(t: number, x: number, y: number, z: number): void {
+    const P = this.player;
+    const it = this.intro!;
+    // keep looking into the lens while the camera orbits
+    P.face.rotation.x = -0.6;
+    P.face.rotation.y = 0.5 * ease((t - INTRO.pullBack) / 0.9) * (1 - ease((t - INTRO.swoop) / 1.2));
+    for (const p of P.pupils) { p.userData.base ??= p.position.clone(); p.position.copy(p.userData.base); }
+    const blink = bump(t, INTRO.blink, INTRO.blink + 0.16, 0.06);
+    const wink = bump(t, INTRO.winkIn, INTRO.winkOut, 0.08);
+    P.eyes.forEach((e, i) => {
+      const closed = i === 1 ? Math.max(blink, wink) : blink;
+      e.open.scale.y = Math.max(0.06, 1 - closed);
+      // the wink eye turns into a happy "^"
+      const happy = i === 1 && wink > 0.6;
+      e.open.visible = !happy;
+      e.lid.visible = happy;
+    });
+    if (P.mouth) P.mouth.scale.set(1 + wink * 0.35, 1 + wink * 0.25, 1);
+    P.body.rotation.z = -0.2 * wink;
+    if (wink > 0.6 && !it.winked) {
+      it.winked = true;
+      sfx.wink();
+      // sparkle next to the winking eye
+      const n = new THREE.Vector3(0, Math.sin(0.6), Math.cos(0.6));
+      const eye = new THREE.Vector3(x + 0.17, y + 0.12, z).addScaledVector(n, P.radius * 0.9);
+      this.text('✨', '#fff', eye.x + 0.16, eye.y + 0.08, eye.z, 0.42, 1.0, true);
+      this.sparks(eye.x + 0.1, eye.y, eye.z, 0xfff3b0, 8, 0.3);
+    }
+  }
+
+  private resetFace(): void {
+    const P = this.player;
+    P.eyes.forEach((e) => { e.open.scale.y = 1; e.open.visible = true; e.lid.visible = false; });
+    P.mouth?.scale.set(1, 1, 1);
+    P.body.rotation.z = 0;
+  }
+
+  /** Camera pose for the intro, blended into the gameplay pose at the end. */
+  private introCamera(want: THREE.Vector3, wantLook: THREE.Vector3): { pos: THREE.Vector3; look: THREE.Vector3; fov: number } {
+    const t = this.intro!.t;
+    const P = this.player;
+    const c = P.group.position.clone().add(new THREE.Vector3(0, P.radius * 0.12, 0));
+    const n = new THREE.Vector3(0, Math.sin(0.6), Math.cos(0.6));
+    // portrait screens need a little more distance so the whole face fits across
+    const fit = THREE.MathUtils.clamp(1 / this.camera.aspect, 1, 1.35);
+    const closeDist = (1.3 - 0.18 * ease(t / INTRO.pullBack)) * fit;
+    const close = c.clone().addScaledVector(n, closeDist);
+    const a = 0.55, e = 0.38;
+    const mid = c.clone().add(new THREE.Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)).multiplyScalar(2.5 * fit));
+    if (t < INTRO.pullBack) return { pos: close, look: c, fov: 34 };
+    if (t < INTRO.swoop) {
+      const k = ease((t - INTRO.pullBack) / (INTRO.swoop - INTRO.pullBack - 0.15));
+      return { pos: close.lerp(mid, k), look: c, fov: 34 + 6 * k };
+    }
+    const k = ease((t - INTRO.swoop) / (INTRO.end - INTRO.swoop - 0.1));
+    if (!this.intro!.whooshed) { this.intro!.whooshed = true; sfx.whoosh(); }
+    const pos = mid.lerp(want, k);
+    pos.y += Math.sin(k * Math.PI) * 1.2; // swoop up and over
+    return { pos, look: c.lerp(wantLook, k), fov: 40 + (this.gameFov - 40) * k };
   }
 
   private updateCamera(g: Crossing, dt: number): void {
@@ -420,14 +512,23 @@ export class View3D implements View {
     const edge = Math.max(0, this.halfW - 6.1);
     const focusX = THREE.MathUtils.clamp(5.5 + (vx + 0.5 - 5.5) * follow, 5.5 - (5.5 - this.halfW + 0.7) - edge, 5.5 + (5.5 - this.halfW + 0.7) + edge);
     // Tilt so the player sits about 72% of the way down the screen, with the road/river ahead in view.
-    const half = THREE.MathUtils.degToRad(this.camera.fov / 2);
+    const half = THREE.MathUtils.degToRad(this.gameFov / 2);
     const pitch = Math.atan(CAM_H / CAM_BACK) - Math.atan(0.44 * Math.tan(half));
     const ahead = CAM_H / Math.tan(pitch) - CAM_BACK;
     const wantPos = new THREE.Vector3(focusX, CAM_H, focusZ + CAM_BACK);
     const wantLook = new THREE.Vector3(focusX, 0, focusZ - ahead);
-    const k = dt === 0 ? 1 : Math.min(1, dt * 3.2);
-    this.camPos.lerp(wantPos, k);
-    this.camLook.lerp(wantLook, k);
+    let fov = this.gameFov;
+    if (this.intro) {
+      const shot = this.introCamera(wantPos, wantLook);
+      this.camPos.copy(shot.pos);
+      this.camLook.copy(shot.look);
+      fov = shot.fov;
+    } else {
+      const k = dt === 0 ? 1 : Math.min(1, dt * 3.2);
+      this.camPos.lerp(wantPos, k);
+      this.camLook.lerp(wantLook, k);
+    }
+    if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     this.camera.position.copy(this.camPos);
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt * 2.5);
@@ -482,12 +583,12 @@ export class View3D implements View {
     this.add({ obj: m, vel: new THREE.Vector3(Math.cos(a) * s * 0.6, 2.5 + Math.random() * 2.5, Math.sin(a) * s * 0.6), life: 1.1, max: 1.1, kind: 'drop' });
   }
 
-  private sparks(x: number, y: number, z: number, color: number, n: number): void {
+  private sparks(x: number, y: number, z: number, color: number, n: number, power = 1): void {
     for (let i = 0; i < n; i++) {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-      sp.scale.setScalar(0.1 + Math.random() * 0.12);
+      sp.scale.setScalar((0.1 + Math.random() * 0.12) * Math.min(1, power));
       sp.position.set(x, y, z);
-      const a = Math.random() * Math.PI * 2, s = 0.8 + Math.random() * 1.8;
+      const a = Math.random() * Math.PI * 2, s = (0.8 + Math.random() * 1.8) * power;
       this.add({ obj: sp, vel: new THREE.Vector3(Math.cos(a) * s, 1.5 + Math.random() * 2.2, Math.sin(a) * s), life: 0.9, max: 0.9, kind: 'spark' });
     }
   }
@@ -509,13 +610,13 @@ export class View3D implements View {
     this.add({ obj: m, vel: new THREE.Vector3(), life: 1, max: 1, kind: 'ring', grow: size });
   }
 
-  private text(s: string, color: string, x: number, y: number, z: number, scale = 1, life = 1.1): void {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.label(s, color), transparent: true, depthTest: false, depthWrite: false }));
+  private text(s: string, color: string, x: number, y: number, z: number, scale = 1, life = 1.1, emoji = false): void {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.label(s, color, !emoji), transparent: true, depthTest: false, depthWrite: false }));
     sp.renderOrder = 10;
     const aspect = (sp.material.map!.image as HTMLCanvasElement).width / (sp.material.map!.image as HTMLCanvasElement).height;
     sp.scale.set(0.5 * aspect * scale, 0.5 * scale, 1);
     sp.position.set(x, y, z);
-    this.add({ obj: sp, vel: new THREE.Vector3(0, 0.9, 0), life, max: life, kind: 'text' });
+    this.add({ obj: sp, vel: new THREE.Vector3(0, emoji ? 0.35 : 0.9, 0), life, max: life, kind: 'text' });
   }
 
   private updatePops(dt: number): void {

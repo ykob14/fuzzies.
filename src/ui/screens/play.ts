@@ -87,6 +87,8 @@ export function playScreen(): Screen {
 
   async function newGame(): Promise<void> {
     const my = ++gen;
+    introRunning = false;
+    skipBtn.hidden = true;
     game?.destroy();
     game = null;
     const v = await makeView();
@@ -145,12 +147,36 @@ export function playScreen(): Screen {
       hasWebGL ? h('p', { class: 'pnl-label' }, 'Graphics') : null, gfxPicker()));
   }
 
+  // Cute intro before each game: zoom in on the Fuzzy, it winks, zoom out to the board. Skippable.
+  let introRunning = false;
+  const skipBtn = h('button', { class: 'skip-intro', type: 'button', hidden: true }, 'Skip ›');
+  skipBtn.addEventListener('click', (e) => { e.stopPropagation(); skipIntro(); });
+  const skipIntro = () => { if (introRunning) view?.skipIntro?.(); };
+
+  function goPop(): void {
+    const pop = h('div', { class: 'go-pop', 'aria-hidden': 'true' }, 'Go!');
+    wrap.parentElement?.append(pop);
+    setTimeout(() => pop.remove(), 900);
+  }
+
   function begin(): void {
-    if (!game) return;
+    if (!game || introRunning) return;
+    const g = game;
     overlay.hidden = true;
     accounts.update((x) => x.stats.gamesPlayed++);
-    game?.start();
     (wrap.querySelector('canvas') as HTMLCanvasElement | null)?.focus({ preventScroll: true });
+    const go = () => {
+      introRunning = false;
+      skipBtn.hidden = true;
+      if (game !== g) return; // a new game replaced this one
+      g.start();
+      goPop();
+    };
+    if (view?.playIntro && !a.settings.reduceMotion) {
+      introRunning = true;
+      skipBtn.hidden = false;
+      view.playIntro(g, go);
+    } else go();
   }
 
   function togglePause(): void {
@@ -188,6 +214,7 @@ export function playScreen(): Screen {
   const onKey = (e: KeyboardEvent) => {
     if (document.querySelector('.modal-backdrop')) return;
     const k = e.key.toLowerCase();
+    if (introRunning && !game?.paused) { e.preventDefault(); skipIntro(); return; }
     if (k === 'p' || k === 'escape') { togglePause(); return; }
     const d = keys[k];
     if (!d) { if ((k === ' ' || k === 'enter') && !overlay.hidden && !game?.paused) { e.preventDefault(); begin(); } return; }
@@ -201,6 +228,7 @@ export function playScreen(): Screen {
     if (!sw || sw.id !== e.pointerId) return;
     const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
     sw = null;
+    if (introRunning) { skipIntro(); return; }
     if (Math.hypot(dx, dy) < 14) { game?.input('up'); return; } // tap = hop forward
     game?.input(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up');
   });
@@ -211,7 +239,7 @@ export function playScreen(): Screen {
   document.addEventListener('visibilitychange', onVis);
 
   const el = h('div', { class: 'page play' },
-    h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, overlay), controls));
+    h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn, overlay), controls));
   requestAnimationFrame(() => { void newGame(); showStart(); });
 
   return {

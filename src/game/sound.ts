@@ -27,7 +27,32 @@ function tone(freq: number, dur: number, type: OscillatorType = 'sine', vol = 0.
   o.stop(t + dur + 0.02);
 }
 
+function noise(dur: number, from: number, to: number, vol: number, delay = 0): void {
+  const a = ctx();
+  if (!a) return;
+  const t = a.currentTime + delay;
+  const buf = a.createBuffer(1, Math.ceil(a.sampleRate * dur), a.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  const f = a.createBiquadFilter();
+  f.type = 'bandpass';
+  f.Q.value = 1.2;
+  f.frequency.setValueAtTime(from, t);
+  f.frequency.exponentialRampToValueAtTime(to, t + dur);
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.4);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(a.destination);
+  src.start(t);
+}
+
 export const sfx = {
+  wink: () => { tone(1568, 0.09, 'sine', 0.09); tone(2093, 0.16, 'sine', 0.08, 0, 0.08); tone(2637, 0.22, 'triangle', 0.05, 0, 0.15); },
+  boing: () => tone(260, 0.28, 'sine', 0.13, 420),
+  whoosh: () => noise(0.9, 400, 2600, 0.12),
   hop: () => tone(520, 0.08, 'triangle', 0.08, 220),
   collect: () => { tone(880, 0.09, 'sine', 0.12); tone(1320, 0.12, 'sine', 0.1, 0, 0.07); },
   gold: () => { [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0.12, 'triangle', 0.1, 0, i * 0.06)); },

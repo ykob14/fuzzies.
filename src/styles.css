@@ -614,3 +614,9 @@ select.input { appearance: none; padding-right: 30px; background-image: linear-g
 .game-canvas.real { width: 100%; height: 100%; }
 .game-wrap { position: relative; }
 .game-wrap.loading::after { content: 'Building the world…'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-weight: 700; border-radius: 16px; background: linear-gradient(180deg, #b9cfe0, #5f8a4a); }
+
+/* game intro */
+.skip-intro { position: absolute; right: 12px; bottom: 12px; z-index: 3; border: 0; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: 13px; color: #fff; background: rgba(20, 14, 36, 0.55); backdrop-filter: blur(6px); }
+.skip-intro:hover { background: rgba(20, 14, 36, 0.75); }
+.go-pop { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 3; font: 700 clamp(56px, 14vw, 110px)/1 var(--brand); color: #fff; text-shadow: 0 6px 0 #7c4dff, 0 10px 30px rgba(0, 0, 0, 0.35); animation: goPop 0.9s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+@keyframes goPop { 0% { transform: scale(0.3); opacity: 0; } 25% { transform: scale(1.1); opacity: 1; } 70% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
