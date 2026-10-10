@@ -2,7 +2,9 @@
 import { accounts } from '../core/account';
 import { rewards } from '../core/rewards';
 import { applyTheme, resolveTheme } from '../core/themes';
-import { h, icon, logo, fuzzyMark, avatarEl, popMenu, toast, QUOTE, type IconName } from './dom';
+import { h, btn, icon, logo, fuzzyMark, avatarEl, popMenu, toast, modal, QUOTE, type IconName } from './dom';
+import { cloud } from '../core/cloud';
+import { sync } from '../core/sync';
 import { authScreen } from './screens/auth';
 import { homeScreen } from './screens/home';
 import { templatesScreen } from './screens/templates';
@@ -59,7 +61,7 @@ function shell(active: string, content: HTMLElement): HTMLElement {
       { label: dark ? 'Switch to light mode' : 'Switch to dark mode', icon: dark ? 'sun' : 'moon', onClick: () => { accounts.update((x) => (x.settings.theme = dark ? 'light' : 'dark')); applyTheme(); } },
       { label: 'Settings', icon: 'settings', onClick: () => (location.hash = '#/settings') },
       null,
-      { label: 'Sign out', icon: 'logout', danger: true, onClick: () => { accounts.signOut(); location.hash = '#/welcome'; } },
+      { label: 'Sign out', icon: 'logout', danger: true, onClick: () => { void signOut(); } },
     ]);
   });
 
@@ -73,6 +75,28 @@ function shell(active: string, content: HTMLElement): HTMLElement {
   const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' }, tab('home', 'Home', 'home'), tab('projects', 'Designs', 'folder'), createTab, tab('play', 'Play', 'gamepad'), tab('profile', 'Me', 'user'));
 
   return h('div', { class: 'app' }, sidebar, h('div', { class: 'main' }, top, h('main', { class: 'content', id: 'content' }, content)), tabbar);
+}
+
+/** Sign out (a cloud account first finishes uploading) and go back to the welcome screen. */
+export async function signOut(): Promise<void> {
+  if (accounts.current?.cloud && sync.pending()) toast('Saving your last changes…', 'info');
+  await cloud.signOut();
+  location.hash = '#/welcome';
+  route();
+}
+
+/** After tapping a "reset password" email link: choose a new password. */
+let choosingPassword = false;
+function newPasswordDialog(): void {
+  if (choosingPassword) return; // Supabase can announce the same recovery more than once
+  choosingPassword = true;
+  const pw = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'At least 6 characters' });
+  const err = h('p', { class: 'form-err' });
+  const save = btn('Save new password', { kind: 'primary', onClick: async () => {
+    try { await cloud.setNewPassword(pw.value); m.close(); toast('Password changed — you’re logged in 🎉', 'good'); } catch (e) { err.textContent = (e as Error).message; }
+  } });
+  const m = modal('Choose a new password', h('div', null, h('label', { class: 'field' }, h('span', null, 'New password'), pw), err), { actions: [save], onClose: () => (choosingPassword = false) });
+  pw.focus();
 }
 
 export function route(): void {
@@ -139,4 +163,17 @@ export function startApp(): void {
   upgradeMascots();
   addEventListener('hashchange', route);
   route();
+  if (cloud.enabled) {
+    void cloud.init(
+      () => { toast(`Welcome, ${accounts.current?.name ?? ''}! You’re logged in 🎉`, 'good'); applyTheme(); location.hash = '#/home'; route(); },
+      (why) => { toast(why, 'info', 3500); location.hash = '#/login'; route(); },
+      newPasswordDialog,
+    );
+    // designs or the profile changed on another device: refresh lists (never mid-game or mid-edit)
+    sync.onRemoteChange(() => {
+      applyTheme();
+      const name = location.hash.replace(/^#\/?/, '').split('/')[0] || 'home';
+      if (['home', 'projects', 'rewards'].includes(name)) route();
+    });
+  }
 }

@@ -1,6 +1,7 @@
 /**
- * Accounts and profiles. Everything lives on this device (localStorage), so the app works offline
- * with no server. Passwords are salted and hashed with PBKDF2 before they are stored.
+ * Accounts and profiles. The signed-in account is always kept on this device (localStorage), so the
+ * app works offline. Local accounts store a salted PBKDF2 password hash. Cloud accounts (`cloud: true`,
+ * see core/cloud.ts) log in through Supabase and are synced to every device; their id is the cloud user id.
  */
 import { uid, todayKey } from './util';
 
@@ -42,6 +43,8 @@ export interface Account {
   name: string;
   bio: string;
   guest: boolean;
+  /** Logged in through the cloud (Supabase) and synced across devices. */
+  cloud: boolean;
   hash: string;
   salt: string;
   createdAt: number;
@@ -106,6 +109,7 @@ function fresh(username: string, name: string, email: string, guest: boolean): A
     name,
     bio: '',
     guest,
+    cloud: false,
     hash: '',
     salt: uid(),
     createdAt: Date.now(),
@@ -166,7 +170,7 @@ export const accounts = {
 
   async signIn(login: string, password: string): Promise<Account> {
     const key = login.trim().toLowerCase();
-    const a = Object.values(readAll()).find((x) => !x.guest && (x.username === key || (x.email && x.email.toLowerCase() === key)));
+    const a = Object.values(readAll()).find((x) => !x.guest && !x.cloud && (x.username === key || (x.email && x.email.toLowerCase() === key)));
     if (!a || (await hashPassword(password, a.salt)) !== a.hash) throw new Error('Wrong username or password.');
     this.setSession(migrate(a));
     return a;
@@ -200,6 +204,27 @@ export const accounts = {
     this.update((a) => { a.hash = hash; });
   },
 
+  /** Save an account that came from elsewhere (the cloud, or a converted guest) without marking it as changed. */
+  store(a: Account): void {
+    const all = readAll();
+    all[a.id] = a;
+    writeAll(all);
+    if (current?.id === a.id) { current = a; for (const l of listeners) l(current); }
+  },
+
+  /** Forget an account on this device only (used when a guest or local account moves to the cloud). */
+  forget(id: string): void {
+    const all = readAll();
+    delete all[id];
+    writeAll(all);
+  },
+
+  /** A saved account by id, with any new fields filled in. */
+  get(id: string): Account | null {
+    const a = readAll()[id];
+    return a ? migrate(a) : null;
+  },
+
   setSession(a: Account | null): void {
     current = a;
     if (a) localStorage.setItem(K_SESSION, a.id);
@@ -225,5 +250,7 @@ function migrate(a: Account): Account {
   const f = fresh(a.username, a.name, a.email, a.guest);
   return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, missions: { ...f.missions, ...a.missions }, brand: { ...f.brand, ...a.brand }, settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
 }
+
+export { fresh as freshAccount, migrate as migrateAccount };
 
 export const isToday = (key: string): boolean => key === todayKey();

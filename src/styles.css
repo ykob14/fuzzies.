@@ -85,6 +85,15 @@ select.input { appearance: none; padding-right: 30px; background-image: linear-g
 .field > span { font-size: 13px; font-weight: 600; color: var(--muted); }
 .form-err { color: #e5484d; font-size: 13px; min-height: 0; margin: 4px 0 8px; }
 .form-err:empty { display: none; }
+.form-note { font-size: 13.5px; margin: 4px 0 8px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--text); }
+.form-note:empty { display: none; }
+.link.small { font-size: 13px; justify-self: center; margin-top: 4px; }
+.sync-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sync-dot { width: 9px; height: 9px; border-radius: 50%; background: #22b573; flex: none; }
+.sync-dot.syncing { background: var(--accent); animation: pulse 1s ease-in-out infinite alternate; }
+.sync-dot.offline, .sync-dot.off { background: var(--muted); }
+.sync-dot.error { background: #e5484d; }
+@keyframes pulse { from { opacity: .35; } to { opacity: 1; } }
 .check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin: 10px 0; cursor: pointer; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent); }
 .switch { appearance: none; width: 46px; height: 28px; border-radius: 99px; background: var(--border); position: relative; cursor: pointer; transition: background .2s; flex: none; }
