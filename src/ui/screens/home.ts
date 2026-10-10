@@ -9,6 +9,7 @@ import { h, btn, icon, fuzzyMark, QUOTE } from '../dom';
 import { createBlank, createDialog } from '../create';
 import { designCard, templateCard } from './cards';
 import { missionsCard } from '../missions';
+import { mascot } from '../mascot';
 
 export function homeScreen(): Screen {
   const a = accounts.current!;
@@ -26,7 +27,7 @@ export function homeScreen(): Screen {
     h('div', { class: 'hero-art', 'aria-hidden': 'true' },
       h('div', { class: 'ha-card ha1' }, h('span', null, 'SALE')),
       h('div', { class: 'ha-card ha2' }, h('span', null, 'Hello!')),
-      h('div', { class: 'ha-card ha3' }, fuzzyMark(70))));
+      h('div', { class: 'ha-card ha3' }, mascot(70))));
 
   // daily bonus
   const daily = rewards.dailyStatus();
@@ -48,7 +49,7 @@ export function homeScreen(): Screen {
   const recentSec = h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Recent designs'), h('a', { href: '#/projects', class: 'link' }, 'See all')), recent);
   void db.listDesigns(a.id).then((list) => {
     if (!list.length) {
-      recent.replaceWith(h('div', { class: 'empty' }, fuzzyMark(56), h('p', null, 'No designs yet — make your first one!'), btn('Start designing', { kind: 'primary', icon: 'plus', onClick: () => createDialog() })));
+      recent.replaceWith(h('div', { class: 'empty' }, mascot(64), h('p', null, 'No designs yet — make your first one!'), btn('Start designing', { kind: 'primary', icon: 'plus', onClick: () => createDialog() })));
       return;
     }
     recent.append(...list.slice(0, 8).map((d) => designCard(d, () => homeScreenRefresh())));
@@ -65,7 +66,7 @@ export function homeScreen(): Screen {
         h('span', null, icon('trophy', 16), ` Best ${a.stats.bestScore}`),
         h('span', null, fuzzyMark(16), ` ${a.stats.fuzziesFromGame} collected`)),
       btn('Play now', { kind: 'primary', size: 'lg', icon: 'play', onClick: () => (location.hash = '#/play') })),
-    h('div', { class: 'gp-art', 'aria-hidden': 'true' }, ...['road', 'river', 'road'].map((k) => h('div', { class: `gp-lane ${k}` })), h('div', { class: 'gp-fuzzy' }, fuzzyMark(64))));
+    h('div', { class: 'gp-art', 'aria-hidden': 'true' }, ...['road', 'river', 'road'].map((k) => h('div', { class: `gp-lane ${k}` })), h('div', { class: 'gp-fuzzy' }, mascot(64))));
 
   const el = h('div', { class: 'page home' }, hero, dailyCard, missionsCard(),
     h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Start something new')), sizes),

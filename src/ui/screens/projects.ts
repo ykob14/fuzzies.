@@ -5,8 +5,9 @@ import { db } from '../../core/db';
 import { accounts } from '../../core/account';
 import { readProjectFile } from '../../editor/export';
 import { instantiate } from '../../editor/doc';
-import { h, btn, icon, fuzzyMark, pickFile, toast } from '../dom';
+import { h, btn, icon, pickFile, toast } from '../dom';
 import { createDialog } from '../create';
+import { mascot } from '../mascot';
 import { designCard } from './cards';
 
 export function projectsScreen(): Screen {
@@ -27,7 +28,7 @@ export function projectsScreen(): Screen {
     if (sort === 'name') list = [...list].sort((x, y) => x.name.localeCompare(y.name));
     if (sort === 'oldest') list = [...list].sort((x, y) => x.createdAt - y.createdAt);
     grid.replaceChildren(...list.map((d) => designCard(d, load)));
-    if (!all.length) grid.replaceChildren(h('div', { class: 'empty', style: 'grid-column:1/-1' }, fuzzyMark(64), h('h3', null, 'Your designs live here'), h('p', { class: 'muted' }, 'Everything saves automatically as you work.'), btn('Create your first design', { kind: 'primary', icon: 'plus', onClick: () => createDialog() })));
+    if (!all.length) grid.replaceChildren(h('div', { class: 'empty', style: 'grid-column:1/-1' }, mascot(72), h('h3', null, 'Your designs live here'), h('p', { class: 'muted' }, 'Everything saves automatically as you work.'), btn('Create your first design', { kind: 'primary', icon: 'plus', onClick: () => createDialog() })));
     else if (!list.length) grid.append(h('p', { class: 'muted' }, 'No designs match your search.'));
   }
 

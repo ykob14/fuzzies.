@@ -2,7 +2,8 @@
 import type { Screen } from '../app';
 import { accounts } from '../../core/account';
 import { applyTheme } from '../../core/themes';
-import { h, btn, fuzzyMark, QUOTE, toast } from '../dom';
+import { h, btn, QUOTE, toast } from '../dom';
+import { mascot } from '../mascot';
 
 export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
   let tab: 'signup' | 'login' = mode === 'login' ? 'login' : 'signup';
@@ -64,7 +65,7 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
   const hero = h('div', { class: 'auth-hero' },
     h('div', { class: 'auth-blob b1' }), h('div', { class: 'auth-blob b2' }), h('div', { class: 'auth-blob b3' }),
     h('div', { class: 'auth-brand' },
-      h('div', { class: 'auth-mascot' }, fuzzyMark(120)),
+      h('div', { class: 'auth-mascot' }, mascot(120)),
       h('h1', { class: 'auth-word' }, 'Fuzzies'),
       h('p', { class: 'auth-quote' }, `“${QUOTE}”`)),
     h('ul', { class: 'auth-features' }, ...features.map(([e, t, s]) => h('li', null, h('span', { class: 'af-ic' }, e), h('div', null, h('b', null, t), h('small', null, s))))));

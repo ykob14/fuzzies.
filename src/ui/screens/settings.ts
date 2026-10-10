@@ -4,6 +4,7 @@ import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { THEMES, ACCENTS, applyTheme } from '../../core/themes';
 import { unlockDialog } from '../unlock';
+import { mascot } from '../mascot';
 import { h, btn, icon, fuzzyMark, toast } from '../dom';
 
 let installPrompt: (Event & { prompt(): Promise<void> }) | null = null;
@@ -54,7 +55,7 @@ export function settingsScreen(): Screen {
         installPrompt ? btn('Install now', { kind: 'primary', icon: 'download', onClick: async () => { await installPrompt?.prompt(); installPrompt = null; render(); } }) : null),
       h('section', { class: 'card' }, h('h3', null, 'Storage'), h('p', { class: 'muted' }, 'Designs and photos are saved in this browser.'), storage,
         h('div', { class: 'btn-row' }, btn('Ask to keep my data', { kind: 'ghost', size: 'sm', icon: 'lock', onClick: async () => { const ok = await navigator.storage?.persist?.(); toast(ok ? 'Your browser will keep Fuzzies data safe' : 'The browser decides automatically — designs are still saved', ok ? 'good' : 'info'); } }))),
-      h('section', { class: 'card about' }, fuzzyMark(40), h('div', null, h('b', null, 'Fuzzies 1.0'), h('small', null, 'Dream it fuzzy. Make it sharp.'))),
+      h('section', { class: 'card about' }, mascot(44), h('div', null, h('b', null, 'Fuzzies 1.0'), h('small', null, 'Dream it fuzzy. Make it sharp.'))),
     );
   }
   render();

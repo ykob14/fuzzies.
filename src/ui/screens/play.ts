@@ -6,6 +6,7 @@ import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { unlockDialog } from '../unlock';
 import { track } from '../../core/missions';
+import { mascot } from '../mascot';
 import { h, btn, icon, fuzzyMark } from '../dom';
 import { isTouch } from '../../core/util';
 
@@ -136,7 +137,7 @@ export function playScreen(): Screen {
   function showStart(): void {
     overlay.hidden = false;
     overlay.replaceChildren(h('div', { class: 'go-card' },
-      h('div', { class: 'go-title' }, fuzzyMark(56), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across. Grab Fuzzies. Fill all 5 nests.'))),
+      h('div', { class: 'go-title' }, mascot(56), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across. Grab Fuzzies. Fill all 5 nests.'))),
       btn('Start playing', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: begin }),
       h('p', { class: 'hint center' }, isTouch() ? 'Swipe on the board or use the arrows.' : 'Arrow keys or WASD to hop · P to pause.'),
       h('ul', { class: 'how' },

@@ -304,8 +304,8 @@ export function makeFuzzy(m: Mats, colors: [string, string], r: number, fur: num
     const eye = new THREE.Mesh(new THREE.SphereGeometry(r * 0.27, 20, 14), white);
     eye.scale.set(1, 1.18, 0.75);
     open.add(eye);
-    const lid = new THREE.Mesh(new THREE.TorusGeometry(r * 0.17, r * 0.04, 8, 18, Math.PI), black);
-    lid.position.set(ex, ey - r * 0.05, ez + r * 0.12);
+    const lid = new THREE.Mesh(new THREE.TorusGeometry(r * 0.17, r * 0.05, 8, 18, Math.PI), black);
+    lid.position.set(ex, ey - r * 0.05, ez + r * 0.24);
     lid.visible = false;
     face.add(lid);
     eyes.push({ open, lid });

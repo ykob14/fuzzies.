@@ -15,6 +15,7 @@ import { openEditor } from './screens/editor';
 import { sharedScreen, remixShared, REMIX_KEY } from './screens/shared';
 import { createDialog } from './create';
 import { startAchievements } from '../core/missions';
+import { mascot, upgradeMascots } from './mascot';
 
 export interface Screen { el: HTMLElement; destroy?: () => void }
 
@@ -46,7 +47,7 @@ function shell(active: string, content: HTMLElement): HTMLElement {
     h('button', { class: 'btn btn-primary btn-lg btn-block create-btn', type: 'button', onclick: () => createDialog() }, icon('plus', 20), h('span', null, 'Create a design')),
     h('nav', { class: 'nav' }, ...NAV.map(navLink)),
     h('a', { class: 'side-card', href: '#/play' },
-      h('div', { class: 'side-card-top' }, fuzzyMark(36), h('div', null, h('b', null, 'Take a fuzzy break'), h('small', null, 'Play to unlock rewards'))),
+      h('div', { class: 'side-card-top' }, mascot(38, { small: true, sparkles: false, interactive: false }), h('div', null, h('b', null, 'Take a fuzzy break'), h('small', null, 'Play to unlock rewards'))),
       h('div', { class: 'side-card-bal' }, 'Balance ', h('b', { class: 'fz-balance' }, String(rewards.balance())))));
 
   const av = avatarEl(a, 36);
@@ -104,7 +105,7 @@ export function route(): void {
   if (name === 'welcome' || name === 'login' || name === 'signup') { location.replace('#/home'); return; }
 
   if (name === 'edit' && arg) {
-    root().replaceChildren(h('div', { class: 'loading-screen' }, fuzzyMark(64), h('p', null, 'Opening your design…')));
+    root().replaceChildren(h('div', { class: 'loading-screen' }, mascot(72), h('p', null, 'Opening your design…')));
     void openEditor(arg).then((s) => {
       if (!s) return;
       current = s;
@@ -135,6 +136,7 @@ export function startApp(): void {
     toast(`+${n} Fuzz${n === 1 ? 'y' : 'ies'} · ${reason}`, 'fuzzy');
   });
   startAchievements();
+  upgradeMascots();
   addEventListener('hashchange', route);
   route();
 }
