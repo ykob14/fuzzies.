@@ -46,7 +46,11 @@ keeps people coming back (the mascot, the game, missions).
   2–10 was their last word, it's one constant: `TIME_BONUS` in `core/rewards.ts`).
 - App icon: owner wanted to **change the Fuzzy colour of the phone/desktop app icon** (Settings → App icon).
 - Launch screen: owner asked for an opening like Canva's app (logo on a splash) but with the Fuzzy popping and bouncing, then the name, "very smooth".
-- Owner asked to go live on Vercel + Neon and said to merge to `main` ("yes do it for me … i allow").
+- Owner asked to go live on Vercel + Neon and said to merge to `main` ("yes do it for me … i allow"). The owner has since
+  deployed the site on Vercel themselves (fuzzies-7w39zxiwx-silver-swan-special.vercel.app); it serves `main`.
+- **Fuzzies Land** (tab "Fland"): owner asked for a Township-style town builder with the Fuzzies (shared Township's loading
+  screen + a clip of Township's idle pig as reference: "don't use this character, but make it move like that" — i.e. alive
+  when idle: breathing, weight shift, blinking, looking around). Earn Fuzzies tokens there; smooth transition to/from the game.
 - Owner's own feedback (session 2): loved the giggle/tickle, the cars' graphics, the unlockable themes and accent colours;
   thought the app is "close to a first version". Asked for: no scrolling on the game instructions (done), unlocked
   rewards should be usable straight away (done), test on mobile (done: phone layouts checked), device sync (done, needs keys).
@@ -117,12 +121,18 @@ src/
     view2d.ts          classic 2D canvas view (also the no-WebGL fallback)
     models3d.ts, textures3d.ts  procedural models/textures (no image assets)
     mascot3d.ts        renders the website mascot frames (open / wink / blink / giggle) from the game model
-    sound.ts           Web Audio synth (hops, chimes, wink, boing, whoosh, giggle)
+    sound.ts           Web Audio synth (hops, chimes, wink, boing, whoosh, giggle, build, plant, coins)
+  land/                Fuzzies Land (Township-style town)
+    rules.ts           RULES only: items, goods, crops/workshops/orders/levels/expansions, placement; wall-clock timers
+    view3d.ts          Three.js island town: sky, ocean, forest, buildings, growing crops, residents (BFS walking,
+                       breathing/blinking/looking idle, speech bubbles), camera pan/zoom/swoop, picking, placement ghost
+    models.ts, textures.ts  procedural building/crop/decor models and textures
   ui/
     app.ts             shell (sidebar / top bar / phone tab bar) + hash router
     mascot.ts          the living mascot component (bounce, shadow, sparkles, wink, tap hop, tickle)
+    travel.ts          the circle-wipe transition between Fuzzy Crossing and Fuzzies Land (waits for 'fz:scene-ready')
     missions.ts        missions card + badge grid
-    screens/           auth, home, templates, projects, editor, play, rewards, profile, settings, shared (link viewer)
+    screens/           auth, home, templates, projects, editor, play, land, rewards, profile, settings, shared (link viewer)
 api/                   Vercel serverless functions (the backend)
   auth.ts              signup / login / me / password / delete / username
   data.ts              profile get/put (version-checked), designs & uploads list/get/put
@@ -157,6 +167,10 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 - **Fonts:** every weight listed in `content/fonts.ts` must really exist on Google Fonts, or the whole CSS request fails.
 - **Game:** rules live in `crossing.ts`; views only draw. New visual effects = new `Fx` events → `view.fx()`.
   Objects wrap `OFFSCREEN` cells past the edges so they never pop in.
+- **Fuzzies Land:** the town lives in `account.land` (synced; merge keeps the most recently saved town whole). The screen
+  works on a copy and saves after every action (`save()`); rules functions throw `Error`s with friendly messages.
+  New buildings/goods = add to `ITEMS`/`GOODS` in `land/rules.ts` + a model in `land/models.ts` (`modelFor`).
+  In dev, `window.__land = { view, state }` lets tests step frames (`view.stop(); view.frame(0.05)`).
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
 - **Theme:** use `var(--accent)`, `var(--on-accent)`, `var(--text)`, etc. Never hard-code purple or gradients in UI chrome.
@@ -184,6 +198,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | `544ffb8` | **App icon picker** (Settings → App icon): 8 Fuzzy colours × 6 backgrounds; icons drawn in the app, served by the service worker for install / Add to Home Screen; new pink-on-ink default icons replace the old purple ones. |
 | `98ff876` | **Backend moved to Neon + Vercel** (owner's choice): `api/` functions (auth + data), scrypt passwords, signed tokens, login rate limit, tables auto-create; Supabase removed. Same sync engine. Tested locally against Postgres (two devices, merge, offline, privacy incl. forged token and cross-user overwrite, password change, delete) and with `vercel build`. Branch only. |
 | `df837e4` | **Launch screen** (like Canva's): the Fuzzy pops in, bounces with squash & stretch and sparkles, winks, the name "fuzzies" glides up letter by letter, then the tagline; fades into the app (~2.6 s, tap to skip, once per visit, calmer with reduced motion). Lives inline in `index.html` so it shows on the first frame; follows your app-icon colours (`fz.look`, written by `core/appicon.ts`) and uses saved realistic 3D frames (`fz.splash.frames`, written by `ui/mascot.ts`) after the first visit. Branch only. |
+| _(land)_ | **Fuzzies Land** (new tab "Fland" / sidebar "Fuzzies Land"): 3D island town — Town Hall, Crossing Gate (portal to the game), 4 house types, fields with 5 crops, Bakery/Popcorn Stand/Weaver with 3-slot queues, decor (incl. two paid in Fuzzies), orders board, barn, levels (each pays Fuzzies tokens), land expansions, speed-ups paid in Fuzzies; residents walk, breathe, blink, look at you, hop and chat; tap them to giggle. Circle-wipe transition between game and town; 4 new badges; Home card. Branch only. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"

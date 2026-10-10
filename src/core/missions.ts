@@ -30,6 +30,10 @@ export const ALL_DONE_BONUS = 10;
 export interface Achievement { id: string; name: string; desc: string; icon: string; reward: number; check: (a: Account) => boolean }
 
 export const ACHIEVEMENTS: Achievement[] = [
+  { id: 'land-harvest', name: 'Green thumb', desc: 'Harvest your first crop in Fuzzies Land', icon: '🌾', reward: 3, check: (a) => (a.land?.stats.harvests ?? 0) >= 1 },
+  { id: 'land-order', name: 'Special delivery', desc: 'Fill 10 orders in Fuzzies Land', icon: '📦', reward: 10, check: (a) => (a.land?.stats.orders ?? 0) >= 10 },
+  { id: 'land-5', name: 'Mayor of Fluff', desc: 'Reach level 5 in Fuzzies Land', icon: '🏛️', reward: 15, check: (a) => (a.land?.level ?? 1) >= 5 },
+  { id: 'land-town', name: 'Busy town', desc: 'Have 60 Fuzzies living in your town', icon: '🏡', reward: 20, check: (a) => (a.land?.buildings ?? []).reduce((n, b) => n + ({ cottage: 6, mushroom: 10, treehouse: 16, villa: 30 }[b.item] ?? 0), 0) >= 60 },
   { id: 'first-design', name: 'First masterpiece', desc: 'Create your first design', icon: '🎨', reward: 5, check: (a) => a.stats.designs >= 1 },
   { id: 'designs-10', name: 'Prolific creator', desc: 'Create 10 designs', icon: '🖼️', reward: 20, check: (a) => a.stats.designs >= 10 },
   { id: 'first-share', name: 'Hello, world', desc: 'Share or download a design', icon: '📤', reward: 5, check: (a) => a.stats.exports >= 1 },

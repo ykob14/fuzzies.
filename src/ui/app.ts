@@ -11,6 +11,7 @@ import { homeScreen } from './screens/home';
 import { templatesScreen } from './screens/templates';
 import { projectsScreen } from './screens/projects';
 import { playScreen } from './screens/play';
+import { landScreen } from './screens/land';
 import { rewardsScreen } from './screens/rewards';
 import { profileScreen } from './screens/profile';
 import { settingsScreen } from './screens/settings';
@@ -27,6 +28,7 @@ const NAV: { id: string; label: string; icon: IconName }[] = [
   { id: 'templates', label: 'Templates', icon: 'grid' },
   { id: 'projects', label: 'My designs', icon: 'folder' },
   { id: 'play', label: 'Fuzzy Crossing', icon: 'gamepad' },
+  { id: 'land', label: 'Fuzzies Land', icon: 'town' },
   { id: 'rewards', label: 'Rewards', icon: 'gift' },
   { id: 'profile', label: 'Profile', icon: 'user' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
@@ -73,7 +75,7 @@ function shell(active: string, content: HTMLElement): HTMLElement {
 
   const tab = (id: string, label: string, ic: IconName) => h('a', { class: `tab ${id === active ? 'on' : ''}`, href: `#/${id}` }, icon(ic, 22), h('span', null, label));
   const createTab = h('button', { class: 'tab tab-create', type: 'button', 'aria-label': 'Create a design', onclick: () => createDialog() }, h('span', { class: 'tab-plus' }, icon('plus', 26)));
-  const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' }, tab('home', 'Home', 'home'), tab('projects', 'Designs', 'folder'), createTab, tab('play', 'Play', 'gamepad'), tab('profile', 'Me', 'user'));
+  const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' }, tab('home', 'Home', 'home'), tab('projects', 'Designs', 'folder'), createTab, tab('play', 'Play', 'gamepad'), tab('land', 'Fland', 'town'), tab('profile', 'Me', 'user'));
 
   return h('div', { class: 'app' }, sidebar, h('div', { class: 'main' }, top, h('main', { class: 'content', id: 'content' }, content)), tabbar);
 }
@@ -126,7 +128,7 @@ export function route(): void {
   }
 
   const screens: Record<string, () => Screen> = {
-    home: homeScreen, templates: templatesScreen, projects: projectsScreen, play: playScreen,
+    home: homeScreen, templates: templatesScreen, projects: projectsScreen, play: playScreen, land: landScreen,
     rewards: rewardsScreen, profile: profileScreen, settings: settingsScreen,
   };
   const make = screens[name] ?? homeScreen;

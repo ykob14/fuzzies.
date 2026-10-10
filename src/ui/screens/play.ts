@@ -7,6 +7,7 @@ import { rewards } from '../../core/rewards';
 import { unlockDialog } from '../unlock';
 import { track } from '../../core/missions';
 import { mascot } from '../mascot';
+import { travel } from '../travel';
 import { h, btn, icon, fuzzyMark } from '../dom';
 import { isTouch } from '../../core/util';
 
@@ -102,6 +103,7 @@ export function playScreen(): Screen {
       event: (e) => { if (e.kind === 'home') track('nest'); if (e.kind === 'level') track('level', e.level); },
     });
     setHud({ score: 0, level: 1, lives: 3, fuzzies: 0, time: 1, best: a.stats.bestScore });
+    requestAnimationFrame(() => dispatchEvent(new Event('fz:scene-ready'))); // lets the travel transition open up
   }
 
   function gfxPicker(): HTMLElement | null {
@@ -147,6 +149,7 @@ export function playScreen(): Screen {
       h('div', { class: 'start-opts' }, h('p', { class: 'pnl-label' }, 'Your Fuzzy'), skinPicker()),
       gfxPicker(),
       btn('Start playing', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: begin }),
+      h('button', { class: 'link small land-link', type: 'button', onclick: (e: MouseEvent) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) }, '🏡 Visit your town in Fuzzies Land →'),
       h('p', { class: 'hint center' }, isTouch() ? 'Swipe or tap the board to hop · 3 lives' : 'Arrow keys or WASD to hop · P to pause · 3 lives')));
   }
 
@@ -233,6 +236,7 @@ export function playScreen(): Screen {
       btn('Play again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { void newGame().then(begin); } }),
       h('div', { class: 'btn-row' },
         btn('Spend Fuzzies', { kind: 'soft', icon: 'gift', onClick: () => (location.hash = '#/rewards') }),
+        btn('Fuzzies Land', { kind: 'soft', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) }),
         btn('Back to designing', { kind: 'ghost', icon: 'brush', onClick: () => (location.hash = '#/home') }))));
   }
 

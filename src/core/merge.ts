@@ -6,6 +6,7 @@
  * - a side that didn't change takes the other side's value
  * - counters add up both sides' changes (balance, stats, mission progress)
  * - bests take the higher value; lists combine (unlocks, badges, top scores)
+ * - Fuzzies Land (`land`): the most recently saved town wins as a whole
  * - anything else that changed on both sides: this device wins
  */
 
@@ -42,6 +43,8 @@ function mergeAt(key: string, base: J, local: J, remote: J): J {
     // a new day resets missions and daily counters: the later day wins as a whole
     if (key === 'missions' && local.day !== remote.day) return String(local.day) > String(remote.day) ? local : remote;
     if (key === 'daily' && local.last !== remote.last) return String(local.last) > String(remote.last) ? local : remote;
+    // a town is one connected thing (buildings can't be half-moved): the most recently saved one wins
+    if (key === 'land') return Number(local.savedAt ?? 0) >= Number(remote.savedAt ?? 0) ? local : remote;
     const b = isObj(base) ? base : {};
     const out: Record<string, J> = {};
     for (const k of new Set([...Object.keys(local), ...Object.keys(remote)])) {

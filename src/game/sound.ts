@@ -92,5 +92,8 @@ export const sfx = {
   crash: () => { tone(160, 0.3, 'square', 0.08, -100); tone(90, 0.3, 'sawtooth', 0.06, -40, 0.03); },
   home: () => { [523, 659, 784].forEach((f, i) => tone(f, 0.16, 'triangle', 0.11, 0, i * 0.08)); },
   level: () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, 'square', 0.06, 0, i * 0.1)); },
+  build: () => { noise(0.25, 900, 200, 0.1); [523, 784, 1047].forEach((f, i) => tone(f, 0.14, 'triangle', 0.09, 0, 0.12 + i * 0.07)); },
+  plant: () => { tone(320, 0.1, 'sine', 0.12, -120); tone(640, 0.08, 'sine', 0.06, 0, 0.05); },
+  coins: () => { [1319, 1568, 2093].forEach((f, i) => tone(f, 0.1, 'square', 0.04, 0, i * 0.05)); },
   over: () => { [392, 330, 262].forEach((f, i) => tone(f, 0.25, 'triangle', 0.1, 0, i * 0.18)); },
 };

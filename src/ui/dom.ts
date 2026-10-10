@@ -96,6 +96,7 @@ export const ICONS = {
   mute: '<path d="M11 5 6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   group: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><path d="M11 7h4a2 2 0 0 1 2 2v4"/>',
+  town: '<path d="M3 21V11l5-4 5 4v10"/><path d="M13 21v-6l4-3 4 3v6M2 21h20M7 21v-4h2v4M8 7V3l3 1.5L8 6"/>',
   cloud: '<path d="M17.5 19H7a5 5 0 1 1 1.1-9.9A6 6 0 0 1 19.5 11 4 4 0 0 1 17.5 19z"/>',
 };
 export type IconName = keyof typeof ICONS;

@@ -4,6 +4,7 @@
  * see core/cloud.ts) log in through the Fuzzies backend (api/, Neon) and are synced to every device; their id is the cloud user id.
  */
 import { uid, todayKey } from './util';
+import { freshLand, migrateLand, type LandState } from '../land/rules';
 
 export interface Avatar { emoji: string; color: string; image?: string }
 
@@ -62,6 +63,8 @@ export interface Account {
   topScores: ScoreEntry[];
   /** Brand kit: colours, fonts and a logo reused across designs. */
   brand: BrandKit;
+  /** Fuzzies Land: your town (see land/rules.ts). */
+  land: LandState;
   settings: Settings;
 }
 
@@ -125,6 +128,7 @@ function fresh(username: string, name: string, email: string, guest: boolean): A
     achievements: [],
     topScores: [],
     brand: { colors: [], heading: 'Poppins', body: 'DM Sans' },
+    land: freshLand(),
     settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real', appIcon: { color: 'classic', bg: 'ink' } },
   };
 }
@@ -250,7 +254,7 @@ export const accounts = {
 /** Fill in fields added after an account was first saved. */
 function migrate(a: Account): Account {
   const f = fresh(a.username, a.name, a.email, a.guest);
-  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, missions: { ...f.missions, ...a.missions }, brand: { ...f.brand, ...a.brand }, settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
+  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, missions: { ...f.missions, ...a.missions }, brand: { ...f.brand, ...a.brand }, land: migrateLand(a.land), settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
 }
 
 export { fresh as freshAccount, migrate as migrateAccount };

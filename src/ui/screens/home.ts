@@ -10,6 +10,7 @@ import { createBlank, createDialog } from '../create';
 import { designCard, templateCard } from './cards';
 import { missionsCard } from '../missions';
 import { mascot } from '../mascot';
+import { travel } from '../travel';
 
 export function homeScreen(): Screen {
   const a = accounts.current!;
@@ -68,9 +69,19 @@ export function homeScreen(): Screen {
       btn('Play now', { kind: 'primary', size: 'lg', icon: 'play', onClick: () => (location.hash = '#/play') })),
     h('div', { class: 'gp-art', 'aria-hidden': 'true' }, ...['road', 'river', 'road'].map((k) => h('div', { class: `gp-lane ${k}` })), h('div', { class: 'gp-fuzzy' }, mascot(64))));
 
+  const land = a.land;
+  const landCard = h('section', { class: 'land-promo' },
+    h('div', { class: 'lp-art', 'aria-hidden': 'true' }, h('span', null, '🏡'), h('span', null, '🌾'), h('span', null, '🍄'), h('span', null, '⛲')),
+    h('div', null,
+      h('p', { class: 'hero-kicker' }, 'Your town'),
+      h('h2', null, 'Fuzzies Land'),
+      h('p', null, 'Build houses, grow crops, bake treats and fill orders for the Fuzzies who live there. Level up to earn Fuzzies.'),
+      h('div', { class: 'gp-stats' }, h('span', null, `⭐ Level ${land.level}`), h('span', null, `🪙 ${land.coins}`)),
+      btn('Visit my town', { kind: 'primary', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) })));
+
   const el = h('div', { class: 'page home' }, hero, dailyCard, missionsCard(),
     h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Start something new')), sizes),
-    recentSec, game,
+    recentSec, game, landCard,
     h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Popular templates'), h('a', { href: '#/templates', class: 'link' }, 'Browse all')), featured));
 
   function homeScreenRefresh() { if (location.hash === '#/home' || location.hash === '') dispatchEvent(new HashChangeEvent('hashchange')); }
