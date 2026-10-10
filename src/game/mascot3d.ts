@@ -8,7 +8,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import * as M from './models3d';
 import { furStrands } from './textures3d';
 
-export type Face = 'open' | 'wink' | 'blink';
+export type Face = 'open' | 'wink' | 'blink' | 'giggle';
 export type Frames = Record<Face, string>;
 
 export async function renderMascotFrames(colors: [string, string] = ['#ff6fbf', '#7b4dff'], size = 320): Promise<Frames> {
@@ -52,19 +52,20 @@ export async function renderMascotFrames(colors: [string, string] = ['#ff6fbf', 
     const shoot = (face: Face): string => {
       fz.eyes.forEach((e, i) => {
         // closed eyes are drawn as happy "^" arcs: one for the wink, both for a blink
-        const happy = face === 'blink' || (face === 'wink' && i === 1);
+        const happy = face === 'blink' || face === 'giggle' || (face === 'wink' && i === 1);
         e.open.visible = !happy;
         e.lid.visible = happy;
       });
-      if (fz.mouth) fz.mouth.scale.set(face === 'wink' ? 1.9 : 1.5, face === 'wink' ? 1.8 : 1.4, 1.2);
-      fz.body.rotation.z = face === 'wink' ? -0.16 : 0;
+      const grin = face === 'giggle' ? [2.3, 2.4] : face === 'wink' ? [1.9, 1.8] : [1.5, 1.4];
+      if (fz.mouth) fz.mouth.scale.set(grin[0], grin[1], 1.2);
+      fz.body.rotation.z = face === 'wink' ? -0.16 : face === 'giggle' ? 0.1 : 0;
       fz.face.rotation.y = face === 'wink' ? -0.05 : 0;
       renderer.render(scene, camera);
       ox.clearRect(0, 0, size, size);
       ox.drawImage(canvas, 0, 0, size, size);
       return out.toDataURL('image/png');
     };
-    const frames: Frames = { open: shoot('open'), wink: shoot('wink'), blink: shoot('blink') };
+    const frames: Frames = { open: shoot('open'), wink: shoot('wink'), blink: shoot('blink'), giggle: shoot('giggle') };
     env.dispose();
     pmrem.dispose();
     scene.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });

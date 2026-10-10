@@ -106,7 +106,7 @@ export function icon(name: IconName, size = 20): SVGSVGElement {
 }
 
 /** Flat Fuzzy drawing as an SVG string (token icon, and the mascot's no-3D fallback). */
-export function fuzzySvg(colors: [string, string] = ['#ff7ac2', '#8b5cff'], face: 'open' | 'wink' | 'blink' = 'open', id = 'fz' + Math.random().toString(36).slice(2, 7)): string {
+export function fuzzySvg(colors: [string, string] = ['#ff7ac2', '#8b5cff'], face: 'open' | 'wink' | 'blink' | 'giggle' = 'open', id = 'fz' + Math.random().toString(36).slice(2, 7)): string {
   const spikes: string[] = [];
   const n = 26;
   for (let i = 0; i < n; i++) {
@@ -120,8 +120,8 @@ export function fuzzySvg(colors: [string, string] = ['#ff7ac2', '#8b5cff'], face
     : closed
       ? `<path d="M${cx - 6.5} 47 h13" stroke="#1c1830" stroke-width="3" stroke-linecap="round"/>`
       : `<ellipse cx="${cx}" cy="46" rx="6.5" ry="8" fill="#fff"/><circle cx="${cx + 1.5}" cy="48" r="3.6" fill="#1c1830"/><circle cx="${cx + 0.2}" cy="46.2" r="1.2" fill="#fff"/>`;
-  const smile = face === 'wink' ? 'M41 60q9 9 18 0' : 'M43 61q7 6 14 0';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="${id}" cx="0.38" cy="0.32" r="0.75"><stop offset="0" stop-color="${colors[0]}"/><stop offset="1" stop-color="${colors[1]}"/></radialGradient></defs><polygon points="${spikes.join(' ')}" fill="url(#${id})"/><circle cx="50" cy="50" r="41" fill="url(#${id})"/>${eye(38, face === 'blink', false)}${eye(62, face !== 'open', face === 'wink')}<path d="${smile}" stroke="#1c1830" stroke-width="3.2" fill="none" stroke-linecap="round"/><circle cx="30" cy="59" r="4.5" fill="#fff" opacity=".35"/><circle cx="70" cy="59" r="4.5" fill="#fff" opacity=".35"/></svg>`;
+  const smile = face === 'giggle' ? 'M39 58q11 13 22 0z' : face === 'wink' ? 'M41 60q9 9 18 0' : 'M43 61q7 6 14 0';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="${id}" cx="0.38" cy="0.32" r="0.75"><stop offset="0" stop-color="${colors[0]}"/><stop offset="1" stop-color="${colors[1]}"/></radialGradient></defs><polygon points="${spikes.join(' ')}" fill="url(#${id})"/><circle cx="50" cy="50" r="41" fill="url(#${id})"/>${eye(38, face === 'blink', face === 'giggle')}${eye(62, face !== 'open', face === 'wink' || face === 'giggle')}<path d="${smile}" stroke="#1c1830" stroke-width="3.2" fill="${face === 'giggle' ? '#7a1f3d' : 'none'}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="30" cy="59" r="4.5" fill="#fff" opacity=".35"/><circle cx="70" cy="59" r="4.5" fill="#fff" opacity=".35"/></svg>`;
 }
 
 /** Fuzzy token mark (the currency icon). */

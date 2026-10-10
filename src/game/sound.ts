@@ -49,7 +49,39 @@ function noise(dur: number, from: number, to: number, vol: number, delay = 0): v
   src.start(t);
 }
 
+/** A cute "hee-hee-hee": short voiced blips through a vowel-like filter, with a fast flutter. */
+function giggle(): void {
+  const a = ctx();
+  if (!a) return;
+  const n = 4 + Math.floor(Math.random() * 2);
+  const base = 560 + Math.random() * 80;
+  for (let i = 0; i < n; i++) {
+    const t = a.currentTime + i * 0.1 + Math.random() * 0.015;
+    const o = a.createOscillator();
+    o.type = 'sawtooth';
+    const f0 = base - i * 22 + (i % 2) * 30;
+    o.frequency.setValueAtTime(f0 * 1.08, t);
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.9, t + 0.08);
+    const lfo = a.createOscillator(), depth = a.createGain();
+    lfo.frequency.value = 26;
+    depth.gain.value = f0 * 0.05;
+    lfo.connect(depth).connect(o.frequency);
+    const f1 = a.createBiquadFilter();
+    f1.type = 'bandpass'; f1.frequency.value = 2300; f1.Q.value = 2.2; // "ee" formant
+    const f2 = a.createBiquadFilter();
+    f2.type = 'lowpass'; f2.frequency.value = 3800;
+    const g = a.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.2, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.085);
+    o.connect(f1).connect(f2).connect(g).connect(a.destination);
+    o.start(t); lfo.start(t);
+    o.stop(t + 0.1); lfo.stop(t + 0.1);
+  }
+}
+
 export const sfx = {
+  giggle,
   wink: () => { tone(1568, 0.09, 'sine', 0.09); tone(2093, 0.16, 'sine', 0.08, 0, 0.08); tone(2637, 0.22, 'triangle', 0.05, 0, 0.15); },
   boing: () => tone(260, 0.28, 'sine', 0.13, 420),
   whoosh: () => noise(0.9, 400, 2600, 0.12),

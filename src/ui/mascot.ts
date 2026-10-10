@@ -1,17 +1,18 @@
 /**
  * The living Fuzzy mascot: bounces with squash & stretch over its own shadow, twinkles with sparkles
  * and fuzzy puffs, winks at you every few seconds, and hops + chimes when you tap it.
+ * Wiggle the mouse back and forth over it (or tap three times quickly) to tickle it: it squirms and giggles.
  * Starts with a flat drawing and swaps to photos of the real 3D game model once they're rendered.
  */
 import { h, fuzzySvg } from './dom';
 import { accounts } from '../core/account';
 import { sfx } from '../game/sound';
 
-type Face = 'open' | 'wink' | 'blink';
+type Face = 'open' | 'wink' | 'blink' | 'giggle';
 type Frames = Record<Face, string>;
 
 const svgUrl = (face: Face) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fuzzySvg(['#ff7ac2', '#8b5cff'], face, 'm' + face));
-let frames: Frames = { open: svgUrl('open'), wink: svgUrl('wink'), blink: svgUrl('blink') };
+let frames: Frames = { open: svgUrl('open'), wink: svgUrl('wink'), blink: svgUrl('blink'), giggle: svgUrl('giggle') };
 let realistic = false;
 const live = new Set<{ img: HTMLImageElement; face: Face }>();
 
@@ -75,6 +76,32 @@ export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean
     setTimeout(() => { if (state.face === 'wink') setFace('open'); }, 650);
   };
   const blink = () => { setFace('blink'); setTimeout(() => { if (state.face === 'blink') setFace('open'); }, 130); };
+  const soundOn = () => accounts.current?.settings.sound !== false;
+
+  // ---- tickling ----
+  let tickleEnd = 0, lastGiggle = 0;
+  const hehe = () => {
+    const words = ['hehe!', 'hee hee', 'tee-hee!', 'haha!', 'stop it!', 'hehe'];
+    const s = h('span', { class: 'mascot-hehe', style: `--x:${(15 + Math.random() * 70).toFixed(0)}%;--r:${(Math.random() * 24 - 12).toFixed(0)}deg` }, words[Math.floor(Math.random() * words.length)]);
+    fx.append(s);
+    setTimeout(() => s.remove(), 1100);
+  };
+  const tickle = () => {
+    const now = performance.now();
+    const fresh = now > tickleEnd;
+    tickleEnd = now + 900;
+    setFace('giggle');
+    el.classList.add('tickle');
+    if (fresh || Math.random() < 0.35) hehe();
+    if (soundOn() && now - lastGiggle > 750) { lastGiggle = now; sfx.giggle(); }
+    if (fresh) burst();
+    const settle = () => {
+      if (performance.now() < tickleEnd) { setTimeout(settle, 120); return; }
+      el.classList.remove('tickle');
+      wink(false); // a satisfied little wink when the tickling stops
+    };
+    if (fresh) setTimeout(settle, 900);
+  };
 
   // wink at you every few seconds (with the odd blink in between), until the mascot leaves the page
   let tries = 0;
@@ -82,21 +109,47 @@ export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean
     if (!el.isConnected && (el.dataset.mounted || ++tries > 6)) { live.delete(state); return; }
     if (el.isConnected) el.dataset.mounted = '1';
     if (el.isConnected && !document.hidden && document.documentElement.dataset.motion !== 'reduce') {
-      if (Math.random() < 0.45) wink(); else blink();
+      if (performance.now() < tickleEnd) { /* busy giggling */ } else if (Math.random() < 0.45) wink(); else blink();
     }
     setTimeout(loop, 3500 + Math.random() * 4500);
   };
   setTimeout(loop, 1800 + Math.random() * 2500);
 
   if (opts.interactive !== false) {
-    el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') wink(); });
+    el.classList.add('ticklish');
+    el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && performance.now() > tickleEnd) wink(); });
+    // a tickle = the mouse changing direction quickly, 3 times in under ~0.7 s
+    let lastX = 0, lastY = 0, dir = 0, travel = 0;
+    let turns: number[] = [];
+    el.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') return;
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+      const step = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+      if (Math.abs(step) < 1) return;
+      const d = Math.sign(step);
+      travel += Math.abs(step);
+      if (d !== dir) {
+        const now = performance.now();
+        if (dir !== 0 && travel > size * 0.06) turns.push(now);
+        dir = d; travel = 0;
+        turns = turns.filter((t) => now - t < 700);
+        if (turns.length >= 3) { tickle(); turns = turns.slice(-2); }
+      }
+    });
+    // on touch screens: three quick taps
+    let taps: number[] = [];
     el.addEventListener('click', () => {
+      const now = performance.now();
+      taps = [...taps.filter((t) => now - t < 900), now];
+      if (taps.length >= 3) { taps = []; tickle(); return; }
+      if (now < tickleEnd) { tickle(); return; }
       wink();
       el.classList.remove('hop');
       void el.offsetWidth; // restart the hop animation
       el.classList.add('hop');
       setTimeout(() => el.classList.remove('hop'), 800);
-      if (accounts.current?.settings.sound !== false) { sfx.boing(); setTimeout(() => sfx.wink(), 180); }
+      if (soundOn()) { sfx.boing(); setTimeout(() => sfx.wink(), 180); }
     });
   }
   return el;
