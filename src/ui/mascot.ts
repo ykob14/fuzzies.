@@ -29,6 +29,7 @@ export function upgradeMascots(): void {
   } catch { return; }
   const go = () => import('../game/mascot3d').then((m) => m.renderMascotFrames()).then((f) => {
     preload(f);
+    void saveForSplash(f);
     frames = f;
     realistic = true;
     for (const m of live) {
@@ -41,6 +42,25 @@ export function upgradeMascots(): void {
   if (idle) idle(() => void go(), { timeout: 2500 }); else setTimeout(() => void go(), 600);
 }
 
+
+/** Keep small copies of the realistic open + wink frames so the launch screen (index.html) can show them instantly. */
+async function saveForSplash(f: Frames): Promise<void> {
+  const shrink = (src: string) => new Promise<string>((res, rej) => {
+    const i = new Image();
+    i.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 256;
+      c.getContext('2d')!.drawImage(i, 0, 0, 256, 256);
+      const webp = c.toDataURL('image/webp', 0.9);
+      res(webp.startsWith('data:image/webp') ? webp : c.toDataURL('image/png'));
+    };
+    i.onerror = rej;
+    i.src = src;
+  });
+  try {
+    localStorage.setItem('fz.splash.frames', JSON.stringify({ open: await shrink(f.open), wink: await shrink(f.wink) }));
+  } catch { /* no room: the launch screen uses the drawn Fuzzy */ }
+}
 
 export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean; interactive?: boolean } = {}): HTMLElement {
   const img = h('img', { class: 'mascot-img', src: frames.open, alt: '', draggable: 'false' });

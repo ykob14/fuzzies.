@@ -80,11 +80,29 @@ function setLink(rel: string, href: string, type?: string): void {
 
 let applied = '';
 
+/** Whether a background needs light text on top. */
+const isDark = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 < 0.55;
+};
+
+/** Remember the icon's look for the launch screen in index.html, which runs before the app loads. */
+function rememberLook(c: AppIcon): void {
+  const colors = colorsOf(c), bg = bgOf(c);
+  try {
+    localStorage.setItem('fz.look', JSON.stringify({
+      color: c.color, bg, c: colors[0], dark: isDark(bg),
+      open: svgUrl(fuzzySvg(colors, 'open', 'sp')), wink: svgUrl(fuzzySvg(colors, 'wink', 'sp')),
+    }));
+  } catch { /* storage full or blocked: the launch screen uses its defaults */ }
+}
+
 /** Use this icon for the browser tab, "Add to Home Screen" and the installed app. */
 export async function applyAppIcon(c: AppIcon = accounts.current?.settings.appIcon ?? DEFAULT_ICON): Promise<void> {
   const key = `${c.color}/${c.bg}`;
   if (key === applied) return;
   applied = key;
+  rememberLook(c);
   if (isDefault(c)) {
     setLink('icon', './icon.svg', 'image/svg+xml');
     setLink('apple-touch-icon', './apple-touch-icon.png');

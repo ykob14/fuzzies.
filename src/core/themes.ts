@@ -68,7 +68,11 @@ export function applyTheme(): void {
   r.setProperty('--workspace', t.workspace);
   document.documentElement.dataset.dark = String(t.dark);
   document.documentElement.dataset.motion = s?.reduceMotion ? 'reduce' : 'full';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.dark ? '#121114' : '#f6f5f2');
+  const bar = t.dark ? '#121114' : '#f6f5f2';
+  // while the launch screen shows, it keeps its own colour and restores this one when it fades out
+  const splash = document.getElementById('splash');
+  if (splash && !splash.classList.contains('out')) splash.dataset.themeColor = bar;
+  else document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bar);
 }
 
 mq.addEventListener('change', applyTheme);

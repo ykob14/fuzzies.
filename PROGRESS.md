@@ -45,6 +45,8 @@ keeps people coming back (the mascot, the game, missions).
 - Time reward: owner asked for a random **2–10 Fuzzies every 30 minutes** of using the app (they also said "2-50" once;
   2–10 was their last word, it's one constant: `TIME_BONUS` in `core/rewards.ts`).
 - App icon: owner wanted to **change the Fuzzy colour of the phone/desktop app icon** (Settings → App icon).
+- Launch screen: owner asked for an opening like Canva's app (logo on a splash) but with the Fuzzy popping and bouncing, then the name, "very smooth".
+- Owner asked to go live on Vercel + Neon and said to merge to `main` ("yes do it for me … i allow").
 - Owner's own feedback (session 2): loved the giggle/tickle, the cars' graphics, the unlockable themes and accent colours;
   thought the app is "close to a first version". Asked for: no scrolling on the game instructions (done), unlocked
   rewards should be usable straight away (done), test on mobile (done: phone layouts checked), device sync (done, needs keys).
@@ -130,7 +132,7 @@ api/                   Vercel serverless functions (the backend)
 
 **Storage keys:** `localStorage` `fz.accounts`, `fz.session`, `fz.sync.<userId>` (pending uploads queue),
 `fz.sync.base.<userId>` (last profile copy agreed with the cloud), `fz.token` (login token for the backend),
-`fz.time.<accountId>` (seconds towards the next time bonus); Cache Storage `fuzzies-icon` (your app icon);
+`fz.time.<accountId>` (seconds towards the next time bonus), `fz.look` + `fz.splash.frames` (launch screen look); Cache Storage `fuzzies-icon` (your app icon);
 `sessionStorage` `fz.remix` (pending remix after
 sign-up), `fz.try` (what to open when a new design is started from Rewards → Use);
 IndexedDB database `fuzzies` with stores `designs` and `uploads` (both indexed by `owner`).
@@ -181,6 +183,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | `923452e` | **Time bonus:** a random 2–10 Fuzzies every 30 minutes the app is open and used (pauses after 5 idle minutes); replaces +1 per 5 minutes. Rewards shows the countdown. |
 | `544ffb8` | **App icon picker** (Settings → App icon): 8 Fuzzy colours × 6 backgrounds; icons drawn in the app, served by the service worker for install / Add to Home Screen; new pink-on-ink default icons replace the old purple ones. |
 | `98ff876` | **Backend moved to Neon + Vercel** (owner's choice): `api/` functions (auth + data), scrypt passwords, signed tokens, login rate limit, tables auto-create; Supabase removed. Same sync engine. Tested locally against Postgres (two devices, merge, offline, privacy incl. forged token and cross-user overwrite, password change, delete) and with `vercel build`. Branch only. |
+| _(splash)_ | **Launch screen** (like Canva's): the Fuzzy pops in, bounces with squash & stretch and sparkles, winks, the name "fuzzies" glides up letter by letter, then the tagline; fades into the app (~2.6 s, tap to skip, once per visit, calmer with reduced motion). Lives inline in `index.html` so it shows on the first frame; follows your app-icon colours (`fz.look`, written by `core/appicon.ts`) and uses saved realistic 3D frames (`fz.splash.frames`, written by `ui/mascot.ts`) after the first visit. Branch only. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
