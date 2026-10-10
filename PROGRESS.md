@@ -180,7 +180,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | `53201c2` | **Cloud accounts + device sync**, first version on Supabase: offline queue, three-way account merge, guest/local → cloud, sign out clears device copy, delete everywhere. Branch only. |
 | `923452e` | **Time bonus:** a random 2–10 Fuzzies every 30 minutes the app is open and used (pauses after 5 idle minutes); replaces +1 per 5 minutes. Rewards shows the countdown. |
 | `544ffb8` | **App icon picker** (Settings → App icon): 8 Fuzzy colours × 6 backgrounds; icons drawn in the app, served by the service worker for install / Add to Home Screen; new pink-on-ink default icons replace the old purple ones. |
-| _(next)_ | **Backend moved to Neon + Vercel** (owner's choice): `api/` functions (auth + data), scrypt passwords, signed tokens, login rate limit, tables auto-create; Supabase removed. Same sync engine. Tested locally against Postgres (two devices, merge, offline, privacy incl. forged token and cross-user overwrite, password change, delete) and with `vercel build`. Branch only. |
+| `98ff876` | **Backend moved to Neon + Vercel** (owner's choice): `api/` functions (auth + data), scrypt passwords, signed tokens, login rate limit, tables auto-create; Supabase removed. Same sync engine. Tested locally against Postgres (two devices, merge, offline, privacy incl. forged token and cross-user overwrite, password change, delete) and with `vercel build`. Branch only. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
