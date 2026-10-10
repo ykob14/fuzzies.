@@ -13,6 +13,7 @@ export interface Settings {
   snap: boolean;
   reduceMotion: boolean;
   skin: string; // Fuzzy Crossing player look
+  gameGfx: 'real' | 'classic';
 }
 
 export interface Stats {
@@ -99,7 +100,7 @@ function fresh(username: string, name: string, email: string, guest: boolean): A
     unlocked: [],
     stats: { designs: 0, exports: 0, gamesPlayed: 0, bestScore: 0, bestLevel: 0, fuzziesFromGame: 0, minutesActive: 0 },
     daily: { last: '', streak: 0, exportsToday: 0, exportsDay: '' },
-    settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic' },
+    settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real' },
   };
 }
 

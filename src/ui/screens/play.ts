@@ -1,6 +1,7 @@
 /** Fuzzy Crossing screen: start card, HUD, touch controls and the game-over summary. */
 import type { Screen } from '../app';
-import { Crossing, SKINS, type Hud, type Result, type Skin } from '../../game/crossing';
+import { Crossing, SKINS, type Hud, type Result, type Skin, type View } from '../../game/crossing';
+import { View2D } from '../../game/view2d';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { unlockDialog } from '../unlock';
@@ -13,8 +14,7 @@ export function playScreen(): Screen {
   const a = accounts.current!;
   const skinOf = (): Skin => SKINS.find((s) => s.id === a.settings.skin && rewards.isUnlocked(`skin-${s.id}`, s.cost)) ?? SKINS[0];
 
-  const canvas = h('canvas', { class: 'game-canvas', 'aria-label': 'Fuzzy Crossing game board' });
-  const wrap = h('div', { class: 'game-wrap' }, canvas);
+  const wrap = h('div', { class: 'game-wrap' });
   const overlay = h('div', { class: 'game-overlay' });
   const hud = {
     score: h('b', null, '0'), best: h('b', null, String(a.stats.bestScore)), level: h('b', null, '1'),
@@ -54,14 +54,61 @@ export function playScreen(): Screen {
     hud.time.classList.toggle('low', s.time < 0.25);
   }
 
-  function newGame(): void {
+  // The realistic renderer (Three.js) is a separate download, fetched only when the game opens.
+  const hasWebGL = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } })();
+  const want3D = () => hasWebGL && a.settings.gameGfx !== 'classic';
+  const load3D = want3D() ? import('../../game/view3d') : null;
+  let view: View | null = null;
+  let viewMode = '';
+  let gen = 0;
+
+  async function makeView(): Promise<View> {
+    const mode = want3D() ? 'real' : 'classic';
+    if (view && viewMode === mode) return view;
+    view?.destroy();
+    wrap.replaceChildren();
+    const canvas = h('canvas', { class: 'game-canvas', 'aria-label': 'Fuzzy Crossing game board', tabindex: '0' });
+    wrap.append(canvas);
+    viewMode = mode;
+    if (mode === 'real') {
+      wrap.classList.add('loading');
+      try {
+        const { View3D } = await (load3D ?? import('../../game/view3d'));
+        view = new View3D(canvas, isTouch());
+      } catch (e) {
+        console.error(e);
+        viewMode = 'classic';
+        view = new View2D(canvas);
+      }
+      wrap.classList.remove('loading');
+    } else view = new View2D(canvas);
+    return view;
+  }
+
+  async function newGame(): Promise<void> {
+    const my = ++gen;
     game?.destroy();
-    game = new Crossing(canvas, skinOf(), a.stats.bestScore, {
+    game = null;
+    const v = await makeView();
+    if (my !== gen) return; // a newer request replaced this one
+    game = new Crossing(v, skinOf(), a.stats.bestScore, {
       hud: setHud,
       fuzzy: (n) => rewards.earn(n, 'Fuzzy Crossing', true),
       over: (r) => showOver(r),
     });
     setHud({ score: 0, level: 1, lives: 3, fuzzies: 0, time: 1, best: a.stats.bestScore });
+  }
+
+  function gfxPicker(): HTMLElement | null {
+    if (!hasWebGL) return null;
+    const seg = h('div', { class: 'seg' });
+    const fill = () => seg.replaceChildren(...(['real', 'classic'] as const).map((m) => {
+      const b = h('button', { type: 'button', class: (a.settings.gameGfx ?? 'real') === m ? 'on' : '' }, m === 'real' ? '🌄 Realistic 3D' : '🎨 Classic 2D');
+      b.addEventListener('click', () => { accounts.update((x) => (x.settings.gameGfx = m)); fill(); void newGame(); });
+      return b;
+    }));
+    fill();
+    return seg;
   }
 
   function skinPicker(): HTMLElement {
@@ -86,21 +133,24 @@ export function playScreen(): Screen {
     overlay.hidden = false;
     overlay.replaceChildren(h('div', { class: 'go-card' },
       h('div', { class: 'go-title' }, fuzzyMark(56), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across. Grab Fuzzies. Fill all 5 nests.'))),
+      btn('Start playing', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: begin }),
+      h('p', { class: 'hint center' }, isTouch() ? 'Swipe on the board or use the arrows.' : 'Arrow keys or WASD to hop · P to pause.'),
       h('ul', { class: 'how' },
         h('li', null, '🚗 Dodge cars on the road'),
         h('li', null, '🪵 Ride logs and lily pads — don’t touch the water'),
         h('li', null, fuzzyMark(16), ' Pink Fuzzy = +1 · ', fuzzyMark(16, ['#fff3b0', '#e0a100']), ' Golden = +5'),
-        h('li', null, '🏁 Each nest +2 · clear a level +5')),
+        h('li', null, '🏁 Each nest +2 · clear a level +5'),
+        h('li', null, '🌅 The sky changes every level: day, golden hour, dusk')),
       h('p', { class: 'pnl-label' }, 'Choose your Fuzzy'), skinPicker(),
-      btn('Start playing', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: begin }),
-      h('p', { class: 'hint center' }, isTouch() ? 'Swipe on the board or use the arrows.' : 'Arrow keys or WASD to hop · P to pause.')));
+      hasWebGL ? h('p', { class: 'pnl-label' }, 'Graphics') : null, gfxPicker()));
   }
 
   function begin(): void {
+    if (!game) return;
     overlay.hidden = true;
     accounts.update((x) => x.stats.gamesPlayed++);
     game?.start();
-    canvas.focus();
+    (wrap.querySelector('canvas') as HTMLCanvasElement | null)?.focus({ preventScroll: true });
   }
 
   function togglePause(): void {
@@ -127,7 +177,7 @@ export function playScreen(): Screen {
         h('div', null, h('small', null, 'Level'), h('b', null, String(r.level))),
         h('div', null, h('small', null, 'Nests'), h('b', null, String(r.homes)))),
       h('div', { class: 'go-earned' }, fuzzyMark(36), h('div', null, h('b', null, `+${r.fuzzies} Fuzzies`), h('small', null, `Balance: ${rewards.balance()}`))),
-      btn('Play again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { newGame(); begin(); } }),
+      btn('Play again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { void newGame().then(begin); } }),
       h('div', { class: 'btn-row' },
         btn('Spend Fuzzies', { kind: 'soft', icon: 'gift', onClick: () => (location.hash = '#/rewards') }),
         btn('Back to designing', { kind: 'ghost', icon: 'brush', onClick: () => (location.hash = '#/home') }))));
@@ -162,10 +212,10 @@ export function playScreen(): Screen {
 
   const el = h('div', { class: 'page play' },
     h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, overlay), controls));
-  requestAnimationFrame(() => { newGame(); showStart(); });
+  requestAnimationFrame(() => { void newGame(); showStart(); });
 
   return {
     el,
-    destroy: () => { game?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
+    destroy: () => { gen++; game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
   };
 }

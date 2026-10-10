@@ -4,7 +4,7 @@
 
 Fuzzies is a design studio for posters, social posts, stories, slides, cards, invitations and logos. It works on phones, tablets and computers. You can take a break in the built-in arcade game, **Fuzzy Crossing**, where you collect Fuzzies tokens to unlock premium templates, graphics, stickers, fonts, text effects, app themes and game skins.
 
-It's built with TypeScript and Vite and uses no UI framework. It runs fully in the browser and installs as an app (PWA). It can also be wrapped as a native iOS or Android app with Capacitor.
+It's built with TypeScript and Vite and uses no UI framework; the game's 3D graphics use Three.js. It runs fully in the browser and installs as an app (PWA). It can also be wrapped as a native iOS or Android app with Capacitor.
 
 ## Run it
 
@@ -31,6 +31,7 @@ To deploy on Vercel, set the project's **Root Directory** to `fuzzies`. `vercel.
 | **Share & save** | PNG (transparent option, 0.5×–3×), JPG, multi-page PDF, and an editable `.fuzzies` project file. Copy to clipboard. On phones, the native share sheet saves to Photos or sends to any app. Projects can be imported back. | `editor/export.ts`, `share.ts` |
 | **Themes** | Light, Dark and Match device, plus colourful themes: Sunset, Ocean, Forest, Candy, Neon Night, Lavender, Galaxy and Golden Hour. Custom accent colour. | `core/themes.ts`, `screens/settings.ts` |
 | **Fuzzy Crossing** | A Frogger-style game. Hop across 5 lanes of traffic and 5 river lanes (logs and sinking lily pads), fill the 5 nests, and grab pink (+1) and golden (+5) Fuzzies. Levels speed up. Controls: keyboard, swipe, tap or on-screen D-pad. Synthesised sound and unlockable player skins. | `src/game/crossing.ts`, `screens/play.ts` |
+| **Realistic 3D graphics** | The game is drawn in Three.js by default. It has a physical sky that lights the scene and reflects in the water, soft sun shadows, rippling water, asphalt with worn lane markings, swaying instanced grass, trees and hedges, and glossy clear-coat cars, trucks and buses. The Fuzzies have shell-rendered fur that bounces when they hop. Effects include splashes, ripples and sparkles. The time of day changes each level (day → golden hour → dusk, when headlights and street lamps switch on). On phones the camera follows the player. The 3D code is a separate download, loaded only when the game opens. Players can switch to Classic 2D, which is also used automatically when WebGL is unavailable. | `game/view3d.ts`, `models3d.ts`, `textures3d.ts`, `view2d.ts` |
 | **Rewards** | Earn Fuzzies from the game (tokens, nests, levels), a daily visit streak (5 → 15), 1 per 5 active minutes of designing, and +2 per share (5 a day). Spend them on templates, graphics packs, sticker packs, font packs, Magic Text FX, themes and skins. | `core/rewards.ts`, `screens/rewards.ts` |
 
 ## Where data lives
@@ -46,6 +47,6 @@ src/
   core/                accounts, IndexedDB storage, rewards, themes, utils
   editor/              document model, canvas renderer, editor, panels, inspector, colour picker, export, share
   content/             templates, art packs, sticker packs, fonts, text styles
-  game/                Fuzzy Crossing + sound
+  game/                Fuzzy Crossing rules, 3D and 2D views, procedural models & textures, sound
   ui/                  app shell & router, dialogs, screens
 ```

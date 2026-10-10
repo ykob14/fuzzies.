@@ -595,6 +595,8 @@ select.input { appearance: none; padding-right: 30px; background-image: linear-g
   .game-wrap { max-height: calc(100dvh - 330px - var(--safe-b)); min-height: 220px; }
   .hud-item small { font-size: 9.5px; }
   .game-hud { padding: 6px 8px; gap: 2px; }
+  .go-card { padding: 16px; gap: 8px; }
+  .go-card .go-title svg { width: 44px; height: 44px; }
   .hud-item b { font-size: 15px; }
   .lives { font-size: 12px; white-space: nowrap; letter-spacing: 0; }
   .hud-actions .btn-sm { width: 30px; height: 30px; }
@@ -607,3 +609,8 @@ select.input { appearance: none; padding-right: 30px; background-image: linear-g
   .auth-features { grid-template-columns: 1fr; }
   .hud-item b { font-size: 15px; }
 }
+
+/* realistic 3D game board */
+.game-canvas.real { width: 100%; height: 100%; }
+.game-wrap { position: relative; }
+.game-wrap.loading::after { content: 'Building the world…'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-weight: 700; border-radius: 16px; background: linear-gradient(180deg, #b9cfe0, #5f8a4a); }
