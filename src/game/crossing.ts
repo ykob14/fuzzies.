@@ -137,7 +137,7 @@ export class Crossing {
     this.last = performance.now();
     const tick = (t: number) => {
       this.raf = requestAnimationFrame(tick);
-      const dt = Math.min(0.05, (t - this.last) / 1000);
+      const dt = Math.min(0.05, Math.max(0, (t - this.last) / 1000)); // never step backwards in time
       this.last = t;
       // Before start the world keeps moving gently behind the menu; the player is frozen.
       if (!this.paused && !this.over) this.update(dt, this.running);

@@ -23,6 +23,7 @@ const fmt = (ms: number) => {
 export function landScreen(): Screen {
   const a = accounts.current!;
   const s: L.LandState = JSON.parse(JSON.stringify(a.land ?? L.freshLand()));
+  const lastVisit = s.savedAt;
   L.refillOrders(s);
 
   const wrap = h('div', { class: 'land-stage' });
@@ -38,11 +39,32 @@ export function landScreen(): Screen {
   let alive = true;
 
   // ---------- saving & rewards ----------
+  // Every change is saved straight away (and synced to your account); timers are clock times, so
+  // crops, workshops and construction keep going while you're away.
+  const savedEl = h('span', { class: 'land-saved', title: 'Your town is saved' }, '✓ Saved');
   function save(): void {
     s.savedAt = Date.now();
-    accounts.update((x) => { x.land = JSON.parse(JSON.stringify(s)); });
+    try {
+      accounts.update((x) => { x.land = JSON.parse(JSON.stringify(s)); });
+      savedEl.textContent = accounts.current?.cloud ? '☁︎ Saved' : '✓ Saved';
+      savedEl.classList.remove('flash'); void savedEl.offsetWidth; savedEl.classList.add('flash');
+    } catch (e) {
+      console.error(e);
+      savedEl.textContent = '⚠︎ Not saved';
+      toast('Couldn’t save your town — your device storage may be full.', 'bad');
+    }
     view?.sync(s);
     renderHud();
+  }
+  /** Another device saved a newer town (it arrived through sync): switch to it. */
+  function adoptRemote(): void {
+    const remote = accounts.current?.land;
+    if (!remote || remote.savedAt <= s.savedAt) return;
+    for (const k of Object.keys(s)) delete (s as unknown as Record<string, unknown>)[k];
+    Object.assign(s, JSON.parse(JSON.stringify(remote)));
+    view?.sync(s);
+    renderHud();
+    renderPanel();
   }
 
   function gain(g: L.Gain, at: number, label?: string): void {
@@ -69,7 +91,12 @@ export function landScreen(): Screen {
   const spendFuzzies = (n: number) => { accounts.update((x) => { x.fuzzies -= n; }); };
 
   // ---------- HUD ----------
+  let hudSig = '';
   function renderHud(): void {
+    // only rebuild when something shown actually changed (rebuilding every second could swallow a tap)
+    const sig = JSON.stringify([s.level, s.xp, s.coins, L.population(s), rewards.balance(), L.barnUsed(s), s.orders.filter((o) => L.canFill(s, o)).length, L.awaySummary(s)]);
+    if (sig === hudSig) return;
+    hudSig = sig;
     const need = L.xpFor(s.level);
     const pop = L.population(s);
     const ready = s.orders.filter((o) => L.canFill(s, o)).length;
@@ -77,7 +104,7 @@ export function landScreen(): Screen {
       h('div', { class: 'land-lvl', title: `${s.xp} / ${need} XP` },
         h('span', { class: 'land-lvl-n', style: `--p:${(s.xp / need) * 100}%` }, h('b', null, String(s.level))),
         h('div', null, h('b', null, 'Fuzzies Land'), h('div', { class: 'land-xp' }, h('div', { style: `width:${(s.xp / need) * 100}%` })), h('small', null, `${s.xp} / ${need} XP`))),
-      h('div', { class: 'land-chips' },
+      h('div', { class: 'land-chips' }, savedEl,
         h('span', { class: 'land-chip', title: 'Coins' }, '🪙', h('b', null, s.coins.toLocaleString())),
         h('span', { class: 'land-chip', title: 'Fuzzies living here' }, '🏡', h('b', null, String(pop))),
         h('a', { class: 'land-chip', href: '#/rewards', title: 'Your Fuzzies' }, fuzzyMark(18), h('b', { class: 'fz-balance' }, String(rewards.balance())))));
@@ -86,10 +113,45 @@ export function landScreen(): Screen {
       b.addEventListener('click', onClick);
       return b;
     };
-    bar.replaceChildren(
+    const away = L.awaySummary(s);
+    const waiting = away.crops + away.goods + away.built;
+    bar.replaceChildren(...[
+      waiting ? tool('✨', 'Collect', collectAllNow, String(waiting)) : null,
       tool('🔨', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
       tool('📦', 'Orders', () => openPanel({ kind: 'orders' }), ready ? String(ready) : ''),
-      tool('🏚️', 'Barn', () => openPanel({ kind: 'barn' }), `${L.barnUsed(s)}/${L.barnCap(s.level)}`));
+      tool('🏚️', 'Barn', () => openPanel({ kind: 'barn' }), `${L.barnUsed(s)}/${L.barnCap(s.level)}`)].filter((x) => x !== null) as HTMLElement[]);
+  }
+
+  /** Harvest, collect and open everything that's ready, in one tap. */
+  function collectAllNow(): void {
+    const r = L.collectAll(s);
+    const parts = Object.entries(r.got).map(([k, n]) => `${L.good(k).emoji}×${n}`);
+    if (!parts.length && !r.built.length) { if (r.full) toast('Your barn is full — fill some orders first.', 'info'); return; }
+    sfx.collect();
+    const hall = s.buildings.find((b) => b.item === 'hall');
+    gain({ xp: r.xp, levelUps: r.levelUps }, hall?.id ?? 0, parts.join(' ') || '✨');
+    for (const it of r.built) toast(`${L.item(it).emoji} ${L.item(it).name} is ready!`, 'good');
+    if (r.full) toast('Your barn is full — a few things are still waiting.', 'info');
+    save();
+    document.querySelector('.land-away')?.remove();
+  }
+
+  /** "While you were away…": what finished since your last visit. */
+  function welcomeBack(): void {
+    const away = L.awaySummary(s);
+    if (!away.crops && !away.goods && !away.built) return;
+    const mins = Math.round((Date.now() - lastVisit) / 60000);
+    if (mins < 2) return; // only after you've actually been away (the Collect button covers the rest)
+    const ago = mins < 2 ? '' : mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
+    const card = h('div', { class: 'land-away' },
+      h('div', { class: 'land-away-head' }, mascot(46, { sparkles: false, interactive: false }), h('div', null, h('b', null, 'While you were away…'), ago ? h('small', null, `You were gone ${ago} — your town kept busy!`) : null)),
+      h('div', { class: 'land-away-list' }, ...[
+        away.crops ? h('span', null, `🌾 ${away.crops} field${away.crops > 1 ? 's' : ''} ready`) : null,
+        away.goods ? h('span', null, `📦 ${away.goods} good${away.goods > 1 ? 's' : ''} made`) : null,
+        away.built ? h('span', null, `🏠 ${away.built} building${away.built > 1 ? 's' : ''} finished`) : null,
+      ].filter((x) => x !== null) as HTMLElement[]),
+      h('div', { class: 'btn-row' }, btn('Collect all', { kind: 'primary', icon: 'check', onClick: collectAllNow }), btn('Later', { kind: 'ghost', onClick: () => card.remove() })));
+    stage.append(card);
   }
 
   // ---------- panels ----------
@@ -185,14 +247,20 @@ export function landScreen(): Screen {
   function buildingBody(b: L.Placed, it: L.ItemDef): HTMLElement {
     const now = Date.now();
     const parts: (HTMLElement | null)[] = [];
-    if (it.kind === 'field') {
+    if (b.doneAt) {
+      const total = (it.build ?? 1) * 1000;
+      parts.push(h('div', { class: 'land-progress' }, h('span', null, '🔨 Under construction'),
+        h('div', { class: 'progress' }, h('div', { style: `width:${L.buildProgress(b) * 100}%`, 'data-bar': String(b.doneAt), 'data-total': String(total) })),
+        h('small', b.doneAt > now ? { 'data-end': String(b.doneAt), 'data-suffix': ' left — it keeps building while you’re away' } : null, b.doneAt > now ? `${fmt(b.doneAt - now)} left — it keeps building while you’re away` : 'Ready!')));
+      parts.push(b.doneAt > now ? rushBtn(b) : btn('Open it!', { kind: 'primary', onClick: () => tapBuilding(b.id) }));
+    } else if (it.kind === 'field') {
       if (b.crop) {
         const g = L.good(b.crop.good);
         const left = g.time * 1000 - (now - b.crop.at);
         const end = b.crop.at + g.time * 1000;
         parts.push(h('div', { class: 'land-progress' }, h('span', null, `${g.emoji} ${g.name}`),
           h('div', { class: 'progress' }, h('div', { style: `width:${L.cropProgress(b) * 100}%`, 'data-bar': String(end), 'data-total': String(g.time * 1000) })),
-          h('small', { 'data-end': String(end), 'data-suffix': ' left' }, left > 0 ? `${fmt(left)} left` : 'Ready!')));
+          h('small', left > 0 ? { 'data-end': String(end), 'data-suffix': ' left' } : null, left > 0 ? `${fmt(left)} left` : 'Ready!')));
         parts.push(left > 0 ? rushBtn(b) : btn('Harvest', { kind: 'primary', onClick: () => tapBuilding(b.id) }));
       } else {
         parts.push(h('p', { class: 'pnl-label' }, 'Plant something'), h('div', { class: 'land-recipes' }, ...L.GOODS.filter((g) => g.at === 'field').map((g) => recipe(g, () => {
@@ -268,6 +336,14 @@ export function landScreen(): Screen {
     if (!b) return;
     const it = L.item(b.item);
     try {
+      if (b.doneAt && b.doneAt <= Date.now()) {
+        const g = L.finishBuild(s, id);
+        sfx.build();
+        gain(g, id, `${it.emoji} Ready!`);
+        save();
+        if (panel?.kind === 'building' && panel.id === id) openPanel(null);
+        return;
+      }
       if (it.kind === 'field' && b.crop && L.cropProgress(b) >= 1) {
         const g = L.harvest(s, id);
         sfx.collect();
@@ -349,7 +425,8 @@ export function landScreen(): Screen {
         sfx.build();
         save();
         const placed = s.buildings[s.buildings.length - 1];
-        gain(g, placed.id, it.kind === 'house' ? `+${it.pop} 🏡` : undefined);
+        if (it.build) toast(`🔨 Building your ${it.name} — ready in ${fmt(it.build * 1000)}. It keeps going while you’re away.`, 'info', 3200);
+        else gain(g, placed.id, it.kind === 'house' ? `+${it.pop} 🏡` : undefined);
         // keep building fields/paths in a row without reopening the shop
         if ((it.kind === 'field' || p.item === 'path') && !L.cantBuy(s, p.item, rewards.balance())) {
           placing = { ...p, x: p.x + 1 };
@@ -454,8 +531,13 @@ export function landScreen(): Screen {
       if (!alive) return;
       view = new LandView(canvas, overlay, isTouch(), phrase);
       view.sync(s);
+      try {
+        const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
+        if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
+      } catch { /* first visit */ }
       if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
+      setTimeout(() => { if (alive) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       view.start();
       wrap.classList.remove('loading');
       requestAnimationFrame(() => dispatchEvent(new Event('fz:scene-ready')));
@@ -468,8 +550,11 @@ export function landScreen(): Screen {
     let crossed = false;
     for (const el of sheet.querySelectorAll<HTMLElement>('[data-end]')) {
       const left = Number(el.dataset.end) - now;
-      if (left <= 0) crossed = true;
-      el.textContent = left > 0 ? fmt(left) + (el.dataset.suffix ?? '') : 'Ready!';
+      if (left > 0) { el.textContent = fmt(left) + (el.dataset.suffix ?? ''); continue; }
+      // just finished: show "Ready!" once and redraw the panel once (not every second, or taps get lost)
+      el.textContent = 'Ready!';
+      el.removeAttribute('data-end');
+      crossed = true;
     }
     for (const el of sheet.querySelectorAll<HTMLElement>('[data-bar]')) {
       const total = Number(el.dataset.total);
@@ -480,12 +565,18 @@ export function landScreen(): Screen {
   }, 1000);
   const ro = new ResizeObserver(() => view?.resize());
   ro.observe(stage);
-  const onVis = () => { if (document.hidden) view?.stop(); else view?.start(); };
+  const remember = () => { if (view) try { localStorage.setItem('fz.land.cam', JSON.stringify({ x: view.target.x, z: view.target.z, d: view.dist })); } catch { /* */ } };
+  const onVis = () => { if (document.hidden) { view?.stop(); remember(); save(); } else { view?.start(); adoptRemote(); } };
   document.addEventListener('visibilitychange', onVis);
-  const off = accounts.onChange(() => { for (const b of hud.querySelectorAll('.fz-balance')) b.textContent = String(rewards.balance()); });
+  const onHide = () => { remember(); save(); };
+  addEventListener('pagehide', onHide);
+  const off = accounts.onChange(() => {
+    for (const b of hud.querySelectorAll('.fz-balance')) b.textContent = String(rewards.balance());
+    adoptRemote();
+  });
 
   return {
     el: h('div', { class: 'page land' }, stage),
-    destroy: () => { alive = false; clearInterval(tick); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
+    destroy: () => { remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
   };
 }

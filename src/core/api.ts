@@ -23,11 +23,14 @@ export function onLoggedOut(fn: () => void): () => void { loggedOutListeners.add
 
 export async function api<T = Record<string, unknown>>(endpoint: 'auth' | 'data', action: string, body: Record<string, unknown> = {}): Promise<T> {
   let res: Response;
+  const payload = JSON.stringify({ ...body, action });
   try {
     res = await fetch(`./api/${endpoint}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(token.get() ? { authorization: `Bearer ${token.get()}` } : {}) },
-      body: JSON.stringify({ ...body, action }),
+      body: payload,
+      // small saves keep going even if the app is closed right after (browsers cap this at 64 KB)
+      keepalive: payload.length < 60_000,
     });
   } catch {
     throw new ApiError(0, 'Can’t reach Fuzzies right now — check your internet and try again.');

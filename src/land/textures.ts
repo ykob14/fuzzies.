@@ -145,17 +145,19 @@ export function mushroomCap(): THREE.CanvasTexture {
   });
 }
 
-/** Grass for the island, with a lighter tint inside the buildable area drawn by the view. */
+/** A neat, freshly mown lawn: soft colour variation and faint mowing stripes (no harsh speckle). */
 export function lawn(): THREE.CanvasTexture {
   return memo('lawn', () => {
-    const S = 256;
+    const S = 512;
     const [c, x] = canvas(S, S);
     const r = rng(41);
-    x.fillStyle = '#5f9a36'; x.fillRect(0, 0, S, S);
-    for (let i = 0; i < 5000; i++) {
-      x.fillStyle = ['#4f8a2c', '#6fa83f', '#7ab84a', '#568f31', '#83c052'][Math.floor(r() * 5)];
-      x.fillRect(r() * S, r() * S, 1 + r() * 2, 2 + r() * 4);
+    x.fillStyle = '#6aa73f'; x.fillRect(0, 0, S, S);
+    for (let i = 0; i < 4; i++) { x.fillStyle = i % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.03)'; x.fillRect(0, (i * S) / 4, S, S / 4); }
+    for (let i = 0; i < 70; i++) {
+      x.fillStyle = r() < 0.5 ? 'rgba(90,150,50,0.10)' : 'rgba(130,185,80,0.10)';
+      x.beginPath(); x.ellipse(r() * S, r() * S, 20 + r() * 50, 14 + r() * 30, r() * 3, 0, Math.PI * 2); x.fill();
     }
+    for (let i = 0; i < 7000; i++) { x.fillStyle = ['rgba(70,120,40,0.35)', 'rgba(140,195,90,0.3)', 'rgba(95,155,55,0.35)'][Math.floor(r() * 3)]; x.fillRect(r() * S, r() * S, 1, 2 + r() * 2); }
     return tex(c);
   });
 }

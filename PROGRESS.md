@@ -45,6 +45,8 @@ keeps people coming back (the mascot, the game, missions).
 - Time reward: owner asked for a random **2–10 Fuzzies every 30 minutes** of using the app (they also said "2-50" once;
   2–10 was their last word, it's one constant: `TIME_BONUS` in `core/rewards.ts`).
 - App icon: owner wanted to **change the Fuzzy colour of the phone/desktop app icon** (Settings → App icon).
+- Fuzzies Land must save progress every time and keep things (construction, crops, workshops) progressing while away;
+  look should be realistic, professional, organised and clean.
 - Mascot sounds: owner wants it to giggle "he he he ha ha ha" when you move the mouse over it, and sparkle sounds; welcome cards
   should have Fuzzy-themed pictures instead of plain emoji.
 - Launch screen: owner asked for an opening like Canva's app (logo on a splash) but with the Fuzzy popping and bouncing, then the name, "very smooth".
@@ -170,7 +172,9 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 - **Game:** rules live in `crossing.ts`; views only draw. New visual effects = new `Fx` events → `view.fx()`.
   Objects wrap `OFFSCREEN` cells past the edges so they never pop in.
 - **Fuzzies Land:** the town lives in `account.land` (synced; merge keeps the most recently saved town whole). The screen
-  works on a copy and saves after every action (`save()`); rules functions throw `Error`s with friendly messages.
+  works on a copy and saves after every action (`save()`) and on hide/pagehide/leave; rules functions throw `Error`s with
+  friendly messages. Everything timed is a wall-clock timestamp (`crop.at`, `queue[].end`, `doneAt`) so progress continues
+  while the app is closed. Don't rebuild HUD/panel DOM on a timer (taps get lost) — update text in place.
   New buildings/goods = add to `ITEMS`/`GOODS` in `land/rules.ts` + a model in `land/models.ts` (`modelFor`).
   In dev, `window.__land = { view, state }` lets tests step frames (`view.stop(); view.frame(0.05)`).
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
@@ -202,6 +206,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | `df837e4` | **Launch screen** (like Canva's): the Fuzzy pops in, bounces with squash & stretch and sparkles, winks, the name "fuzzies" glides up letter by letter, then the tagline; fades into the app (~2.6 s, tap to skip, once per visit, calmer with reduced motion). Lives inline in `index.html` so it shows on the first frame; follows your app-icon colours (`fz.look`, written by `core/appicon.ts`) and uses saved realistic 3D frames (`fz.splash.frames`, written by `ui/mascot.ts`) after the first visit. Branch only. |
 | `bf0a29b` | **Fuzzies Land** (new tab "Fland" / sidebar "Fuzzies Land"): 3D island town — Town Hall, Crossing Gate (portal to the game), 4 house types, fields with 5 crops, Bakery/Popcorn Stand/Weaver with 3-slot queues, decor (incl. two paid in Fuzzies), orders board, barn, levels (each pays Fuzzies tokens), land expansions, speed-ups paid in Fuzzies; residents walk, breathe, blink, look at you, hop and chat; tap them to giggle. Circle-wipe transition between game and town; 4 new badges; Home card. Branch only. |
 | `f20b0c1` | **Cuter mascot**: moving the mouse over the Fuzzy tickles it (no wiggle needed); a new syllable-based voice giggles "tee hee hee, ha ha ha" (formant-filtered, chained while you tickle); sparkles chime while hovering, bursts shimmer; sound works on the welcome screen too (audio wakes on the first click/tap — browsers require it). Welcome cards got Fuzzy illustrations (painting, stickers, phone, hopping) with hover animations and a "Tickle me!" hint. |
+| _(land2)_ | **Fuzzies Land: saving, offline progress, tidier look.** Buildings now take real time to construct (construction site with scaffolding, crane and a countdown; keeps going while you're away; tap to open; speed up with Fuzzies). "While you were away…" card + a ✨ Collect-all button. Saves after every action and also on leaving/hiding/closing; a "✓ Saved" sign; adopts a newer town from another device; camera position remembered; last saves use `keepalive`. Tidy starter town (crossing streets, hall + gate corner, cottages facing the street, farm corner, free corner), Road item, wooden field edging, contact shadows, smoother lawn, thinner forest. Fixes: HUD/panels no longer rebuild every second (lost taps), negative first-frame time step (camera swoop stuck on slow phones; also in Fuzzy Crossing). |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"

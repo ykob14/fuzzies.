@@ -15,6 +15,8 @@ export interface ItemDef {
   pop?: number; recipes?: string[]; blurb: string; emoji: string;
   /** How many you may own at a level (fields and workshops are limited). */
   max?: (level: number) => number;
+  /** Seconds of construction before it's ready (keeps going while you're away). */
+  build?: number;
   sellable?: boolean;
 }
 
@@ -30,6 +32,8 @@ export interface Placed {
   /** workshops: goods being made, in order; each has its own finish time */
   queue?: { good: string; end: number }[];
   builtAt: number;
+  /** Under construction until this time (ms); removed once you finish it. */
+  doneAt?: number;
 }
 
 export interface Order { id: number; who: string; items: Record<string, number>; coins: number; xp: number; fuzzies: number }
@@ -74,20 +78,21 @@ export const good = (id: string): Good => GOODS.find((g) => g.id === id)!;
 export const ITEMS: ItemDef[] = [
   { id: 'gate', name: 'Crossing Gate', kind: 'special', w: 2, d: 2, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🐸', blurb: 'Hop over to Fuzzy Crossing', max: () => 1 },
   { id: 'hall', name: 'Town Hall', kind: 'special', w: 3, d: 3, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🏛️', blurb: 'The heart of Fuzzies Land', max: () => 1 },
-  { id: 'cottage', name: 'Fuzzy Cottage', kind: 'house', w: 2, d: 2, cost: 40, currency: 'coins', level: 1, xp: 6, pop: 6, emoji: '🏠', blurb: '6 Fuzzies move in' },
-  { id: 'mushroom', name: 'Mushroom House', kind: 'house', w: 2, d: 2, cost: 140, currency: 'coins', level: 3, xp: 14, pop: 10, emoji: '🍄', blurb: '10 Fuzzies move in' },
-  { id: 'treehouse', name: 'Treehouse', kind: 'house', w: 2, d: 2, cost: 360, currency: 'coins', level: 5, xp: 28, pop: 16, emoji: '🌳', blurb: '16 Fuzzies move in' },
-  { id: 'villa', name: 'Cloud Villa', kind: 'house', w: 3, d: 3, cost: 900, currency: 'coins', level: 8, xp: 60, pop: 30, emoji: '🏰', blurb: '30 Fuzzies move in' },
+  { id: 'cottage', name: 'Fuzzy Cottage', kind: 'house', w: 2, d: 2, cost: 40, currency: 'coins', level: 1, xp: 6, pop: 6, emoji: '🏠', blurb: '6 Fuzzies move in', build: 30 },
+  { id: 'mushroom', name: 'Mushroom House', kind: 'house', w: 2, d: 2, cost: 140, currency: 'coins', level: 3, xp: 14, pop: 10, emoji: '🍄', blurb: '10 Fuzzies move in', build: 120 },
+  { id: 'treehouse', name: 'Treehouse', kind: 'house', w: 2, d: 2, cost: 360, currency: 'coins', level: 5, xp: 28, pop: 16, emoji: '🌳', blurb: '16 Fuzzies move in', build: 300 },
+  { id: 'villa', name: 'Cloud Villa', kind: 'house', w: 3, d: 3, cost: 900, currency: 'coins', level: 8, xp: 60, pop: 30, emoji: '🏰', blurb: '30 Fuzzies move in', build: 900 },
   { id: 'field', name: 'Field', kind: 'field', w: 1, d: 1, cost: 10, currency: 'coins', level: 1, xp: 1, emoji: '🟫', blurb: 'Grow crops', max: (l) => 6 + l * 2, sellable: true },
-  { id: 'bakery', name: 'Bakery', kind: 'factory', w: 2, d: 2, cost: 120, currency: 'coins', level: 2, xp: 15, emoji: '🥖', blurb: 'Bread, cakes & cookies', max: () => 1, recipes: ['bread', 'cake', 'cookies'] },
-  { id: 'popcorn', name: 'Popcorn Stand', kind: 'factory', w: 2, d: 2, cost: 260, currency: 'coins', level: 3, xp: 20, emoji: '🍿', blurb: 'Popcorn & caramel corn', max: () => 1, recipes: ['popcorn', 'caramel'] },
-  { id: 'weaver', name: 'Weaver', kind: 'factory', w: 2, d: 2, cost: 700, currency: 'coins', level: 7, xp: 40, emoji: '🧶', blurb: 'Yarn & cozy scarves', max: () => 1, recipes: ['yarn', 'scarf'] },
+  { id: 'bakery', name: 'Bakery', kind: 'factory', w: 2, d: 2, cost: 120, currency: 'coins', level: 2, xp: 15, emoji: '🥖', blurb: 'Bread, cakes & cookies', max: () => 1, recipes: ['bread', 'cake', 'cookies'], build: 60 },
+  { id: 'popcorn', name: 'Popcorn Stand', kind: 'factory', w: 2, d: 2, cost: 260, currency: 'coins', level: 3, xp: 20, emoji: '🍿', blurb: 'Popcorn & caramel corn', max: () => 1, recipes: ['popcorn', 'caramel'], build: 180 },
+  { id: 'weaver', name: 'Weaver', kind: 'factory', w: 2, d: 2, cost: 700, currency: 'coins', level: 7, xp: 40, emoji: '🧶', blurb: 'Yarn & cozy scarves', max: () => 1, recipes: ['yarn', 'scarf'], build: 480 },
   { id: 'tree', name: 'Fluffy Tree', kind: 'decor', w: 1, d: 1, cost: 15, currency: 'coins', level: 1, xp: 1, emoji: '🌳', blurb: 'Shade for napping', sellable: true },
   { id: 'flowers', name: 'Flower Bed', kind: 'decor', w: 1, d: 1, cost: 25, currency: 'coins', level: 1, xp: 2, emoji: '🌷', blurb: 'Smells like spring', sellable: true },
+  { id: 'road', name: 'Road', kind: 'decor', w: 1, d: 1, cost: 5, currency: 'coins', level: 1, xp: 0, emoji: '🛣️', blurb: 'Neat streets for your town', sellable: true },
   { id: 'path', name: 'Stone Path', kind: 'decor', w: 1, d: 1, cost: 4, currency: 'coins', level: 1, xp: 0, emoji: '🪨', blurb: 'Pretty paths', sellable: true },
   { id: 'bench', name: 'Bench', kind: 'decor', w: 1, d: 1, cost: 40, currency: 'coins', level: 2, xp: 3, emoji: '🪑', blurb: 'Sit and chat', sellable: true },
   { id: 'lamp', name: 'Lamp Post', kind: 'decor', w: 1, d: 1, cost: 50, currency: 'coins', level: 3, xp: 3, emoji: '💡', blurb: 'Glows at night', sellable: true },
-  { id: 'fountain', name: 'Fountain', kind: 'decor', w: 2, d: 2, cost: 300, currency: 'coins', level: 4, xp: 20, emoji: '⛲', blurb: 'Splishy splashy', sellable: true },
+  { id: 'fountain', name: 'Fountain', kind: 'decor', w: 2, d: 2, cost: 300, currency: 'coins', level: 4, xp: 20, emoji: '⛲', blurb: 'Splishy splashy', sellable: true, build: 90 },
   { id: 'statue', name: 'Golden Fuzzy', kind: 'decor', w: 1, d: 1, cost: 25, currency: 'fuzzies', level: 2, xp: 30, emoji: '🏆', blurb: 'A shiny statue — paid in Fuzzies', sellable: false },
   { id: 'rainbow', name: 'Rainbow Arch', kind: 'decor', w: 2, d: 1, cost: 40, currency: 'fuzzies', level: 4, xp: 50, emoji: '🌈', blurb: 'Magical — paid in Fuzzies', sellable: false },
 ];
@@ -102,27 +107,43 @@ export const levelFuzzies = (level: number): number => 4 + level;
 export const barnCap = (level: number): number => 60 + level * 15;
 
 export function population(s: LandState): number {
-  return s.buildings.reduce((n, b) => n + (item(b.item).pop ?? 0), 0);
+  return s.buildings.reduce((n, b) => n + (b.doneAt ? 0 : item(b.item).pop ?? 0), 0);
 }
+/** Still being built? */
+export const building = (p: Placed): boolean => !!p.doneAt;
+export const buildProgress = (p: Placed, now = Date.now()): number => {
+  if (!p.doneAt) return 1;
+  const total = (item(p.item).build ?? 1) * 1000;
+  return Math.min(1, Math.max(0, 1 - (p.doneAt - now) / total));
+};
+/** Tiles people can walk on. */
+export const walkway = (id: string): boolean => id === 'path' || id === 'road';
 export const barnUsed = (s: LandState): number => Object.values(s.barn).reduce((a, b) => a + b, 0);
 export const count = (s: LandState, id: string): number => s.buildings.filter((b) => b.item === id).length;
 
 // ---------- the starting town ----------
+/**
+ * A tidy starter town: two streets cross in the middle of the land; the Town Hall and the Crossing Gate
+ * sit on one corner, cottages face the street on the next, a little farm on the third, and the last
+ * corner is left free for you to build on.
+ */
 export function freshLand(now = Date.now()): LandState {
   const s: LandState = {
     v: 1, level: 1, xp: 0, coins: 150, size: SIZES[0], buildings: [], barn: { wheat: 4 }, orders: [], nextId: 1,
     stats: { harvests: 0, made: 0, orders: 0, built: 0 }, savedAt: now,
   };
-  const c = MAP / 2;
+  const o = (MAP - SIZES[0]) / 2; // first buildable tile
+  const mid = o + 6;               // the streets run along this row and column
   const add = (it: string, x: number, z: number, extra: Partial<Placed> = {}) => s.buildings.push({ id: s.nextId++, item: it, x, z, rot: 0, builtAt: 0, ...extra });
-  add('hall', c - 1, c - 2);
-  add('gate', c + 3, c - 6);
-  add('cottage', c - 5, c - 2);
-  add('cottage', c - 5, c + 1);
-  for (let i = 0; i < 4; i++) add('field', c + 2 + (i % 2), c + 1 + Math.floor(i / 2), i === 0 ? { crop: { good: 'wheat', at: now - 50_000 } } : {});
-  for (const [x, z] of [[c - 6, c - 6], [c + 5, c + 4], [c - 3, c + 5], [c + 6, c - 2]]) add('tree', x, z);
-  add('flowers', c - 2, c + 2);
-  for (let i = 0; i < 3; i++) add('path', c, c + 1 + i);
+  for (let k = o; k < o + SIZES[0]; k++) { add('road', k, mid); if (k !== mid) add('road', mid, k); }
+  add('hall', mid - 3, mid - 3);
+  add('gate', o, mid - 2);
+  add('cottage', mid + 1, mid - 2);
+  add('cottage', mid + 3, mid - 2);
+  for (let i = 0; i < 4; i++) add('field', mid - 4 + (i % 2), mid + 2 + Math.floor(i / 2), i === 0 ? { crop: { good: 'wheat', at: now - 50_000 } } : {});
+  add('flowers', mid - 2, mid + 2);
+  add('flowers', mid + 1, mid + 1);
+  for (const [x, z] of [[o, o], [o + 2, o], [o + 12, o], [o + 9, o + 1], [o, o + 12], [o + 13, o + 13]]) add('tree', x, z);
   refillOrders(s, now);
   return s;
 }
@@ -165,8 +186,20 @@ export function place(s: LandState, itemId: string, x: number, z: number, rot: 0
   const it = item(itemId);
   if (!canPlace(s, itemId, x, z, rot)) throw new Error('That spot is taken.');
   if (it.currency === 'coins') s.coins -= it.cost;
-  s.buildings.push({ id: s.nextId++, item: itemId, x, z, rot, builtAt: now, ...(it.kind === 'factory' ? { queue: [] } : {}) });
+  s.buildings.push({ id: s.nextId++, item: itemId, x, z, rot, builtAt: now, ...(it.kind === 'factory' ? { queue: [] } : {}), ...(it.build ? { doneAt: now + it.build * 1000 } : {}) });
   s.stats.built++;
+  // things that take time to build give their XP when you finish them
+  return it.build ? {} : { xp: it.xp, levelUps: addXp(s, it.xp) };
+}
+
+/** Open a finished construction site: the building is ready to use. */
+export function finishBuild(s: LandState, id: number, now = Date.now()): Gain {
+  const b = s.buildings.find((o) => o.id === id)!;
+  if (!b.doneAt) throw new Error('Already built.');
+  if (b.doneAt > now) throw new Error('Still being built.');
+  delete b.doneAt;
+  b.builtAt = now;
+  const it = item(b.item);
   return { xp: it.xp, levelUps: addXp(s, it.xp) };
 }
 
@@ -215,6 +248,7 @@ export function harvest(s: LandState, id: number, now = Date.now()): Gain & { go
 export function startMaking(s: LandState, id: number, goodId: string, now = Date.now()): void {
   const w = s.buildings.find((o) => o.id === id)!;
   const g = good(goodId);
+  if (w.doneAt) throw new Error('This workshop is still being built.');
   w.queue ??= [];
   if (w.queue.length >= SLOTS) throw new Error('All slots are busy.');
   if (s.level < g.level) throw new Error(`${g.name} unlocks at level ${g.level}.`);
@@ -242,11 +276,12 @@ export function collect(s: LandState, id: number, now = Date.now()): Gain & { go
 
 // ---------- speed-ups (paid with Fuzzies tokens) ----------
 export function rushCost(p: Placed, now = Date.now()): number {
-  const left = p.crop ? good(p.crop.good).time * 1000 - (now - p.crop.at) : p.queue?.length ? p.queue[0].end - now : 0;
+  const left = p.doneAt ? p.doneAt - now : p.crop ? good(p.crop.good).time * 1000 - (now - p.crop.at) : p.queue?.length ? p.queue[0].end - now : 0;
   return left <= 0 ? 0 : Math.max(1, Math.ceil(left / 300_000));
 }
 export function rush(p: Placed, now = Date.now()): void {
-  if (p.crop) p.crop.at = now - good(p.crop.good).time * 1000;
+  if (p.doneAt) p.doneAt = now;
+  else if (p.crop) p.crop.at = now - good(p.crop.good).time * 1000;
   else if (p.queue?.length) {
     const shift = p.queue[0].end - now;
     for (const q of p.queue) q.end -= shift;
@@ -261,7 +296,7 @@ function rand(seed: number): () => number {
 
 export function makeOrder(s: LandState, seed: number): Order {
   const r = rand(seed);
-  const avail = GOODS.filter((g) => g.level <= s.level && (g.at === 'field' || s.buildings.some((b) => b.item === g.at)));
+  const avail = GOODS.filter((g) => g.level <= s.level && (g.at === 'field' || s.buildings.some((b) => b.item === g.at && !b.doneAt)));
   const kinds = Math.min(avail.length, 1 + Math.floor(r() * Math.min(3, 1 + s.level / 3)));
   const pool = [...avail];
   const items: Record<string, number> = {};
@@ -325,4 +360,31 @@ export function migrateLand(s: Partial<LandState> | undefined): LandState {
   if (!s || s.v !== 1 || !Array.isArray(s.buildings)) return freshLand();
   const f = freshLand();
   return { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn } } as LandState;
+}
+
+// ---------- coming back ----------
+export interface Away { crops: number; goods: number; built: number }
+/** What finished while you were away (ready to collect). */
+export function awaySummary(s: LandState, now = Date.now()): Away {
+  return {
+    crops: s.buildings.filter((b) => b.crop && cropProgress(b, now) >= 1).length,
+    goods: s.buildings.reduce((n, b) => n + finished(b, now).length, 0),
+    built: s.buildings.filter((b) => b.doneAt && b.doneAt <= now).length,
+  };
+}
+
+/** Harvest every ripe field, collect every workshop and open every finished building (as far as the barn allows). */
+export function collectAll(s: LandState, now = Date.now()): Gain & { got: Record<string, number>; built: string[]; full: boolean } {
+  const got: Record<string, number> = {};
+  const built: string[] = [];
+  let xp = 0, full = false;
+  const ups: number[] = [];
+  for (const b of s.buildings) {
+    try {
+      if (b.doneAt && b.doneAt <= now) { const g = finishBuild(s, b.id, now); xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); built.push(b.item); }
+      if (b.crop && cropProgress(b, now) >= 1) { const g = harvest(s, b.id, now); got[g.good] = (got[g.good] ?? 0) + g.n; xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); }
+      if (finished(b, now).length) { const g = collect(s, b.id, now); for (const k of g.goods) got[k] = (got[k] ?? 0) + 1; xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); }
+    } catch { full = true; }
+  }
+  return { got, built, xp, levelUps: ups, full };
 }

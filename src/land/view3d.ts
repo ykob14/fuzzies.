@@ -12,7 +12,7 @@ import * as M from '../game/models3d';
 import * as GT from '../game/textures3d';
 import * as LM from './models';
 import * as LT from './textures';
-import { MAP, bounds, cropProgress, finished, item, footprint, good, population, type LandState, type Placed } from './rules';
+import { MAP, bounds, cropProgress, finished, item, footprint, good, population, walkway, type LandState, type Placed } from './rules';
 
 const PITCH = THREE.MathUtils.degToRad(52);
 const YAW = THREE.MathUtils.degToRad(45);
@@ -148,10 +148,10 @@ export class LandView {
     this.forest.clear();
     const o = (MAP - size) / 2;
     const r = GT.rng(19);
-    for (let i = 0; i < 170; i++) {
+    for (let i = 0; i < 150; i++) {
       const x = 0.8 + r() * (MAP - 1.6), z = 0.8 + r() * (MAP - 1.6);
-      const sc = 0.45 + r() * 0.4;
-      if (x > o - 0.4 && x < o + size + 0.4 && z > o - 0.4 && z < o + size + 0.4) continue;
+      const sc = 0.5 + r() * 0.35;
+      if (x > o - 1.2 && x < o + size + 1.2 && z > o - 1.2 && z < o + size + 1.2) continue; // keep a clear lawn around the town
       const t = M.makeTree(this.mats, i * 13 + 5, sc);
       t.position.set(x, 0, z);
       t.rotation.y = r() * 6.28;
@@ -175,14 +175,16 @@ export class LandView {
     const seen = new Set<number>();
     for (const p of s.buildings) {
       seen.add(p.id);
-      const key = `${p.item}:${p.x}:${p.z}:${p.rot}`;
+      const key = `${p.item}:${p.x}:${p.z}:${p.rot}:${p.doneAt ? 'site' : 'built'}`;
       let b = this.built.get(p.id);
-      if (b && b.key !== key) { b.node.removeFromParent(); b = undefined; }
+      if (b && b.key !== key) { b.node.removeFromParent(); b.bubble?.remove(); b = undefined; }
       if (!b) {
-        const node = LM.modelFor(p.item, p.id);
         const f = footprint(item(p.item), p.rot);
+        const node = p.doneAt ? LM.constructionSite(f.w, f.d, p.id) : LM.modelFor(p.item, p.id);
         node.position.set(p.x + f.w / 2, 0, p.z + f.d / 2);
-        node.rotation.y = p.rot ? -Math.PI / 2 : 0;
+        if (!p.doneAt) node.rotation.y = p.rot ? -Math.PI / 2 : 0;
+        // soft shadow underneath so buildings sit on the ground
+        if (!walkway(p.item) && p.item !== 'field' && p.item !== 'flowers') { const dims = p.doneAt ? f : item(p.item); node.add(LM.contactShadow(dims.w, dims.d)); } // sites aren't rotated, finished buildings are
         // new buildings pop up with a bounce
         if (p.builtAt && Date.now() - p.builtAt < 1500) { node.scale.setScalar(0.01); node.userData.grow = 0; }
         this.scene.add(node);
@@ -195,7 +197,7 @@ export class LandView {
     // which tiles Fuzzies can't walk through
     this.blocked.fill(0);
     for (const p of s.buildings) {
-      if (p.item === 'path') continue;
+      if (walkway(p.item)) continue;
       const f = footprint(item(p.item), p.rot);
       for (let x = p.x; x < p.x + f.w; x++) for (let z = p.z; z < p.z + f.d; z++) this.blocked[z * MAP + x] = 1;
     }
@@ -447,7 +449,7 @@ export class LandView {
     this.last = performance.now();
     const tick = (t: number) => {
       this.raf = requestAnimationFrame(tick);
-      const dt = Math.min(0.05, (t - this.last) / 1000);
+      const dt = Math.min(0.05, Math.max(0, (t - this.last) / 1000)); // the first frame time can be slightly in the past
       this.last = t;
       this.frame(dt);
     };
@@ -489,7 +491,18 @@ export class LandView {
       }
       const p = b.placed;
       let badge = '';
-      if (p.item === 'field') {
+      let timer = false;
+      if (p.doneAt) {
+        const left = p.doneAt - now;
+        if (left > 0) {
+          const sec = Math.ceil(left / 1000);
+          badge = `🔨 ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+          timer = true;
+          const arm = n.getObjectByName('arm');
+          if (arm) arm.rotation.y = Math.sin(T * 0.8 + p.id) * 0.9;
+          if (Math.random() < dt * 1.5) this.smoke(n.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.3, (Math.random() - 0.5) * 0.6)));
+        } else badge = '✨';
+      } else if (p.item === 'field') {
         const cid = p.crop?.good;
         if (cid !== b.cropId) { b.cropNode?.removeFromParent(); b.cropNode = cid ? LM.crop(cid) : undefined; if (b.cropNode) n.add(b.cropNode); b.cropId = cid; }
         if (b.cropNode) {
@@ -521,9 +534,11 @@ export class LandView {
       }
       // a little icon bubble over anything ready to collect
       if (badge) {
-        if (!b.bubble) { b.bubble = document.createElement('div'); b.bubble.className = 'land-ready'; this.overlay.append(b.bubble); }
+        if (!b.bubble) { b.bubble = document.createElement('div'); this.overlay.append(b.bubble); }
+        const cls = timer ? 'land-ready land-timer' : 'land-ready';
+        if (b.bubble.className !== cls) b.bubble.className = cls;
         if (b.bubble.textContent !== badge) b.bubble.textContent = badge;
-        this.toScreen(b.bubble, new THREE.Vector3(n.position.x, p.item === 'field' ? 0.85 : 2.1, n.position.z), Math.sin(T * 4 + p.id) * 4);
+        this.toScreen(b.bubble, new THREE.Vector3(n.position.x, p.item === 'field' ? 0.85 : p.doneAt ? 1.6 : 2.1, n.position.z), timer ? 0 : Math.sin(T * 4 + p.id) * 4);
       } else if (b.bubble) { b.bubble.remove(); b.bubble = undefined; }
     }
     this.selected.material.opacity = 0.25 + Math.sin(T * 4) * 0.1;

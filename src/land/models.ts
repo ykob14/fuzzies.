@@ -270,8 +270,62 @@ export function weaver(): THREE.Group {
 // ---------- fields & crops ----------
 export function field(): THREE.Group {
   const g = new THREE.Group();
-  add(g, rbox(0.94, 0.08, 0.94, 0.03), mat('soil', () => new THREE.MeshStandardMaterial({ map: T.soil(), roughness: 1 })), 0, 0.04, 0);
+  add(g, rbox(0.86, 0.08, 0.86, 0.03), mat('soil', () => new THREE.MeshStandardMaterial({ map: T.soil(), roughness: 1 })), 0, 0.04, 0);
+  // a neat wooden edging around each plot
+  const wood = textured('edge', T.planks('#a47148'), [1, 0.25], 0.8);
+  for (const [w, d, x, z] of [[0.98, 0.06, 0, 0.46], [0.98, 0.06, 0, -0.46], [0.06, 0.86, 0.46, 0], [0.06, 0.86, -0.46, 0]] as [number, number, number, number][]) add(g, rbox(w, 0.1, d, 0.015), wood, x, 0.05, z);
   return g;
+}
+
+/** A road tile: smooth paving with a thin kerb line; tiles side by side read as one street. */
+export function roadTile(): THREE.Group {
+  const g = new THREE.Group();
+  add(g, new THREE.BoxGeometry(1, 0.03, 1), mat('road', () => new THREE.MeshStandardMaterial({ map: (() => { const t = GT.concrete(); t.repeat.set(1, 1); return t; })(), color: '#c9c4bc', roughness: 0.9 })), 0, 0.015, 0, false);
+  return g;
+}
+
+/** A construction site for something still being built: foundation, scaffolding, crates and a little crane arm. */
+export function constructionSite(w: number, d: number, seed: number): THREE.Group {
+  const g = new THREE.Group();
+  const r = GT.rng(seed + 11);
+  add(g, rbox(w - 0.1, 0.1, d - 0.1, 0.03), textured('found', GT.concrete(false), [w, d], 0.9, '#d9d2c7'), 0, 0.05, 0);
+  const wood = textured('scaf', T.planks('#c08a52'), [1, 1], 0.8);
+  const h = 0.8 + Math.min(w, d) * 0.25;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(g, new THREE.BoxGeometry(0.06, h, 0.06), wood, sx * (w / 2 - 0.2), h / 2 + 0.1, sz * (d / 2 - 0.2));
+  for (const y of [h * 0.45, h * 0.9]) {
+    add(g, new THREE.BoxGeometry(w - 0.34, 0.05, 0.05), wood, 0, y, d / 2 - 0.2);
+    add(g, new THREE.BoxGeometry(w - 0.34, 0.05, 0.05), wood, 0, y, -(d / 2 - 0.2));
+    add(g, new THREE.BoxGeometry(0.05, 0.05, d - 0.34), wood, w / 2 - 0.2, y, 0);
+    add(g, new THREE.BoxGeometry(0.05, 0.05, d - 0.34), wood, -(w / 2 - 0.2), y, 0);
+  }
+  // half-built walls inside
+  add(g, rbox(w - 0.6, h * 0.45, d - 0.6, 0.02), textured('brickhalf', T.bricks('#c8734f'), [w, 0.5]), 0, 0.1 + h * 0.225, 0);
+  // crates and a striped barrier
+  for (let i = 0; i < 3; i++) add(g, rbox(0.18, 0.18, 0.18, 0.02), textured('crate', T.planks('#9c6b43'), [1, 1]), -w / 2 + 0.25 + r() * 0.3, 0.19 + (i === 2 ? 0.18 : 0), d / 2 - 0.05 - (i % 2) * 0.22);
+  const bar = add(g, new THREE.BoxGeometry(0.6, 0.08, 0.04), textured('barrier', T.stripes('#ffd43b', '#18171c', 8), [1, 1], 0.6), w / 2 - 0.45, 0.32, d / 2 + 0.02);
+  bar.name = 'barrier';
+  for (const x of [w / 2 - 0.7, w / 2 - 0.2]) add(g, new THREE.BoxGeometry(0.04, 0.3, 0.04), std('#495057'), x, 0.15, d / 2 + 0.02);
+  // a little crane arm that swings while work goes on
+  const crane = new THREE.Group();
+  add(crane, new THREE.BoxGeometry(0.06, h + 0.5, 0.06), std('#ffa94d', 0.5, 0.2), 0, (h + 0.5) / 2, 0);
+  const arm = new THREE.Group();
+  add(arm, new THREE.BoxGeometry(Math.max(w, 1.2) * 0.8, 0.05, 0.05), std('#ffa94d', 0.5, 0.2), Math.max(w, 1.2) * 0.3, 0, 0);
+  add(arm, new THREE.CylinderGeometry(0.006, 0.006, 0.4, 4), std('#333'), Math.max(w, 1.2) * 0.6, -0.2, 0, false);
+  add(arm, rbox(0.12, 0.08, 0.12, 0.01), textured('crate', T.planks('#9c6b43'), [1, 1]), Math.max(w, 1.2) * 0.6, -0.42, 0);
+  arm.position.y = h + 0.45;
+  arm.name = 'arm';
+  crane.add(arm);
+  crane.position.set(-(w / 2 - 0.2), 0.1, -(d / 2 - 0.2));
+  g.add(crane);
+  return g;
+}
+
+/** A soft dark patch under a building so it sits on the ground (a cheap stand-in for ambient occlusion). */
+export function contactShadow(w: number, d: number): THREE.Mesh {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.5, d + 0.5).rotateX(-Math.PI / 2), mat('ao', () => new THREE.MeshBasicMaterial({ map: GT.glow('rgba(0,0,0,0.55)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false, color: 0xffffff })));
+  m.position.y = 0.008;
+  m.renderOrder = -1;
+  return m;
 }
 
 const cropCache = new Map<string, THREE.Group>();
@@ -388,6 +442,7 @@ export function modelFor(itemId: string, seed: number): THREE.Group {
     case 'tree': return decorTree(seed);
     case 'flowers': return flowerBed(seed);
     case 'path': return pathTile();
+    case 'road': return roadTile();
     case 'bench': return bench();
     case 'lamp': return lampPost();
     case 'fountain': return fountain();
