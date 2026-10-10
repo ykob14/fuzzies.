@@ -76,19 +76,42 @@ export const rewards = {
   },
 };
 
+/** Time bonus: a surprise 2–10 Fuzzies for every 30 minutes the app is open and in use. */
+export const TIME_BONUS = { everyMin: 30, min: 2, max: 10 };
+const IDLE_AFTER = 5 * 60_000; // stop counting if nobody has touched the app for 5 minutes
+const timeKey = (id: string) => `fz.time.${id}`;
+
+function timeSoFar(id: string): number {
+  return Math.max(0, Number(localStorage.getItem(timeKey(id))) || 0);
+}
+
+/** Minutes left until the next time bonus, for the signed-in account. */
+export function minutesToTimeBonus(): number {
+  const a = accounts.current;
+  const left = TIME_BONUS.everyMin * 60 - (a ? timeSoFar(a.id) : 0);
+  return Math.max(1, Math.ceil(left / 60));
+}
+
 /**
- * Time-on-app reward: 1 Fuzzy for every 5 minutes you are actively creating
- * (the tab is visible and you touched, clicked or typed in the last minute).
+ * Counts time while the app is open (tab visible) and someone has used it in the last few minutes,
+ * so leaving it open overnight doesn't count. Progress is kept per account across reloads.
  */
 export function startActivityRewards(): void {
   let lastInput = Date.now();
-  let activeSeconds = 0;
+  let sinceMinute = 0;
   const mark = () => { lastInput = Date.now(); };
-  for (const ev of ['pointerdown', 'keydown', 'wheel']) addEventListener(ev, mark, { passive: true });
+  for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']) addEventListener(ev, mark, { passive: true });
   setInterval(() => {
-    if (!accounts.current || document.hidden || Date.now() - lastInput > 60_000) return;
-    activeSeconds += 10;
-    if (activeSeconds % 60 === 0) { accounts.update((a) => { a.stats.minutesActive++; }); track('minute'); }
-    if (activeSeconds >= 300) { activeSeconds = 0; rewards.earn(1, '5 creative minutes'); }
+    const a = accounts.current;
+    if (!a || document.hidden || Date.now() - lastInput > IDLE_AFTER) return;
+    sinceMinute += 10;
+    if (sinceMinute >= 60) { sinceMinute = 0; accounts.update((x) => { x.stats.minutesActive++; }); track('minute'); }
+    let t = timeSoFar(a.id) + 10;
+    if (t >= TIME_BONUS.everyMin * 60) {
+      t -= TIME_BONUS.everyMin * 60;
+      const n = TIME_BONUS.min + Math.floor(Math.random() * (TIME_BONUS.max - TIME_BONUS.min + 1));
+      rewards.earn(n, `Time bonus — thanks for hanging out! ⏰`);
+    }
+    localStorage.setItem(timeKey(a.id), String(t));
   }, 10_000);
 }

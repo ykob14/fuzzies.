@@ -1,6 +1,6 @@
 /** Rewards shop: everything you can unlock with Fuzzies, plus how to earn them. */
 import type { Screen } from '../app';
-import { rewards } from '../../core/rewards';
+import { rewards, TIME_BONUS, minutesToTimeBonus } from '../../core/rewards';
 import { accounts } from '../../core/account';
 import { THEMES, applyTheme } from '../../core/themes';
 import { templates } from '../../content/templates';
@@ -70,7 +70,7 @@ export function rewardsScreen(): Screen {
       h('section', { class: 'earn-grid' }, ...[
         ['🐸', 'Fuzzy Crossing', '+1 per Fuzzy, +5 golden, +2 per nest, +5 per level'],
         ['📅', 'Daily visit', '5 Fuzzies, growing with your streak (max 15)'],
-        ['⏱️', 'Creative time', '+1 for every 5 minutes you spend designing'],
+        ['⏰', 'Time bonus', `A surprise ${TIME_BONUS.min}–${TIME_BONUS.max} for every ${TIME_BONUS.everyMin} minutes in the app · next in ${minutesToTimeBonus()} min`],
         ['📤', 'Share designs', '+2 per share or download (5 a day)'],
         ['🎯', 'Missions & badges', '3 new missions a day, plus one-time achievement rewards'],
       ].map(([e, t, s]) => h('div', { class: 'earn' }, h('span', { class: 'earn-ic' }, e), h('div', null, h('b', null, t), h('small', null, s))))),
