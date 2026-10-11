@@ -105,7 +105,7 @@ async function hashPassword(pw: string, salt: string): Promise<string> {
 }
 
 const AVATAR_COLORS = ['#d6336c', '#18171c', '#b0245a', '#ff8fb4', '#5c5864'];
-const AVATAR_EMOJI = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐸', '🐙', '🦋', '🐯', '🐨'];
+const AVATAR_EMOJI = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐥', '🐙', '🦋', '🐯', '🐨'];
 const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
 function fresh(username: string, name: string, email: string, guest: boolean): Account {

@@ -10,7 +10,7 @@ import { signOut } from '../app';
 import { achievementsGrid } from '../missions';
 import { ACHIEVEMENTS } from '../../core/missions';
 
-const EMOJIS = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐸', '🐙', '🦋', '🐯', '🐨', '🐶', '🐱', '🌈', '⭐', '🍕', '🎨', '🚀', '🌸', '👾', '😎'];
+const EMOJIS = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐥', '🐙', '🦋', '🐯', '🐨', '🐶', '🐱', '🌈', '⭐', '🍕', '🎨', '🚀', '🌸', '👾', '😎'];
 const COLORS = ['#d6336c', '#b0245a', '#ff8fb4', '#ffd6e4', '#18171c', '#5c5864', '#a09ca7', '#efede9', '#e8590c', '#2b9a66'];
 
 export function profileScreen(): Screen {
