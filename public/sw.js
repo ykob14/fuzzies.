@@ -1,5 +1,5 @@
 // Fuzzies offline support: the app shell and fonts are cached so it opens without a connection.
-const CACHE = 'fuzzies-v2';
+const CACHE = 'fuzzies-v3';
 // your chosen app icon (drawn by the app, see src/core/appicon.ts) — kept across updates
 const ICON_CACHE = 'fuzzies-icon';
 const ICON_FILES = /\/(icon\.svg|icon-192\.png|icon-512\.png|icon-maskable-512\.png|apple-touch-icon\.png)$/;
@@ -23,7 +23,9 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(caches.open(ICON_CACHE).then((c) => c.match(req)).then((hit) => hit || caches.match(req)).then((hit) => hit || fetch(req)));
     return;
   }
-  if (req.mode === 'navigate') {
+  // "is there a new version?" checks always ask the server (never answered from the cache)
+  if (req.cache === 'no-store') return;
+  if (req.mode === 'navigate' || url.pathname.endsWith('/index.html')) {
     // network first for pages so updates show up, cache as fallback offline
     e.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('./index.html', copy)); return res; }).catch(() => caches.match('./index.html')));
     return;

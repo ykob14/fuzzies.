@@ -1136,3 +1136,10 @@ a.land-cap:hover .land-cap-plus { transform: scale(1.12); }
   .land-away { top: 112px; }
 }
 @media (max-width: 380px) { .land-hud-r .land-cap:nth-child(2) { display: none; } }
+
+/* "A new version is ready" */
+.update-banner { position: fixed; z-index: 500; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+  max-width: calc(100% - 24px); padding: 8px 8px 8px 16px; border-radius: 999px; background: #18171c; color: #fff; font: 600 14px var(--ui); box-shadow: 0 10px 30px rgba(0,0,0,.3); animation: update-in .4s cubic-bezier(.2,.9,.3,1.2); }
+.update-banner button { border: 0; border-radius: 999px; padding: 8px 14px; background: var(--accent); color: var(--on-accent); font: 700 13.5px var(--ui); cursor: pointer; }
+.update-banner button.later { background: transparent; color: #fff; opacity: .7; padding: 8px 10px; }
+@keyframes update-in { from { transform: translate(-50%, 30px); opacity: 0; } }
