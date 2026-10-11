@@ -96,7 +96,13 @@ export function POST(req: Request): Promise<Response> {
           const raw = randomBytes(32).toString('base64url');
           await q("insert into fz_resets (token_hash, user_id, expires_at) values ($1, $2, now() + interval '1 hour')", [hashToken(raw), rows[0].id]);
           await q("delete from fz_resets where expires_at < now() - interval '1 day'");
-          await sendMail(email, resetEmail(rows[0].username, `${appUrl(req)}/#/reset/${raw}`));
+          try {
+            await sendMail(email, resetEmail(rows[0].username, `${appUrl(req)}/#/reset/${raw}`));
+          } catch (e) {
+            // an email that never went out doesn't count towards the hourly limit (and its link is useless)
+            await q('delete from fz_resets where token_hash = $1', [hashToken(raw)]).catch(() => {});
+            throw e;
+          }
         }
         return { ok: true };
       }

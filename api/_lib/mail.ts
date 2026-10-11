@@ -5,7 +5,10 @@
  */
 import { HttpError } from './auth.js';
 
-export const mailReady = (): boolean => !!process.env.RESEND_API_KEY;
+/** The key as pasted into Vercel, forgiving stray spaces/quotes around it. */
+const apiKey = (): string => (process.env.RESEND_API_KEY ?? '').trim().replace(/^["']|["']$/g, '').trim();
+
+export const mailReady = (): boolean => !!apiKey();
 
 /** Throws a friendly 503 when email isn't set up yet (so the app can say so). */
 export function requireMail(): void {
@@ -16,14 +19,22 @@ export async function sendMail(to: string, m: { subject: string; html: string; t
   requireMail();
   const res = await fetch(process.env.RESEND_API_URL || 'https://api.resend.com/emails', {
     method: 'POST',
-    headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+    headers: { authorization: `Bearer ${apiKey()}`, 'content-type': 'application/json' },
     body: JSON.stringify({ from: process.env.MAIL_FROM || 'Fuzzies <onboarding@resend.dev>', to: [to], subject: m.subject, html: m.html, text: m.text }),
   });
   if (!res.ok) {
-    console.error('email not sent', res.status, (await res.text()).slice(0, 500));
-    throw new HttpError(502, res.status === 403
-      ? 'We couldn’t send the email yet: the sender address isn’t verified in Resend (until it is, emails only go to the Resend account’s own address).'
-      : `We couldn’t send the email right now — please try again in a minute. (ref: mail ${res.status})`);
+    const body = (await res.text()).slice(0, 500);
+    console.error('email not sent', res.status, body);
+    let name = '';
+    try { name = String(JSON.parse(body).name ?? ''); } catch { /* not JSON */ }
+    // a safe hint about the key (never the key itself): does it look like a Resend key, and how long is it?
+    const k = apiKey();
+    const keyHint = `key ${k.startsWith('re_') ? 're_' : 'not re_'}…${k.length}`;
+    if (name === 'validation_error' && res.status === 403 || /domain|verify|testing emails/i.test(body) && res.status === 403)
+      throw new HttpError(502, 'We couldn’t send the email yet: the sender address isn’t verified in Resend (until it is, emails only go to the Resend account’s own address).');
+    if (res.status === 401 || name === 'invalid_api_key' || name === 'missing_api_key' || name === 'restricted_api_key')
+      throw new HttpError(502, `Email isn’t working yet: Resend didn’t accept the email key saved in Vercel. (ref: mail ${res.status} ${name || '-'} · ${keyHint})`);
+    throw new HttpError(502, `We couldn’t send the email right now — please try again in a minute. (ref: mail ${res.status} ${name || '-'})`);
   }
 }
 
