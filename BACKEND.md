@@ -58,6 +58,22 @@ Changing it later logs everyone out once.
 - Local: put `DATABASE_URL=…` in `.env.local` (a Neon branch, `vercel env pull`, or a local Postgres) and run `npm run dev`.
   Vite serves `/api/*` with the same functions.
 
+## Password reset emails (Resend)
+
+"Forgot your password?" emails a link (works once, for 1 hour) through **Resend** — free for 3,000 emails a month.
+
+1. Sign up at **resend.com** (use the same email you want to test with, e.g. your Gmail).
+2. In Resend → **API Keys** → **Create API key** (permission: *Sending access*). Copy it.
+3. In Vercel → your project → **Settings → Environment Variables**, add `RESEND_API_KEY` = the key (all environments).
+4. **Redeploy** (Deployments → ⋯ → Redeploy). Done: "Forgot your password?" now sends emails.
+
+Until you verify a domain, Resend's test sender (`onboarding@resend.dev`) **only delivers to the email you signed up to
+Resend with**. To email any player: Resend → **Domains** → add your domain (e.g. fuzzies.app) and add the DNS records it
+shows, then set `MAIL_FROM` in Vercel to e.g. `Fuzzies <hello@fuzzies.app>` and redeploy.
+
+Optional: `APP_URL` (e.g. `https://fuzzies.app`) sets the address used in email links; by default it's your Vercel
+production address.
+
 ## Troubleshooting
 
 - **Health check:** open `https://<your-site>/api/auth?check` in a browser.

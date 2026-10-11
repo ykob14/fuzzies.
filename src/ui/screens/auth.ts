@@ -63,7 +63,24 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
       const forgot = cloud.enabled ? h('button', { class: 'link small', type: 'button' }, 'Forgot your password?') : null;
       forgot?.addEventListener('click', () => {
         err.textContent = '';
-        note.textContent = 'Still logged in on another phone or computer? Change your password there in Profile. Password reset by email is coming soon.';
+        note.textContent = '';
+        // a small "email me a link" box, pre-filled with the email typed above
+        const mail = h('input', { class: 'input', type: 'email', autocomplete: 'email', placeholder: 'you@example.com', value: user.value.includes('@') ? user.value : '' });
+        const msg = h('p', { class: 'auth-reset-msg', role: 'status' });
+        const send = btn('Email me a reset link', { kind: 'soft', class: 'btn-block' });
+        send.addEventListener('click', async () => {
+          msg.className = 'auth-reset-msg';
+          msg.textContent = '';
+          send.disabled = true;
+          try {
+            await cloud.requestReset(mail.value);
+            msg.classList.add('ok');
+            msg.textContent = `If there's a Fuzzies account for ${mail.value.trim()}, a reset link is on its way. Check your inbox (and spam). The link works for 1 hour.`;
+          } catch (x) { msg.classList.add('bad'); msg.textContent = (x as Error).message; } finally { send.disabled = false; }
+        });
+        const box = h('div', { class: 'auth-reset' }, h('b', null, 'Reset your password'), h('small', null, 'We’ll email you a link to choose a new one.'), mail, send, msg);
+        forgot.replaceWith(box);
+        mail.focus();
       });
       form.append(field(label, user), field('Password', pw), err, note, btn('Log in', { kind: 'primary', size: 'lg', class: 'btn-block' }), ...(forgot ? [forgot] : []));
       form.addEventListener('submit', async (e) => {
@@ -109,4 +126,36 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
     h('ul', { class: 'auth-features' }, ...features.map(([k, t, s], i) => h('li', { style: `--i:${i}` }, featureArt(k), h('div', null, h('b', null, t), h('small', null, s))))));
 
   return { el: h('div', { class: 'auth' }, hero, h('div', { class: 'auth-side' }, card)) };
+}
+
+/** "Choose a new password" — opened from the link in a reset email (#/reset/<token>). */
+export function resetScreen(resetToken: string): Screen {
+  const pw = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'At least 6 characters', required: true });
+  const pw2 = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'Type it again', required: true });
+  const err = h('p', { class: 'form-err', role: 'alert' });
+  const form = h('form', { class: 'auth-form' },
+    h('label', { class: 'field' }, h('span', null, 'New password'), pw),
+    h('label', { class: 'field' }, h('span', null, 'Confirm new password'), pw2),
+    err,
+    btn('Save my new password', { kind: 'primary', size: 'lg', class: 'btn-block' }));
+  form.querySelector('button')!.setAttribute('type', 'submit');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.textContent = '';
+    if (pw.value !== pw2.value) { err.textContent = 'The two passwords don’t match.'; return; }
+    const b = form.querySelector('button')!;
+    b.disabled = true;
+    try {
+      await cloud.resetPassword(resetToken, pw.value);
+      applyTheme();
+      toast('New password saved — you’re logged in 🎉', 'good', 3500);
+      location.replace('#/home');
+    } catch (x) { err.textContent = (x as Error).message; } finally { b.disabled = false; }
+  });
+  const card = h('div', { class: 'auth-card auth-reset-card' },
+    h('div', { class: 'auth-reset-head' }, mascot(64, { sparkles: true }), h('div', null, h('h2', null, 'Choose a new password'), h('small', { class: 'muted' }, 'You’ll be logged in right after.'))),
+    form,
+    h('div', { class: 'auth-alt' }, h('a', { class: 'link', href: '#/login' }, 'Back to log in')));
+  if (!cloud.enabled) card.replaceChildren(h('h2', null, 'Password reset isn’t available'), h('p', { class: 'muted' }, 'Accounts on this site are saved on each device.'), h('a', { class: 'link', href: '#/login' }, 'Back to log in'));
+  return { el: h('div', { class: 'auth auth-solo' }, h('div', { class: 'auth-side' }, card)) };
 }

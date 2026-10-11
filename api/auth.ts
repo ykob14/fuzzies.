@@ -6,13 +6,29 @@
  *   password { old, new } (logged in)              → { token }  (other devices are logged out)
  *   delete   (logged in)                           → { ok }     (removes the account and all its data)
  *   username { username }                          → { available }
+ *   forgot   { email }                             → { ok }     (emails a reset link if the account exists)
+ *   reset    { token, password }                   → { token, user }  (sets the new password; logs in)
  */
+import { createHash, randomBytes } from 'node:crypto';
 import { db, q } from './_lib/db.js';
+import { requireMail, sendMail, resetEmail } from './_lib/mail.js';
 import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json, BUILD } from './_lib/auth.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME = /^[a-z0-9_.]{3,20}$/;
 const MAX_FAILS = 10; // wrong passwords per email per 15 minutes
+const MAX_RESETS = 3; // reset emails per account per hour
+
+/** Only a hash of each reset link is stored, so a database leak can't be used to reset passwords. */
+const hashToken = (raw: string) => createHash('sha256').update(raw).digest('hex');
+
+/** Where the app lives, for links in emails: APP_URL if set, else the site's production address, else this request's. */
+function appUrl(req: Request): string {
+  const set = process.env.APP_URL?.replace(/\/+$/, '');
+  if (set) return set;
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  return new URL(req.url).origin;
+}
 
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const publicUser = (u: { id: string; email: string; username: string }) => ({ id: u.id, email: u.email, username: u.username });
@@ -67,6 +83,35 @@ export function POST(req: Request): Promise<Response> {
           throw new HttpError(401, 'Wrong email or password.');
         }
         return { token: makeToken(rows[0].id, rows[0].token_v), user: publicUser(rows[0]) };
+      }
+      case 'forgot': {
+        requireMail(); // say so straight away if email isn't set up
+        const email = str(b.email).toLowerCase();
+        if (!EMAIL.test(email)) throw new HttpError(400, 'Please enter the email you signed up with.');
+        const { rows } = await q<{ id: string; username: string }>('select id, username from fz_users where email = $1', [email]);
+        // the answer is the same whether or not the account exists (so nobody can probe for emails)
+        if (rows[0]) {
+          const { rows: recent } = await q("select count(*)::int as n from fz_resets where user_id = $1 and created_at > now() - interval '1 hour'", [rows[0].id]);
+          if (recent[0].n >= MAX_RESETS) throw new HttpError(429, 'We’ve already sent you a few emails — check your inbox and spam folder, or try again in an hour.');
+          const raw = randomBytes(32).toString('base64url');
+          await q("insert into fz_resets (token_hash, user_id, expires_at) values ($1, $2, now() + interval '1 hour')", [hashToken(raw), rows[0].id]);
+          await q("delete from fz_resets where expires_at < now() - interval '1 day'");
+          await sendMail(email, resetEmail(rows[0].username, `${appUrl(req)}/#/reset/${raw}`));
+        }
+        return { ok: true };
+      }
+      case 'reset': {
+        const raw = str(b.token, 100);
+        const password = typeof b.password === 'string' ? b.password : '';
+        if (password.length < 6 || password.length > 200) throw new HttpError(400, 'Password needs at least 6 characters.');
+        // a link works once, for an hour
+        const { rows } = await q<{ user_id: string }>('update fz_resets set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning user_id', [hashToken(raw)]);
+        if (!rows[0]) throw new HttpError(400, 'This reset link has expired or was already used — ask for a new one from the log-in screen.');
+        // new password, and every other device is logged out
+        const { rows: u } = await q('update fz_users set pass = $2, token_v = token_v + 1 where id = $1 returning id, email, username, token_v', [rows[0].user_id, await hashPassword(password)]);
+        await q('update fz_resets set used_at = now() where user_id = $1 and used_at is null', [rows[0].user_id]); // older links stop working too
+        await q('delete from fz_login_fails where email = $1', [u[0].email]);
+        return { token: makeToken(u[0].id, u[0].token_v), user: publicUser(u[0]) };
       }
       case 'username': {
         const username = str(b.username, 40).toLowerCase();

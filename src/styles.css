@@ -191,6 +191,15 @@ li:hover .fa .fa-coin { animation: fa-spin 1s linear infinite; }
 .auth-card { width: min(420px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 28px; box-shadow: var(--shadow-lg); }
 .auth-form { margin-top: 18px; }
 .auth-alt { text-align: center; margin-top: 16px; }
+/* forgot password: the "email me a link" box and the new-password screen */
+.auth-reset { display: grid; gap: 8px; margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--border); }
+.auth-reset small { color: var(--muted); margin-top: -4px; }
+.auth-reset-msg { font-size: 13.5px; margin: 0; }
+.auth-reset-msg.ok { color: var(--good, #2b8a3e); }
+.auth-reset-msg.bad { color: #d9480f; }
+.auth.auth-solo { grid-template-columns: 1fr; }
+.auth-reset-head { display: flex; align-items: center; gap: 14px; }
+.auth-reset-head h2 { font: 700 24px/1.15 var(--brand); }
 
 /* ===================== shell ===================== */
 .app { display: grid; grid-template-columns: 264px 1fr; min-height: 100vh; min-height: 100dvh; }

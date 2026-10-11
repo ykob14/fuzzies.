@@ -245,6 +245,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | _(go-live)_ | Final check of the production build on a computer and a phone (every screen, editor, Fuzzies Land toolbar/panels/back button, side-menu fold: all pass, no errors). Fixed the side-menu fold button being half-covered by the top bar (sidebar now above it). Frog removed from the random/choosable avatar emoji. **Merged to `main` (live).** |
 | _(fix)_ | **Sign-up "Something went wrong on our side" (owner hit it on the live site, cloud mode).** Backend made resilient for Neon: pool `connectionTimeoutMillis`/`idleTimeoutMillis`, `pool.on('error')` so a connection dropped while idle can't crash the function, `q()` retries a query once on dropped-connection errors; setup errors are tagged. Errors now carry a safe reference (`ref: setup 28P01` etc.) and `GET /api/auth?check` is a browser health check (see BACKEND.md → Troubleshooting). Tested against real Postgres (sign-up, log-in, duplicate, connections killed mid-way, wrong password → `setup 28P01`) and with `vercel build` + the built function. |
 | _(fix 2)_ | **Live sign-up: `ref: setup SELF_SIGNED_CERT_IN_CHAIN`.** The owner's database presents a provider-signed certificate (Supabase-style), and pg treated `sslmode=require` as verify-against-public-CAs. `api/_lib/db.ts` now reads/strips sslmode itself: verify first, and on a not-publicly-signed certificate fall back to encrypted-without-verification (libpq `require`), unless `verify-full`/`verify-ca` or a `DATABASE_CA` is set (then strict). Reproduced with a test Postgres using its own CA, fixed, and checked with `vercel build`. |
+| _(reset)_ | **Password reset by email** (owner asked). "Forgot your password?" → email box → `forgot` emails a single-use link valid 1 hour (only a SHA-256 of the token is stored in `fz_resets`; same answer whether or not the account exists; 3 emails/account/hour) → `#/reset/<token>` screen (new password ×2) → `reset` sets it, logs out other devices, clears failed-login counter, logs in. Email via Resend's HTTP API (`api/_lib/mail.ts`, no new packages): needs `RESEND_API_KEY` in Vercel (optional `MAIL_FROM`, `APP_URL`); without it the app says email isn't switched on yet. Tested end to end with a mock email service + real Postgres. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
@@ -253,8 +254,8 @@ and chose a single consistent brand colour instead (see §3).
 ## 8. Known limitations / not verified
 
 - **Cloud sign-up on the live site** failed once for the owner with a generic 500 (cause not visible from Claude's side: no Vercel log access). If it happens again, ask for the `ref:` code or the `/api/auth?check` output.
-- **No emails yet:** no password reset or email confirmation (needs an email service such as Resend). The "Forgot your
-  password?" link explains the workaround (change it from a device that's still logged in).
+- **Password reset emails need `RESEND_API_KEY` in Vercel** (owner step, BACKEND.md). Until a domain is verified in Resend,
+  emails only reach the Resend account's own address. No email confirmation at sign-up yet.
 - Fuzzies balance and unlocks are written by the app itself, so a technical user could edit their own balance via the API
   (fine for now; a server-side rewards check would fix it).
 - Photos are stored inside each design's JSON row (and uploads as data URLs), so designs with many photos sync slowly.

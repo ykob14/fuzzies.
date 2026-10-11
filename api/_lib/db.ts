@@ -47,6 +47,14 @@ create table if not exists fz_login_fails (
   at timestamptz not null default now()
 );
 create index if not exists fz_login_fails_idx on fz_login_fails (email, at);
+create table if not exists fz_resets (
+  token_hash text primary key,
+  user_id uuid not null references fz_users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  used_at timestamptz
+);
+create index if not exists fz_resets_user_idx on fz_resets (user_id, created_at);
 `;
 
 /** Errors that mean "the connection dropped" (Neon puts idle databases to sleep): safe to retry once. */

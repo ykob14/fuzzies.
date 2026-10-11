@@ -97,6 +97,21 @@ export const cloud = {
     return adopt(res.user);
   },
 
+  /** "Forgot your password?": email a reset link (the server answers the same whether or not the account exists). */
+  async requestReset(email: string): Promise<void> {
+    const e = email.trim().toLowerCase();
+    if (!EMAIL.test(e)) throw new Error('Please enter the email you signed up with.');
+    await api('auth', 'forgot', { email: e });
+  },
+
+  /** Set a new password from an emailed link, and log in. */
+  async resetPassword(resetToken: string, password: string): Promise<Account> {
+    if (password.length < 6) throw new Error('Password needs at least 6 characters.');
+    const res = await api<{ token: string; user: CloudUser }>('auth', 'reset', { token: resetToken, password });
+    token.set(res.token);
+    return adopt(res.user);
+  },
+
   /** Move the guest or on-device account you're using into the cloud, keeping designs and Fuzzies. */
   async claim(input: SignUpInput): Promise<Account> {
     const a = accounts.current;

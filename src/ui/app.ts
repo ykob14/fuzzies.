@@ -6,7 +6,7 @@ import { h, icon, logo, fuzzyMark, avatarEl, popMenu, toast, QUOTE, type IconNam
 import { cloud } from '../core/cloud';
 import { watchAppIcon } from '../core/appicon';
 import { sync } from '../core/sync';
-import { authScreen } from './screens/auth';
+import { authScreen, resetScreen } from './screens/auth';
 import { homeScreen } from './screens/home';
 import { templatesScreen } from './screens/templates';
 import { projectsScreen } from './screens/projects';
@@ -115,6 +115,12 @@ export function route(): void {
   document.querySelector('.popmenu')?.remove();
   document.querySelectorAll('.picker').forEach((p) => p.remove());
 
+  // a password-reset link from an email works whether or not someone is logged in on this device
+  if (name === 'reset' && arg) {
+    current = resetScreen(arg);
+    root().replaceChildren(current.el);
+    return;
+  }
   // shared design links open for everyone, signed in or not
   if (name === 's' && arg) {
     current = sharedScreen(arg);
