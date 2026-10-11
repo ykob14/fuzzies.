@@ -64,6 +64,9 @@ Changing it later logs everyone out once.
   `{"ok":true,"database":"connected",…}` means the backend and Neon are working.
 - **"Something went wrong on our side … (ref: …)"** — the ref says where it failed and the database/network error code
   (never anything secret). Common ones:
+  - `setup SELF_SIGNED_CERT_IN_CHAIN` — the provider signs its certificate with its own authority (Supabase does).
+    Fixed in code: with `sslmode=require` (the usual) the app stays encrypted without public verification. To verify it
+    too, paste the provider's CA certificate into a Vercel environment variable `DATABASE_CA` and redeploy.
   - `setup 28P01` — wrong database password: reconnect Neon in Vercel → Storage, then redeploy.
   - `setup 3D000` — the database name doesn't exist.
   - `setup ENOTFOUND` / `ECONNREFUSED` / `ETIMEDOUT` — the database address is wrong or unreachable.
