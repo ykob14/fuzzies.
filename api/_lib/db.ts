@@ -42,6 +42,40 @@ create table if not exists fz_uploads (
   updated_at bigint not null,
   primary key (owner, id)
 );
+-- Template catalog: metadata (searchable) kept apart from the editable document; published = visible to everyone.
+create table if not exists fz_templates (
+  id text primary key,
+  status text not null default 'draft',
+  name text not null,
+  category text not null default '',
+  sub text not null default '',
+  format text not null default '',
+  format_label text not null default '',
+  width integer not null,
+  height integer not null,
+  pages integer not null default 1,
+  style text not null default '',
+  colors text[] not null default '{}',
+  occasion text not null default '',
+  tags text[] not null default '{}',
+  thumb text,
+  doc jsonb not null,
+  revision integer not null default 1,
+  search tsvector,
+  author uuid references fz_users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists fz_templates_search on fz_templates using gin (search);
+create index if not exists fz_templates_listing on fz_templates (status, created_at desc);
+-- One row per person per template per day: real usage for "Trending" and "Popular" (no personal details shown).
+create table if not exists fz_template_uses (
+  template_id text not null,
+  user_id uuid not null references fz_users (id) on delete cascade,
+  day date not null default current_date,
+  primary key (template_id, user_id, day)
+);
+create index if not exists fz_template_uses_day on fz_template_uses (day);
 create table if not exists fz_login_fails (
   email text not null,
   at timestamptz not null default now()

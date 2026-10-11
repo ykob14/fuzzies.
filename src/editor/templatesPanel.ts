@@ -2,7 +2,8 @@
 import type { Editor } from './editor';
 import type { Design } from './types';
 import { instantiate } from './doc';
-import { catalog, CATEGORIES_TREE, loadTemplateDoc, type TemplateMeta } from '../content/library/catalog';
+import { catalog, CATEGORIES_TREE, loadTemplateDoc, onCatalogChange, type TemplateMeta } from '../content/library/catalog';
+import { loadPublished, searchPublished } from '../content/library/remote';
 import { search as searchTemplates } from '../content/library/search';
 import { usage, recordUse } from '../content/library/usage';
 import { lazyThumb } from '../ui/libthumbs';
@@ -30,6 +31,7 @@ export function templatesPanelBody(ed: Editor, o: { afterAdd: () => void; rerend
         return b;
       }));
       const list = searchTemplates(catalog(), tplQuery, { category: tplCat || undefined }, usage);
+      void searchPublished(tplQuery, { category: tplCat || undefined });
       grid.replaceChildren(...list.slice(0, tplShown).map((m) => tplCard(m)));
       if (!list.length) grid.append(h('p', { class: 'muted' }, 'No templates match.'));
       more.hidden = list.length <= tplShown;
@@ -37,6 +39,9 @@ export function templatesPanelBody(ed: Editor, o: { afterAdd: () => void; rerend
     let tmr = 0;
     search.addEventListener('input', () => { clearTimeout(tmr); tmr = window.setTimeout(() => { tplQuery = search.value; tplShown = 40; fill(); }, 120); });
     fill();
+    // published templates arrive from the server a moment later
+    const off = onCatalogChange(() => { if (wrap.isConnected) fill(); else off(); });
+    void loadPublished();
     wrap.append(search, chips, grid, more);
     return wrap;
   }

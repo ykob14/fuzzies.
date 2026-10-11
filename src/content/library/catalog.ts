@@ -132,11 +132,11 @@ export function catalog(): TemplateMeta[] {
   builtIn ??= [...CATEGORIES_TREE.flatMap((c) => c.subcategories.flatMap((s) => plan(c, s))), ...classicTemplates().map(classicMeta)];
   return published.size ? [...published.values(), ...builtIn] : builtIn;
 }
-export const metaById = (id: string): TemplateMeta | undefined => catalog().find((m) => m.id === id);
+export const metaById = (id: string): TemplateMeta | undefined => published.get(id) ?? catalog().find((m) => m.id === id);
 
 /** Add/refresh templates published from the template manager (server). */
-export function setPublished(list: TemplateMeta[]): void {
-  published.clear();
+export function setPublished(list: TemplateMeta[], merge = false): void {
+  if (!merge) published.clear();
   for (const m of list) published.set(m.id, { ...m, source: 'published', words: wordsOf(m.name, m.tags, subById(m.sub)?.sub.label, subById(m.sub)?.cat.label, subById(m.sub)?.sub.keywords, m.style, m.colors, m.formatLabel, m.occasion) });
   listeners.forEach((f) => f());
 }
@@ -167,11 +167,12 @@ export function templateDoc(m: TemplateMeta): Design {
 /** Works for every source (downloads published documents once). */
 export async function loadTemplateDoc(m: TemplateMeta): Promise<Design> {
   if (m.source !== 'published') return templateDoc(m);
-  const hit = docs.get(m.id);
+  const key = `${m.id}@${m.version}`; // a re-published template gets a new revision
+  const hit = docs.get(key);
   if (hit) return hit;
   if (!remoteDoc) throw new Error('This template is not available offline.');
   const d = await remoteDoc(m.id);
-  docs.set(m.id, d);
+  docs.set(key, d);
   return d;
 }
 /** Text sizes depend on fonts; when fonts arrive, rebuild library documents so pictures and layouts are exact. */

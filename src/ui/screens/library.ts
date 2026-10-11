@@ -9,6 +9,7 @@ import { rewards } from '../../core/rewards';
 import { catalog, CATEGORIES_TREE, metaById, onCatalogChange, subById, type TemplateMeta } from '../../content/library/catalog';
 import { search, facets, related, type Filters } from '../../content/library/search';
 import { usage, loadStats } from '../../content/library/usage';
+import { loadPublished, searchPublished } from '../../content/library/remote';
 import { h, btn, icon, fuzzyMark, modal } from '../dom';
 import { createBlank, createDialog, useCatalogTemplate } from '../create';
 import { lazyThumb } from '../libthumbs';
@@ -140,6 +141,7 @@ export function libraryScreen(): Screen {
     // the filter menus only offer choices that have results for the current topic/search
     const base = search(all, q, { category: f.category, sub: f.sub });
     results = search(all, q, f, usage);
+    void searchPublished(q, f); // only asks the server when it holds more templates than we loaded
     renderTree();
     renderFilters(base);
     count.textContent = `${results.length} template${results.length === 1 ? '' : 's'}`;
@@ -177,6 +179,7 @@ export function libraryScreen(): Screen {
 
   // the real usage numbers arrive a moment later (cloud)
   void loadStats().then((s) => { if (s && main.isConnected) fill(); });
+  void loadPublished(); // templates published from the template manager join the catalog (onCatalogChange)
   const offCat = onCatalogChange(() => { if (main.isConnected) fill(); });
   const offAcc = accounts.onChange(() => { if (main.isConnected && location.hash.startsWith('#/templates')) fill(); });
   fill();
