@@ -9,7 +9,8 @@ import { DOC_VERSION } from '../../editor/model';
 import { templates as classicTemplates, type Template } from '../templates';
 import { ARCHETYPES, FORMATS, buildPages, type Archetype, type EventText, type Format, type Kind } from './layouts';
 import { FONTS, PALETTES, paletteById } from './palettes';
-import { HALLOWEEN, buildCollectionDoc } from './collections/halloween';
+import { COLLECTION_SETS, buildCollectionDoc, type CollectionSet } from './collections';
+import type { CollectionTemplate } from './collections/kit';
 
 // ---------- taxonomy (data-driven: edit taxonomy.json) ----------
 export interface SubDef { id: string; label: string; emoji: string; keywords: string[]; palettes?: string[]; events: EventText[]; generate?: boolean }
@@ -40,6 +41,8 @@ export interface TemplateMeta {
   addedAt: number;
   version: number;
   thumb?: string;   // published templates carry a server-made picture
+  /** What it's for (holiday sub-filters): greeting, invitation, party, social, flyer, poster. */
+  use?: string;
   /** How to build a library template (never stored with user designs). */
   recipe?: { arch: string; pal: string; voice: string; event: number; format: Format };
   /** Lower-cased words for search (name, category, keywords, tags…). */
@@ -50,7 +53,7 @@ export interface TemplateMeta {
 const LIBRARY_ADDED = Date.UTC(2026, 9, 11);
 const CLASSIC_ADDED = Date.UTC(2026, 9, 1);
 
-const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9%#+&]+/g, ' ').trim();
+const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f\u0591-\u05c7]/g, '').replace(/[^\p{L}\p{N}%#+&]+/gu, ' ').trim();
 const wordsOf = (...parts: (string | string[] | undefined)[]) => [...new Set(parts.flat().filter(Boolean).flatMap((p) => norm(p as string).split(' ')).filter((w) => w.length > 1 || /\d/.test(w)))];
 
 function hash(s: string): number { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -124,16 +127,16 @@ function classicMeta(t: Template): TemplateMeta {
   };
 }
 
-/** Hand-composed collections (illustrated, made one by one — see collections/). */
-const COLLECTION_ADDED = Date.UTC(2026, 9, 11, 12);
-const collectionBuilders = new Map(HALLOWEEN.map((t) => [`halloween--${t.id}`, t]));
-function collectionMeta(t: (typeof HALLOWEEN)[number]): TemplateMeta {
-  const f = FORMATS[t.format], s = subById('halloween');
+/** Hand-made collections (illustrated, made one by one — see collections/). */
+const collectionBuilders = new Map<string, { set: CollectionSet; t: CollectionTemplate }>(COLLECTION_SETS.flatMap((set) => set.list.map((t) => [`${set.sub}--${t.id}`, { set, t }] as const)));
+const USE_WORDS: Record<string, string[]> = { greeting: ['greeting', 'greetings', 'card', 'wishes'], invitation: ['invitation', 'invite', 'rsvp'], party: ['party', 'parties', 'event'], social: ['social', 'social media', 'instagram', 'post'], flyer: ['flyer', 'flyers', 'leaflet'], poster: ['poster', 'posters', 'print'] };
+function collectionMeta(set: CollectionSet, t: CollectionTemplate): TemplateMeta {
+  const f = FORMATS[t.format], s = subById(set.sub);
   return {
-    id: `halloween--${t.id}`, name: t.name, category: s?.cat.id ?? 'celebrations', sub: 'halloween', format: t.format, formatLabel: f.label,
-    width: f.w, height: f.h, pages: 1, style: t.style, colors: t.colors, occasion: t.occasion, tags: [...t.tags, 'illustrated'],
-    cost: 0, source: 'collection', addedAt: COLLECTION_ADDED, version: 1,
-    words: wordsOf(t.name, t.tags, s?.sub.label, s?.cat.label, s?.sub.keywords, t.style, t.colors, f.label, t.occasion, 'illustrated'),
+    id: `${set.sub}--${t.id}`, name: t.name, category: s?.cat.id ?? 'celebrations', sub: set.sub, format: t.format, formatLabel: f.label,
+    width: f.w, height: f.h, pages: 1, style: t.style, colors: t.colors, occasion: t.occasion, tags: [...t.tags, 'illustrated'], use: t.use,
+    cost: 0, source: 'collection', addedAt: set.addedAt, version: 1,
+    words: wordsOf(t.name, t.tags, s?.sub.label, s?.cat.label, s?.sub.keywords, t.style, t.colors, f.label, t.occasion, 'illustrated', t.use ? USE_WORDS[t.use] : []),
   };
 }
 
@@ -143,7 +146,7 @@ const listeners = new Set<() => void>();
 
 /** Everything in the catalog right now (built-in first time it's asked for; published ones as they arrive). */
 export function catalog(): TemplateMeta[] {
-  builtIn ??= [...HALLOWEEN.map(collectionMeta), ...CATEGORIES_TREE.flatMap((c) => c.subcategories.flatMap((s) => plan(c, s))), ...classicTemplates().map(classicMeta)];
+  builtIn ??= [...COLLECTION_SETS.flatMap((set) => set.list.map((t) => collectionMeta(set, t))), ...CATEGORIES_TREE.flatMap((c) => c.subcategories.flatMap((s) => plan(c, s))), ...classicTemplates().map(classicMeta)];
   return published.size ? [...published.values(), ...builtIn] : builtIn;
 }
 export const metaById = (id: string): TemplateMeta | undefined => published.get(id) ?? catalog().find((m) => m.id === id);
@@ -168,7 +171,7 @@ export function templateDoc(m: TemplateMeta): Design {
   if (hit) return hit;
   let d: Design;
   if (m.source === 'classic') d = classicTemplates().find((t) => t.id === m.id)!.design;
-  else if (m.source === 'collection') d = buildCollectionDoc(collectionBuilders.get(m.id)!, m.addedAt);
+  else if (m.source === 'collection') { const b = collectionBuilders.get(m.id)!; d = buildCollectionDoc(b.set.sub, b.t, m.addedAt); }
   else if (m.recipe) {
     const r = m.recipe;
     const s = subById(m.sub)!;

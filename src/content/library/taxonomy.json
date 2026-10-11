@@ -1785,7 +1785,15 @@
             "xmas",
             "festive",
             "santa",
-            "winter"
+            "winter",
+            "merry christmas",
+            "tree",
+            "ornaments",
+            "reindeer",
+            "snowflakes",
+            "presents",
+            "stocking",
+            "noel"
           ],
           "palettes": [
             "festive",
@@ -2099,7 +2107,16 @@
             "hanukkah",
             "chanukah",
             "menorah",
-            "festival"
+            "festival",
+            "hanukah",
+            "chanukkah",
+            "חנוכה",
+            "dreidel",
+            "latkes",
+            "gelt",
+            "festival of lights",
+            "hanukkiyah",
+            "sufganiyot"
           ],
           "palettes": [
             "ice",
@@ -2126,6 +2143,36 @@
               ],
               "cta": "Bring your dreidel",
               "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "passover",
+          "label": "Passover",
+          "emoji": "🍷",
+          "keywords": [
+            "passover",
+            "pesach",
+            "pesah",
+            "פסח",
+            "seder",
+            "matzah",
+            "matzo",
+            "haggadah",
+            "chag sameach",
+            "spring"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Passover",
+              "kicker": "Chag Pesach Sameach",
+              "details": [
+                "Seder · April 1",
+                "With family"
+              ],
+              "cta": "Chag sameach",
+              "occasion": "greeting"
             }
           ]
         }

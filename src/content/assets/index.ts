@@ -28,6 +28,9 @@ export interface Collection {
 
 export const COLLECTIONS: Collection[] = [
   { id: 'halloween', name: 'Halloween', blurb: 'Pumpkins, ghosts, bats, haunted houses and moonlit scenes', prefix: 'hw-', cover: 'hw-jack', load: () => import('./collections/halloween') },
+  { id: 'christmas', name: 'Christmas', blurb: 'Trees, ornaments, Santa, reindeer, snowflakes, presents and winter scenes', prefix: 'xm-', cover: 'xm-tree', load: () => import('./collections/christmas') },
+  { id: 'hanukkah', name: 'Hanukkah', blurb: 'Hanukkiyot, dreidels, gelt, Stars of David and festival lights', prefix: 'hk-', cover: 'hk-menorah', load: () => import('./collections/hanukkah') },
+  { id: 'passover', name: 'Passover', blurb: 'Seder plates, matzah, wine cups, Haggadot and spring flowers', prefix: 'ps-', cover: 'ps-seder-plate', load: () => import('./collections/passover') },
 ];
 
 const loaded = new Map<string, AssetDef>();

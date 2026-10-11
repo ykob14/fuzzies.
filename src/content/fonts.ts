@@ -39,6 +39,20 @@ const FONT_DEFS: [string, string][] = [
   ['Henny Penny', ''],
   ['Mystery Quest', ''],
   ['Jolly Lodger', ''],
+  ['Mountains of Christmas', '400;700'],
+  ['Cinzel', '400;600;700'],
+  ['Cormorant Garamond', '400;600;700'],
+  ['Pinyon Script', ''],
+  ['Berkshire Swash', ''],
+  ['Marcellus', ''],
+  ['Frank Ruhl Libre', '400;500;700;900'],
+  ['David Libre', '400;500;700'],
+  ['Heebo', '400;500;700;800'],
+  ['Rubik', '400;500;700;800'],
+  ['Suez One', ''],
+  ['Secular One', ''],
+  ['Bellefair', ''],
+  ['Amatic SC', '400;700'],
 ];
 
 export const FONT_PACKS: FontPack[] = [
@@ -47,6 +61,8 @@ export const FONT_PACKS: FontPack[] = [
   { id: 'fonts-display', name: 'Big & Bold', cost: 25, fonts: ['Abril Fatface', 'Anton', 'Righteous', 'Bungee', 'Shrikhand'] },
   { id: 'fonts-retro', name: 'Retro Arcade', cost: 35, fonts: ['Monoton', 'Permanent Marker', 'Press Start 2P', 'Rubik Mono One', 'Bungee Shade'] },
   { id: 'fonts-spooky', name: 'Spooky Season', cost: 0, fonts: ['Creepster', 'Griffy', 'Henny Penny', 'Mystery Quest', 'Jolly Lodger'] },
+  { id: 'fonts-festive', name: 'Festive & Elegant', cost: 0, fonts: ['Mountains of Christmas', 'Cinzel', 'Cormorant Garamond', 'Pinyon Script', 'Berkshire Swash', 'Marcellus'] },
+  { id: 'fonts-hebrew', name: 'Hebrew (עברית)', cost: 0, fonts: ['Frank Ruhl Libre', 'David Libre', 'Heebo', 'Rubik', 'Suez One', 'Secular One', 'Bellefair', 'Amatic SC'] },
 ];
 
 export const ALL_FONTS = FONT_DEFS.map(([f]) => f);

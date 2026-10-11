@@ -5,7 +5,7 @@
  */
 import { loadTemplateDoc, forgetBuiltDocs, type TemplateMeta } from '../content/library/catalog';
 import { FONTS } from '../content/library/palettes';
-import { HALLOWEEN_FONTS } from '../content/library/collections/halloween';
+import { COLLECTION_FONTS } from '../content/library/collections';
 import { pageCanvas, prepare } from '../editor/render';
 import { h } from './dom';
 
@@ -19,7 +19,7 @@ export function waitFonts(): Promise<void> {
     if (!document.fonts) return;
     const faces = new Set<string>();
     for (const f of Object.values(FONTS)) { faces.add(`${f.displayWeight} 32px "${f.display}"`); for (const w of [400, 500, 600, 700, 800]) faces.add(`${w} 32px "${f.body}"`); if (f.script) faces.add(`400 32px "${f.script}"`); }
-    for (const [fam, w] of HALLOWEEN_FONTS) faces.add(`${w} 32px "${fam}"`);
+    for (const [fam, w] of COLLECTION_FONTS) faces.add(`${w} 32px "${fam}"`);
     await Promise.race([Promise.all([...faces].map((k) => document.fonts.load(k).catch(() => []))), new Promise((r) => setTimeout(r, 3500))]);
     forgetBuiltDocs(); // anything built before the fonts arrived is rebuilt with real measurements
   })();

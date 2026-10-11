@@ -4,7 +4,7 @@
  */
 import type { TemplateMeta } from './catalog';
 
-export interface Filters { category?: string; sub?: string; format?: string; style?: string; color?: string; occasion?: string; free?: boolean }
+export interface Filters { category?: string; sub?: string; format?: string; style?: string; color?: string; occasion?: string; free?: boolean; use?: string }
 export interface Usage { uses(id: string): number }
 
 /** A few everyday words people type that our keywords spell differently. */
@@ -13,9 +13,15 @@ const SYNONYMS: Record<string, string[]> = {
   invite: ['invitation'], invites: ['invitation'], grad: ['graduation'], promo: ['promotion'], ad: ['advertisement'],
   ppt: ['presentation'], deck: ['presentation'], cert: ['certificate'], gig: ['concert'], quiz: ['trivia'], pingpong: ['table', 'tennis'],
   gym: ['fitness'], workout: ['fitness'], kids: ['youth', 'ages'],
+  // holidays: alternative spellings, Hebrew and related words
+  chanukah: ['hanukkah'], hanukah: ['hanukkah'], chanukkah: ['hanukkah'], hannukah: ['hanukkah'], hanuka: ['hanukkah'], chanuka: ['hanukkah'], hanukkiyah: ['menorah'], hanukkia: ['menorah'],
+  'חנוכה': ['hanukkah'], 'חנוכיה': ['menorah'], 'סביבון': ['dreidel'], sevivon: ['dreidel'], latke: ['latkes'], sufganiya: ['sufganiyot'],
+  pesach: ['passover'], pesah: ['passover'], 'פסח': ['passover'], 'סדר': ['seder'], matzo: ['matzah'], matza: ['matzah'], matzoh: ['matzah'], hagadah: ['haggadah'], haggada: ['haggadah'], 'הגדה': ['haggadah'],
+  noel: ['christmas'], card: ['greeting'], cards: ['greeting'],
 };
 
-const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9%#+&]+/g, ' ').trim();
+/** Lower-case words; keeps letters of every script (Hebrew included) and drops accents and Hebrew vowel points. */
+const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f\u0591-\u05c7]/g, '').replace(/[^\p{L}\p{N}%#+&]+/gu, ' ').trim();
 
 function close(a: string, b: string): boolean {
   // one edit (insert / delete / substitute / swap) for words of 4+ letters
@@ -44,7 +50,7 @@ function wordScore(q: string, m: TemplateMeta, nameWords: string[]): number {
 
 export function search(all: TemplateMeta[], query: string, f: Filters, usage?: Usage): TemplateMeta[] {
   const list = all.filter((m) => (!f.category || m.category === f.category) && (!f.sub || m.sub === f.sub) && (!f.format || m.format === f.format)
-    && (!f.style || m.style === f.style) && (!f.color || m.colors.includes(f.color)) && (!f.occasion || m.occasion === f.occasion) && (!f.free || m.cost === 0));
+    && (!f.style || m.style === f.style) && (!f.use || m.use === f.use) && (!f.color || m.colors.includes(f.color)) && (!f.occasion || m.occasion === f.occasion) && (!f.free || m.cost === 0));
   const qWords = norm(query).split(' ').filter(Boolean);
   if (!qWords.length) return usage ? [...list].sort((a, b) => usage.uses(b.id) - usage.uses(a.id)) : list;
   const groups = qWords.map((w) => [w, ...(SYNONYMS[w] ?? [])]);
