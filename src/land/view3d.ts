@@ -88,6 +88,7 @@ export class LandView {
   private area!: THREE.Mesh;
   private grid!: THREE.LineSegments;
   private ghost: { node: THREE.Group; pad: THREE.Mesh; key: string } | null = null;
+  private hiddenNode: THREE.Object3D | null = null;
   private selected: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private size = 0;
   private state: LandState | null = null;
@@ -694,22 +695,29 @@ export class LandView {
   }
 
   // ---------- placing ----------
-  setGhost(g: { item: string; x: number; z: number; rot: number; ok: boolean } | null): void {
+  setGhost(g: { item: string; x: number; z: number; rot: number; ok: boolean; moving?: number } | null): void {
     this.grid.visible = !!g;
+    // while moving something, its old self is hidden so you only see the one you're carrying
+    const hide = g?.moving !== undefined ? this.built.get(g.moving)?.node ?? null : null;
+    if (this.hiddenNode && this.hiddenNode !== hide) this.hiddenNode.visible = true;
+    if (hide) hide.visible = false;
+    this.hiddenNode = hide;
     if (!g) { if (this.ghost) { this.ghost.node.removeFromParent(); this.ghost.pad.removeFromParent(); this.ghost = null; } return; }
-    const key = `${g.item}:${g.rot}`;
+    const key = `${g.item}:${g.rot}:${g.moving ?? ''}`;
     if (!this.ghost || this.ghost.key !== key) {
-      this.setGhost(null);
-      this.grid.visible = true;
-      const node = LM.modelFor(g.item, 1);
+      if (this.ghost) { this.ghost.node.removeFromParent(); this.ghost.pad.removeFromParent(); this.ghost = null; }
+      // the one you're carrying looks exactly like the real thing (same colours)
+      const node = LM.modelFor(g.item, g.moving ?? 1);
       node.rotation.y = -(g.rot & 3) * Math.PI / 2;
-      const pad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5, depthWrite: false }));
+      // the green/red marker is drawn on top of everything, so it shows even over another building
+      const pad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.42, depthWrite: false, depthTest: false }));
+      pad.renderOrder = 10;
       this.scene.add(node, pad);
       this.ghost = { node, pad, key };
     }
     const f = footprint(item(g.item), g.rot);
     this.ghost.node.position.set(g.x + f.w / 2, 0.12, g.z + f.d / 2);
-    this.ghost.pad.scale.set(f.w, 1, f.d);
+    this.ghost.pad.scale.set(f.w + 0.1, 1, f.d + 0.1);
     this.ghost.pad.position.set(g.x + f.w / 2, 0.03, g.z + f.d / 2);
     (this.ghost.pad.material as THREE.MeshBasicMaterial).color.set(g.ok ? 0x40c057 : 0xfa5252);
   }

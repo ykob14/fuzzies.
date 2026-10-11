@@ -480,8 +480,7 @@ export function landScreen(): Screen {
     }
     placing = { item: itemId, x, z, rot: existing?.rot ?? 0, moving };
     const it = L.item(itemId);
-    const paint = L.walkway(itemId) && moving === undefined;
-    placeHint = h('small', null, paint ? (isTouch() ? 'Drag across the grass to lay a line' : 'Drag across the grass to lay a line') : isTouch() ? 'Drag it, or tap where it should go' : 'Drag it, or click where it should go');
+    placeHint = h('small', null, hintFor(itemId, moving));
     placeBar.hidden = false;
     placeBar.replaceChildren(...[
       h('div', { class: 'land-place-info' }, h('b', null, it.name), placeHint),
@@ -491,6 +490,8 @@ export function landScreen(): Screen {
   }
 
   let placeHint: HTMLElement | null = null;
+  const hintFor = (itemId: string, moving?: number) => moving !== undefined ? `Moving is free — drag it, then tap “Put here”`
+    : L.walkway(itemId) ? 'Drag across the grass to lay a line' : isTouch() ? 'Drag it, or tap where it should go' : 'Drag it, or click where it should go';
   function updateGhost(): void {
     if (!placing) return;
     const why = L.placeProblem(s, placing.item, placing.x, placing.z, placing.rot, placing.moving ?? -1);
@@ -498,7 +499,7 @@ export function landScreen(): Screen {
     placeBar.classList.toggle('bad', !!why);
     if (placeHint) {
       if (why) placeHint.textContent = why;
-      else placeHint.textContent = L.walkway(placing.item) && placing.moving === undefined ? 'Drag across the grass to lay a line' : isTouch() ? 'Drag it, or tap where it should go' : 'Drag it, or click where it should go';
+      else placeHint.textContent = hintFor(placing.item, placing.moving);
     }
   }
 
@@ -550,7 +551,7 @@ export function landScreen(): Screen {
 
   // ---------- pointer: pan, pinch, tap, drag the ghost ----------
   const pts = new Map<number, { x: number; y: number }>();
-  let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean } | null = null;
+  let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean; picked?: boolean } | null = null;
   let pinch = 0;
   const lastTap = { t: 0, x: 0, y: 0 };
   function onDown(e: PointerEvent): void {
@@ -564,6 +565,37 @@ export function landScreen(): Screen {
       onGhost = !!g && g.x >= placing.x - 0.3 && g.x <= placing.x + f.w + 0.3 && g.y >= placing.z - 0.3 && g.y <= placing.z + f.d + 0.3;
     }
     drag = { moved: false, sx: e.clientX, sy: e.clientY, ghost: onGhost };
+    // press and hold something you've built to pick it up and move it (Move Mode)
+    if (!placing && view && pts.size === 1) {
+      const p = view.pick(e.clientX, e.clientY);
+      if (p?.kind === 'building') startHold(p.id, e.clientX, e.clientY);
+    }
+  }
+
+  const HOLD_MS = 450;
+  let hold: { timer: number; ring: HTMLElement } | null = null;
+  function startHold(id: number, x: number, y: number): void {
+    cancelHold();
+    const sr = stage.getBoundingClientRect();
+    const ring = h('div', { class: 'land-hold', style: `left:${x - sr.left}px; top:${y - sr.top}px; --t:${HOLD_MS}ms` });
+    stage.append(ring);
+    const timer = window.setTimeout(() => {
+      cancelHold();
+      const b = s.buildings.find((o) => o.id === id);
+      if (!b || !drag || drag.moved || pts.size !== 1) return;
+      startPlacing(b.item, b.id);
+      drag.ghost = true;
+      drag.picked = true;
+      sfx.hop();
+      try { navigator.vibrate?.(12); } catch { /* not supported */ }
+    }, HOLD_MS);
+    hold = { timer, ring };
+  }
+  function cancelHold(): void {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    hold.ring.remove();
+    hold = null;
   }
   function onMove(e: PointerEvent): void {
     const prev = pts.get(e.pointerId);
@@ -577,7 +609,7 @@ export function landScreen(): Screen {
       return;
     }
     if (!drag) return;
-    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 7) drag.moved = true;
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 7) { drag.moved = true; cancelHold(); }
     if (!drag.moved) return;
     if (drag.ghost && placing) {
       const g = view.ground(e.clientX, e.clientY);
@@ -597,8 +629,9 @@ export function landScreen(): Screen {
     if (pts.size < 2) pinch = 0;
     const d = drag;
     drag = null;
+    cancelHold();
     if (d?.moved && !d.ghost) view?.release();
-    if (!d || d.moved || !view) return;
+    if (!d || d.moved || d.picked || !view) return;
     if (placing) {
       const g = view.ground(e.clientX, e.clientY);
       if (g) { const f = L.footprint(L.item(placing.item), placing.rot); placing.x = Math.round(g.x - f.w / 2); placing.z = Math.round(g.y - f.d / 2); updateGhost(); }
@@ -616,7 +649,7 @@ export function landScreen(): Screen {
   wrap.addEventListener('pointerdown', onDown);
   wrap.addEventListener('pointermove', onMove);
   wrap.addEventListener('pointerup', onUp);
-  wrap.addEventListener('pointercancel', (e) => { pts.delete(e.pointerId); drag = null; pinch = 0; });
+  wrap.addEventListener('pointercancel', (e) => { pts.delete(e.pointerId); drag = null; pinch = 0; cancelHold(); });
   wrap.addEventListener('wheel', (e) => { e.preventDefault(); view?.zoom(Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
 
   // ---------- what the Fuzzies say ----------

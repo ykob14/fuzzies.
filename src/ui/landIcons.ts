@@ -63,11 +63,12 @@ const ART: Record<LandIcon, string> = {
     <circle cx="11" cy="12" r="4" fill="#ff6b6b"/><circle cx="17.5" cy="10.5" r="4.2" fill="#ffd43b"/><circle cx="22" cy="13" r="3.4" fill="#7ad36b"/>
     <ellipse cx="16.3" cy="9" rx="1.4" ry=".9" fill="#fff" opacity=".7"/><ellipse cx="9.8" cy="10.6" rx="1.2" ry=".8" fill="#fff" opacity=".6"/>
     <path d="M26.5 4l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z" fill="#fff"/>`,
-  build: `<g stroke="#fff" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"><path d="M4 17L13 9l9 8v10H4z" fill="#fff4e3"/><path d="M17.5 14.5l9-9" /><path d="M21 6.5l4-3 3.5 3.5-3 4z" fill="#8f9bb0"/></g>
-    <path d="M6 16.5V27h14V16.5L13 10.2z" fill="#fff4e3" stroke="#c9a77e" stroke-width="1.5" stroke-linejoin="round"/>
-    <path d="M3.5 17.5L13 9l9.5 8.5" fill="none" stroke="#e45a78" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="10.5" y="19.5" width="5" height="7.5" rx="2.5" fill="#c98b55"/>
-    <path d="M17.5 14.5l9-9" stroke="#c98b55" stroke-width="2.6" stroke-linecap="round"/><path d="M21 6.5l4-3 3.5 3.5-3 4z" fill="#8f9bb0" stroke="#58627a" stroke-width="1.4" stroke-linejoin="round"/>`,
+  build: `<g stroke="#fff" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"><path d="M3 16L12.5 7.5 22 16v11H3z" fill="#fff4e3"/><g transform="rotate(42 23.5 21)"><rect x="22.1" y="17" width="2.8" height="12" rx="1.4"/><rect x="18.5" y="13.6" width="10" height="4.8" rx="1.6"/></g></g>
+    <path d="M5 15.5V27h15V15.5L12.5 8.7z" fill="#fff4e3" stroke="#c9a77e" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M2.5 16.5L12.5 7.5l10 9" fill="none" stroke="#e45a78" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="9.7" y="19.5" width="5.2" height="7.5" rx="2.6" fill="#c98b55"/>
+    <g transform="rotate(42 23.5 21)"><rect x="22.1" y="17" width="2.8" height="12" rx="1.4" fill="#d9a066" stroke="#8a5a30" stroke-width="1.2"/>
+    <rect x="18.5" y="13.6" width="10" height="4.8" rx="1.6" fill="#a3aec2" stroke="#58627a" stroke-width="1.3"/><rect x="19.5" y="14.4" width="5" height="1.3" rx=".6" fill="#fff" opacity=".6"/></g>`,
   parcel: `<g stroke="#fff" stroke-width="3.4" stroke-linejoin="round"><rect x="4.5" y="10" width="23" height="17" rx="3" fill="#e2b77f"/><path d="M3.5 10.5h25v-3a2 2 0 0 0-2-2h-21a2 2 0 0 0-2 2z" fill="#edc791"/></g>
     <rect x="4.5" y="10" width="23" height="17" rx="3" fill="#e2b77f" stroke="#a87a45" stroke-width="1.5"/>
     <path d="M3.5 10.5h25v-3a2 2 0 0 0-2-2h-21a2 2 0 0 0-2 2z" fill="#edc791" stroke="#a87a45" stroke-width="1.5" stroke-linejoin="round"/>

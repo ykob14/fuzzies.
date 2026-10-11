@@ -848,7 +848,7 @@ a.mission:hover { transform: translateX(3px); }
 .ai-color.on { border-color: var(--accent); }
 
 /* ---------- Fuzzies Land ---------- */
-.land-wrap { position: absolute; inset: 0; overflow: hidden; background: #cfe3f0; user-select: none; -webkit-user-select: none; }
+.land-wrap { position: absolute; inset: 0; overflow: hidden; overflow: clip; /* clip: focus can never scroll the game view */ background: #cfe3f0; user-select: none; -webkit-user-select: none; }
 .land-stage { position: absolute; inset: 0; touch-action: none; cursor: grab; }
 .land-stage:active { cursor: grabbing; }
 .land-canvas { display: block; width: 100%; height: 100%; }
@@ -976,12 +976,14 @@ a.land-cap:hover .land-cap-plus { transform: scale(1.12); }
 .land-zoom .land-round:hover { background: var(--lc2); transform: none; }
 
 /* bottom toolbar: chunky coloured game buttons with illustrated icons; can be tucked away */
-.land-dock { position: absolute; left: 50%; bottom: calc(14px + var(--safe-b, 0px)); transform: translateX(-50%); display: flex; align-items: flex-end; gap: 6px; padding: 8px 8px 8px 10px; border-radius: 30px;
+.land-dock { position: absolute; left: 50%; bottom: calc(14px + var(--safe-b, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 10px 8px 12px 10px; border-radius: 30px;
   background: rgba(255,250,242,.9); box-shadow: 0 6px 0 rgba(226,207,180,.9), 0 14px 34px rgba(60,40,20,.22); transition: transform .38s cubic-bezier(.2,.9,.3,1.15), opacity .25s; }
-.land-dock.tucked { transform: translate(-50%, calc(100% + 40px)); opacity: 0; pointer-events: none; }
+.land-dock.tucked { transform: translate(-50%, calc(100% + 40px)); opacity: 0; pointer-events: none; visibility: hidden; transition: transform .38s cubic-bezier(.2,.9,.3,1.15), opacity .25s, visibility 0s .38s; }
 .land-dock-tools { display: flex; gap: 10px; }
-.land-dock-btn { --c: #e45a78; --lip: #b8325a; --hi: rgba(255,255,255,.28);
-  position: relative; display: grid; justify-items: center; align-content: end; width: 82px; height: 74px; border: 0; border-radius: 22px; padding: 0 0 8px;
+/* each button: the icon sits inside a fixed icon box, the label below it, the barn meter in a fixed slot under the label */
+.land-dock-btn { --c: #e45a78; --lip: #b8325a; --hi: rgba(255,255,255,.28); --ic: 38px;
+  position: relative; display: grid; grid-template-rows: var(--ic) auto; justify-items: center; align-content: center; row-gap: 3px;
+  width: 82px; height: 76px; border: 0; border-radius: 22px; padding: 2px 0 12px;
   background: var(--c); color: #fff; cursor: pointer; font: 700 13px/1 var(--brand); letter-spacing: .02em; text-shadow: 0 1.5px 0 rgba(0,0,0,.22);
   box-shadow: inset 0 3px 0 var(--hi), inset 0 -4px 0 rgba(0,0,0,.08), 0 5px 0 var(--lip), 0 9px 14px rgba(60,40,20,.22);
   transition: transform .16s cubic-bezier(.2,.9,.3,1.4), box-shadow .16s; -webkit-tap-highlight-color: transparent; }
@@ -989,26 +991,28 @@ a.land-cap:hover .land-cap-plus { transform: scale(1.12); }
 .land-dock-btn.is-collect { --c: #ffc23d; --lip: #d1900f; color: #5a3a06; text-shadow: 0 1px 0 rgba(255,255,255,.4); }
 .land-dock-btn.is-orders { --c: #33ab9b; --lip: #1f7d71; }
 .land-dock-btn.is-barn { --c: #f2785c; --lip: #b84f36; }
-.land-dock-ic { position: absolute; left: 50%; top: -14px; transform: translateX(-50%); display: grid; place-items: center; filter: drop-shadow(0 3px 2px rgba(60,40,20,.28)); transition: transform .22s cubic-bezier(.2,.9,.3,1.5); }
-.land-dock-ic svg { width: 50px; height: 50px; }
-.land-dock-l { position: relative; }
+.land-dock-ic { width: var(--ic); height: var(--ic); display: grid; place-items: center; filter: drop-shadow(0 2px 1.5px rgba(60,40,20,.28)); transition: transform .22s cubic-bezier(.2,.9,.3,1.5); }
+.land-dock-ic svg { width: 100%; height: 100%; display: block; }
+.land-dock-l { line-height: 1; }
 .land-dock-btn:hover { transform: translateY(-3px); box-shadow: inset 0 3px 0 var(--hi), inset 0 -4px 0 rgba(0,0,0,.08), 0 8px 0 var(--lip), 0 13px 18px rgba(60,40,20,.24); }
-.land-dock-btn:hover .land-dock-ic { transform: translateX(-50%) translateY(-3px) rotate(-6deg) scale(1.06); }
+.land-dock-btn:hover .land-dock-ic { transform: translateY(-2px) rotate(-6deg) scale(1.06); }
 .land-dock-btn:active { transform: translateY(4px); box-shadow: inset 0 3px 0 var(--hi), inset 0 -2px 0 rgba(0,0,0,.08), 0 1px 0 var(--lip), 0 3px 6px rgba(60,40,20,.2); }
-.land-dock-btn:active .land-dock-ic { transform: translateX(-50%) scale(.92); }
+.land-dock-btn:active .land-dock-ic { transform: scale(.92); }
 /* something to collect: a shine sweeps across and the basket bounces now and then */
-.land-dock-btn.is-collect { overflow: visible; animation: land-hot 2.6s ease-in-out 3; }
+.land-dock-btn.is-collect { animation: land-hot 2.6s ease-in-out 3; }
 .land-dock-btn.is-collect::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.55) 45%, transparent 60%) no-repeat; background-size: 250% 100%; background-position: 130% 0; animation: land-shine 2.6s ease-in-out infinite; }
+  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.5) 45%, transparent 60%) no-repeat; background-size: 250% 100%; background-position: 130% 0; animation: land-shine 2.6s ease-in-out infinite; }
 @keyframes land-shine { 0%, 55% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
-@keyframes land-hot { 0%, 70%, 100% { transform: none; } 78% { transform: translateY(-6px) rotate(-3deg); } 86% { transform: translateY(0) rotate(2deg); } }
+@keyframes land-hot { 0%, 70%, 100% { transform: none; } 78% { transform: translateY(-5px) rotate(-2deg); } 86% { transform: translateY(0) rotate(1.5deg); } }
 .land-dock-btn.nudge .land-dock-ic { animation: land-jiggle .7s cubic-bezier(.2,.9,.3,1.3) 2; }
-@keyframes land-jiggle { 0%, 100% { transform: translateX(-50%) rotate(0); } 25% { transform: translateX(-50%) rotate(-12deg) scale(1.12); } 60% { transform: translateX(-50%) rotate(9deg); } }
-.land-badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 99px; background: #e8364f; color: #fff;
-  font: 700 11.5px/20px var(--brand); font-style: normal; text-shadow: none; box-shadow: 0 0 0 2.5px #fff, 0 3px 6px rgba(0,0,0,.25); }
+@keyframes land-jiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg) scale(1.12); } 60% { transform: rotate(9deg); } }
+/* badges sit on the button's corner, clear of the icon box */
+.land-badge { position: absolute; top: -7px; right: -7px; z-index: 1; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 99px; background: #e8364f; color: #fff;
+  font: 700 11.5px/20px var(--brand); font-style: normal; text-align: center; text-shadow: none; box-shadow: 0 0 0 2.5px #fff, 0 3px 6px rgba(0,0,0,.25); }
 .land-badge.pop { animation: land-pop-badge .5s cubic-bezier(.2,.9,.3,1.6); }
 @keyframes land-pop-badge { 0% { transform: scale(0); } 60% { transform: scale(1.35); } }
-.land-meter { position: relative; display: block; width: 46px; height: 6px; margin-top: 5px; border-radius: 99px; background: rgba(0,0,0,.18); overflow: hidden; }
+/* barn fill: a slim bar in the bottom padding, centred like the label above it */
+.land-meter { position: absolute; left: 50%; bottom: 7px; transform: translateX(-50%); width: 52%; height: 5px; border-radius: 99px; background: rgba(0,0,0,.2); overflow: hidden; }
 .land-meter b { display: block; height: 100%; border-radius: 99px; background: #fff; }
 .land-meter.full b { background: #ffd43b; }
 .land-dock-hide { align-self: center; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--lc2); color: var(--lmuted); cursor: pointer; transition: background .15s, color .15s, transform .15s; }
@@ -1016,6 +1020,7 @@ a.land-cap:hover .land-cap-plus { transform: scale(1.12); }
 .land-dock-hide:active { transform: scale(.9); }
 .land-dock-tab { position: absolute; left: 50%; bottom: calc(10px + var(--safe-b, 0px)); transform: translate(-50%, 140%); display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px 0 12px; border: 0; border-radius: 99px;
   background: var(--lc); color: var(--link); font: 700 14px var(--brand); cursor: pointer; box-shadow: 0 4px 0 var(--llip), 0 10px 24px rgba(60,40,20,.2); transition: transform .38s cubic-bezier(.2,.9,.3,1.2); }
+.land-dock-tab:not(.show) { visibility: hidden; transition: transform .38s cubic-bezier(.2,.9,.3,1.2), visibility 0s .38s; }
 .land-dock-tab.show { transform: translate(-50%, 0); }
 .land-dock-tab:active { transform: translate(-50%, 3px); }
 .land-dock-dot { display: none; width: 9px; height: 9px; border-radius: 50%; background: #e8364f; box-shadow: 0 0 0 2px #fff; }
@@ -1028,7 +1033,7 @@ a.land-cap:hover .land-cap-plus { transform: scale(1.12); }
 .land-side-toggle { justify-self: center; width: 34px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 99px; background: var(--lc); color: var(--lmuted); cursor: pointer; box-shadow: 0 3px 0 var(--llip), 0 6px 14px rgba(60,40,20,.14); }
 .land-side-toggle:hover { color: var(--link); }
 .land-side.tucked { transform: translateX(calc(100% - 34px)); }
-.land-side.tucked .land-side-body { opacity: 0; pointer-events: none; transform: translateX(30px); }
+.land-side.tucked .land-side-body { opacity: 0; pointer-events: none; transform: translateX(30px); visibility: hidden; transition: opacity .25s, transform .35s, visibility 0s .35s; }
 .land-side.tucked .land-side-toggle { width: 34px; border-radius: 99px 0 0 99px; margin-right: -14px; }
 
 /* rewards flying to the counters */
@@ -1038,6 +1043,11 @@ a.land-cap:hover .land-cap-plus { transform: scale(1.12); }
 .land-lvl-n.land-hit { animation: land-hit2 .35s cubic-bezier(.2,.9,.3,1.5); }
 @keyframes land-hit2 { 50% { transform: scale(1.15); } }
 .land-say b { display: block; font: 700 11px var(--brand); color: var(--lacc, #d6336c); margin-bottom: 1px; }
+.land-hold { position: absolute; z-index: 5; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(#fff calc(var(--k, 0) * 1turn), rgba(255,255,255,.25) 0); -webkit-mask: radial-gradient(circle, transparent 21px, #000 22px); mask: radial-gradient(circle, transparent 21px, #000 22px);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.3)); animation: land-hold var(--t) linear forwards; }
+@property --k { syntax: '<number>'; inherits: false; initial-value: 0; }
+@keyframes land-hold { from { --k: 0; opacity: .3; transform: scale(.7); } 30% { opacity: 1; transform: scale(1); } to { --k: 1; } }
 .land-place.bad .land-place-info small { color: #d9480f; font-weight: 600; }
 
 /* panels (bottom sheet) */
@@ -1105,9 +1115,8 @@ a.land-cap:hover .land-cap-plus { transform: scale(1.12); }
   .land-side { top: auto; bottom: calc(110px + var(--safe-b, 0px)); right: 10px; }
   .land-dock { bottom: calc(10px + var(--safe-b, 0px)); gap: 4px; padding: 6px 6px 6px 8px; border-radius: 26px; }
   .land-dock-tools { gap: 7px; }
-  .land-dock-btn { width: 68px; height: 62px; border-radius: 19px; font-size: 12px; padding-bottom: 7px; }
-  .land-dock-ic svg { width: 42px; height: 42px; }
-  .land-dock-ic { top: -12px; }
+  .land-dock-btn { --ic: 32px; width: 68px; height: 64px; border-radius: 19px; font-size: 12px; padding: 2px 0 10px; }
+  .land-meter { bottom: 6px; height: 4px; }
   .land-dock-hide { width: 26px; height: 26px; }
   .land-sheet { max-height: 72%; padding-left: 14px; padding-right: 14px; }
   .land-shop { grid-template-columns: repeat(2, 1fr); gap: 10px; }

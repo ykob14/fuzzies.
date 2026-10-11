@@ -147,7 +147,7 @@ function steppingStones(g: THREE.Group, x: number, z0: number, z1: number): void
   const n = Math.max(1, Math.round(Math.abs(z1 - z0) / 0.14));
   for (let i = 0; i <= n; i++) {
     const z = z0 + ((z1 - z0) * i) / n;
-    const st = add(g, new THREE.CylinderGeometry(0.07 + (i % 2) * 0.012, 0.075, 0.025, 10), std(i % 2 ? '#e6ddd0' : '#d9cfc0', 0.9), x + (i % 2 ? 0.02 : -0.02), 0.012, z, false);
+    const st = add(g, new THREE.CylinderGeometry(0.07 + (i % 2) * 0.012, 0.075, 0.025, 10), std(i % 2 ? '#bcae99' : '#ab9e89', 0.95), x + (i % 2 ? 0.02 : -0.02), 0.012, z, false);
     st.scale.z = 0.8;
   }
 }
@@ -618,9 +618,9 @@ export function flowerBed(seed: number): THREE.Group {
 export function pathTile(): THREE.Group {
   const g = new THREE.Group();
   const r = GT.rng(23);
-  const cols = ['#d8cbb4', '#cfc0a6', '#e0d4bf'];
+  const cols = ['#b5a893', '#a89a85', '#bfb39f']; // weathered natural stone, not white
   for (const [x, z] of [[-0.2, -0.24], [0.18, 0.02], [-0.12, 0.26]] as const) {
-    const st = add(g, new THREE.CylinderGeometry(0.12 + r() * 0.03, 0.13 + r() * 0.03, 0.03, 12), std(cols[Math.floor(r() * 3)], 0.95), x + (r() - 0.5) * 0.06, 0.015, z + (r() - 0.5) * 0.06, false);
+    const st = add(g, new THREE.CylinderGeometry(0.12 + r() * 0.03, 0.13 + r() * 0.03, 0.03, 12), std(cols[Math.floor(r() * 3)], 1), x + (r() - 0.5) * 0.06, 0.012, z + (r() - 0.5) * 0.06, false);
     st.scale.z = 0.8 + r() * 0.2;
     st.rotation.y = r() * 3;
   }
