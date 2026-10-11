@@ -2,7 +2,8 @@
 import { accounts } from '../core/account';
 import { rewards } from '../core/rewards';
 import { applyTheme, resolveTheme } from '../core/themes';
-import { h, icon, logo, fuzzyMark, avatarEl, popMenu, toast, QUOTE, type IconName } from './dom';
+import { h, icon, logo, fuzzyMark, avatarEl, popMenu, toast, type IconName } from './dom';
+import { NAV_GROUPS, openQuickFind, bindQuickFind } from './quickfind';
 import { cloud } from '../core/cloud';
 import { watchAppIcon } from '../core/appicon';
 import { sync } from '../core/sync';
@@ -23,16 +24,7 @@ import { mascot, upgradeMascots } from './mascot';
 
 export interface Screen { el: HTMLElement; destroy?: () => void }
 
-const NAV: { id: string; label: string; icon: IconName }[] = [
-  { id: 'home', label: 'Home', icon: 'home' },
-  { id: 'templates', label: 'Templates', icon: 'grid' },
-  { id: 'projects', label: 'My designs', icon: 'folder' },
-  { id: 'play', label: 'Fuzzy Crossing', icon: 'gamepad' },
-  { id: 'land', label: 'Fuzzies Land', icon: 'town' },
-  { id: 'rewards', label: 'Rewards', icon: 'gift' },
-  { id: 'profile', label: 'Profile', icon: 'user' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
-];
+const NAV = NAV_GROUPS.flatMap((g) => g.items);
 
 let current: Screen | null = null;
 const SIDEBAR_KEY = 'fz.sidebar';
@@ -46,7 +38,7 @@ export function balanceChip(): HTMLElement {
 
 function shell(active: string, content: HTMLElement): HTMLElement {
   const a = accounts.current!;
-  const navLink = (n: (typeof NAV)[number]) => h('a', { class: `nav-link ${n.id === active ? 'on' : ''}`, href: `#/${n.id}`, title: n.label }, icon(n.icon, 20), h('span', null, n.label));
+  const navLink = (n: (typeof NAV)[number]) => h('a', { class: `nav-link ${n.id === active ? 'on' : ''}`, href: `#/${n.id}`, 'data-tip': n.label, 'aria-current': n.id === active ? 'page' : null }, icon(n.icon, 18), h('span', null, n.label));
 
   // the side navigation folds into a slim icon rail (remembered on this device) to give the page more room
   const mini = (() => { try { return localStorage.getItem(SIDEBAR_KEY) === 'mini'; } catch { return false; } })();
@@ -69,7 +61,7 @@ function shell(active: string, content: HTMLElement): HTMLElement {
   const sidebar = h('aside', { class: 'sidebar' }, fold,
     h('a', { href: '#/home', class: 'sidebar-logo' }, logo('sm')),
     h('button', { class: 'btn btn-primary btn-lg btn-block create-btn', type: 'button', title: 'Create a design', onclick: () => createDialog() }, icon('plus', 20), h('span', null, 'Create a design')),
-    h('nav', { class: 'nav' }, ...NAV.map(navLink)),
+    h('nav', { class: 'nav', 'aria-label': 'Main' }, ...NAV_GROUPS.map((g) => h('div', { class: 'nav-group' }, h('div', { class: 'nav-group-label' }, g.label), ...g.items.map(navLink)))),
     h('a', { class: 'side-card', href: '#/play' },
       h('div', { class: 'side-card-top' }, mascot(38, { small: true, sparkles: false, interactive: false }), h('div', null, h('b', null, 'Take a fuzzy break'), h('small', null, 'Play to unlock rewards'))),
       h('div', { class: 'side-card-bal' }, 'Balance ', h('b', { class: 'fz-balance' }, String(rewards.balance())))));
@@ -89,7 +81,9 @@ function shell(active: string, content: HTMLElement): HTMLElement {
 
   const top = h('header', { class: 'topbar' },
     h('a', { href: '#/home', class: 'topbar-logo' }, logo('sm', false)),
-    h('div', { class: 'topbar-quote' }, QUOTE),
+    h('div', { class: 'topbar-title' }, NAV.find((n) => n.id === active)?.label ?? ''),
+    h('button', { class: 'topbar-search', type: 'button', onclick: () => openQuickFind(), 'aria-label': 'Quick find', title: 'Find anything (Ctrl/Cmd+K)' },
+      icon('search', 16), h('span', null, 'Search…'), h('kbd', null, /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K')),
     h('div', { class: 'topbar-right' }, balanceChip(), avBtn));
 
   const tab = (id: string, label: string, ic: IconName) => h('a', { class: `tab ${id === active ? 'on' : ''}`, href: `#/${id}` }, icon(ic, 22), h('span', null, label));
@@ -176,6 +170,7 @@ export function startApp(): void {
     toast(`+${n} Fuzz${n === 1 ? 'y' : 'ies'} · ${reason}`, 'fuzzy');
   });
   startAchievements();
+  bindQuickFind();
   watchAppIcon();
   upgradeMascots();
   addEventListener('hashchange', route);
