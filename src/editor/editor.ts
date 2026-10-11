@@ -1192,7 +1192,9 @@ export class Editor {
     const [suffix] = variants.reduce((a, b) => (Math.abs(Math.log(b[1] / r)) < Math.abs(Math.log(a[1] / r)) ? b : a));
     const el = makeGraphic(`${baseId}-${suffix}`, Math.max(W, H));
     Object.assign(el, { x: 0, y: 0, w: W, h: H, name });
-    this.page.elements.unshift(el);
+    // a page has one scene background: swap the existing one (bottom layer, covering the page) instead of hiding the new one behind it
+    const old = this.page.elements.findIndex((e) => e.type === 'graphic' && /-(sq|po|st|ls)$/.test(e.art) && e.x <= 1 && e.y <= 1 && e.w >= W - 2 && e.h >= H - 2);
+    if (old >= 0) this.page.elements.splice(old, 1, el); else this.page.elements.unshift(el);
     this.setTool('select');
     this.select([el.id]);
     this.commit();

@@ -71,9 +71,9 @@ code, templates or content.
 
 | # | Work | Why first | Status |
 |---|---|---|---|
-| **P1** | **Asset system**: registry with id, name, tags, kind, collection, licence, author; lazy-loaded collections; editor search by tags; designs load the collections they use automatically | Everything visual (templates, AI, search) builds on it | **This session** |
-| **P1** | **Halloween collection**: original illustrations (pumpkins, jack-o'-lanterns, ghosts, haunted house, bats, moon, trees, graveyard, webs, spiders, cats, cauldron, hats, candy, candles, potions, lanterns, leaves) + scene backgrounds in 4 shapes | Owner's priority; shows the quality bar | **This session** |
-| **P1** | **20 hand-composed Halloween templates**, fully layered and editable, replacing the typographic Halloween ones | Owner's priority | **This session** |
+| **P1** | **Asset system**: registry with id, name, tags, kind, collection, licence, author; lazy-loaded collections; editor search by tags; designs load the collections they use automatically | Everything visual (templates, AI, search) builds on it | ✅ Done |
+| **P1** | **Halloween collection**: original illustrations (pumpkins, jack-o'-lanterns, ghosts, haunted house, bats, moon, trees, graveyard, webs, spiders, cats, cauldron, hats, candy, candles, potions, lanterns, leaves) + scene backgrounds in 4 shapes | Owner's priority; shows the quality bar | ✅ Done (34 illustrations, 6 backgrounds) |
+| **P1** | **20 hand-composed Halloween templates**, fully layered and editable, replacing the typographic Halloween ones | Owner's priority | ✅ Done (live) |
 | P2 | Quality checks before publish (overflow, contrast, fonts, size) + review stage (`draft → review → approved → published`) with reviewer notes | Keeps a growing library professional | Next |
 | P2 | Seasonal surfacing ("Halloween" row in October, by topic dates in the taxonomy) + personal recommendations (your sizes/topics) | Discovery | Next |
 | P3 | Template placeholders (fill date/place/name once for the whole design) and one-tap palette swap | Faster editing | Later |
