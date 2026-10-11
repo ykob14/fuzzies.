@@ -8,7 +8,7 @@
  *   username { username }                          → { available }
  */
 import { db, q } from './_lib/db.js';
-import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json } from './_lib/auth.js';
+import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json, BUILD } from './_lib/auth.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME = /^[a-z0-9_.]{3,20}$/;
@@ -24,11 +24,11 @@ export async function GET(req: Request): Promise<Response> {
   try {
     await db();
     await q('select 1 from fz_users limit 1');
-    return json({ ok: true, database: 'connected', tables: 'ready', ms: Date.now() - started });
+    return json({ ok: true, database: 'connected', tables: 'ready', build: BUILD, ms: Date.now() - started });
   } catch (e) {
     console.error('health check failed', e);
     const status = (e as { status?: number }).status;
-    return json({ ok: false, database: status === 503 ? 'not connected (no DATABASE_URL)' : 'error', ref: errorRef(e), ms: Date.now() - started }, 500);
+    return json({ ok: false, database: status === 503 ? 'not connected (no DATABASE_URL)' : 'error', ref: errorRef(e), build: BUILD, ms: Date.now() - started }, 500);
   }
 }
 

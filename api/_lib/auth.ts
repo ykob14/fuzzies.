@@ -71,11 +71,14 @@ export const json = (data: unknown, status = 200) => new Response(JSON.stringify
  * A short, non-secret reference for an unexpected error, e.g. "setup 28P01" or "request ECONNREFUSED": where it
  * happened plus the Postgres/Node error code (never the message, which could include connection details).
  */
+/** Which version of the backend is running (Vercel's commit id), shown in error refs and the health check. */
+export const BUILD = 'v' + (process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev').slice(0, 7);
+
 export function errorRef(e: unknown): string {
   const stage = String((e as { stage?: string }).stage ?? 'request');
   const code = String((e as { code?: string }).code ?? '');
   const name = String((e as Error).name ?? 'Error');
-  return `${stage} ${/^[A-Za-z0-9_]{2,40}$/.test(code) ? code : /^[A-Za-z]{2,40}$/.test(name) ? name : 'Error'}`;
+  return `${stage} ${/^[A-Za-z0-9_]{2,40}$/.test(code) ? code : /^[A-Za-z]{2,40}$/.test(name) ? name : 'Error'} · ${BUILD}`;
 }
 
 export async function handle(req: Request, fn: (body: Record<string, unknown>) => Promise<unknown>): Promise<Response> {
