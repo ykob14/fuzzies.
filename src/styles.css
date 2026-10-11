@@ -1433,3 +1433,4 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 .home .card-grid.tpl .tcard-meta { width: 0; min-width: 100%; }
 @media (max-width: 760px) { .home .card-grid.tpl .tcard-thumb { height: 180px; } .home .card-grid.tpl { gap: 12px; } }
 .home .empty { padding: 26px 20px; }
+:root[data-dark='true'] .home-banner { background: color-mix(in srgb, var(--accent) 62%, #000); color: #fff; }
