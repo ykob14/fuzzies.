@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-11 (session 2) · by Claude Code · `main` and `claude/fuzzies-design-app-jwv4tu` are identical (live)_
+_Last updated: 2026-10-11 (session 2, later) · by Claude Code · `claude/fuzzies-design-app-jwv4tu` is ahead of `main` by the Canva/Linear polish pass (awaiting the owner's OK)_
 
 ---
 
@@ -24,9 +24,9 @@ keeps people coming back (the mascot, the game, missions).
 | | |
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested. |
-| **In progress** | Nothing half-done in code. **The backend (Vercel functions + Neon Postgres) is built and tested locally, but not hosted yet**: the owner needs to import the repo on Vercel, add a Neon database in Vercel → Storage, and redeploy (`BACKEND.md`). |
-| **Branches** | `main` = `claude/fuzzies-design-app-jwv4tu` again: the owner approved going live on 2026-10-11 ("put it on live site for testing the app and everything we made") after a final production-build check on computer and phone. Keep working on the branch and ask before the next merge to `main`. |
-| **Deploy** | Vercel project `fuzzies.` (team scope `silver-swan-special`) deploys `main` automatically; first deploy seen at fuzzies-7w39zxiwx-silver-swan-special.vercel.app. Neon is **not connected yet** (no `DATABASE_URL`), so accounts are still on-device until it is — see `BACKEND.md`. The Vercel connector in Claude sessions got 403 for that team scope (needs re-authorising for it). |
+| **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
+| **Branches** | `main` = live (includes the reset-email fixes). The branch is ahead by the **polish pass** (grouped sidebar, quick find, smart editor toolbar, drag-and-drop) — show the owner and ask before merging to `main`. |
+| **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
 ## 3. Owner preferences (learned — respect these)
 
@@ -211,6 +211,12 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
 - **Theme:** use `var(--accent)`, `var(--on-accent)`, `var(--text)`, etc. Never hard-code purple or gradients in UI chrome.
+  Shadows `--shadow-xs` / `--shadow` / `--shadow-md` / `--shadow-lg`, hover tint `--hover`, easing `--ease`. The "Polish v2" blocks at the end of
+  `styles.css` refine the older rules above them (same class names) — put new chrome styling there.
+- **Navigation:** the sidebar groups and quick find share `NAV_GROUPS` in `ui/quickfind.ts` — add a new screen there (and to the router).
+- **Editor toolbar:** selection-specific quick controls live in `renderBar()` in `editor/props.ts` (reuse the inspector helpers `color()`,
+  `fontPicker()`, `slider()`); the inspector (`render()`) keeps every option. Panel items become drag-and-droppable with `draggable(el, payload)`
+  in `editor/panels.ts` + a case in `dropPayload()`.
 - **Reduce motion:** `:root[data-motion='reduce']` disables all CSS animations; JS animations check it too.
 - **Sound** only plays after a user gesture (browser rule) and respects `settings.sound`.
 - Commit messages: imperative subject + bullet body, ending with the attribution lines your tool requires.
@@ -247,12 +253,17 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | _(fix 2)_ | **Live sign-up: `ref: setup SELF_SIGNED_CERT_IN_CHAIN`.** The owner's database presents a provider-signed certificate (Supabase-style), and pg treated `sslmode=require` as verify-against-public-CAs. `api/_lib/db.ts` now reads/strips sslmode itself: verify first, and on a not-publicly-signed certificate fall back to encrypted-without-verification (libpq `require`), unless `verify-full`/`verify-ca` or a `DATABASE_CA` is set (then strict). Reproduced with a test Postgres using its own CA, fixed, and checked with `vercel build`. |
 | _(reset)_ | **Password reset by email** (owner asked). "Forgot your password?" → email box → `forgot` emails a single-use link valid 1 hour (only a SHA-256 of the token is stored in `fz_resets`; same answer whether or not the account exists; 3 emails/account/hour) → `#/reset/<token>` screen (new password ×2) → `reset` sets it, logs out other devices, clears failed-login counter, logs in. Email via Resend's HTTP API (`api/_lib/mail.ts`, no new packages): needs `RESEND_API_KEY` in Vercel (optional `MAIL_FROM`, `APP_URL`); without it the app says email isn't switched on yet. Tested end to end with a mock email service + real Postgres. |
 | _(updates)_ | **"A new version is ready" banner** (`core/updates.ts`): the owner kept seeing an old screen because the single-page app keeps running the version a tab was opened with. The app now compares its main script with the live `index.html` every 2 minutes and on returning to the tab, and offers a one-tap Refresh. Service worker (`fuzzies-v3`): `cache: 'no-store'` requests and `index.html` always go to the network (the old one answered the version check from cache). Tested with the service worker on and off. |
+| `1fc6159` | **Reset email fixes (live):** a reset link whose email failed is deleted, so failed tries don't use up the 3-per-hour limit; stray spaces/quotes around `RESEND_API_KEY` are ignored; errors show Resend's reason + a safe key hint. On `main`. |
+| _(polish)_ | **Canva-easy, Linear-clean polish pass** (owner asked; nothing rebuilt, all features kept). Shell: sidebar grouped into Create / Play / You with tighter type, tooltips on the folded rail, tablets (761–960 px) get the slim rail instead of the tab bar; top bar shows the page title + a search box; **quick find** (`ui/quickfind.ts`, Ctrl/Cmd+K) jumps to screens, templates and your designs. Styling: layered low-contrast shadows (`--shadow-xs/-md`), `--ease`, refined buttons/inputs/chips/menus/modals, hover states, page fade-in — all in the "Polish v2" sections at the end of `styles.css`. Editor: **smart toolbar** above the canvas (`props.bar`, built in `editor/props.ts` → `renderBar()`): text = font, size −/+, colour, B/I/U/aA, align; shapes = fill/border; graphics/QR = colours; Position menu + Transparency for everything; page colour/Resize/Add page when nothing is selected. The full inspector is a docked column shown on demand ("All options", remembered in `fz.ed.inspector`); the design re-fits when space changes unless zoomed by hand (`fitZoom`). The size label in the top bar opens page settings. Phones: the toolbar slides up over the tool rail while something is selected (Done brings the rail back). **Drag and drop** from panels (shapes, graphics, stickers, text, uploads) with mouse or finger (press-and-hold on touch so swiping still scrolls). Fix: phones with a folded sidebar saved got a squashed page. Tested at 1440/834/390 px, light and dark, plus the production smoke test (every screen, editor, Fuzzies Land): no errors. Branch only. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
 ## 8. Known limitations / not verified
+
+- **Password-reset email on the live site:** not confirmed working yet (Resend rejected the key in Vercel — see Status). The Resend account has two keys ("Fuzzies password reset" — unused, its value was lost; "Fuzzies (Vercel)") plus whichever the owner made; the unused one can be deleted with the owner's OK.
+- Polish pass: drag-and-drop with a real finger and the phone selection toolbar were tested with emulated touch only, not on a real phone.
 
 - **Cloud sign-up on the live site** failed once for the owner with a generic 500 (cause not visible from Claude's side: no Vercel log access). If it happens again, ask for the `ref:` code or the `/api/auth?check` output.
 - **Password reset emails need `RESEND_API_KEY` in Vercel** (owner step, BACKEND.md). Until a domain is verified in Resend,
@@ -277,7 +288,8 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Live for testing** (owner approved). Collect the owner's feedback from real devices (performance on their phone!).
+0. **Show the owner the polish pass** (branch) and merge to `main` on their OK; then finish the reset-email setup (new `ref:` code).
+   **Live for testing** (owner approved). Collect the owner's feedback from real devices (performance on their phone!).
    Next for Fuzzies Land: restyle the decorations (bench, lamps, fountain, statue, rainbow arch), crops and construction site;
    residents carrying goods to the barn and avoiding each other; a guided first 5 minutes; day-to-dusk light; real-phone
    check of performance; balance levels 1–10; turn the rules/migration checks into an automated test suite.
