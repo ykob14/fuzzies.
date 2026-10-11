@@ -6,7 +6,7 @@
  */
 import { scrypt as scryptCb, randomBytes, timingSafeEqual, createHmac, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
-import { db, databaseUrl } from './db.js';
+import { q, databaseUrl } from './db.js';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 const TOKEN_DAYS = 90;
@@ -59,13 +59,24 @@ export async function requireUser(req: Request): Promise<AuthedUser> {
   let p: { sub: string; v: number; exp: number };
   try { p = JSON.parse(Buffer.from(body, 'base64url').toString()); } catch { throw new HttpError(401, 'Please log in again.'); }
   if (!p.exp || p.exp < Date.now()) throw new HttpError(401, 'Please log in again.');
-  const { rows } = await (await db()).query<AuthedUser>('select id, email, username, token_v from fz_users where id = $1', [p.sub]);
+  const { rows } = await q<AuthedUser>('select id, email, username, token_v from fz_users where id = $1', [p.sub]);
   if (!rows[0] || rows[0].token_v !== p.v) throw new HttpError(401, 'Please log in again.');
   return rows[0];
 }
 
 /** JSON helpers shared by the endpoints. */
 export const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+
+/**
+ * A short, non-secret reference for an unexpected error, e.g. "setup 28P01" or "request ECONNREFUSED": where it
+ * happened plus the Postgres/Node error code (never the message, which could include connection details).
+ */
+export function errorRef(e: unknown): string {
+  const stage = String((e as { stage?: string }).stage ?? 'request');
+  const code = String((e as { code?: string }).code ?? '');
+  const name = String((e as Error).name ?? 'Error');
+  return `${stage} ${/^[A-Za-z0-9_]{2,40}$/.test(code) ? code : /^[A-Za-z]{2,40}$/.test(name) ? name : 'Error'}`;
+}
 
 export async function handle(req: Request, fn: (body: Record<string, unknown>) => Promise<unknown>): Promise<Response> {
   try {
@@ -77,6 +88,6 @@ export async function handle(req: Request, fn: (body: Record<string, unknown>) =
     const status = (e as { status?: number }).status ?? 500;
     if (status >= 500) console.error(e);
     const safe = e instanceof HttpError || status < 500 || status === 503; // only our own messages reach the app
-    return json({ error: safe ? (e as Error).message : 'Something went wrong on our side — please try again.' }, status);
+    return json({ error: safe ? (e as Error).message : `Something went wrong on our side — please try again. (ref: ${errorRef(e)})`, ref: safe ? undefined : errorRef(e) }, status);
   }
 }

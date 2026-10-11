@@ -57,3 +57,16 @@ Changing it later logs everyone out once.
   exists (`vite.config.ts`; only the yes/no reaches the browser). Force it with `VITE_CLOUD=1` or `0`.
 - Local: put `DATABASE_URL=…` in `.env.local` (a Neon branch, `vercel env pull`, or a local Postgres) and run `npm run dev`.
   Vite serves `/api/*` with the same functions.
+
+## Troubleshooting
+
+- **Health check:** open `https://<your-site>/api/auth?check` in a browser.
+  `{"ok":true,"database":"connected",…}` means the backend and Neon are working.
+- **"Something went wrong on our side … (ref: …)"** — the ref says where it failed and the database/network error code
+  (never anything secret). Common ones:
+  - `setup 28P01` — wrong database password: reconnect Neon in Vercel → Storage, then redeploy.
+  - `setup 3D000` — the database name doesn't exist.
+  - `setup ENOTFOUND` / `ECONNREFUSED` / `ETIMEDOUT` — the database address is wrong or unreachable.
+  - `setup 42501` — the database user isn't allowed to create tables (use the owner role Neon gives you).
+- Full details are in Vercel → your project → **Logs** (search for "db" or "health check").
+- Connections that Neon drops while it sleeps are retried once automatically.
