@@ -405,6 +405,8 @@ export function buildProps(ed: Editor): Props {
     const sel = ed.selected;
     ed.root.classList.toggle('has-sel', sel.length > 0);
     const items: (Node | null)[] = [];
+    // phones: the toolbar covers the tool rail while something is selected; Done brings the tools back
+    if (sel.length) items.push(tb({ icon: 'check', title: 'Done', cls: 'tb-done', onClick: () => ed.select([]) }));
     if (!sel.length) {
       items.push(label('Page'),
         color(ed.page.background, (f) => (ed.page.background = f), { gradient: true, title: 'Background colour' }),

@@ -27,7 +27,8 @@ export interface Panels {
   dropPayload(p: DropPayload, at: { x: number; y: number }): void;
 }
 
-type DropPayload = { kind: 'shape'; shape: ShapeKind } | { kind: 'art'; art: string } | { kind: 'emoji'; char: string };
+type DropPayload = { kind: 'shape'; shape: ShapeKind } | { kind: 'art'; art: string } | { kind: 'emoji'; char: string }
+  | { kind: 'text'; text: 'heading' | 'subheading' | 'body' } | { kind: 'upload'; id: string };
 
 const TABS: { id: string; label: string; icon: IconName }[] = [
   { id: 'templates', label: 'Templates', icon: 'grid' },
@@ -91,9 +92,78 @@ export function buildPanels(ed: Editor): Panels {
   /** On phones, close the sheet after adding something so the result is visible. */
   const afterAdd = () => { if (innerWidth < 760) show(null); };
 
+  /**
+   * Drag an item from a panel onto the design. One pointer-based drag for mouse, pen and touch:
+   * a mouse drags after a small move; a finger presses and holds (so swiping still scrolls the panel).
+   * A tap or click still adds the item in the middle, as before.
+   */
   const draggable = (el: HTMLElement, payload: DropPayload) => {
-    el.draggable = true;
-    el.addEventListener('dragstart', (e) => e.dataTransfer?.setData('application/x-fuzzies', JSON.stringify(payload)));
+    el.classList.add('can-drag');
+    el.addEventListener('dragstart', (e) => e.preventDefault()); // no native image drag: we draw our own preview
+    el.addEventListener('contextmenu', (e) => { if (e.pointerType !== 'mouse') e.preventDefault(); });
+    let started = false;
+    el.addEventListener('touchmove', (e) => { if (started) e.preventDefault(); }, { passive: false }); // dragging, not scrolling
+    el.addEventListener('click', (e) => { if (el.dataset.dragged) { delete el.dataset.dragged; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const sx = e.clientX, sy = e.clientY, touch = e.pointerType !== 'mouse';
+      const stage = ed.root.querySelector<HTMLElement>('.ed-stage')!;
+      let ghost: HTMLElement | null = null, over = false, timer = 0, lx = sx, ly = sy;
+      const place = (x: number, y: number) => {
+        lx = x; ly = y;
+        if (ghost) ghost.style.transform = `translate(${x - ghost.offsetWidth / 2}px, ${y - ghost.offsetHeight / 2}px) rotate(-3deg)`;
+        const r = stage.getBoundingClientRect();
+        over = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && !(ed.root.classList.contains('panel-open') && innerWidth > 760 && panel.contains(document.elementFromPoint(x, y)));
+        stage.classList.toggle('drop-target', over);
+      };
+      const begin = () => {
+        started = true;
+        const r = el.getBoundingClientRect();
+        const w = Math.min(r.width, 200), hh = Math.min(r.height, 120) * (w / r.width || 1);
+        ghost = el.cloneNode(true) as HTMLElement;
+        ghost.classList.add('drag-ghost');
+        // canvases don't copy their pixels when cloned
+        const from = el.querySelectorAll('canvas'), to = ghost.querySelectorAll('canvas');
+        from.forEach((c, i) => to[i]?.getContext('2d')?.drawImage(c, 0, 0));
+        ghost.style.width = `${w}px`; ghost.style.height = `${Math.max(hh, Math.min(r.height, 64))}px`;
+        document.body.append(ghost);
+        ed.root.classList.add('dragging');
+        navigator.vibrate?.(8);
+        place(lx, ly);
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', cleanup);
+        ghost?.remove(); ghost = null;
+        stage.classList.remove('drop-target');
+        ed.root.classList.remove('dragging');
+        started = false;
+      };
+      const move = (ev: PointerEvent) => {
+        if (!started) {
+          const d = Math.hypot(ev.clientX - sx, ev.clientY - sy);
+          if (touch) { if (d > 10) cleanup(); return; } // the finger moved before the hold: it's a scroll
+          if (d < 6) return;
+          lx = ev.clientX; ly = ev.clientY;
+          begin();
+        }
+        place(ev.clientX, ev.clientY);
+      };
+      const up = () => {
+        if (started) {
+          el.dataset.dragged = '1'; // swallow the click that follows a drag
+          setTimeout(() => delete el.dataset.dragged, 400);
+          if (over) {
+            const p = ed.toDesign(lx, ly);
+            dropPayload(payload, { x: Math.max(0, Math.min(ed.design.width, p.x)), y: Math.max(0, Math.min(ed.design.height, p.y)) });
+            afterAdd();
+          }
+        }
+        cleanup();
+      };
+      if (touch) { lx = sx; ly = sy; timer = window.setTimeout(begin, 320); }
+      addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', cleanup);
+    });
   };
 
   const section = (label: string, ...kids: (Node | null)[]) => h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, label), ...kids);
@@ -218,6 +288,7 @@ export function buildPanels(ed: Editor): Panels {
     const add = (kind: 'heading' | 'subheading' | 'body', label: string, cls: string) => {
       const b = h('button', { class: `text-add ${cls}`, type: 'button' }, label);
       b.addEventListener('click', () => { ed.addText(kind); afterAdd(); });
+      draggable(b, { kind: 'text', text: kind });
       return b;
     };
     const fxLocked = !rewards.isUnlocked(FX_PACK.id, FX_PACK.cost);
@@ -268,6 +339,7 @@ export function buildPanels(ed: Editor): Panels {
 
   // ---------- uploads ----------
   let uploadsGrid: HTMLElement | null = null;
+  const uploadsById = new Map<string, { id: string; src: string; w: number; h: number }>();
   async function fillUploads(): Promise<void> {
     if (!uploadsGrid) return;
     const owner = accounts.current?.id ?? '';
@@ -276,6 +348,8 @@ export function buildPanels(ed: Editor): Panels {
     grid.replaceChildren(...list.map((u) => {
       const del = h('button', { class: 'up-del', type: 'button', title: 'Remove from uploads', 'aria-label': 'Remove from uploads' }, icon('close', 14));
       const b = h('div', { class: 'up-item', role: 'button', tabindex: '0', title: 'Add to design' }, h('img', { src: u.src, alt: '', loading: 'lazy' }), del);
+      uploadsById.set(u.id, u);
+      draggable(b, { kind: 'upload', id: u.id });
       b.addEventListener('click', (e) => {
         if (del.contains(e.target as Node)) return;
         ed.addImage(u.id, u.src, u.w, u.h);
@@ -430,12 +504,16 @@ export function buildPanels(ed: Editor): Panels {
   return {
     rail, panel, show,
     refreshUploads: () => { if (active === 'uploads') void fillUploads(); },
-    dropPayload(p, at) {
-      if (p.kind === 'shape') { ed.addShape(p.shape); moveLast(at); }
-      if (p.kind === 'art') { ed.addGraphic(p.art); moveLast(at); }
-      if (p.kind === 'emoji') { ed.addEmoji(p.char); moveLast(at); }
-    },
+    dropPayload,
   };
+
+  function dropPayload(p: DropPayload, at: { x: number; y: number }): void {
+    if (p.kind === 'shape') { ed.addShape(p.shape); moveLast(at); }
+    if (p.kind === 'art') { ed.addGraphic(p.art); moveLast(at); }
+    if (p.kind === 'emoji') { ed.addEmoji(p.char); moveLast(at); }
+    if (p.kind === 'text') { ed.addText(p.text); moveLast(at); }
+    if (p.kind === 'upload') { const u = uploadsById.get(p.id); if (u) { ed.addImage(u.id, u.src, u.w, u.h, at); track('photo'); } }
+  }
 
   function moveLast(at: { x: number; y: number }) {
     const el = ed.page.elements[ed.page.elements.length - 1];
