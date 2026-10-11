@@ -16,7 +16,7 @@ import { db } from '../core/db';
 import { h, btn, icon, toast, confirmDialog, pickFile, fuzzyMark, type IconName } from '../ui/dom';
 import { deepClone, uid } from '../core/util';
 import { track } from '../core/missions';
-import { loadPhotos, previewUrl, fetchPhoto, type StockPhoto } from './photos';
+import { findPhotos, fetchPhoto, canSearch, type StockPhoto } from './photos';
 
 export interface Panels {
   rail: HTMLElement;
@@ -338,7 +338,7 @@ export function buildPanels(ed: Editor): Panels {
 
   // ---------- photos ----------
   const photosById = new Map<string, StockPhoto>();
-  /** Download a free photo and put it in the design (centred, or at a drop point). */
+  /** Download a photo and put it in the design (centred, or at a drop point), with its credit. */
   async function addPhoto(ph: StockPhoto, tile: HTMLElement | null, at?: { x: number; y: number }): Promise<void> {
     tile?.classList.add('busy');
     try {
@@ -346,53 +346,83 @@ export function buildPanels(ed: Editor): Panels {
       const id = uid('a_');
       ed.addImage(id, src, w, ih, at);
       const el = ed.page.elements[ed.page.elements.length - 1];
-      if (el?.type === 'image') { el.name = ph.author ? `Photo · ${ph.author}` : 'Photo'; ed.commit(); }
+      if (el?.type === 'image') { el.name = ph.credit.by ? `Photo · ${ph.credit.by}` : 'Photo'; el.credit = { ...ph.credit }; ed.commit(); }
       track('photo');
       afterAdd();
     } catch (e) {
       console.warn(e);
-      toast(navigator.onLine ? 'That photo could not be loaded — try another one.' : 'Photos need an internet connection.', 'bad');
+      toast(!navigator.onLine ? 'Photos need an internet connection.' : (e as Error).message && !/^photo/.test((e as Error).message) ? (e as Error).message : 'That photo could not be loaded — try another one.', 'bad');
     } finally { tile?.classList.remove('busy'); }
   }
 
+  // the panel remembers the last search while the editor is open
+  const photoState = { q: '', page: 0, items: [] as StockPhoto[], more: true, provider: '', providerUrl: '' };
   function photosPanel(): HTMLElement {
     const cols = [h('div', { class: 'ph-col' }), h('div', { class: 'ph-col' })];
-    const heights = [0, 0];
+    let heights = [0, 0];
     const status = h('div', { class: 'ph-status' });
+    const source = h('p', { class: 'hint ph-source' });
     const more = btn('Load more photos', { kind: 'ghost', class: 'btn-block', onClick: () => void load(true) });
     more.hidden = true;
-    let shown = 0;
+    const input = h('input', { class: 'input', type: 'search', placeholder: 'Search photos — “basketball”, “beach party”…', value: photoState.q, 'aria-label': 'Search photos' });
+    const form = h('form', { class: 'ph-search', role: 'search' }, input);
+    form.hidden = canSearch() === false;
+    form.addEventListener('submit', (ev) => { ev.preventDefault(); input.blur(); start(input.value); });
+    let tmr = 0;
+    input.addEventListener('input', () => { clearTimeout(tmr); tmr = window.setTimeout(() => start(input.value), 450); });
     const tile = (ph: StockPhoto) => {
       photosById.set(ph.id, ph);
-      const img = h('img', { src: previewUrl(ph), alt: ph.author ? `Photo by ${ph.author}` : 'Photo', loading: 'lazy', style: `aspect-ratio:${ph.width}/${ph.height}` });
-      const b = h('button', { class: 'ph-item', type: 'button', title: ph.author ? `Photo by ${ph.author} (Unsplash) — tap to add` : 'Tap to add' }, img, h('span', { class: 'ph-by' }, ph.author));
+      const c = ph.credit;
+      const img = h('img', { src: ph.thumb, alt: ph.alt || (c.by ? `Photo by ${c.by}` : 'Photo'), loading: 'lazy', referrerpolicy: 'no-referrer', style: `aspect-ratio:${ph.width}/${ph.height}` });
+      const b = h('button', { class: 'ph-item', type: 'button', title: `${c.by ? `Photo by ${c.by} · ` : ''}${c.source} · ${c.license} — tap to add` }, img, h('span', { class: 'ph-by' }, c.by));
       b.addEventListener('click', () => void addPhoto(ph, b));
       draggable(b, { kind: 'photo', id: ph.id });
       return b;
     };
-    async function load(next = false): Promise<void> {
-      status.replaceChildren(h('span', { class: 'ph-spin' }), 'Loading photos…');
+    const place = (list: StockPhoto[]) => {
+      for (const ph of list) {
+        const col = heights[0] <= heights[1] ? 0 : 1; // simple masonry: add to the shorter column
+        cols[col].append(tile(ph));
+        heights[col] += ph.height / ph.width;
+      }
+    };
+    const showSource = () => {
+      const p = photoState.provider;
+      source.replaceChildren(...(p ? ['Photos from ', photoState.providerUrl ? h('a', { href: photoState.providerUrl, target: '_blank', rel: 'noopener noreferrer' }, p) : p,
+        p === 'Openverse' ? ' (free licences that allow changes and commercial use). Credits are saved with each photo.' : p === 'Pexels' ? ' — free to use. Tap to add, or drag onto your design.' : ' photographers — free to use. Tap to add, or drag onto your design.'] : []));
+    };
+    let ticket = 0;
+    function start(q: string): void {
+      if (q.trim() === photoState.q.trim() && photoState.items.length) return;
+      Object.assign(photoState, { q, page: 0, items: [], more: true });
+      cols.forEach((c) => c.replaceChildren()); heights = [0, 0];
+      void load(false);
+    }
+    async function load(next: boolean): Promise<void> {
+      const my = ++ticket;
+      status.replaceChildren(h('span', { class: 'ph-spin' }), photoState.q.trim() ? 'Searching photos…' : 'Loading photos…');
       more.disabled = true;
       try {
-        const list = await loadPhotos(next);
-        for (const ph of list.slice(shown)) {
-          const col = heights[0] <= heights[1] ? 0 : 1; // simple masonry: add to the shorter column
-          cols[col].append(tile(ph));
-          heights[col] += ph.height / ph.width;
-        }
-        shown = list.length;
-        status.replaceChildren();
-        more.hidden = false;
+        const page = await findPhotos(photoState.q, photoState.page + 1);
+        if (my !== ticket) return; // a newer search started
+        photoState.page++;
+        const fresh = page.items.filter((p) => !photoState.items.some((x) => x.id === p.id));
+        photoState.items.push(...fresh);
+        Object.assign(photoState, { more: page.more, provider: page.provider, providerUrl: page.providerUrl ?? '' });
+        place(fresh);
+        form.hidden = canSearch() === false;
+        showSource();
+        status.replaceChildren(...(photoState.items.length ? [] : [h('p', { class: 'muted' }, `No photos found for “${photoState.q.trim()}”. Try other words.`)]));
+        more.hidden = !photoState.more;
       } catch (e) {
+        if (my !== ticket) return;
         console.warn(e);
-        status.replaceChildren(h('p', { class: 'muted' }, navigator.onLine ? 'Photos could not be loaded right now.' : 'Photos need an internet connection.'),
-          btn('Try again', { kind: 'soft', size: 'sm', onClick: () => void load(next) }));
-      } finally { more.disabled = false; }
+        const msg = !navigator.onLine ? 'Photos need an internet connection.' : (e as Error).message && !/^photos? /.test((e as Error).message) ? (e as Error).message : 'Photos could not be loaded right now.';
+        status.replaceChildren(h('p', { class: 'muted' }, msg), btn('Try again', { kind: 'soft', size: 'sm', onClick: () => void load(next) }));
+      } finally { if (my === ticket) more.disabled = false; }
     }
-    void load();
-    return h('div', null,
-      h('p', { class: 'hint' }, 'Free photos from Unsplash photographers. Tap to add, or drag one onto your design.'),
-      h('div', { class: 'ph-grid' }, ...cols), status, more);
+    if (photoState.items.length) { place(photoState.items); showSource(); more.hidden = !photoState.more; } else void load(false);
+    return h('div', null, form, source, h('div', { class: 'ph-grid' }, ...cols), status, more);
   }
 
   // ---------- stickers ----------

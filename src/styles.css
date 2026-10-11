@@ -1601,3 +1601,15 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
   .lib-preview-pic { height: 44vh; }
 }
 .lib-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 40px 0; justify-content: center; }
+
+/* ---------- Photo search + credits ---------- */
+.ph-search { margin-bottom: 8px; }
+.ph-search[hidden] { display: none; }
+.ph-source { margin: 0 0 10px; font-size: 12px; }
+.ph-source a, .credit-line a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.ph-source a:hover, .credit-line a:hover { text-decoration: underline; }
+.ph-source:empty { display: none; }
+.credit-line { margin: 0 0 6px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.credits { display: grid; gap: 12px; }
+.credits p { margin: 0; }
+.credits-text { width: 100%; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; min-height: 64px; }

@@ -3,7 +3,9 @@ import type { Editor } from './editor';
 import { pageCanvas, prepare } from './render';
 import { exportFiles, download, type ExportFormat } from './export';
 import { rewards } from '../core/rewards';
-import { h, icon, popMenu, toast } from '../ui/dom';
+import { h, btn, icon, modal, popMenu, toast } from '../ui/dom';
+import { creditLine } from './photos';
+import type { Credit, Design } from './types';
 
 export function openPreview(ed: Editor): void {
   ed.finishTextEdit();
@@ -66,7 +68,9 @@ export function downloadMenu(ed: Editor, anchor: HTMLElement): void {
     }
   };
   const many = d.pages.length > 1;
+  const credits = photoCredits(d);
   popMenu(anchor, [
+    ...(credits.length ? [{ label: `Photo credits (${credits.length})`, icon: 'heart' as const, onClick: () => showCredits(credits) }, null] : []),
     { label: many ? 'PNG · this page' : 'PNG image', icon: 'image', onClick: () => void run('png', [ed.pageIndex]) },
     ...(many ? [{ label: 'PNG · all pages', icon: 'pages' as const, onClick: () => void run('png', d.pages.map((_, i) => i)) }] : []),
     { label: 'JPG image', icon: 'image', onClick: () => void run('jpg', [ed.pageIndex]) },
@@ -74,4 +78,20 @@ export function downloadMenu(ed: Editor, anchor: HTMLElement): void {
     null,
     { label: 'Project file (.fuzzies)', icon: 'folder', onClick: () => void run('fuzzies') },
   ]);
+}
+
+/** Every stock photo's credit in a design (one per photo, even if used twice). */
+export function photoCredits(d: Design): Credit[] {
+  const seen = new Map<string, Credit>();
+  for (const p of d.pages) for (const e of p.elements) if (e.type === 'image' && e.credit) seen.set(creditLine(e.credit), e.credit);
+  return [...seen.values()];
+}
+
+function showCredits(list: Credit[]): void {
+  const text = list.map(creditLine).join('\n');
+  const need = list.some((c) => c.required);
+  const copy = btn('Copy all credits', { kind: 'primary', icon: 'copy', onClick: () => void (navigator.clipboard?.writeText(text) ?? Promise.reject(new Error('no clipboard'))).then(() => toast('Credits copied', 'good'), () => toast('Select the text and copy it', 'info')) });
+  modal('Photo credits', h('div', { class: 'credits' },
+    h('p', { class: 'muted' }, need ? 'Some photos here use a licence that asks for a credit. Paste these lines where you share the design (caption, description or the back page).' : 'No credit is required for these photos, but it’s a kind thing to add.'),
+    h('textarea', { class: 'input credits-text', readonly: true, rows: Math.min(8, list.length + 1), 'aria-label': 'Photo credits' }, text)), { actions: [copy] });
 }

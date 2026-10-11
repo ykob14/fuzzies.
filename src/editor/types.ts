@@ -71,9 +71,13 @@ export interface TextEl extends Base {
 
 export type Mask = 'none' | 'circle' | 'rounded' | 'arch' | 'blob' | 'star' | 'heart' | 'hexagon';
 
+/** Where a stock photo came from and how it may be used (shown in the editor; `required` = the licence asks for a credit). */
+export interface Credit { by: string; byUrl?: string; source: string; sourceUrl?: string; license: string; licenseUrl?: string; required: boolean }
+
 export interface ImageEl extends Base {
   type: 'image';
   asset: string; // key into Design.assets
+  credit?: Credit; // set for photos from the Photos panel; cleared when the photo is replaced
   radius: number;
   mask: Mask;
   filters: Filters;

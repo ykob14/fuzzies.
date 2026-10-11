@@ -12,7 +12,8 @@ import { artById } from '../content/art';
 import { rewards } from '../core/rewards';
 import { accounts } from '../core/account';
 import { unlockDialog } from '../ui/unlock';
-import { h, btn, icon, pickFile, fuzzyMark, popMenu, type IconName } from '../ui/dom';
+import { h, btn, icon, pickFile, fuzzyMark, popMenu, toast, type IconName } from '../ui/dom';
+import { creditLine } from './photos';
 import { fileToImageData, uid } from '../core/util';
 import { db } from '../core/db';
 
@@ -216,10 +217,17 @@ export function buildProps(ed: Editor): Props {
       const id = uid('a_');
       await db.putUpload({ id, owner: accounts.current?.id ?? '', src: s, w, h: ih, createdAt: Date.now() });
       ed.design.assets[id] = s;
-      e.asset = id; e.panX = 0; e.panY = 0; e.zoom = 1;
+      e.asset = id; e.panX = 0; e.panY = 0; e.zoom = 1; delete e.credit;
       done(); render();
     } });
+    const c = e.credit;
+    const link = (text: string, url?: string) => (url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, text) : h('span', null, text));
+    const credit = c ? sec('Photo credit', h('p', { class: 'credit-line' }, 'Photo', c.by ? ' by ' : '', c.by ? link(c.by, c.byUrl) : null, ' on ', link(c.source, c.sourceUrl), h('br'),
+      'Licence: ', link(c.license, c.licenseUrl)),
+      h('p', { class: 'hint' }, c.required ? 'This licence asks you to credit the photographer wherever you share the design.' : 'No credit needed, but photographers love it.'),
+      btn('Copy credit', { kind: 'ghost', size: 'sm', icon: 'copy', onClick: () => void (navigator.clipboard?.writeText(creditLine(c)) ?? Promise.reject(new Error("no clipboard"))).then(() => toast('Credit copied', 'good'), () => toast(creditLine(c))) })) : null;
     return [
+      ...(credit ? [credit] : []),
       sec('Filters', presets),
       sec('Adjust',
         slider('Brightness', F.brightness, 0, 200, 1, (v) => (F.brightness = v)),
