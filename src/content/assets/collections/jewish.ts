@@ -254,6 +254,16 @@ export const ASSETS: AssetDef[] = [
     g += `<rect x="40" y="174" width="160" height="18" rx="9" fill="${c[2]}" transform="rotate(14 120 183)"/><rect x="40" y="174" width="160" height="18" rx="9" fill="${dk(c[2], 0.15)}" transform="rotate(-14 120 183)"/>`;
     return g + sparkle(70, 60, 6, c[1]) + sparkle(180, 44, 5, c[1]) + sparkle(190, 96, 4, c[1]);
   }),
+  A('jh-star', 'Star of David', 'illustration', 220, 220, ['#2f5fa8', '#e8c46a'], ['star of david', 'magen david', 'מגן דוד', 'bar mitzvah', 'bat mitzvah', 'brit milah', 'bris', 'shabbat', 'synagogue'], (c) => {
+    const tri = (rot: number) => [0, 1, 2].map((i) => { const a = ((rot + i * 120) * Math.PI) / 180; return `${f1(110 + Math.cos(a) * 90)},${f1(110 + Math.sin(a) * 90)}`; }).join(' ');
+    return `<defs>${glowDef('sg', c[1], 0.45)}</defs><circle cx="110" cy="110" r="108" fill="url(#sg)"/><polygon points="${tri(-90)}" fill="none" stroke="${c[0]}" stroke-width="12" stroke-linejoin="round"/><polygon points="${tri(90)}" fill="none" stroke="${c[0]}" stroke-width="12" stroke-linejoin="round"/>`;
+  }),
+  A('jh-book', 'Book of Life', 'illustration', 260, 200, ['#f5ead2', '#2f5fa8', '#d4a940'], [...YK, 'book of life', 'gmar chatima tova', 'book', 'sefer', 'study'], (c) => {
+    let g = `<ellipse cx="130" cy="186" rx="110" ry="8" fill="#000" opacity=".12"/><path d="M20 40 C60 30 100 34 130 50 C160 34 200 30 240 40 V170 C200 160 160 164 130 180 C100 164 60 160 20 170 Z" fill="${c[1]}"/>`;
+    g += `<path d="M28 34 C64 26 100 30 130 46 V172 C100 158 64 154 28 162 Z" fill="${c[0]}"/><path d="M232 34 C196 26 160 30 130 46 V172 C160 158 196 154 232 162 Z" fill="${dk(c[0], 0.05)}"/>`;
+    for (let i = 0; i < 8; i++) g += `<path d="M44 ${62 + i * 12} C70 ${56 + i * 12} 96 ${60 + i * 12} 118 ${68 + i * 12} M142 ${68 + i * 12} C164 ${60 + i * 12} 190 ${56 + i * 12} 216 ${62 + i * 12}" stroke="#3a2e28" stroke-width="2" opacity=".35" fill="none"/>`;
+    return g + `<path d="M130 46 V200" stroke="${c[2]}" stroke-width="5"/><path d="M130 196 l-8 14 h16 z" fill="${c[2]}"/>` + sparkle(214, 26, 9, c[2]) + sparkle(36, 22, 6, c[2]);
+  }),
   A('jh-sparkles', 'Gold sparkles', 'decoration', 300, 200, ['#d4a940', '#fff3c4'], ['sparkles', 'stars', 'gold', 'confetti'], (c) => {
     const r = rng(23); let g = '';
     for (let i = 0; i < 20; i++) { const x = r() * 300, y = r() * 200; g += i % 3 ? sparkle(x, y, 3 + r() * 7, i % 2 ? c[0] : c[1], 0.9) : `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(2 + r() * 3)}" fill="${c[0]}"/>`; }
@@ -298,7 +308,7 @@ const BGS = backgrounds('jewish', ['jewish', 'holiday'], [
       const [ax, ay] = P(0.55, 1);
       return b + apple(`ap${seed}`, ax, ay + len * 0.1, len / 1100, '#c8263a', c[2]);
     };
-    return g + branch(-u * 0.02, u * 0.05, 0.35, u * 0.42, 3) + branch(u * 0.04, -u * 0.02, 1.15, u * 0.3, 5) + branch(W + u * 0.02, H - u * 0.05, Math.PI + 0.35, u * 0.42, 7) + branch(W - u * 0.04, H + u * 0.02, Math.PI + 1.15, u * 0.3, 9);
+    return g + branch(-u * 0.02, u * 0.01, 0.15, u * 0.19, 3) + branch(u * 0.01, -u * 0.02, 1.35, u * 0.15, 5) + branch(W + u * 0.02, H - u * 0.02, Math.PI + 0.2, u * 0.3, 7) + branch(W - u * 0.02, H + u * 0.02, Math.PI + 1.3, u * 0.22, 9);
   } },
   { id: 'jh-bg-parchment', name: 'Parchment & gold', colors: ['#fbf6ea', '#b8862b'], tags: [...YK, 'cream', 'white', 'elegant', 'minimal', 'invitation'], draw: (c, W, H) => {
     const m = Math.min(W, H) * 0.045, u = Math.min(W, H);

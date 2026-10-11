@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-12 · by Claude Code · `claude/fuzzies-design-app-jwv4tu` = `main` + Christmas, Hanukkah & Passover collections (ask before merging)_
+_Last updated: 2026-10-13 · by Claude Code · `claude/fuzzies-design-app-jwv4tu` = `main` + Christmas/Hanukkah/Passover + text effects + multicultural collections (ask before merging)_
 
 ---
 
@@ -25,7 +25,7 @@ keeps people coming back (the mascot, the game, missions).
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested. |
 | **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
-| **Branches** | `main` = Halloween collection (live). `claude/fuzzies-design-app-jwv4tu` = `main` + **Christmas, Hanukkah & Passover collections** (artwork, 60 templates, holiday search, type filters, Replace artwork) — **ask the owner before merging**. |
+| **Branches** | `main` = Halloween collection (live, `ae74508`). `claude/fuzzies-design-app-jwv4tu` = `main` + **Christmas, Hanukkah & Passover** (60 templates) + **text effects & curved text** + **multicultural collections** (9 new art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search) — **ask the owner before merging**. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
 ## 3. Owner preferences (learned — respect these)
@@ -146,12 +146,15 @@ src/
       remote.ts        published templates from the server into the catalog; server search when there are more
       admin.ts         template-manager rights (server decides) + manager API (save/publish/delete/AI draft)
       collections/      hand-made collections: kit.ts (composition kit: art/scene/text/box/pill/below, Use types,
-                       buildCollectionDoc), index.ts (COLLECTION_SETS + fonts), halloween/christmas/hanukkah/passover.ts (20 each)
+                       buildCollectionDoc), index.ts (COLLECTION_SETS + fonts), halloween/christmas/hanukkah/passover.ts (20 each);
+                       themed.ts = the THEMED TEMPLATE SYSTEM (Look + Words + reusable layouts hero/split/arch/framed/
+                       poster/minimal/medallion/photo); islamic/jewish/christian/cultural/baby/milestones/events.ts = ThemedSets
     assets/            the asset library: index.ts = registry (tags, kind, licence, author) + lazy collections
                        (ensureArt, searchAssets); draw.ts = shared drawing helpers (colour, svg, asset(), backgrounds(),
                        stars/snow/bokeh/mist/hills, flame, gift, lightString, davidStar, blossom, frame);
-                       collections/ halloween (hw-), christmas (xm-), hanukkah (hk-), passover (ps-): original SVG
-                       illustrations + scene backgrounds × 4 page shapes (-sq/-po/-st/-ls)
+                       collections/ halloween (hw-), christmas (xm-), hanukkah (hk-), passover (ps-), islamic (is-),
+                       jewish (jh-), christian (cr-), indian (in-), baby (bb-), asian (as-), world (wd-), milestones (ms-),
+                       events (ev-): original SVG illustrations + scene backgrounds × 4 page shapes (-sq/-po/-st/-ls)
   game/
     crossing.ts        Fuzzy Crossing RULES only (lanes, collisions, scoring) + View interface + Fx events
     view3d.ts          realistic Three.js view (sky, shadows, water, fur, intro cinematic)
@@ -268,6 +271,20 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   Hebrew-capable fonts (Frank Ruhl Libre, David Libre, Suez One, Secular One, Bellefair, Heebo, Rubik, Amatic SC) without
   punctuation (canvas lays it out RTL by itself). **Search** normalises with Unicode letters (Hebrew kept, niqqud dropped);
   spellings/Hebrew synonyms live in `SYNONYMS` (search.ts). Graphics have **Replace artwork** (props.ts → graphicProps).
+  **Themed templates (most new celebrations):** add a `spec(...)` to a ThemedSet in `collections/<group>.ts` — id, name, format,
+  use, layout, style, colour words, occasion, tags, a `Look` (scene base id, palette, fonts, hero/top/corner/frame art, optional
+  `photo` slot) and `Words` (eyebrow, title, `native` greeting in its own script, sub, details, cta). Template ids are
+  `${sub}--${spec id}` — never rename them. Palette text colours: `title/ink/muted` are for words on the scene,
+  `panelTitle/panelInk/panelMuted` for words on a panel (arch, medallion disc, details card) — set both on dark scenes
+  with light panels or text disappears. Don't put a big `hero` on scenes that already draw a skyline (is-bg-night, is-bg-dusk);
+  use is-bg-starry etc. `settle()` grows/shrinks the hero and centres the block in arch/framed/photo layouts. Native lines
+  carry no letter spacing (Arabic must join) and no Latin punctuation; never mix two scripts in one text line. Dates in sample
+  wording are real weekdays (2026–27). After changing a layout, render all contact sheets (`hwtpl.cjs`) — layouts are shared.
+  **Categories:** taxonomy.json now has Islamic, Jewish, Christian, Cultural festivals, Baby and Milestones (kind
+  `celebrations`, so moved topics keep their generated templates and ids). Classic templates follow their topic's category.
+  **Search** keeps Indic vowel signs inside words, drops Arabic harakat and folds Arabic letter variants; multilingual
+  spellings live in topic keywords + `SYNONYMS`. Gallery previews are also cached in Cache Storage (`fz-template-previews-v1`,
+  keyed by a hash of the page, pruned to 900).
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
 - **Scrolling (computers):** inside the app shell the `.main` panel scrolls, not the window (≥961 px); phones/tablets still scroll the window.
@@ -321,12 +338,19 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | _(library)_ | **Template library** (owner: Create → Templates / My Designs only, "large-scale, searchable, inspired by Canva", original templates, licensed assets, no scraping). Data-driven taxonomy: 7 categories, 83 topics (27 sports incl. pickleball/softball/gymnastics/surfing, entertainment, celebrations, community, business, education, creators). 14 layout archetypes × 8 formats × 28 palettes × 9 font voices → **335 original templates** with real differences (4–5 per topic, never near-duplicates), plus the 28 classics placed in topics (363 in all). Gallery: search (typos, synonyms), category tree, format/style/colour/occasion/free filters, Recently used / Trending / Popular (real usage only, hidden until there is data) / Recently added, lazy previews, infinite paging, preview with similar templates, blank starters; editor Templates panel searches the same library. Backend: `fz_templates` catalog with Postgres full-text search + paging, documents and pictures served separately, revisions; usage counts. **Publishing:** template managers (`ADMIN_EMAILS`) get Download → Publish as template / Update template and Manage templates (publish, unpublish, edit, delete); **Draft with AI** only when `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are set (Claude writes wording, the layout engine lays it out). **Photos:** search through Pexels (with a key) or Openverse (CC0/public domain/CC BY), safe image fetcher (allowlisted hosts), credits saved with each photo, inspector credit + Download → Photo credits. Tested: 33 catalog API checks + AI checks on real Postgres and a fake AI service, 23 photo-API checks (incl. blocked hosts/redirects/size), browser runs of gallery, editor panel, photo search/credits, publish → user finds and uses it, manager, AI drafts, at desktop and phone sizes. Merged to `main` (live). |
 | _(halloween)_ | **Asset system + illustrated Halloween collection** (owner: go beyond the look; production-quality platform; Halloween with pumpkins, ghosts, haunted houses, bats — no text-only flyers; audit first). `PLATFORM-PLAN.md` = audit + prioritized plan (Canva concepts from Claude's knowledge — canva.dev was not reachable from the container). Asset registry with tags/licence/author and lazy collections; 34 original recolourable illustrations + 6 scene backgrounds in 4 shapes; Elements panel collection sections, tag search, page backgrounds (replace the existing one); free "Spooky Season" fonts (Creepster, Griffy, Henny Penny, Mystery Quest, Jolly Lodger — checked on Google Fonts). **20 hand-composed Halloween templates** (fully layered: scene, illustrations, live text, shapes) replace the typographic Halloween layouts. Tested: contact sheets reviewed and overlaps fixed, gallery search/topic, open → 10 editable layers, reload, PNG export, graphic recolour slots, Elements search + background swap, phone, production smoke test (every screen): no errors. Merged to `main` (live). |
 | _(holidays)_ | **Christmas, Hanukkah & Passover collections** (owner: same quality as Halloween; accurate Jewish symbolism; Hebrew; holiday search incl. Chanukah/Hanukah/חנוכה and Pesach/פסח; sub-filters Greetings/Invitations/Parties/Social/Flyers/Posters; nothing removed). Shared drawing kit + composition kit (Halloween moved onto it unchanged). Art: Christmas 29 illustrations + 6 backgrounds, Hanukkah 18 + 5 (hanukkiyot 8 + shamash in gold/silver/oil, window scene, dreidels with נ ג ה ש, gelt, Stars of David, sufganiyot, latkes, oil jug…), Passover 17 + 5 (seder plate with its six items, matzah, Kiddush cup, Cup of Elijah, Haggadot, flowers, almond blossom, wheat, candlesticks, seder table, frog, pomegranate…). **60 hand-composed templates** (20 each) with Hebrew greetings (חג חנוכה שמח, חג אורים שמח, נס גדול היה שם, חג פסח שמח, חג כשר ושמח, ליל סדר, לשנה הבאה בירושלים). Free font packs Festive & Elegant + Hebrew (all checked on Google Fonts). Gallery: Holiday collections row, type chips with counts (URL `use=`), collection templates rank first; Passover topic added; existing typographic Christmas/Hanukkah templates kept. Editor: Replace artwork for graphics (toolbar + inspector, keeps size, undoable). Tested: contact sheets reviewed and layouts fixed, Hebrew read RTL correctly, 17 holiday searches, chips, open → layers → reload in My Designs, Elements search (menorah/seder/reindeer), Replace + undo, phone, production smoke (every screen): no errors. Branch only. |
+| _(multicultural)_ | **Multicultural collections** (owner: Islamic, Jewish, Christian, global festivals, baby and milestone categories; accurate symbolism; Arabic/Hebrew RTL; alternative spellings and multilingual search; reusable system; 5 benchmark templates first; LidoJS evaluated). LidoJS has no licence (no code reused; ideas only — see PLATFORM-PLAN.md). **Text effects & curved text** in the editor (`04b10d4`). **Themed template system** (`collections/themed.ts`: looks + words + 8 reusable layouts, vertical balancing, photo slots, panel-aware colours). **9 new art collections** (176 original illustrations + 47 scene backgrounds in 4 shapes): Ramadan & Eid, Jewish holidays, Easter & Christian, Diwali/Holi/Indian festivals, Baby, Lunar New Year & Asian festivals, Nowruz/Kwanzaa/Día de Muertos, weddings & milestones, parties & community events. **175 themed templates in 71 topics** (benchmark: Ramadan Kareem, Shana Tova, He Is Risen, Diwali Night, Oh Baby) with greetings in Arabic, Hebrew, Hindi, Malayalam, Punjabi, Chinese and Persian (new free font packs: Arabic & Persian, Indian scripts, Chinese, Soft & Sweet). Taxonomy: 6 new categories, 50+ new topics with spellings/other-language keywords; gallery "Illustrated collections" row with category chips; persistent preview cache. Tested: every template rendered on contact sheets and fixed (overlaps, invisible text, crowded skylines), 40+ multilingual searches, open → edit native greeting via Layers + Enter → reload → PNG export for Arabic, Hebrew, Hindi, Chinese, Persian and a photo card, phone flow, production smoke (computer + phone): no errors. Branch only. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
 ## 8. Known limitations / not verified
+
+- **Multicultural collections:** native-script greetings were checked against reference spellings and visually (RTL order,
+  Arabic joining, Devanagari/Gurmukhi/Malayalam shaping) in Chromium only — a native speaker review is still worth doing,
+  and Safari/real phones are untested. Editing a greeting to a much longer one can wrap onto the line below (layers don't
+  reflow). Vesak and Kwanzaa have English/Swahili wording only (no Sinhala/Pali). Photo slots use soft placeholders.
+  The collections row shows 75 sets; Sports/Entertainment/Community appear there only through a few event templates.
 
 - **Holiday collections:** checked in Chromium only (not Safari / a real phone). Hebrew lines are single phrases without punctuation;
   editing mixed Hebrew + English in one text box follows the browser's bidi rules. Replace artwork offers pieces from the same
@@ -374,7 +398,9 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Christmas, Hanukkah & Passover are on the branch** — ask the owner before merging to `main`.
+0. **Christmas/Hanukkah/Passover, text effects and the multicultural collections are on the branch** — ask the owner before
+   merging to `main`. Then: native-speaker review of greetings; more templates per topic (the system makes it data);
+   frames/tables/rich-text runs in the editor (Workstream A); seasonal ordering of the collections row.
    **Halloween collection is live** — next per PLATFORM-PLAN.md: quality checks + review stage for publishing, a seasonal
    "Halloween" row in October, more collections (Christmas, Diwali, Lunar New Year…) with the same asset system.
    **Template library is live.** The owner (hotlavayaniv@gmail.com) was made a template manager through the new `fz_admins` table

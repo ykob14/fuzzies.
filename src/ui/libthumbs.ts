@@ -2,6 +2,8 @@
  * Lazy template previews for the gallery: a placeholder of the right shape appears at once; the picture is drawn
  * only when the card scrolls into view, a few per frame so scrolling stays smooth, and cached for the visit.
  * Library templates wait for their fonts first so titles are measured and drawn exactly.
+ * Built-in previews are also kept in Cache Storage between visits, keyed by a hash of the page they show — a changed
+ * template gets a new key, so a stale picture is never shown (old entries are pruned).
  */
 import { loadTemplateDoc, forgetBuiltDocs, type TemplateMeta } from '../content/library/catalog';
 import { FONTS } from '../content/library/palettes';
@@ -33,12 +35,33 @@ async function draw(m: TemplateMeta, max: number): Promise<string> {
   if (m.thumb) { cache.set(key, m.thumb); return m.thumb; }
   if (m.source === 'library' || m.source === 'collection') await waitFonts();
   const d = await loadTemplateDoc(m);
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const stored = m.source !== 'published' ? `/__fz-preview/${encodeURIComponent(m.id)}/${max}x${dpr}/${hash(JSON.stringify(d.pages[0], (k, v) => (k === 'id' ? undefined : v)))}` : '';
+  const saved = stored ? await fromStore(stored) : null;
+  if (saved) { const url = URL.createObjectURL(saved); cache.set(key, url); return url; }
   await prepare(d, [d.pages[0]]);
   const s = max / Math.max(d.width, d.height);
-  const c = pageCanvas(d, d.pages[0], s * Math.min(2, devicePixelRatio || 1));
-  const url = await new Promise<string>((res) => c.toBlob((b) => res(b ? URL.createObjectURL(b) : c.toDataURL('image/jpeg', 0.82)), 'image/jpeg', 0.84));
+  const c = pageCanvas(d, d.pages[0], s * dpr);
+  const blob = await new Promise<Blob | null>((res) => c.toBlob(res, 'image/jpeg', 0.84));
+  const url = blob ? URL.createObjectURL(blob) : c.toDataURL('image/jpeg', 0.82);
+  if (blob && stored) void toStore(stored, blob);
   cache.set(key, url);
   return url;
+}
+
+// ---------- previews kept between visits (Cache Storage; silently skipped where unavailable) ----------
+const STORE = 'fz-template-previews-v1', KEEP = 900;
+function hash(s: string): string { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+async function fromStore(url: string): Promise<Blob | null> {
+  try { const r = await (await caches.open(STORE)).match(url); return r ? await r.blob() : null; } catch { return null; }
+}
+let writes = 0;
+async function toStore(url: string, blob: Blob): Promise<void> {
+  try {
+    const c = await caches.open(STORE);
+    await c.put(url, new Response(blob, { headers: { 'content-type': 'image/jpeg' } }));
+    if (++writes % 50 === 0) { const keys = await c.keys(); for (const k of keys.slice(0, Math.max(0, keys.length - KEEP))) await c.delete(k); }
+  } catch { /* private mode, quota or no Cache Storage: the preview still works for this visit */ }
 }
 
 async function pump(): Promise<void> {

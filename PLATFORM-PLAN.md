@@ -122,6 +122,8 @@ code, templates or content.
 2. Next candidates: frames (shaped photo placeholders), tables, rich text runs, persistent preview cache.
 
 ### Workstream B — themed template system + collections
+**Status (2026-10-13):** built — benchmark of 5 verified, then 175 themed templates in 71 topics across Islamic, Jewish,
+Christian, Cultural festivals, Baby, Milestones and event topics; 9 new art collections; multilingual search.
 - **Themes as data, layouts as reusable components:** a theme (topic, art collection, hero + accent artwork, palettes,
   fonts incl. native script, wording per purpose) × illustrated layouts (hero greeting, arch invitation, framed poster,
   split flyer, story stack, banner, minimal card, medallion post) → several genuinely different, fully layered templates.

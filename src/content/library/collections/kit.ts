@@ -17,6 +17,10 @@ import { ASSETS as JH } from '../../assets/collections/jewish';
 import { ASSETS as CR } from '../../assets/collections/christian';
 import { ASSETS as IN } from '../../assets/collections/indian';
 import { ASSETS as BB } from '../../assets/collections/baby';
+import { ASSETS as AS } from '../../assets/collections/asian';
+import { ASSETS as WD } from '../../assets/collections/world';
+import { ASSETS as MS } from '../../assets/collections/milestones';
+import { ASSETS as EV } from '../../assets/collections/events';
 import { FORMATS, fitSize, widthOf, type Format } from '../layouts';
 
 /** What a template is for — the holiday sub-filters (Greetings, Invitations, Parties, Social media, Flyers, Posters). */
@@ -30,10 +34,12 @@ export interface CollectionTemplate {
 }
 
 // ---------- composition kit ----------
-export interface Kit { W: number; H: number; u: number; els: El[]; bg: Fill }
-const ALL_ASSETS = [...HW, ...XM, ...HK, ...PS, ...IS, ...JH, ...CR, ...IN, ...BB];
+export interface Kit { W: number; H: number; u: number; els: El[]; bg: Fill; assets: Record<string, string> }
+const ALL_ASSETS = [...HW, ...XM, ...HK, ...PS, ...IS, ...JH, ...CR, ...IN, ...BB, ...AS, ...WD, ...MS, ...EV];
 const ratioOf = new Map(ALL_ASSETS.map((a) => [a.id, a.ratio]));
 const colorsOf = new Map(ALL_ASSETS.map((a) => [a.id, a.colors]));
+/** The main colour of a scene background (used as the page colour underneath it). */
+export const sceneColor = (base: string): string | undefined => colorsOf.get(`${base}-sq`)?.[0];
 /** Width ÷ height of an illustration (1 if unknown). */
 export const ratio = (id: string) => ratioOf.get(id) ?? 1;
 const SHAPE: Record<Format, string> = { post: 'sq', story: 'st', poster: 'po', flyer: 'po', card: 'po', landscape: 'ls', certificate: 'ls', slides: 'ls' };
@@ -86,7 +92,7 @@ export const drop = (u: number, color = 'rgba(0,0,0,0.45)'): Shadow => ({ color,
 /** The editable document for a collection template (`sub` = its topic id, e.g. "halloween"). */
 export function buildCollectionDoc(sub: string, t: CollectionTemplate, addedAt: number, bg: Fill = '#120f2b'): Design {
   const f = FORMATS[t.format];
-  const c: Kit = { W: f.w, H: f.h, u: Math.min(f.w, f.h), els: [], bg };
+  const c: Kit = { W: f.w, H: f.h, u: Math.min(f.w, f.h), els: [], bg, assets: {} };
   t.build(c);
-  return { v: DOC_VERSION, id: `tpl_${sub}--${t.id}`, owner: 'system', name: t.name, width: f.w, height: f.h, pages: [newPage(c.bg, c.els)], assets: {}, template: `${sub}--${t.id}`, createdAt: addedAt, updatedAt: addedAt };
+  return { v: DOC_VERSION, id: `tpl_${sub}--${t.id}`, owner: 'system', name: t.name, width: f.w, height: f.h, pages: [newPage(c.bg, c.els)], assets: c.assets, template: `${sub}--${t.id}`, createdAt: addedAt, updatedAt: addedAt };
 }

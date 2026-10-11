@@ -108,6 +108,34 @@ const ILLUSTRATIONS: AssetDef[] = [
     return g;
   }),
   A('is-gifts', 'Eid gifts', 'illustration', 320, 220, ['#1f6f6a', '#d4a940', '#7b2d4f'], ['gifts', 'eidi', 'presents', 'eid'], (c) => gift('a', 20, 92, 120, 120, c[2], c[1], lt(c[2], 0.4)) + gift('c', 196, 112, 104, 100, c[1], c[0]) + gift('b', 98, 56, 140, 156, c[0], c[1], c[1])),
+  A('is-iftar', 'Iftar table', 'illustration', 420, 200, ['#7a3e1d', '#d4a940', '#f3ead7', '#c4622d', '#8fc3e6'], ['iftar', 'ifṭār', 'إفطار', 'suhoor', 'sehri', 'dinner', 'breaking fast', 'community iftar', 'food'], (c) => {
+    let g = `<rect x="0" y="150" width="420" height="50" rx="6" fill="${c[2]}"/><path d="M0 160 H420" stroke="${c[1]}" stroke-width="4"/>`;
+    g += `<ellipse cx="90" cy="150" rx="70" ry="14" fill="${c[1]}"/><ellipse cx="90" cy="146" rx="60" ry="10" fill="${lt(c[1], 0.3)}"/>`;
+    for (let i = 0; i < 9; i++) { const x = 50 + (i % 5) * 20, y = 140 - Math.floor(i / 5) * 10; g += `<ellipse cx="${x}" cy="${y}" rx="11" ry="6.5" fill="${i % 2 ? c[0] : dk(c[0], 0.15)}" transform="rotate(${i * 17} ${x} ${y})"/>`; }
+    g += `<path d="M160 120 C160 150 190 158 210 158 C230 158 260 150 260 120 Z" fill="${c[2]}" stroke="${dk(c[2], 0.15)}" stroke-width="3"/><ellipse cx="210" cy="120" rx="50" ry="10" fill="${c[3]}"/><path d="M196 104 c-6 -10 6 -14 0 -24 M214 102 c-6 -10 6 -14 0 -24" stroke="#bbb" stroke-width="3" fill="none" stroke-linecap="round" opacity=".7"/>`;
+    g += `<path d="M300 90 H330 L326 156 H304 Z" fill="${c[4]}" opacity=".55" stroke="${dk(c[4], 0.2)}" stroke-width="2"/><path d="M302 110 H328" stroke="#fff" stroke-width="2" opacity=".6"/>`;
+    g += lantern('il', 330, 4, 0.7, c[1], '#2a8f86', '#ffcf6a');
+    return g;
+  }),
+  A('is-charity', 'Charity box', 'illustration', 240, 240, ['#1f6f6a', '#d4a940', '#ffffff'], ['charity', 'zakat', 'sadaqah', 'zakat al-fitr', 'donation', 'giving', 'fundraiser', 'زكاة', 'صدقة'], (c) =>
+    `<ellipse cx="120" cy="228" rx="90" ry="7" fill="#000" opacity=".12"/><path d="M40 110 H200 V222 H40 Z" fill="${c[0]}"/><path d="M200 110 L224 92 V204 L200 222 Z" fill="${dk(c[0], 0.25)}"/><path d="M40 110 L64 92 H224 L200 110 Z" fill="${lt(c[0], 0.2)}"/>` +
+    `<rect x="106" y="97" width="70" height="8" rx="4" fill="${dk(c[0], 0.5)}" transform="skewX(-30)"/>` +
+    `<path d="M120 154 C108 140 88 144 90 160 C92 174 110 182 120 194 C130 182 148 174 150 160 C152 144 132 140 120 154 Z" fill="${c[2]}"/><path d="M48 124 H192" stroke="${c[1]}" stroke-width="4"/>` +
+    [[124, 60, 16], [148, 26, 13], [104, 30, 11]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c[1]}"/><circle cx="${x}" cy="${y}" r="${(r as number) * 0.66}" fill="none" stroke="${dk(c[1], 0.25)}" stroke-width="2"/>`).join('')),
+  A('is-rehal', 'Book on a stand (rehal)', 'illustration', 260, 220, ['#8a5a34', '#1f6f6a', '#d4a940'], ['rehal', 'quran stand', 'book stand', 'islamic school', 'quran class', 'mosque', 'learning', 'madrasa'], (c) =>
+    `<ellipse cx="130" cy="212" rx="100" ry="6" fill="#000" opacity=".12"/>` +
+    // two carved boards crossing in an X; the open book rests in the V on top
+    `<path d="M50 210 L196 66" stroke="${dk(c[0], 0.15)}" stroke-width="18" stroke-linecap="round"/><path d="M210 210 L64 66" stroke="${c[0]}" stroke-width="18" stroke-linecap="round"/>` +
+    `<path d="M106 150 L154 150" stroke="${lt(c[0], 0.2)}" stroke-width="4"/><circle cx="130" cy="138" r="6" fill="${c[2]}"/>` +
+    `<path d="M130 112 C104 96 70 92 40 96 L56 52 C86 48 112 54 130 68 Z" fill="${c[1]}"/><path d="M130 112 C156 96 190 92 220 96 L204 52 C174 48 148 54 130 68 Z" fill="${dk(c[1], 0.12)}"/>` +
+    `<path d="M130 106 C108 92 80 88 52 90 L64 58 C90 56 112 62 130 74 Z" fill="#f6efe0"/><path d="M130 106 C152 92 180 88 208 90 L196 58 C170 56 148 62 130 74 Z" fill="#ece3d0"/>` +
+    [0, 1, 2, 3].map((i) => `<path d="M${70 + i * 2} ${66 + i * 7} C${92 + i} ${66 + i * 6} ${112} ${72 + i * 6} ${124} ${80 + i * 6} M${190 - i * 2} ${66 + i * 7} C${168 - i} ${66 + i * 6} ${148} ${72 + i * 6} ${136} ${80 + i * 6}" stroke="#3a2e28" stroke-width="2" opacity=".35" fill="none"/>`).join('') +
+    `<path d="M130 68 V112" stroke="${c[2]}" stroke-width="3"/>`),
+  A('is-tasbih', 'Prayer beads (tasbih)', 'illustration', 220, 240, ['#6a3a2a', '#d4a940'], ['tasbih', 'misbaha', 'prayer beads', 'dhikr', 'سبحة', 'peace', 'reflection'], (c) => {
+    let g = '';
+    for (let i = 0; i < 33; i++) { const a = (i / 33) * Math.PI * 2 - Math.PI / 2, x = 110 + Math.cos(a) * 80, y = 100 + Math.sin(a) * 80; g += `<circle cx="${f1(x)}" cy="${f1(y)}" r="9" fill="${c[0]}"/><circle cx="${f1(x - 3)}" cy="${f1(y - 3)}" r="3" fill="#fff" opacity=".4"/>`; }
+    return g + `<path d="M110 180 V196" stroke="${c[1]}" stroke-width="4"/><path d="M104 196 H116 L114 214 H106 Z" fill="${c[1]}"/>` + [104, 110, 116].map((x) => `<path d="M${x} 214 V236" stroke="${c[1]}" stroke-width="2"/>`).join('');
+  }),
   A('is-sparkles', 'Gold stars', 'decoration', 300, 200, ['#d4a940', '#fff3c4'], ['stars', 'sparkles', 'night', 'gold'], (c) => {
     const r = rng(14); let g = '';
     for (let i = 0; i < 18; i++) { const x = r() * 300, y = r() * 200; g += i % 3 ? sparkle(x, y, 3 + r() * 6, c[1], 0.8) : `<polygon points="${eightStar(x, y, 5 + r() * 6)}" fill="${c[0]}" opacity=".85"/>`; }
@@ -124,6 +152,11 @@ const BGS = backgrounds('islamic', ['islamic', 'ramadan', 'eid', 'رمضان', '
       `<g transform="translate(${f1(W * 0.5 - u * 0.5)} ${f1(H - u * 0.55)}) scale(${f1(u / 420)})">${mosque(dk(c[0], 0.35), c[2])}</g>` +
       `<rect y="${f1(H - u * 0.02)}" width="${W}" height="${f1(u * 0.02)}" fill="${dk(c[0], 0.35)}"/>`;
   } },
+  { id: 'is-bg-starry', name: 'Starry night sky', colors: ['#0b1f2e', '#1d4a5a', '#ffcf6a'], tags: ['night', 'stars', 'sky', 'calm', 'blue'], draw: (c, W, H) => {
+    const u = Math.min(W, H);
+    return `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></linearGradient>${glowDef('g', c[2], 0.22)}</defs><rect width="${W}" height="${H}" fill="url(#s)"/>` +
+      `<ellipse cx="${f1(W / 2)}" cy="${f1(H)}" rx="${f1(W * 0.8)}" ry="${f1(u * 0.45)}" fill="url(#g)"/>` + stars(W, H, '#fff6d8', Math.round((W * H) / 9000), 27, 2.4);
+  } },
   { id: 'is-bg-emerald', name: 'Emerald geometric', colors: ['#0e3b36', '#d4a940'], tags: ['pattern', 'geometric', 'green', 'gold', 'elegant'], draw: (c, W, H) =>
     `<defs>${patternTile('p', 140, c[1], 0.32)}<radialGradient id="r" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="${lt(c[0], 0.12)}"/><stop offset="1" stop-color="${dk(c[0], 0.35)}"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#r)"/><rect width="${W}" height="${H}" fill="url(#p)"/>` },
   { id: 'is-bg-cream', name: 'Ivory & gold', colors: ['#fbf5e8', '#c99b2e'], tags: ['cream', 'ivory', 'light', 'elegant', 'minimal', 'pattern'], draw: (c, W, H) => {
@@ -135,7 +168,7 @@ const BGS = backgrounds('islamic', ['islamic', 'ramadan', 'eid', 'رمضان', '
   { id: 'is-bg-dusk', name: 'Iftar sunset', colors: ['#3b1f4a', '#c4574a', '#f6b26b'], tags: ['sunset', 'iftar', 'maghrib', 'dusk', 'warm'], draw: (c, W, H) => {
     const u = Math.min(W, H);
     return `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset=".6" stop-color="${c[1]}"/><stop offset="1" stop-color="${c[2]}"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#s)"/>` +
-      stars(W, H * 0.35, '#ffffff', Math.round((W * H) / 30000), 4, 2) + crescent('m', W * 0.78, H * 0.16, u * 0.07, '#fff3c4', false) +
+      stars(W, H * 0.35, '#ffffff', Math.round((W * H) / 30000), 4, 2) +
       `<g transform="translate(${f1(W * 0.5 - u * 0.48)} ${f1(H - u * 0.52)}) scale(${f1((u * 0.96) / 420)})">${mosque(dk(c[0], 0.3), c[2])}</g>`;
   } },
 ]);

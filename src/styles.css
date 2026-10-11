@@ -1688,3 +1688,6 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 .fx-echo { text-shadow: 2px 2px 0 color-mix(in srgb, var(--text) 50%, transparent), 4px 4px 0 color-mix(in srgb, var(--text) 25%, transparent); }
 .fx-splice { color: transparent; -webkit-text-stroke: 1px var(--text); text-shadow: 2px 2px 0 #ffb000; }
 .fx-glitch { text-shadow: -2px 0 #00e5ff, 2px 0 #ff2bd6; }
+.lib-set-cats { margin: -4px 0 12px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.lib-set-cats::-webkit-scrollbar { display: none; }
+.lib-set-cats .chip { flex: 0 0 auto; }

@@ -18,9 +18,16 @@ const SYNONYMS: Record<string, string[]> = {
   'חנוכה': ['hanukkah'], 'חנוכיה': ['menorah'], 'סביבון': ['dreidel'], sevivon: ['dreidel'], latke: ['latkes'], sufganiya: ['sufganiyot'],
   pesach: ['passover'], pesah: ['passover'], 'פסח': ['passover'], 'סדר': ['seder'], matzo: ['matzah'], matza: ['matzah'], matzoh: ['matzah'], hagadah: ['haggadah'], haggada: ['haggadah'], 'הגדה': ['haggadah'],
   noel: ['christmas'], card: ['greeting'], cards: ['greeting'],
+  // multicultural: spellings and other languages that should find the same topic (topic keywords cover the rest)
+  ramzan: ['ramadan'], ramazan: ['ramadan'], ramadhan: ['ramadan'], 'رمضان': ['ramadan'], 'عيد': ['eid'], eidul: ['eid'], bakrid: ['adha'], qurbani: ['adha'],
+  iftaar: ['iftar'], sehri: ['suhoor'], suhur: ['suhoor'], sahur: ['suhoor'], masjid: ['mosque'], 'مسجد': ['mosque'], zakah: ['zakat'], sadaqa: ['sadaqah'], sadqa: ['sadaqah'],
+  succot: ['sukkot'], sukkos: ['sukkot'], succos: ['sukkot'], shavuos: ['shavuot'], 'סוכות': ['sukkot'], 'פורים': ['purim'], 'שבועות': ['shavuot'], bris: ['brit'], 'מזל': ['mazel'],
+  pascua: ['easter'], pascuas: ['easter'], paques: ['easter'], ostern: ['easter'], navidad: ['christmas'], weihnachten: ['christmas'], bautizo: ['baptism'], christening: ['baptism'], comunion: ['communion'],
+  deepavali: ['diwali'], divali: ['diwali'], deepawali: ['diwali'], 'दिवाली': ['diwali'], 'दीपावली': ['diwali'], 'होली': ['holi'], baisakhi: ['vaisakhi'], wesak: ['vesak'], garba: ['navratri'], dandiya: ['navratri'],
+  cny: ['lunar'], '春节': ['lunar'], mooncake: ['autumn'], duanwu: ['dragon'], norooz: ['nowruz'], navruz: ['nowruz'], 'نوروز': ['nowruz'], muertos: ['muertos', 'dead'], calavera: ['muertos'],
+  aqiqah: ['aqeeqah'], akika: ['aqeeqah'], quince: ['quinceanera'], xv: ['quinceanera'], sixteen: ['16'], mitzva: ['mitzvah'], mom: ['mothers'], mum: ['mothers'], dad: ['fathers'],
 };
 
-/** Lower-case words; keeps letters of every script (Hebrew included) and drops accents and Hebrew vowel points. */
 // Lower-case, drop Latin accents, Hebrew niqqud and Arabic harakat/tatweel, fold Arabic letter variants (أإآ→ا, ى→ي,
 // ة→ه); keep combining marks inside words (Devanagari and other Indic vowel signs are marks, not separators).
 const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f\u0591-\u05c7\u064b-\u065f\u0670\u0640]/g, '')

@@ -1574,256 +1574,6 @@
           ]
         },
         {
-          "id": "wedding",
-          "label": "Weddings",
-          "emoji": "💍",
-          "keywords": [
-            "wedding",
-            "save the date",
-            "invitation",
-            "bride",
-            "rsvp"
-          ],
-          "palettes": [
-            "elegant",
-            "blush",
-            "sage"
-          ],
-          "events": [
-            {
-              "title": "Emma & James",
-              "kicker": "Together with their families",
-              "details": [
-                "Saturday, the 14th of June",
-                "Rosewood Gardens · 4 PM"
-              ],
-              "cta": "Kindly reply by May 1",
-              "occasion": "invitation"
-            },
-            {
-              "title": "Save the Date",
-              "kicker": "Olivia & Noah",
-              "details": [
-                "09.20.2025",
-                "Napa Valley"
-              ],
-              "cta": "Invitation to follow",
-              "occasion": "save-the-date"
-            },
-            {
-              "title": "Welcome to Our Wedding",
-              "kicker": "Ava & Liam",
-              "details": [
-                "Please find your seat",
-                "and enjoy the day"
-              ],
-              "cta": "#AvaAndLiam",
-              "occasion": "sign"
-            }
-          ]
-        },
-        {
-          "id": "anniversary",
-          "label": "Anniversaries",
-          "emoji": "💞",
-          "keywords": [
-            "anniversary",
-            "love",
-            "years",
-            "celebration"
-          ],
-          "palettes": [
-            "elegant",
-            "gold",
-            "blush"
-          ],
-          "events": [
-            {
-              "title": "25 Years of Love",
-              "kicker": "Silver Anniversary",
-              "details": [
-                "Saturday · 6 PM",
-                "The Grand Hall"
-              ],
-              "cta": "Join us to celebrate",
-              "occasion": "party"
-            },
-            {
-              "title": "Happy Anniversary",
-              "kicker": "Every day with you",
-              "details": [
-                "is my favourite day",
-                ""
-              ],
-              "cta": "Forever yours",
-              "occasion": "greeting"
-            }
-          ]
-        },
-        {
-          "id": "baby-shower",
-          "label": "Baby Showers",
-          "emoji": "🍼",
-          "keywords": [
-            "baby shower",
-            "baby",
-            "gender reveal",
-            "newborn"
-          ],
-          "palettes": [
-            "pastel",
-            "sage",
-            "blush"
-          ],
-          "events": [
-            {
-              "title": "Oh Baby!",
-              "kicker": "A Baby Shower for Grace",
-              "details": [
-                "Sunday, April 13 · 1 PM",
-                "24 Willow Lane"
-              ],
-              "cta": "RSVP to Anna",
-              "occasion": "party"
-            },
-            {
-              "title": "He or She?",
-              "kicker": "Gender Reveal Party",
-              "details": [
-                "Saturday · 3 PM",
-                "Our backyard"
-              ],
-              "cta": "Wear pink or blue",
-              "occasion": "party"
-            }
-          ]
-        },
-        {
-          "id": "graduation",
-          "label": "Graduations",
-          "emoji": "🎓",
-          "keywords": [
-            "graduation",
-            "grad",
-            "class of",
-            "commencement",
-            "degree"
-          ],
-          "palettes": [
-            "gold",
-            "classic",
-            "night"
-          ],
-          "events": [
-            {
-              "title": "Class of 2025",
-              "kicker": "Graduation Party",
-              "details": [
-                "Saturday, June 21 · 4 PM",
-                "Our House"
-              ],
-              "cta": "Celebrate with us",
-              "occasion": "party"
-            },
-            {
-              "title": "Congrats, Grad!",
-              "kicker": "The tassel was worth the hassle",
-              "details": [
-                "So proud of you",
-                ""
-              ],
-              "cta": "Love, Mom & Dad",
-              "occasion": "greeting"
-            }
-          ]
-        },
-        {
-          "id": "retirement",
-          "label": "Retirement",
-          "emoji": "🏖️",
-          "keywords": [
-            "retirement",
-            "farewell",
-            "send-off",
-            "career"
-          ],
-          "palettes": [
-            "gold",
-            "beach",
-            "classic"
-          ],
-          "events": [
-            {
-              "title": "Happy Retirement, Linda!",
-              "kicker": "After 32 Wonderful Years",
-              "details": [
-                "Friday · 5 PM",
-                "Office Lounge"
-              ],
-              "cta": "Cake & stories",
-              "occasion": "party"
-            },
-            {
-              "title": "Officially Retired",
-              "kicker": "Goodbye tension, hello pension",
-              "details": [
-                "Join the send-off",
-                "Friday at 4"
-              ],
-              "cta": "Light refreshments",
-              "occasion": "party"
-            }
-          ]
-        },
-        {
-          "id": "christmas",
-          "label": "Christmas",
-          "emoji": "🎄",
-          "keywords": [
-            "christmas",
-            "holiday",
-            "xmas",
-            "festive",
-            "santa",
-            "winter",
-            "merry christmas",
-            "tree",
-            "ornaments",
-            "reindeer",
-            "snowflakes",
-            "presents",
-            "stocking",
-            "noel"
-          ],
-          "palettes": [
-            "festive",
-            "elegant",
-            "ice"
-          ],
-          "events": [
-            {
-              "title": "Merry Christmas",
-              "kicker": "From our family to yours",
-              "details": [
-                "Wishing you peace & joy",
-                "this holiday season"
-              ],
-              "cta": "The Johnsons",
-              "occasion": "greeting"
-            },
-            {
-              "title": "Holiday Party",
-              "kicker": "Ugly Sweater Edition",
-              "details": [
-                "Dec 20 · 7 PM",
-                "The Smith's Place"
-              ],
-              "cta": "Bring a $20 gift",
-              "occasion": "party"
-            }
-          ]
-        },
-        {
           "id": "halloween",
           "label": "Halloween",
           "emoji": "🎃",
@@ -1908,45 +1658,6 @@
           ]
         },
         {
-          "id": "valentines",
-          "label": "Valentine's Day",
-          "emoji": "💘",
-          "keywords": [
-            "valentine",
-            "love",
-            "romance",
-            "heart",
-            "date night"
-          ],
-          "palettes": [
-            "blush",
-            "pop",
-            "elegant"
-          ],
-          "events": [
-            {
-              "title": "Be Mine",
-              "kicker": "Happy Valentine's Day",
-              "details": [
-                "",
-                ""
-              ],
-              "cta": "xoxo",
-              "occasion": "greeting"
-            },
-            {
-              "title": "Date Night Special",
-              "kicker": "Valentine's Dinner",
-              "details": [
-                "Feb 14 · Two seatings",
-                "3 courses for two"
-              ],
-              "cta": "Book your table",
-              "occasion": "promotion"
-            }
-          ]
-        },
-        {
           "id": "thanksgiving",
           "label": "Thanksgiving",
           "emoji": "🦃",
@@ -1984,50 +1695,84 @@
               "occasion": "greeting"
             }
           ]
-        },
+        }
+      ]
+    },
+    {
+      "id": "islamic",
+      "label": "Islamic",
+      "emoji": "🌙",
+      "kind": "celebrations",
+      "subcategories": [
         {
-          "id": "diwali",
-          "label": "Diwali",
-          "emoji": "🪔",
+          "id": "ramadan",
+          "label": "Ramadan",
+          "emoji": "🌙",
           "keywords": [
-            "diwali",
-            "deepavali",
-            "festival of lights",
-            "diya",
-            "divali",
-            "dipawali",
-            "deepawali",
-            "shubh deepavali",
-            "दीपावली",
-            "दिवाली",
-            "rangoli",
-            "diyas"
+            "ramadan",
+            "ramadhan",
+            "ramazan",
+            "ramadan kareem",
+            "ramadan mubarak",
+            "رمضان",
+            "رمضان كريم",
+            "iftar",
+            "suhoor",
+            "sehri",
+            "fasting",
+            "lantern",
+            "fanous",
+            "mosque",
+            "ramzan",
+            "رمضان مبارك",
+            "سحور",
+            "إفطار",
+            "taraweeh",
+            "tarawih"
           ],
-          "palettes": [
-            "gold",
-            "festive-warm",
-            "night"
-          ],
+          "generate": false,
           "events": [
             {
-              "title": "Happy Diwali",
-              "kicker": "Festival of Lights",
+              "title": "Ramadan Kareem",
+              "kicker": "رمضان كريم",
               "details": [
-                "May the lights fill your home",
-                "with joy and prosperity"
+                "",
+                ""
               ],
               "cta": "",
               "occasion": "greeting"
-            },
+            }
+          ]
+        },
+        {
+          "id": "iftar-suhoor",
+          "label": "Iftar & Suhoor",
+          "emoji": "🍽️",
+          "keywords": [
+            "iftar",
+            "iftaar",
+            "iftar dinner",
+            "community iftar",
+            "suhoor",
+            "suhur",
+            "sehri",
+            "sahur",
+            "إفطار",
+            "سحور",
+            "breaking fast",
+            "ramadan dinner"
+          ],
+          "generate": false,
+          "events": [
             {
-              "title": "Diwali Celebration",
-              "kicker": "Food · Music · Rangoli",
+              "title": "Community Iftar",
+              "kicker": "Break the fast together",
               "details": [
-                "Nov 1 · 6 PM",
-                "Community Centre"
+                "",
+                ""
               ],
-              "cta": "All are welcome",
-              "occasion": "festival"
+              "cta": "",
+              "occasion": "event"
             }
           ]
         },
@@ -2079,40 +1824,333 @@
           ]
         },
         {
-          "id": "lunar-new-year",
-          "label": "Lunar New Year",
-          "emoji": "🧧",
+          "id": "eid-al-fitr",
+          "label": "Eid al-Fitr",
+          "emoji": "🎁",
           "keywords": [
-            "lunar new year",
-            "chinese new year",
-            "spring festival",
-            "red envelope"
+            "eid al fitr",
+            "eid al-fitr",
+            "eid ul fitr",
+            "eid-ul-fitr",
+            "eid fitr",
+            "ramazan bayrami",
+            "hari raya",
+            "hari raya aidilfitri",
+            "lebaran",
+            "eid mubarak",
+            "عيد الفطر",
+            "عيد فطر سعيد",
+            "عيد مبارك",
+            "eidi"
           ],
-          "palettes": [
-            "festive-warm",
-            "gold",
-            "fire"
-          ],
+          "generate": false,
           "events": [
             {
-              "title": "Happy Lunar New Year",
-              "kicker": "Wishing you luck & prosperity",
+              "title": "Eid Mubarak",
+              "kicker": "Eid al-Fitr",
               "details": [
                 "",
                 ""
               ],
               "cta": "",
               "occasion": "greeting"
-            },
+            }
+          ]
+        },
+        {
+          "id": "eid-al-adha",
+          "label": "Eid al-Adha",
+          "emoji": "🐑",
+          "keywords": [
+            "eid al adha",
+            "eid al-adha",
+            "eid ul adha",
+            "eid-ul-adha",
+            "bakrid",
+            "bakra eid",
+            "kurban bayrami",
+            "hari raya haji",
+            "qurbani",
+            "udhiyah",
+            "عيد الأضحى",
+            "عيد أضحى مبارك",
+            "hajj"
+          ],
+          "generate": false,
+          "events": [
             {
-              "title": "Lunar New Year Festival",
-              "kicker": "Lion Dance · Lanterns · Food",
+              "title": "Eid al-Adha Mubarak",
+              "kicker": "Eid al-Adha",
               "details": [
-                "Feb 1 · 11 AM",
-                "Chinatown Square"
+                "",
+                ""
               ],
-              "cta": "Free entry",
-              "occasion": "festival"
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "islamic-new-year",
+          "label": "Islamic New Year",
+          "emoji": "🌒",
+          "keywords": [
+            "islamic new year",
+            "hijri new year",
+            "muharram",
+            "1 muharram",
+            "ras as-sanah al-hijriyah",
+            "عام هجري سعيد",
+            "رأس السنة الهجرية",
+            "hijri"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Hijri New Year",
+              "kicker": "1 Muharram",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "mawlid",
+          "label": "Mawlid",
+          "emoji": "🌹",
+          "keywords": [
+            "mawlid",
+            "mawlid an-nabi",
+            "mawlid al-nabi",
+            "milad",
+            "milad un nabi",
+            "eid milad",
+            "mouloud",
+            "المولد النبوي",
+            "المولد النبوي الشريف",
+            "rabi al awwal"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Mawlid Mubarak",
+              "kicker": "12 Rabi al-Awwal",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "mosque-events",
+          "label": "Mosque events",
+          "emoji": "🕌",
+          "keywords": [
+            "mosque",
+            "masjid",
+            "islamic center",
+            "jumuah",
+            "jummah",
+            "jumma",
+            "friday prayer",
+            "quran class",
+            "islamic school",
+            "madrasa",
+            "halaqa",
+            "open day",
+            "مسجد",
+            "جمعة مباركة"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Mosque Open Day",
+              "kicker": "Everyone welcome",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "event"
+            }
+          ]
+        },
+        {
+          "id": "islamic-charity",
+          "label": "Charity & Zakat",
+          "emoji": "🤲",
+          "keywords": [
+            "zakat",
+            "zakah",
+            "zakat al fitr",
+            "fitrana",
+            "sadaqah",
+            "sadaqa",
+            "sadqa",
+            "charity",
+            "donation",
+            "fundraiser",
+            "زكاة",
+            "صدقة",
+            "waqf"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Give Sadaqah",
+              "kicker": "Every gift counts",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "charity"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jewish",
+      "label": "Jewish",
+      "emoji": "✡️",
+      "kind": "celebrations",
+      "subcategories": [
+        {
+          "id": "rosh-hashanah",
+          "label": "Rosh Hashanah",
+          "emoji": "🍎",
+          "keywords": [
+            "rosh hashanah",
+            "rosh hashana",
+            "rosh ha-shanah",
+            "jewish new year",
+            "shana tova",
+            "shanah tovah",
+            "l'shana tova",
+            "ראש השנה",
+            "שנה טובה",
+            "apples and honey",
+            "shofar",
+            "pomegranate",
+            "rosh hashonah",
+            "lshana tova",
+            "שנה טובה ומתוקה"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Shana Tova",
+              "kicker": "שנה טובה",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "yom-kippur",
+          "label": "Yom Kippur",
+          "emoji": "🕯️",
+          "keywords": [
+            "yom kippur",
+            "yom kipur",
+            "day of atonement",
+            "gmar chatima tova",
+            "g'mar chatimah tovah",
+            "gmar hatima tova",
+            "easy fast",
+            "tzom kal",
+            "יום כיפור",
+            "גמר חתימה טובה",
+            "צום קל",
+            "kol nidre",
+            "break fast",
+            "neilah"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Gmar Chatima Tova",
+              "kicker": "Yom Kippur",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "sukkot",
+          "label": "Sukkot",
+          "emoji": "🌿",
+          "keywords": [
+            "sukkot",
+            "succot",
+            "sukkos",
+            "succos",
+            "feast of tabernacles",
+            "feast of booths",
+            "sukkah",
+            "succah",
+            "lulav",
+            "etrog",
+            "esrog",
+            "סוכות",
+            "חג סוכות שמח",
+            "סוכה",
+            "ushpizin"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Chag Sukkot Sameach",
+              "kicker": "Sukkot",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "simchat-torah",
+          "label": "Simchat Torah",
+          "emoji": "📜",
+          "keywords": [
+            "simchat torah",
+            "simchas torah",
+            "simhat torah",
+            "shemini atzeret",
+            "hakafot",
+            "שמחת תורה",
+            "torah"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Simchat Torah",
+              "kicker": "Chag Sameach",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
             }
           ]
         },
@@ -2164,6 +2202,39 @@
           ]
         },
         {
+          "id": "purim",
+          "label": "Purim",
+          "emoji": "🎭",
+          "keywords": [
+            "purim",
+            "purim sameach",
+            "happy purim",
+            "megillah",
+            "hamantaschen",
+            "oznei haman",
+            "mishloach manot",
+            "shalach manos",
+            "grogger",
+            "פורים",
+            "פורים שמח",
+            "queen esther",
+            "purim spiel"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Purim",
+              "kicker": "Purim Sameach",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
           "id": "passover",
           "label": "Passover",
           "emoji": "🍷",
@@ -2194,6 +2265,100 @@
           ]
         },
         {
+          "id": "shavuot",
+          "label": "Shavuot",
+          "emoji": "🌾",
+          "keywords": [
+            "shavuot",
+            "shavuos",
+            "shavuoth",
+            "feast of weeks",
+            "tikkun leil shavuot",
+            "שבועות",
+            "חג שבועות שמח",
+            "bikkurim",
+            "cheesecake"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Chag Shavuot Sameach",
+              "kicker": "Shavuot",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "tu-bishvat",
+          "label": "Tu BiShvat",
+          "emoji": "🌳",
+          "keywords": [
+            "tu bishvat",
+            "tu b'shvat",
+            "tu bshvat",
+            "tu bishevat",
+            "new year of the trees",
+            "ט״ו בשבט",
+            "טו בשבט",
+            "tree planting",
+            "seven species"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Tu BiShvat",
+              "kicker": "New Year of the Trees",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "lag-baomer",
+          "label": "Lag BaOmer",
+          "emoji": "🔥",
+          "keywords": [
+            "lag baomer",
+            "lag b'omer",
+            "lag ba'omer",
+            "lag laomer",
+            "ל״ג בעומר",
+            "לג בעומר",
+            "bonfire",
+            "omer"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Lag BaOmer",
+              "kicker": "Bonfire night",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "christian",
+      "label": "Christian",
+      "emoji": "✝️",
+      "kind": "celebrations",
+      "subcategories": [
+        {
           "id": "easter",
           "label": "Easter",
           "emoji": "🐣",
@@ -2209,7 +2374,16 @@
             "egg hunt",
             "easter eggs",
             "lilies",
-            "church"
+            "church",
+            "paques",
+            "pasqua",
+            "pascoa",
+            "páscoa",
+            "felices pascuas",
+            "feliz pascua",
+            "happy easter",
+            "christ is risen",
+            "resurrection sunday"
           ],
           "generate": false,
           "events": [
@@ -2226,28 +2400,25 @@
           ]
         },
         {
-          "id": "rosh-hashanah",
-          "label": "Rosh Hashanah",
-          "emoji": "🍎",
+          "id": "good-friday",
+          "label": "Good Friday",
+          "emoji": "✝️",
           "keywords": [
-            "rosh hashanah",
-            "rosh hashana",
-            "rosh ha-shanah",
-            "jewish new year",
-            "shana tova",
-            "shanah tovah",
-            "l'shana tova",
-            "ראש השנה",
-            "שנה טובה",
-            "apples and honey",
-            "shofar",
-            "pomegranate"
+            "good friday",
+            "holy friday",
+            "viernes santo",
+            "karfreitag",
+            "holy week",
+            "semana santa",
+            "stations of the cross",
+            "lent",
+            "passion"
           ],
           "generate": false,
           "events": [
             {
-              "title": "Shana Tova",
-              "kicker": "שנה טובה",
+              "title": "Good Friday",
+              "kicker": "Holy Week",
               "details": [
                 "",
                 ""
@@ -2258,36 +2429,1543 @@
           ]
         },
         {
-          "id": "ramadan",
-          "label": "Ramadan",
-          "emoji": "🌙",
+          "id": "palm-sunday",
+          "label": "Palm Sunday",
+          "emoji": "🌿",
           "keywords": [
-            "ramadan",
-            "ramadhan",
-            "ramazan",
-            "ramadan kareem",
-            "ramadan mubarak",
-            "رمضان",
-            "رمضان كريم",
-            "iftar",
-            "suhoor",
-            "sehri",
-            "fasting",
-            "lantern",
-            "fanous",
-            "mosque"
+            "palm sunday",
+            "domingo de ramos",
+            "palmsonntag",
+            "hosanna",
+            "palms",
+            "holy week"
           ],
           "generate": false,
           "events": [
             {
-              "title": "Ramadan Kareem",
-              "kicker": "رمضان كريم",
+              "title": "Hosanna",
+              "kicker": "Palm Sunday",
               "details": [
                 "",
                 ""
               ],
               "cta": "",
               "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "advent",
+          "label": "Advent",
+          "emoji": "🕯️",
+          "keywords": [
+            "advent",
+            "advent wreath",
+            "adventskranz",
+            "adviento",
+            "hope peace joy love",
+            "lessons and carols",
+            "advent calendar"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "A Blessed Advent",
+              "kicker": "Advent",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "christmas",
+          "label": "Christmas",
+          "emoji": "🎄",
+          "keywords": [
+            "christmas",
+            "holiday",
+            "xmas",
+            "festive",
+            "santa",
+            "winter",
+            "merry christmas",
+            "tree",
+            "ornaments",
+            "reindeer",
+            "snowflakes",
+            "presents",
+            "stocking",
+            "noel",
+            "navidad",
+            "feliz navidad",
+            "noël",
+            "joyeux noël",
+            "weihnachten",
+            "natale"
+          ],
+          "palettes": [
+            "festive",
+            "elegant",
+            "ice"
+          ],
+          "events": [
+            {
+              "title": "Merry Christmas",
+              "kicker": "From our family to yours",
+              "details": [
+                "Wishing you peace & joy",
+                "this holiday season"
+              ],
+              "cta": "The Johnsons",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Holiday Party",
+              "kicker": "Ugly Sweater Edition",
+              "details": [
+                "Dec 20 · 7 PM",
+                "The Smith's Place"
+              ],
+              "cta": "Bring a $20 gift",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "epiphany",
+          "label": "Epiphany",
+          "emoji": "⭐",
+          "keywords": [
+            "epiphany",
+            "three kings day",
+            "three kings",
+            "día de reyes",
+            "dia de reyes",
+            "reyes magos",
+            "magi",
+            "wise men",
+            "twelfth night",
+            "theophany",
+            "rosca de reyes",
+            "dreikönigstag"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Epiphany",
+              "kicker": "January 6",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "pentecost",
+          "label": "Pentecost",
+          "emoji": "🕊️",
+          "keywords": [
+            "pentecost",
+            "whitsunday",
+            "whitsun",
+            "pentecostés",
+            "pfingsten",
+            "holy spirit",
+            "descent of the holy spirit"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Pentecost",
+              "kicker": "Come, Holy Spirit",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "baptism",
+          "label": "Baptism & Christening",
+          "emoji": "🐚",
+          "keywords": [
+            "baptism",
+            "christening",
+            "bautizo",
+            "bautismo",
+            "baptême",
+            "taufe",
+            "battesimo",
+            "dedication",
+            "godparents",
+            "holy baptism"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Baptism",
+              "kicker": "A blessed day",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "ceremony"
+            }
+          ]
+        },
+        {
+          "id": "first-communion",
+          "label": "First Communion",
+          "emoji": "🍷",
+          "keywords": [
+            "first communion",
+            "first holy communion",
+            "primera comunión",
+            "primera comunion",
+            "première communion",
+            "erstkommunion",
+            "prima comunione",
+            "eucharist"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "First Holy Communion",
+              "kicker": "A blessed day",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "ceremony"
+            }
+          ]
+        },
+        {
+          "id": "confirmation",
+          "label": "Confirmation",
+          "emoji": "🕊️",
+          "keywords": [
+            "confirmation",
+            "confirmación",
+            "confirmacion",
+            "firmung",
+            "cresima",
+            "chrismation",
+            "sacrament"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Confirmation",
+              "kicker": "Sealed with the Spirit",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "ceremony"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cultural",
+      "label": "Cultural festivals",
+      "emoji": "🏮",
+      "kind": "celebrations",
+      "subcategories": [
+        {
+          "id": "diwali",
+          "label": "Diwali",
+          "emoji": "🪔",
+          "keywords": [
+            "diwali",
+            "deepavali",
+            "festival of lights",
+            "diya",
+            "divali",
+            "dipawali",
+            "deepawali",
+            "shubh deepavali",
+            "दीपावली",
+            "दिवाली",
+            "rangoli",
+            "diyas",
+            "dipavali",
+            "शुभ दीपावली",
+            "दीपावली की शुभकामनाएँ",
+            "tihar",
+            "bandi chhor divas",
+            "kali puja"
+          ],
+          "palettes": [
+            "gold",
+            "festive-warm",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "Happy Diwali",
+              "kicker": "Festival of Lights",
+              "details": [
+                "May the lights fill your home",
+                "with joy and prosperity"
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Diwali Celebration",
+              "kicker": "Food · Music · Rangoli",
+              "details": [
+                "Nov 1 · 6 PM",
+                "Community Centre"
+              ],
+              "cta": "All are welcome",
+              "occasion": "festival"
+            }
+          ]
+        },
+        {
+          "id": "holi",
+          "label": "Holi",
+          "emoji": "🎨",
+          "keywords": [
+            "holi",
+            "happy holi",
+            "festival of colours",
+            "festival of colors",
+            "rang panchami",
+            "होली",
+            "होली की शुभकामनाएँ",
+            "phagwah",
+            "dhulandi",
+            "gulal",
+            "colour party",
+            "color run"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Holi",
+              "kicker": "Festival of Colours",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "navratri",
+          "label": "Navratri & Garba",
+          "emoji": "💃",
+          "keywords": [
+            "navratri",
+            "navaratri",
+            "navratra",
+            "नवरात्रि",
+            "शुभ नवरात्रि",
+            "garba",
+            "dandiya",
+            "dandiya raas",
+            "durga puja",
+            "dussehra",
+            "dasara",
+            "vijayadashami",
+            "durga pooja"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Garba Night",
+              "kicker": "Shubh Navratri",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "ganesh-chaturthi",
+          "label": "Ganesh Chaturthi",
+          "emoji": "🪷",
+          "keywords": [
+            "ganesh chaturthi",
+            "vinayaka chaturthi",
+            "vinayagar chathurthi",
+            "ganeshotsav",
+            "ganpati",
+            "गणेश चतुर्थी",
+            "गणपति बप्पा मोरया",
+            "modak"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Ganesh Chaturthi",
+              "kicker": "Ganpati Bappa Morya",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "onam",
+          "label": "Onam",
+          "emoji": "🌼",
+          "keywords": [
+            "onam",
+            "thiruvonam",
+            "ഓണം",
+            "ഓണാശംസകൾ",
+            "pookalam",
+            "onam sadya",
+            "kerala",
+            "vallam kali",
+            "harvest festival"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Onam",
+              "kicker": "Onashamsakal",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "vaisakhi",
+          "label": "Vaisakhi",
+          "emoji": "🌾",
+          "keywords": [
+            "vaisakhi",
+            "baisakhi",
+            "visakhi",
+            "ਵਿਸਾਖੀ",
+            "बैसाखी",
+            "khalsa",
+            "punjabi new year",
+            "bhangra",
+            "harvest festival",
+            "nagar kirtan"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Vaisakhi",
+              "kicker": "Harvest festival",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "vesak",
+          "label": "Vesak",
+          "emoji": "🪷",
+          "keywords": [
+            "vesak",
+            "wesak",
+            "vesakha",
+            "visakha bucha",
+            "buddha day",
+            "buddha purnima",
+            "buddha jayanti",
+            "vesak day",
+            "buddha birthday",
+            "dharma"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Vesak",
+              "kicker": "Buddha Day",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "lunar-new-year",
+          "label": "Lunar New Year",
+          "emoji": "🧧",
+          "keywords": [
+            "lunar new year",
+            "chinese new year",
+            "spring festival",
+            "red envelope",
+            "春节",
+            "新年快乐",
+            "恭喜发财",
+            "gong xi fa cai",
+            "kung hei fat choi",
+            "gong hei fat choy",
+            "tet",
+            "tết",
+            "seollal",
+            "설날",
+            "losar",
+            "tsagaan sar",
+            "hongbao"
+          ],
+          "palettes": [
+            "festive-warm",
+            "gold",
+            "fire"
+          ],
+          "events": [
+            {
+              "title": "Happy Lunar New Year",
+              "kicker": "Wishing you luck & prosperity",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Lunar New Year Festival",
+              "kicker": "Lion Dance · Lanterns · Food",
+              "details": [
+                "Feb 1 · 11 AM",
+                "Chinatown Square"
+              ],
+              "cta": "Free entry",
+              "occasion": "festival"
+            }
+          ]
+        },
+        {
+          "id": "mid-autumn",
+          "label": "Mid-Autumn Festival",
+          "emoji": "🥮",
+          "keywords": [
+            "mid-autumn festival",
+            "mid autumn",
+            "moon festival",
+            "mooncake festival",
+            "中秋节",
+            "中秋节快乐",
+            "chuseok",
+            "추석",
+            "tet trung thu",
+            "tsukimi",
+            "mooncake",
+            "lantern festival"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Mid-Autumn Festival",
+              "kicker": "中秋节快乐",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "dragon-boat",
+          "label": "Dragon Boat Festival",
+          "emoji": "🐉",
+          "keywords": [
+            "dragon boat festival",
+            "dragon boat",
+            "duanwu",
+            "duanwu festival",
+            "端午节",
+            "端午节安康",
+            "tuen ng",
+            "zongzi",
+            "dragon boat race"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Dragon Boat Festival",
+              "kicker": "端午节安康",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "nowruz",
+          "label": "Nowruz",
+          "emoji": "🌱",
+          "keywords": [
+            "nowruz",
+            "norooz",
+            "norouz",
+            "navruz",
+            "nauryz",
+            "nevruz",
+            "nowrouz",
+            "persian new year",
+            "iranian new year",
+            "نوروز",
+            "نوروز مبارک",
+            "سال نو مبارک",
+            "haft sin",
+            "haft-seen",
+            "spring equinox"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Nowruz",
+              "kicker": "نوروز مبارک",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "kwanzaa",
+          "label": "Kwanzaa",
+          "emoji": "🕯️",
+          "keywords": [
+            "kwanzaa",
+            "happy kwanzaa",
+            "heri za kwanzaa",
+            "habari gani",
+            "kinara",
+            "nguzo saba",
+            "seven principles",
+            "karamu",
+            "umoja",
+            "imani"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Kwanzaa",
+              "kicker": "Heri za Kwanzaa",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "dia-de-los-muertos",
+          "label": "Día de los Muertos",
+          "emoji": "💀",
+          "keywords": [
+            "dia de los muertos",
+            "día de los muertos",
+            "dia de muertos",
+            "día de muertos",
+            "day of the dead",
+            "ofrenda",
+            "calavera",
+            "sugar skull",
+            "cempasuchil",
+            "marigolds",
+            "all souls"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Día de los Muertos",
+              "kicker": "Day of the Dead",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "baby",
+      "label": "Baby",
+      "emoji": "🍼",
+      "kind": "celebrations",
+      "subcategories": [
+        {
+          "id": "pregnancy-announcement",
+          "label": "Pregnancy announcements",
+          "emoji": "🤰",
+          "keywords": [
+            "pregnancy announcement",
+            "baby announcement",
+            "we are expecting",
+            "we're expecting",
+            "baby on the way",
+            "coming soon",
+            "expecting",
+            "pregnant",
+            "bump",
+            "embarazo",
+            "estamos esperando"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Baby Coming Soon",
+              "kicker": "Our little secret",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "announcement"
+            }
+          ]
+        },
+        {
+          "id": "gender-reveal",
+          "label": "Gender reveals",
+          "emoji": "🎈",
+          "keywords": [
+            "gender reveal",
+            "he or she",
+            "boy or girl",
+            "pink or blue",
+            "team pink",
+            "team blue",
+            "sex reveal",
+            "baby reveal"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "He or She?",
+              "kicker": "Gender reveal party",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "baby-shower",
+          "label": "Baby Showers",
+          "emoji": "🍼",
+          "keywords": [
+            "baby shower",
+            "baby",
+            "gender reveal",
+            "newborn",
+            "oh baby",
+            "baby shower invitation",
+            "shower",
+            "baby party",
+            "baby tea",
+            "baby brunch"
+          ],
+          "palettes": [
+            "pastel",
+            "sage",
+            "blush"
+          ],
+          "events": [
+            {
+              "title": "Oh Baby!",
+              "kicker": "A Baby Shower for Grace",
+              "details": [
+                "Sunday, April 13 · 1 PM",
+                "24 Willow Lane"
+              ],
+              "cta": "RSVP to Anna",
+              "occasion": "party"
+            },
+            {
+              "title": "He or She?",
+              "kicker": "Gender Reveal Party",
+              "details": [
+                "Saturday · 3 PM",
+                "Our backyard"
+              ],
+              "cta": "Wear pink or blue",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "baby-sprinkle",
+          "label": "Baby sprinkles",
+          "emoji": "✨",
+          "keywords": [
+            "baby sprinkle",
+            "sprinkle",
+            "second baby",
+            "rainbow baby",
+            "sip and sprinkle"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Baby Sprinkle",
+              "kicker": "A little shower",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "twins",
+          "label": "Twins",
+          "emoji": "👶",
+          "keywords": [
+            "twins",
+            "twin baby",
+            "double the love",
+            "two of a kind",
+            "twin baby shower",
+            "multiples",
+            "triplets"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Double the Love",
+              "kicker": "Twins",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "birth-announcement",
+          "label": "Birth announcements",
+          "emoji": "👶",
+          "keywords": [
+            "birth announcement",
+            "its a boy",
+            "it's a boy",
+            "its a girl",
+            "it's a girl",
+            "hello world",
+            "newborn",
+            "new baby",
+            "born",
+            "welcome to the world"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "It's a Girl!",
+              "kicker": "Welcome to the world",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "announcement"
+            }
+          ]
+        },
+        {
+          "id": "welcome-baby",
+          "label": "Welcome baby",
+          "emoji": "🏡",
+          "keywords": [
+            "welcome baby",
+            "welcome home baby",
+            "sip and see",
+            "meet the baby",
+            "new arrival"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Welcome Home, Baby",
+              "kicker": "We are so happy",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "announcement"
+            }
+          ]
+        },
+        {
+          "id": "first-birthday",
+          "label": "First birthdays",
+          "emoji": "🎂",
+          "keywords": [
+            "first birthday",
+            "1st birthday",
+            "one year old",
+            "wild one",
+            "cake smash",
+            "turning one",
+            "primer cumpleaños",
+            "primer añito"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy 1st Birthday",
+              "kicker": "One year of smiles",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "naming-ceremony",
+          "label": "Naming ceremonies",
+          "emoji": "📝",
+          "keywords": [
+            "naming ceremony",
+            "naming day",
+            "baby naming",
+            "namkaran",
+            "namakarana",
+            "name reveal",
+            "baby blessing"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "A Naming Celebration",
+              "kicker": "Welcome, little one",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "ceremony"
+            }
+          ]
+        },
+        {
+          "id": "aqeeqah",
+          "label": "Aqeeqah",
+          "emoji": "🐑",
+          "keywords": [
+            "aqeeqah",
+            "aqiqah",
+            "aqiqa",
+            "akika",
+            "akikah",
+            "عقيقة",
+            "muslim baby",
+            "mabrook",
+            "مبروك المولود",
+            "tahneek"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Aqeeqah",
+              "kicker": "Welcoming our baby",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "ceremony"
+            }
+          ]
+        },
+        {
+          "id": "brit-milah",
+          "label": "Brit milah",
+          "emoji": "✡️",
+          "keywords": [
+            "brit milah",
+            "bris",
+            "bris milah",
+            "brit",
+            "ברית מילה",
+            "ברית",
+            "mazel tov",
+            "jewish baby",
+            "simchat bat",
+            "baby naming"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Brit Milah",
+              "kicker": "Mazel tov",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "ceremony"
+            }
+          ]
+        },
+        {
+          "id": "newborn-photo-card",
+          "label": "Newborn photo cards",
+          "emoji": "📷",
+          "keywords": [
+            "newborn photo",
+            "baby photo",
+            "photo card",
+            "newborn card",
+            "milestone card",
+            "one month",
+            "baby milestone"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Hello, Little One",
+              "kicker": "Newborn",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "announcement"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "milestones",
+      "label": "Milestones",
+      "emoji": "💍",
+      "kind": "celebrations",
+      "subcategories": [
+        {
+          "id": "mothers-day",
+          "label": "Mother's Day",
+          "emoji": "💐",
+          "keywords": [
+            "mothers day",
+            "mother's day",
+            "mom",
+            "mum",
+            "mama",
+            "día de la madre",
+            "dia de las madres",
+            "fête des mères",
+            "muttertag",
+            "عيد الأم",
+            "יום האם"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Mother's Day",
+              "kicker": "With love",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "fathers-day",
+          "label": "Father's Day",
+          "emoji": "👔",
+          "keywords": [
+            "fathers day",
+            "father's day",
+            "dad",
+            "papa",
+            "día del padre",
+            "dia del padre",
+            "fête des pères",
+            "vatertag",
+            "عيد الأب",
+            "יום האב"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Father's Day",
+              "kicker": "World's best dad",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "valentines",
+          "label": "Valentine's Day",
+          "emoji": "💘",
+          "keywords": [
+            "valentine",
+            "love",
+            "romance",
+            "heart",
+            "date night",
+            "san valentín",
+            "san valentin",
+            "saint valentin",
+            "galentines",
+            "day of love",
+            "romantic"
+          ],
+          "palettes": [
+            "blush",
+            "pop",
+            "elegant"
+          ],
+          "events": [
+            {
+              "title": "Be Mine",
+              "kicker": "Happy Valentine's Day",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "xoxo",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Date Night Special",
+              "kicker": "Valentine's Dinner",
+              "details": [
+                "Feb 14 · Two seatings",
+                "3 courses for two"
+              ],
+              "cta": "Book your table",
+              "occasion": "promotion"
+            }
+          ]
+        },
+        {
+          "id": "anniversary",
+          "label": "Anniversaries",
+          "emoji": "💞",
+          "keywords": [
+            "anniversary",
+            "love",
+            "years",
+            "celebration",
+            "wedding anniversary",
+            "golden anniversary",
+            "silver anniversary",
+            "50th anniversary",
+            "25th anniversary",
+            "aniversario"
+          ],
+          "palettes": [
+            "elegant",
+            "gold",
+            "blush"
+          ],
+          "events": [
+            {
+              "title": "25 Years of Love",
+              "kicker": "Silver Anniversary",
+              "details": [
+                "Saturday · 6 PM",
+                "The Grand Hall"
+              ],
+              "cta": "Join us to celebrate",
+              "occasion": "party"
+            },
+            {
+              "title": "Happy Anniversary",
+              "kicker": "Every day with you",
+              "details": [
+                "is my favourite day",
+                ""
+              ],
+              "cta": "Forever yours",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "engagement",
+          "label": "Engagements",
+          "emoji": "💍",
+          "keywords": [
+            "engagement",
+            "engaged",
+            "she said yes",
+            "proposal",
+            "engagement party",
+            "compromiso",
+            "fiançailles",
+            "verlobung",
+            "אירוסין",
+            "خطوبة"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "She Said Yes!",
+              "kicker": "Engaged",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "announcement"
+            }
+          ]
+        },
+        {
+          "id": "wedding",
+          "label": "Weddings",
+          "emoji": "💍",
+          "keywords": [
+            "wedding",
+            "save the date",
+            "invitation",
+            "bride",
+            "rsvp",
+            "bridal",
+            "groom",
+            "reception",
+            "boda",
+            "mariage",
+            "hochzeit",
+            "matrimonio",
+            "חתונה",
+            "زفاف",
+            "nikah",
+            "shaadi",
+            "walima"
+          ],
+          "palettes": [
+            "elegant",
+            "blush",
+            "sage"
+          ],
+          "events": [
+            {
+              "title": "Emma & James",
+              "kicker": "Together with their families",
+              "details": [
+                "Saturday, the 14th of June",
+                "Rosewood Gardens · 4 PM"
+              ],
+              "cta": "Kindly reply by May 1",
+              "occasion": "invitation"
+            },
+            {
+              "title": "Save the Date",
+              "kicker": "Olivia & Noah",
+              "details": [
+                "09.20.2025",
+                "Napa Valley"
+              ],
+              "cta": "Invitation to follow",
+              "occasion": "save-the-date"
+            },
+            {
+              "title": "Welcome to Our Wedding",
+              "kicker": "Ava & Liam",
+              "details": [
+                "Please find your seat",
+                "and enjoy the day"
+              ],
+              "cta": "#AvaAndLiam",
+              "occasion": "sign"
+            }
+          ]
+        },
+        {
+          "id": "graduation",
+          "label": "Graduations",
+          "emoji": "🎓",
+          "keywords": [
+            "graduation",
+            "grad",
+            "class of",
+            "commencement",
+            "degree",
+            "grad party",
+            "graduado",
+            "graduación",
+            "graduacion",
+            "diploma"
+          ],
+          "palettes": [
+            "gold",
+            "classic",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "Class of 2025",
+              "kicker": "Graduation Party",
+              "details": [
+                "Saturday, June 21 · 4 PM",
+                "Our House"
+              ],
+              "cta": "Celebrate with us",
+              "occasion": "party"
+            },
+            {
+              "title": "Congrats, Grad!",
+              "kicker": "The tassel was worth the hassle",
+              "details": [
+                "So proud of you",
+                ""
+              ],
+              "cta": "Love, Mom & Dad",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "retirement",
+          "label": "Retirement",
+          "emoji": "🏖️",
+          "keywords": [
+            "retirement",
+            "farewell",
+            "send-off",
+            "career",
+            "retired",
+            "jubilación",
+            "jubilacion",
+            "retraite"
+          ],
+          "palettes": [
+            "gold",
+            "beach",
+            "classic"
+          ],
+          "events": [
+            {
+              "title": "Happy Retirement, Linda!",
+              "kicker": "After 32 Wonderful Years",
+              "details": [
+                "Friday · 5 PM",
+                "Office Lounge"
+              ],
+              "cta": "Cake & stories",
+              "occasion": "party"
+            },
+            {
+              "title": "Officially Retired",
+              "kicker": "Goodbye tension, hello pension",
+              "details": [
+                "Join the send-off",
+                "Friday at 4"
+              ],
+              "cta": "Light refreshments",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "housewarming",
+          "label": "Housewarmings",
+          "emoji": "🏠",
+          "keywords": [
+            "housewarming",
+            "house warming",
+            "new home",
+            "we moved",
+            "we've moved",
+            "moving",
+            "open house",
+            "new address",
+            "inauguración"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Housewarming Party",
+              "kicker": "We've moved!",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "quinceanera",
+          "label": "Quinceañeras",
+          "emoji": "👑",
+          "keywords": [
+            "quinceañera",
+            "quinceanera",
+            "quince",
+            "xv años",
+            "mis xv",
+            "mis quince",
+            "quince años",
+            "sweet 15",
+            "xv"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Mis XV Años",
+              "kicker": "Quinceañera",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "sweet-16",
+          "label": "Sweet 16",
+          "emoji": "🎀",
+          "keywords": [
+            "sweet 16",
+            "sweet sixteen",
+            "16th birthday",
+            "sixteenth birthday"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Sweet Sixteen",
+              "kicker": "Birthday bash",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "bar-bat-mitzvah",
+          "label": "Bar & Bat Mitzvahs",
+          "emoji": "✡️",
+          "keywords": [
+            "bar mitzvah",
+            "bat mitzvah",
+            "bas mitzvah",
+            "bnei mitzvah",
+            "b'nai mitzvah",
+            "bar mitzva",
+            "בר מצווה",
+            "בת מצווה",
+            "mazel tov",
+            "torah portion",
+            "aliyah"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Mazel Tov!",
+              "kicker": "Bar & Bat Mitzvah",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "ceremony"
+            }
+          ]
+        },
+        {
+          "id": "memorial",
+          "label": "Memorials",
+          "emoji": "🕊️",
+          "keywords": [
+            "memorial",
+            "in loving memory",
+            "celebration of life",
+            "funeral",
+            "remembrance",
+            "sympathy",
+            "obituary",
+            "memorial service",
+            "vigil",
+            "yahrzeit",
+            "forever in our hearts",
+            "rest in peace"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "In Loving Memory",
+              "kicker": "Forever in our hearts",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "remembrance"
             }
           ]
         }

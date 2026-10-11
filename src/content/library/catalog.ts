@@ -115,7 +115,7 @@ const CLASSIC_PLACES: Record<string, [string, string, string, string[]]> = { // 
   'yt-vlog': ['creators', 'youtube', 'Playful', ['blue', 'pink']], 'pitch-deck': ['business', 'presentation', 'Modern', ['blue', 'white']],
   'creative-deck': ['business', 'presentation', 'Playful', ['pink', 'yellow']], 'card-modern': ['creators', 'branding', 'Minimal', ['black', 'white']],
   'card-pastel': ['creators', 'branding', 'Playful', ['pink', 'blue']], 'party-invite': ['celebrations', 'birthday', 'Playful', ['pink', 'purple']],
-  'save-the-date': ['celebrations', 'wedding', 'Elegant', ['cream', 'green']], 'logo-badge': ['creators', 'branding', 'Retro', ['orange', 'cream']],
+  'save-the-date': ['milestones', 'wedding', 'Elegant', ['cream', 'green']], 'logo-badge': ['creators', 'branding', 'Retro', ['orange', 'cream']],
   'logo-gradient': ['creators', 'branding', 'Modern', ['purple', 'pink']], 'wallpaper-dream': ['creators', 'wallpaper', 'Playful', ['pink', 'purple']],
 };
 
@@ -123,7 +123,7 @@ function classicMeta(t: Template): TemplateMeta {
   const [category, sub, style, colors] = CLASSIC_PLACES[t.id] ?? ['', '', 'Classic', []];
   const s = subById(sub);
   return {
-    id: t.id, name: t.name, category, sub, format: norm(t.category).replace(/ /g, '-'), formatLabel: t.category,
+    id: t.id, name: t.name, category: s?.cat.id ?? category, sub, format: norm(t.category).replace(/ /g, '-'), formatLabel: t.category,
     width: t.design.width, height: t.design.height, pages: t.design.pages.length,
     style, colors, occasion: '', tags: s?.sub.keywords ?? [], cost: t.cost, source: 'classic', addedAt: CLASSIC_ADDED, version: 1,
     words: wordsOf(t.name, t.category, s?.sub.label, s?.cat.label, s?.sub.keywords, style, colors),

@@ -152,17 +152,33 @@ export function libraryScreen(): Screen {
       }), h('button', { class: 'lib-blank', type: 'button', onclick: () => createDialog() }, h('span', { class: 'lib-blank-shape' }, icon('plus', 26)), h('b', null, 'Custom size'), h('small', null, 'Any size'))));
   }
 
-  /** The illustrated holiday collections, one card each (cover picture + count). */
+  /** The illustrated collections, one card each (cover picture + count), with chips to narrow them by category. */
+  let setCat = '';
   function holidays(): HTMLElement {
     const all = catalog();
-    return h('section', { class: 'lib-row' }, h('div', { class: 'sec-head' }, h('div', null, h('h2', null, 'Holiday collections'), h('small', { class: 'muted' }, 'Illustrated, fully editable designs'))),
-      h('div', { class: 'lib-strip holidays' }, ...COLLECTION_SETS.map((set) => {
+    const catOf = (sub: string) => subById(sub)?.cat;
+    const withSets = new Set(COLLECTION_SETS.map((set) => catOf(set.sub)?.id));
+    const cats = CATEGORIES_TREE.filter((c) => withSets.has(c.id)); // in menu order
+    const strip = h('div', { class: 'lib-strip holidays' });
+    const chips = h('div', { class: 'chips lib-set-cats', role: 'group', 'aria-label': 'Collection categories' });
+    const draw = () => {
+      const sets = COLLECTION_SETS.filter((set) => !setCat || catOf(set.sub)?.id === setCat);
+      strip.replaceChildren(...sets.map((set) => {
         const cover = metaById(`${set.sub}--${set.cover}`);
         const n = all.filter((m) => m.sub === set.sub).length;
         const b = h('button', { type: 'button', class: 'lib-holiday', 'aria-label': `${set.label} templates` }, h('span', { class: 'lib-holiday-pic' }, cover ? lazyThumb(cover, 260, 0.8) : null), h('span', { class: 'lib-holiday-label' }, h('b', null, set.label), h('small', null, `${n} templates`)));
         b.addEventListener('click', () => { const s = subById(set.sub); f.category = s?.cat.id; f.sub = set.sub; f.use = undefined; if (s) open.add(s.cat.id); shown = PAGE; fill(); });
         return b;
-      })));
+      }));
+      strip.scrollLeft = 0;
+      chips.replaceChildren(...[{ id: '', label: 'All', emoji: '' }, ...cats].map((c) => {
+        const b = h('button', { type: 'button', class: `chip ${setCat === c.id ? 'on' : ''}`, 'aria-pressed': String(setCat === c.id) }, c.emoji ? `${c.emoji} ${c.label}` : c.label);
+        b.addEventListener('click', () => { setCat = c.id; const x = chips.scrollLeft; draw(); chips.scrollLeft = x; });
+        return b;
+      }));
+    };
+    draw();
+    return h('section', { class: 'lib-row' }, h('div', { class: 'sec-head' }, h('div', null, h('h2', null, 'Illustrated collections'), h('small', { class: 'muted' }, 'Holidays, celebrations and events from around the world · fully editable'))), chips, strip);
   }
 
   function fill(): void {

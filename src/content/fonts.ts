@@ -65,6 +65,7 @@ const FONT_DEFS: [string, string][] = [
   ['Mukta', '400;500;600;700;800'],
   ['Baloo 2', '400;500;600;700;800'],
   ['Noto Sans Devanagari', '400;600;700'],
+  ['Baloo Paaji 2', '400;600;700;800'],
   ['Manjari', '400;700'],
   ['Noto Serif SC', '400;600;700;900'],
   ['Ma Shan Zheng', ''],
@@ -83,7 +84,7 @@ export const FONT_PACKS: FontPack[] = [
   { id: 'fonts-festive', name: 'Festive & Elegant', cost: 0, fonts: ['Mountains of Christmas', 'Cinzel', 'Cormorant Garamond', 'Pinyon Script', 'Berkshire Swash', 'Marcellus'] },
   { id: 'fonts-hebrew', name: 'Hebrew (עברית)', cost: 0, fonts: ['Frank Ruhl Libre', 'David Libre', 'Heebo', 'Rubik', 'Suez One', 'Secular One', 'Bellefair', 'Amatic SC'] },
   { id: 'fonts-arabic', name: 'Arabic & Persian (العربية)', cost: 0, fonts: ['Amiri', 'Aref Ruqaa', 'Reem Kufi', 'Cairo', 'Noto Naskh Arabic', 'Vazirmatn'] },
-  { id: 'fonts-indic', name: 'Indian scripts (हिन्दी)', cost: 0, fonts: ['Yatra One', 'Tiro Devanagari Hindi', 'Rozha One', 'Mukta', 'Baloo 2', 'Noto Sans Devanagari', 'Manjari'] },
+  { id: 'fonts-indic', name: 'Indian scripts (हिन्दी)', cost: 0, fonts: ['Yatra One', 'Tiro Devanagari Hindi', 'Rozha One', 'Mukta', 'Baloo 2', 'Noto Sans Devanagari', 'Baloo Paaji 2', 'Manjari'] },
   { id: 'fonts-chinese', name: 'Chinese (中文)', cost: 0, fonts: ['Noto Serif SC', 'Ma Shan Zheng'] },
   { id: 'fonts-soft', name: 'Soft & Sweet', cost: 0, fonts: ['Quicksand', 'Josefin Sans', 'Parisienne', 'Sacramento'] },
 ];

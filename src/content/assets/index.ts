@@ -36,6 +36,10 @@ export const COLLECTIONS: Collection[] = [
   { id: 'christian', name: 'Easter & Christian', blurb: 'Crosses, empty tomb, lilies, eggs, palms, Advent wreath, doves, chalice and baptism shell', prefix: 'cr-', cover: 'cr-cross-sunrise', load: () => import('./collections/christian') },
   { id: 'indian', name: 'Diwali, Holi & more', blurb: 'Diyas, rangoli, marigold torans, star lanterns, mithai, Holi colours, dandiya, pookalam and dhol', prefix: 'in-', cover: 'in-diya', load: () => import('./collections/indian') },
   { id: 'baby', name: 'Baby', blurb: 'Teddy bears, clouds, moon & stars, boho rainbows, balloons, baby animals, onesies and soft flowers', prefix: 'bb-', cover: 'bb-teddy', load: () => import('./collections/baby') },
+  { id: 'asian', name: 'Lunar New Year & Asian festivals', blurb: 'Red lanterns, envelopes, plum blossom, mooncakes, moon rabbit, dragon boats, zongzi and Vesak lanterns', prefix: 'as-', cover: 'as-lantern', load: () => import('./collections/asian') },
+  { id: 'world', name: 'Nowruz, Kwanzaa & Día de Muertos', blurb: 'Haft-sin, sabzeh, hyacinths, kinara, unity cup, calaveras, marigolds and papel picado', prefix: 'wd-', cover: 'wd-kinara', load: () => import('./collections/world') },
+  { id: 'milestones', name: 'Weddings & milestones', blurb: 'Rings, bouquets, cakes, champagne, graduation caps, houses, tiaras, tallit and gentle memorial pieces', prefix: 'ms-', cover: 'ms-rings', load: () => import('./collections/milestones') },
+  { id: 'events', name: 'Parties & community events', blurb: 'Thanksgiving, birthday cakes, trophies, medals, running shoes, bingo, microphones, bunting and food trucks', prefix: 'ev-', cover: 'ev-birthday-cake', load: () => import('./collections/events') },
 ];
 
 const loaded = new Map<string, AssetDef>();
