@@ -9,6 +9,7 @@ import { DOC_VERSION } from '../../editor/model';
 import { templates as classicTemplates, type Template } from '../templates';
 import { ARCHETYPES, FORMATS, buildPages, type Archetype, type EventText, type Format, type Kind } from './layouts';
 import { FONTS, PALETTES, paletteById } from './palettes';
+import { HALLOWEEN, buildCollectionDoc } from './collections/halloween';
 
 // ---------- taxonomy (data-driven: edit taxonomy.json) ----------
 export interface SubDef { id: string; label: string; emoji: string; keywords: string[]; palettes?: string[]; events: EventText[]; generate?: boolean }
@@ -19,7 +20,7 @@ for (const cat of CATEGORIES_TREE) for (const sub of cat.subcategories) subIndex
 export const subById = (id: string) => subIndex.get(id);
 
 // ---------- metadata ----------
-export type Source = 'library' | 'classic' | 'published';
+export type Source = 'library' | 'classic' | 'published' | 'collection';
 export interface TemplateMeta {
   id: string;
   name: string;
@@ -123,13 +124,26 @@ function classicMeta(t: Template): TemplateMeta {
   };
 }
 
+/** Hand-composed collections (illustrated, made one by one — see collections/). */
+const COLLECTION_ADDED = Date.UTC(2026, 9, 11, 12);
+const collectionBuilders = new Map(HALLOWEEN.map((t) => [`halloween--${t.id}`, t]));
+function collectionMeta(t: (typeof HALLOWEEN)[number]): TemplateMeta {
+  const f = FORMATS[t.format], s = subById('halloween');
+  return {
+    id: `halloween--${t.id}`, name: t.name, category: s?.cat.id ?? 'celebrations', sub: 'halloween', format: t.format, formatLabel: f.label,
+    width: f.w, height: f.h, pages: 1, style: t.style, colors: t.colors, occasion: t.occasion, tags: [...t.tags, 'illustrated'],
+    cost: 0, source: 'collection', addedAt: COLLECTION_ADDED, version: 1,
+    words: wordsOf(t.name, t.tags, s?.sub.label, s?.cat.label, s?.sub.keywords, t.style, t.colors, f.label, t.occasion, 'illustrated'),
+  };
+}
+
 let builtIn: TemplateMeta[] | null = null;
 const published = new Map<string, TemplateMeta>();
 const listeners = new Set<() => void>();
 
 /** Everything in the catalog right now (built-in first time it's asked for; published ones as they arrive). */
 export function catalog(): TemplateMeta[] {
-  builtIn ??= [...CATEGORIES_TREE.flatMap((c) => c.subcategories.flatMap((s) => plan(c, s))), ...classicTemplates().map(classicMeta)];
+  builtIn ??= [...HALLOWEEN.map(collectionMeta), ...CATEGORIES_TREE.flatMap((c) => c.subcategories.flatMap((s) => plan(c, s))), ...classicTemplates().map(classicMeta)];
   return published.size ? [...published.values(), ...builtIn] : builtIn;
 }
 export const metaById = (id: string): TemplateMeta | undefined => published.get(id) ?? catalog().find((m) => m.id === id);
@@ -154,6 +168,7 @@ export function templateDoc(m: TemplateMeta): Design {
   if (hit) return hit;
   let d: Design;
   if (m.source === 'classic') d = classicTemplates().find((t) => t.id === m.id)!.design;
+  else if (m.source === 'collection') d = buildCollectionDoc(collectionBuilders.get(m.id)!, m.addedAt);
   else if (m.recipe) {
     const r = m.recipe;
     const s = subById(m.sub)!;
@@ -176,7 +191,7 @@ export async function loadTemplateDoc(m: TemplateMeta): Promise<Design> {
   return d;
 }
 /** Text sizes depend on fonts; when fonts arrive, rebuild library documents so pictures and layouts are exact. */
-export function forgetBuiltDocs(): void { for (const [id] of docs) if (metaById(id)?.source === 'library') docs.delete(id); }
+export function forgetBuiltDocs(): void { for (const [id] of docs) { const src = metaById(id)?.source; if (src === 'library' || src === 'collection') docs.delete(id); } }
 
 /** A `Template` (the shape the rest of the app uses) for a catalog entry. */
 export function asTemplate(m: TemplateMeta): Template {

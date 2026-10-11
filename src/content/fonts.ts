@@ -34,6 +34,11 @@ const FONT_DEFS: [string, string][] = [
   ['Press Start 2P', ''],
   ['Rubik Mono One', ''],
   ['Bungee Shade', ''],
+  ['Creepster', ''],
+  ['Griffy', ''],
+  ['Henny Penny', ''],
+  ['Mystery Quest', ''],
+  ['Jolly Lodger', ''],
 ];
 
 export const FONT_PACKS: FontPack[] = [
@@ -41,6 +46,7 @@ export const FONT_PACKS: FontPack[] = [
   { id: 'fonts-script', name: 'Script & Love', cost: 25, fonts: ['Dancing Script', 'Great Vibes', 'Satisfy', 'Lobster'] },
   { id: 'fonts-display', name: 'Big & Bold', cost: 25, fonts: ['Abril Fatface', 'Anton', 'Righteous', 'Bungee', 'Shrikhand'] },
   { id: 'fonts-retro', name: 'Retro Arcade', cost: 35, fonts: ['Monoton', 'Permanent Marker', 'Press Start 2P', 'Rubik Mono One', 'Bungee Shade'] },
+  { id: 'fonts-spooky', name: 'Spooky Season', cost: 0, fonts: ['Creepster', 'Griffy', 'Henny Penny', 'Mystery Quest', 'Jolly Lodger'] },
 ];
 
 export const ALL_FONTS = FONT_DEFS.map(([f]) => f);

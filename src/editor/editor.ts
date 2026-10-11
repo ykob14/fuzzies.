@@ -1185,6 +1185,18 @@ export class Editor {
   }
 
   addGraphic(art: string): void { this.add([makeGraphic(art, this.unit * 0.4)]); }
+  /** A full-page scene from an asset collection (`<id>-sq|po|st|ls`): the variant closest to the page shape, sent to the back. */
+  addSceneBackground(baseId: string, name: string): void {
+    const W = this.design.width, H = this.design.height, r = W / H;
+    const variants: [string, number][] = [['sq', 1], ['po', 1000 / 1414], ['st', 1080 / 1920], ['ls', 1920 / 1080]];
+    const [suffix] = variants.reduce((a, b) => (Math.abs(Math.log(b[1] / r)) < Math.abs(Math.log(a[1] / r)) ? b : a));
+    const el = makeGraphic(`${baseId}-${suffix}`, Math.max(W, H));
+    Object.assign(el, { x: 0, y: 0, w: W, h: H, name });
+    this.page.elements.unshift(el);
+    this.setTool('select');
+    this.select([el.id]);
+    this.commit();
+  }
   addQr(text: string): void { this.add([makeQr(text, Math.round(this.unit * 0.3))]); }
 
   addEmoji(char: string): void { this.add([makeEmoji(char, this.unit * 0.2)]); track('sticker'); }

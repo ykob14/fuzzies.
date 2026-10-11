@@ -7,6 +7,7 @@ import { fillToCss, getImage } from './render';
 import { makeText, elLabel } from './doc';
 import { colorButton, GRADIENTS, PALETTE } from './colors';
 import { ART_PACKS, ARTS, artDataUrl } from '../content/art';
+import { COLLECTIONS, assetsIn, isLoaded, loadCollection, searchAssets, type AssetDef } from '../content/assets';
 import { STICKER_PACKS } from '../content/stickers';
 import { TEXT_STYLES, FX_PACK } from '../content/textstyles';
 import { unlockDialog } from '../ui/unlock';
@@ -195,7 +196,7 @@ export function buildPanels(ed: Editor): Panels {
   let elQuery = '';
   function elementsPanel(): HTMLElement {
     const wrap = h('div');
-    const search = h('input', { class: 'input', placeholder: 'Search shapes & graphics', value: elQuery, type: 'search' });
+    const search = h('input', { class: 'input', placeholder: 'Search graphics — “bat”, “pumpkin”, “moon”…', value: elQuery, type: 'search', 'aria-label': 'Search shapes and graphics' });
     const list = h('div');
     const fill = () => {
       list.replaceChildren();
@@ -218,6 +219,27 @@ export function buildPanels(ed: Editor): Panels {
         draggable(b, { kind: 'shape', shape: s.kind });
         return b;
       }))));
+      // illustration collections (lazy): searchable by name and tags
+      for (const col of COLLECTIONS) {
+        if (!isLoaded(col)) {
+          list.append(h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, col.name), h('div', { class: 'ph-status' }, h('span', { class: 'ph-spin' }), 'Loading…')));
+          void loadCollection(col).then(() => { if (list.isConnected) fill(); }).catch(() => {});
+          continue;
+        }
+        const all = q ? searchAssets(q).filter((a) => a.id.startsWith(col.prefix)) : assetsIn(col);
+        const art = all.filter((a) => a.kind !== 'background');
+        const scenes = all.filter((a) => a.kind === 'background' && a.id.endsWith('-sq'));
+        const item = (a: AssetDef, onClick: () => void, drag = true) => {
+          const b = h('button', { class: `el-item ${a.kind === 'background' ? 'el-scene' : ''}`, type: 'button', title: `${a.name} · ${a.license}`, 'aria-label': a.name }, h('img', { src: artDataUrl(a.id, a.colors), alt: '', loading: 'lazy' }));
+          b.addEventListener('click', onClick);
+          if (drag) draggable(b, { kind: 'art', art: a.id });
+          return b;
+        };
+        if (art.length) list.append(h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, `${col.name} · illustrations`),
+          h('div', { class: 'el-grid' }, ...art.map((a) => item(a, () => { ed.addGraphic(a.id); afterAdd(); })))));
+        if (scenes.length) list.append(h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, `${col.name} · page backgrounds`),
+          h('div', { class: 'el-grid scenes' }, ...scenes.map((a) => item(a, () => { ed.addSceneBackground(a.id.replace(/-sq$/, ''), a.name.replace(/ \(.*\)$/, '')); afterAdd(); }, false)))));
+      }
       for (const pack of ART_PACKS) {
         const arts = ARTS.filter((a) => a.pack === pack.id && (!q || a.name.toLowerCase().includes(q) || pack.name.toLowerCase().includes(q)));
         if (!arts.length) continue;

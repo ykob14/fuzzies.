@@ -5,7 +5,8 @@
 import type { Design, DrawEl, El, EmojiEl, Fill, Filters, GraphicEl, ImageEl, Page, QrEl, ShapeEl, TextEl } from './types';
 import { qrMatrix } from './qr';
 import { maskPath, roundRect, shapePath } from './shapes';
-import { artDataUrl } from '../content/art';
+import { artById, artDataUrl } from '../content/art';
+import { ensureArt } from '../content/assets';
 import { ensureFont } from '../content/fonts';
 
 // ---------- image cache ----------
@@ -49,6 +50,8 @@ export function graphicSrc(el: GraphicEl): string { return artDataUrl(el.art, el
 
 /** Wait until every font and image a page needs is ready (used before exporting). */
 export async function prepare(design: Design, pages = design.pages): Promise<void> {
+  // graphics from asset collections: load their collection first so their pictures exist
+  await ensureArt(pages.flatMap((p) => p.elements.filter((e): e is GraphicEl => e.type === 'graphic' && !artById(e.art)).map((e) => e.art)));
   const jobs: Promise<unknown>[] = [];
   for (const p of pages) {
     if (p.bgAsset && design.assets[p.bgAsset]) jobs.push(imageReady(design.assets[p.bgAsset]));
@@ -333,6 +336,7 @@ function drawEmoji(ctx: CanvasRenderingContext2D, el: EmojiEl): void {
 }
 
 function drawGraphic(ctx: CanvasRenderingContext2D, el: GraphicEl): void {
+  if (!artById(el.art)) { void ensureArt([el.art]).then((fresh) => { if (fresh) notifyAssets(); }); return; }
   const img = getImage(graphicSrc(el));
   if (img) ctx.drawImage(img, 0, 0, el.w, el.h);
 }

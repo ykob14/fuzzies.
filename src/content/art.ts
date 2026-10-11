@@ -1,4 +1,5 @@
 /** Recolourable vector graphics, grouped in packs. Each one is an SVG built from up to three colours. */
+import { loadedAsset } from './assets';
 
 export interface Art {
   id: string;
@@ -93,7 +94,8 @@ function mulberry(seed: number): () => number {
   };
 }
 
-export const artById = (id: string): Art | undefined => ARTS.find((a) => a.id === id);
+/** Built-in packs first, then any loaded asset collection (see content/assets). */
+export const artById = (id: string): Art | undefined => ARTS.find((a) => a.id === id) ?? loadedAsset(id);
 
 export function artDataUrl(id: string, colors: string[]): string {
   const a = artById(id);

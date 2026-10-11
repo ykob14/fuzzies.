@@ -1824,7 +1824,12 @@
             "spooky",
             "costume",
             "trick or treat",
-            "pumpkin"
+            "pumpkin",
+            "haunted house",
+            "ghost",
+            "bats",
+            "witch",
+            "costume party"
           ],
           "palettes": [
             "spooky",
@@ -1852,7 +1857,8 @@
               "cta": "Candy for all",
               "occasion": "event"
             }
-          ]
+          ],
+          "generate": false
         },
         {
           "id": "new-year",

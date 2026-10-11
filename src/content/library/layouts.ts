@@ -58,7 +58,7 @@ function txt(c: Ctx, s: string, x: number, y: number, w: number, o: Partial<Text
 }
 // Text is measured with the real font (once fonts have loaded; the library rebuilds then), so titles never break mid-word.
 let mctx: CanvasRenderingContext2D | null = null;
-function widthOf(s: string, font: string, weight: number, size: number, upper = false, spacing = 0): number {
+export function widthOf(s: string, font: string, weight: number, size: number, upper = false, spacing = 0): number {
   mctx ??= document.createElement('canvas').getContext('2d')!;
   mctx.font = `${weight} ${size}px "${font}", sans-serif`;
   const t = upper ? s.toUpperCase() : s;
@@ -74,7 +74,7 @@ function lineCount(s: string, font: string, weight: number, size: number, w: num
   return n;
 }
 /** The biggest size ≤ maxSize where every word fits the width, in at most maxLines lines (and maxH tall, if given). */
-function fitSize(s: string, font: string, weight: number, w: number, maxSize: number, maxLines: number, o: { upper?: boolean; spacing?: number; maxH?: number; lh?: number } = {}): number {
+export function fitSize(s: string, font: string, weight: number, w: number, maxSize: number, maxLines: number, o: { upper?: boolean; spacing?: number; maxH?: number; lh?: number } = {}): number {
   const upper = !!o.upper, lh = o.lh ?? 1;
   const longest = Math.max(...s.split(/\s+/).map((x) => widthOf(x, font, weight, 100, upper, (o.spacing ?? 0) / 100 * 100)), 1) / 100;
   let size = Math.min(maxSize, (w * 0.96) / longest);

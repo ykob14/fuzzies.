@@ -1655,3 +1655,8 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
   .tm-pic { width: 44px; height: 44px; }
   .tm-actions { grid-column: 1 / -1; justify-content: flex-end; }
 }
+
+/* ---------- Asset collections in the Elements panel ---------- */
+.el-grid.scenes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.el-item.el-scene { padding: 0; overflow: hidden; }
+.el-item.el-scene img { width: 100%; height: 100%; object-fit: cover; }
