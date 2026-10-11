@@ -122,7 +122,10 @@ export interface Page {
   elements: El[];
 }
 
+/** A saved design — see editor/model.ts for the full format, invariants and version history. */
 export interface Design {
+  /** Document format version (DOC_VERSION in model.ts); missing on designs saved before version 2. */
+  v?: number;
   id: string;
   owner: string;
   name: string;
@@ -133,7 +136,10 @@ export interface Design {
   createdAt: number;
   updatedAt: number;
   thumb?: string;
+  /** Id of the template this design was started from (the template itself is never changed). */
   template?: string;
+  /** My Designs folder name ('' / missing = no folder). */
+  folder?: string;
 }
 
 export const DEFAULT_FILTERS: Filters = { brightness: 100, contrast: 100, saturate: 100, blur: 0, grayscale: 0, sepia: 0, hue: 0 };

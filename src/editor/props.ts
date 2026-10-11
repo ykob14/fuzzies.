@@ -372,6 +372,8 @@ export function buildProps(ed: Editor): Props {
     { label: 'Send backward', icon: 'down', onClick: () => ed.reorder('down') },
     { label: 'Send to back', icon: 'layers', onClick: () => ed.reorder('back') },
     ...(single ? [null, { label: 'Flip horizontal', icon: 'flipH' as IconName, onClick: () => { single.flipX = !single.flipX; done(); } }, { label: 'Flip vertical', icon: 'flipV' as IconName, onClick: () => { single.flipY = !single.flipY; done(); } }] : []),
+    null,
+    { label: 'Hide', icon: 'eyeOff', onClick: () => ed.hideSelection() },
   ]);
 
   function sizeControl(e: TextEl): HTMLElement {

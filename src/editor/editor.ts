@@ -4,12 +4,13 @@
  * panels.ts and props.ts and talk to this class.
  */
 import type { Design, El, Fill, ImageEl, Page, TextEl } from './types';
-import { drawElement, drawStroke, fitText, fontString, onAssetsLoaded, renderPage, thumbnail } from './render';
+import { drawBackground, drawElement, drawStroke, fitText, fontString, onAssetsLoaded, renderPage, thumbnail } from './render';
 import { cloneEls, makeDraw, makeEmoji, makeGraphic, makeImage, makeShape, makeText, newPage, makeQr } from './doc';
 import { firstColor, closePicker } from './colors';
 import { buildPanels, type Panels } from './panels';
 import { buildProps, type Props } from './props';
 import { openShare } from './share';
+import { openPreview, downloadMenu } from './preview';
 import { onFontsLoaded } from '../content/fonts';
 import { db } from '../core/db';
 import { track } from '../core/missions';
@@ -21,6 +22,8 @@ type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rot';
 type Tool = 'select' | 'draw' | 'hand';
 
 interface Box { x: number; y: number; w: number; h: number }
+
+const VIEW_KEY = 'fz.ed.view';
 
 interface Drag {
   kind: 'move' | 'resize' | 'rotate' | 'marquee' | 'pan' | 'draw' | 'erase';
@@ -58,6 +61,17 @@ export class Editor {
   panX = 0;
   panY = 0;
   snapEnabled = accounts.current?.settings.snap ?? true;
+  /** Grid view options (this device): show the grid, snap moves to it, and its size as a fraction of the shorter side. */
+  view: { grid: boolean; gridSnap: boolean; gridDiv: number } = (() => {
+    const d = { grid: false, gridSnap: false, gridDiv: 24 };
+    try { return { ...d, ...JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') }; } catch { return d; }
+  })();
+  get gridSize(): number { return this.unit / this.view.gridDiv; }
+  setView(v: Partial<Editor['view']>): void {
+    Object.assign(this.view, v);
+    try { localStorage.setItem(VIEW_KEY, JSON.stringify(this.view)); } catch { /* private mode */ }
+    this.requestRender();
+  }
 
   readonly stage: HTMLElement;
   readonly canvas: HTMLCanvasElement;
@@ -84,7 +98,7 @@ export class Editor {
   private undoBtn: HTMLButtonElement;
   private redoBtn: HTMLButtonElement;
   private pagesStrip: HTMLElement;
-  private saveState: HTMLElement;
+  private saveState: HTMLButtonElement;
   private spaceDown = false;
   private fitZoom = 0;
   private lastTap = { t: 0, id: '' };
@@ -110,17 +124,25 @@ export class Editor {
           btn(null, { icon: 'zoomIn', kind: 'plain', size: 'sm', title: 'Zoom in', onClick: () => this.zoomBy(1.2) }))));
 
     this.nameInput = h('input', { class: 'ed-name', value: design.name, 'aria-label': 'Design name', maxlength: '80' });
-    this.nameInput.addEventListener('change', () => { this.design.name = this.nameInput.value.trim() || 'Untitled design'; this.save(); });
+    this.nameInput.addEventListener('change', () => { this.design.name = this.nameInput.value.trim() || 'Untitled design'; this.dirty(); });
     this.nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.nameInput.blur(); });
     this.undoBtn = btn(null, { icon: 'undo', kind: 'plain', title: 'Undo (Ctrl+Z)', onClick: () => this.undo() });
     this.redoBtn = btn(null, { icon: 'redo', kind: 'plain', title: 'Redo (Ctrl+Shift+Z)', onClick: () => this.redo() });
-    this.saveState = h('span', { class: 'save-state' }, 'Saved');
+    this.saveState = h('button', { class: 'save-state', type: 'button', 'data-state': 'saved' });
+    this.saveState.addEventListener('click', () => void this.saveNow()); // also the Retry when a save failed
+    this.setStatus('saved');
 
+    const viewBtn = btn(null, { icon: 'grid', kind: 'plain', title: 'View: grid and snapping', class: 'ed-view' });
+    viewBtn.addEventListener('click', () => this.viewMenu(viewBtn));
+    const previewBtn = btn('Preview', { icon: 'play', kind: 'plain', title: 'Preview every page full screen', class: 'ed-preview', onClick: () => openPreview(this) });
+    const dlBtn = btn(null, { icon: 'download', kind: 'ghost', title: 'Download (PNG, JPG, PDF)', class: 'ed-dl' });
+    dlBtn.addEventListener('click', () => downloadMenu(this, dlBtn));
     const top = h('header', { class: 'ed-top' },
       btn(null, { icon: 'back', kind: 'plain', title: 'Back to home', onClick: () => this.exit() }),
       h('div', { class: 'ed-title' }, this.nameInput, this.saveState),
       h('div', { class: 'ed-top-mid' }, this.undoBtn, this.redoBtn),
       h('div', { class: 'ed-top-right' },
+        viewBtn, previewBtn, dlBtn,
         h('button', { class: 'ed-size', type: 'button', title: 'Resize the design', onclick: () => { this.select([]); this.props.open(); } }, `${design.width} × ${design.height} px`),
         btn('Share', { icon: 'share', kind: 'primary', onClick: () => openShare(this) })));
 
@@ -136,6 +158,12 @@ export class Editor {
     this.bindPointer();
     this.bindKeys();
     this.bindDrop();
+    // closing or switching away from the tab saves straight away (no waiting for the autosave timer)
+    const onHide = () => { if (document.visibilityState === 'hidden') void this.saveNow(); };
+    const onPageHide = () => void this.saveNow();
+    document.addEventListener('visibilitychange', onHide);
+    addEventListener('pagehide', onPageHide);
+    this.cleanup.push(() => { document.removeEventListener('visibilitychange', onHide); removeEventListener('pagehide', onPageHide); });
     const ro = new ResizeObserver(() => this.resize(true));
     ro.observe(this.stage);
     this.cleanup.push(() => ro.disconnect(), onAssetsLoaded(() => this.requestRender()), onFontsLoaded(() => this.refitTexts()));
@@ -177,8 +205,7 @@ export class Editor {
     this.redoStack = [];
     this.lastSnap = s;
     this.updateHistoryButtons();
-    this.saveState.textContent = 'Saving…';
-    this.save();
+    this.dirty();
     this.emit('change');
     this.requestRender();
   }
@@ -191,7 +218,7 @@ export class Editor {
     this.lastSnap = prev;
     this.restore(prev);
     this.updateHistoryButtons();
-    this.save();
+    this.dirty();
   }
 
   redo(): void {
@@ -201,7 +228,7 @@ export class Editor {
     this.lastSnap = next;
     this.restore(next);
     this.updateHistoryButtons();
-    this.save();
+    this.dirty();
   }
 
   private updateHistoryButtons(): void {
@@ -209,19 +236,51 @@ export class Editor {
     this.redoBtn.disabled = !this.redoStack.length;
   }
 
-  private async persist(): Promise<void> {
+  /** Something changed: show "Saving…" and write it shortly (autosave). */
+  private dirty(): void {
+    this.rev++;
+    this.setStatus('saving');
+    this.save();
+  }
+
+  private setStatus(state: 'saved' | 'saving' | 'error'): void {
+    const el = this.saveState;
+    el.dataset.state = state;
+    el.replaceChildren(state === 'saving' ? h('span', { class: 'save-dot' }) : icon(state === 'saved' ? 'check' : 'close', 14),
+      h('span', null, state === 'saved' ? 'Saved' : state === 'saving' ? 'Saving…' : 'Not saved · Retry'));
+    el.title = state === 'saved' ? `All changes saved${accounts.current?.cloud ? ' (and synced to your account)' : ' on this device'}`
+      : state === 'saving' ? 'Saving your changes…' : 'Your last changes could not be saved — tap to try again';
+    if (state === 'saved') el.title += ' · tap or Ctrl/Cmd+S to save now';
+  }
+
+  /** Writes run one at a time, each saving the latest state (a slow write can't overwrite a newer one). */
+  private writing: Promise<void> = Promise.resolve();
+  private rev = 0;
+  private persist(): Promise<void> {
+    this.writing = this.writing.then(() => this.write());
+    return this.writing;
+  }
+  private async write(): Promise<void> {
     const d = this.design;
+    const rev = this.rev;
     d.updatedAt = Date.now();
     try {
-      d.thumb = thumbnail(d);
+      try { d.thumb = thumbnail(d); } catch (e) { console.warn('thumbnail failed', e); } // a missing picture never blocks saving
       await db.putDesign(d);
-      this.saveState.textContent = 'Saved';
+      this.setStatus(rev === this.rev ? 'saved' : 'saving');
       this.renderPages();
     } catch (e) {
       console.error(e);
-      this.saveState.textContent = 'Not saved';
-      toast('Could not save — your device storage may be full.', 'bad', 4000);
+      this.setStatus('error');
+      toast('Could not save — your device storage may be full. Your work is still open here.', 'bad', 4500);
     }
+  }
+
+  /** Save right now (Ctrl/Cmd+S, leaving, hiding the tab). */
+  saveNow(): Promise<void> {
+    if (this.editingText) this.commit(); // typed text is already in the design; record it without leaving the text box
+    this.save.flush();
+    return this.persist();
   }
 
   /** Remove photos no longer used by any page so saved projects stay small. */
@@ -384,12 +443,39 @@ export class Editor {
       for (const el of sel) drawElement(ctx, el, design);
       ctx.restore();
     }
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, design.width, design.height);
-    ctx.clip();
-    renderPage(ctx, design, this.page, { skip: this.editingText?.el.id });
-    ctx.restore();
+    const layers = this.dragLayers(sel);
+    if (layers) {
+      // while dragging, everything that isn't moving is a ready-made picture: only the moving items are redrawn
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(layers.below, 0, 0);
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, design.width, design.height);
+      ctx.clip();
+      for (const el of sel) if (!el.hidden) drawElement(ctx, el, design);
+      ctx.restore();
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(layers.above, 0, 0);
+      ctx.restore();
+    } else {
+      const pic = this.gesturePicture();
+      if (pic) {
+        // panning/zooming: reuse one picture of the page (sharp again a moment after the gesture ends)
+        ctx.drawImage(pic.canvas, 0, 0, design.width, design.height);
+      } else {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, design.width, design.height);
+        ctx.clip();
+        renderPage(ctx, design, this.page, { skip: this.editingText?.el.id });
+        ctx.restore();
+      }
+    }
+
+    if (this.view.grid) this.drawGrid();
 
     // live pen stroke
     const d = this.drag;
@@ -406,7 +492,7 @@ export class Editor {
 
     // ---- overlay in screen space ----
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#d6336c';
+    const accent = this.accent();
     const outline = (el: El, width: number, dash = false) => {
       const pts = this.corners(el).map(([x, y]) => this.toScreen(x, y));
       ctx.beginPath();
@@ -493,6 +579,95 @@ export class Editor {
     if (this.editingText) this.positionTextArea();
   }
 
+  private drawGrid(): void {
+    const { ctx, design } = this;
+    const g = this.gridSize;
+    if (g * this.zoom < 5) return; // too dense to be useful at this zoom
+    ctx.save();
+    ctx.beginPath();
+    for (let x = g; x < design.width; x += g) { ctx.moveTo(x, 0); ctx.lineTo(x, design.height); }
+    for (let y = g; y < design.height; y += g) { ctx.moveTo(0, y); ctx.lineTo(design.width, y); }
+    ctx.lineWidth = 1 / this.zoom;
+    ctx.strokeStyle = 'rgba(214, 51, 108, 0.22)';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private viewMenu(anchor: HTMLElement): void {
+    const on = (b: boolean) => (b ? '✓ ' : '   ');
+    const v = this.view;
+    popMenu(anchor, [
+      { label: `${on(this.snapEnabled)}Smart guides (snap to objects & page)`, onClick: () => { this.snapEnabled = !this.snapEnabled; accounts.update((a) => (a.settings.snap = this.snapEnabled)); this.props.refresh(); } },
+      { label: `${on(v.grid)}Show grid`, onClick: () => this.setView({ grid: !v.grid }) },
+      { label: `${on(v.gridSnap)}Snap to grid`, onClick: () => this.setView({ gridSnap: !v.gridSnap, grid: v.gridSnap ? v.grid : true }) },
+      null,
+      ...([[48, 'Fine'], [24, 'Medium'], [12, 'Large']] as const).map(([div, name]) => ({ label: `${on(v.gridDiv === div)}Grid: ${name} (${Math.round(this.unit / div)} px)`, onClick: () => this.setView({ gridDiv: div }) })),
+    ]);
+  }
+
+  /** Pan/zoom gestures (wheel, trackpad, pinch, hand tool) reuse a picture of the page instead of redrawing every object. */
+  private gesture = { id: 0, until: 0 };
+  private gestureTimer = 0;
+  private pagePic: { gid: number; canvas: HTMLCanvasElement } | null = null;
+  private markGesture(): void {
+    const now = performance.now();
+    if (now > this.gesture.until) this.gesture.id++;
+    this.gesture.until = now + 220;
+    clearTimeout(this.gestureTimer);
+    this.gestureTimer = window.setTimeout(() => { this.pagePic = null; this.requestRender(); }, 240); // crisp final frame
+  }
+  private gesturePicture(): { canvas: HTMLCanvasElement } | null {
+    const active = performance.now() < this.gesture.until || this.drag?.kind === 'pan' || !!this.pinch;
+    if (!active || this.editingText) { this.pagePic = null; return null; }
+    if (this.pagePic?.gid === this.gesture.id) return this.pagePic;
+    // the picture is made at the zoom the gesture started at (capped so huge zooms don't eat memory)
+    const s = Math.min(this.zoom * this.dpr, 4096 / Math.max(this.design.width, this.design.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(this.design.width * s)); c.height = Math.max(1, Math.round(this.design.height * s));
+    const x = c.getContext('2d')!;
+    x.scale(s, s);
+    renderPage(x, this.design, this.page);
+    this.pagePic = { gid: this.gesture.id, canvas: c };
+    return this.pagePic;
+  }
+
+  /** The theme accent, read once per theme change instead of every frame (reading styles forces a style recalc). */
+  private accentCache = { key: '', value: '#d6336c' };
+  private accent(): string {
+    const key = document.documentElement.getAttribute('style') ?? '';
+    if (key !== this.accentCache.key) this.accentCache = { key, value: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#d6336c' };
+    return this.accentCache.value;
+  }
+
+  /**
+   * Pictures of the page below and above the selection, made once when a move/resize/rotate starts and reused for
+   * every frame of the drag. Only used when the selection is one contiguous run of layers (the usual case);
+   * otherwise the page is simply redrawn.
+   */
+  private layerCache: { key: string; below: HTMLCanvasElement; above: HTMLCanvasElement } | null = null;
+  private dragLayers(sel: El[]): { below: HTMLCanvasElement; above: HTMLCanvasElement } | null {
+    const d = this.drag;
+    if (!d || !d.moved || !(d.kind === 'move' || d.kind === 'resize' || d.kind === 'rotate') || !sel.length || this.editingText) { this.layerCache = null; return null; }
+    const els = this.page.elements;
+    const idx = sel.map((e) => els.indexOf(e)).sort((a, b) => a - b);
+    if (idx[0] < 0 || idx[idx.length - 1] - idx[0] !== idx.length - 1) return null;
+    const key = `${d.id}|${this.pageIndex}|${this.zoom}|${this.panX}|${this.panY}|${this.canvas.width}x${this.canvas.height}|${idx[0]}-${idx.length}`;
+    if (this.layerCache?.key === key) return this.layerCache;
+    const make = (paint: (c: CanvasRenderingContext2D) => void) => {
+      const c = document.createElement('canvas');
+      c.width = this.canvas.width; c.height = this.canvas.height;
+      const x = c.getContext('2d')!;
+      x.setTransform(this.dpr * this.zoom, 0, 0, this.dpr * this.zoom, this.dpr * this.panX, this.dpr * this.panY);
+      x.beginPath(); x.rect(0, 0, this.design.width, this.design.height); x.clip();
+      paint(x);
+      return c;
+    };
+    const below = make((x) => { drawBackground(x, this.page, this.design); for (let i = 0; i < idx[0]; i++) drawElement(x, els[i], this.design); });
+    const above = make((x) => { for (let i = idx[idx.length - 1] + 1; i < els.length; i++) drawElement(x, els[i], this.design); });
+    this.layerCache = { key, below, above };
+    return this.layerCache;
+  }
+
   // ---------- selection ----------
   select(ids: string[]): void {
     if (this.editingText && !ids.includes(this.editingText.el.id)) this.finishTextEdit();
@@ -531,10 +706,21 @@ export class Editor {
       { label: 'Flip horizontal', icon: 'flipH', onClick: () => { for (const e of this.selected) e.flipX = !e.flipX; this.commit(); } },
       { label: 'Flip vertical', icon: 'flipV', onClick: () => { for (const e of this.selected) e.flipY = !e.flipY; this.commit(); } },
       { label: 'Copy', icon: 'clipboard', onClick: () => this.copy() },
+      { label: 'Hide', icon: 'eyeOff', onClick: () => this.hideSelection() },
       ...(single?.type === 'image' ? [{ label: 'Set as background', icon: 'image' as IconName, onClick: () => this.imageToBackground(single) }] : []),
     ]));
     items.push(more);
     this.ctxBar.append(...items);
+  }
+
+  /** Hide the selection (it stays in the design; Layers shows it again). */
+  hideSelection(): void {
+    const sel = this.selected;
+    if (!sel.length) return;
+    for (const e of sel) e.hidden = true;
+    this.select([]);
+    this.commit();
+    toast(sel.length > 1 ? 'Hidden — show them again in Layers' : 'Hidden — show it again in Layers', 'info', 2600);
   }
 
   private positionCtxBar(): void {
@@ -569,6 +755,7 @@ export class Editor {
     c.addEventListener('wheel', (e) => {
       e.preventDefault();
       const p = this.toDesign(e.clientX, e.clientY);
+      this.markGesture();
       if (e.ctrlKey || e.metaKey) this.zoomBy(Math.exp(-e.deltaY * 0.01), p.sx, p.sy);
       else { this.panX -= e.deltaX; this.panY -= e.deltaY; this.requestRender(); }
     }, { passive: false });
@@ -583,6 +770,7 @@ export class Editor {
         { label: 'Copy', icon: 'clipboard', onClick: () => this.copy() },
         { label: 'Paste', icon: 'clipboard', onClick: () => this.paste() },
         { label: 'Duplicate', icon: 'copy', onClick: () => this.duplicate() },
+        { label: 'Hide', icon: 'eyeOff', onClick: () => this.hideSelection() },
         { label: 'Bring to front', icon: 'front', onClick: () => this.reorder('front') },
         { label: 'Send to back', icon: 'layers', onClick: () => this.reorder('back') },
         { label: 'Delete', icon: 'trash', danger: true, onClick: () => this.deleteSelection() },
@@ -743,6 +931,7 @@ export class Editor {
   }
 
   private updatePinch(): void {
+    this.markGesture();
     const pts = [...this.pointers.values()];
     if (pts.length < 2 || !this.pinch) return;
     const [a, b] = pts;
@@ -763,8 +952,10 @@ export class Editor {
     const origs = [...d.orig.values()];
     if (!origs.length) return;
     this.guides = [];
+    const b = this.aabb(origs)!;
+    type Hit = { off: number; t: number } | null;
+    let sx: Hit = null, sy: Hit = null;
     if (this.snapEnabled && !noSnap) {
-      const b = this.aabb(origs)!;
       const nb = { x: b.x + dx, y: b.y + dy, w: b.w, h: b.h };
       const thr = 7 / this.zoom;
       const others = this.page.elements.filter((x) => !d.orig.has(x.id) && !x.hidden);
@@ -776,10 +967,16 @@ export class Editor {
         for (const v of vals) for (const t of targets) { const off = t - v; if (Math.abs(off) < thr && (!best || Math.abs(off) < Math.abs(best.off))) best = { off, t }; }
         return best;
       };
-      const sx = snap([nb.x, nb.x + nb.w / 2, nb.x + nb.w], xs);
-      const sy = snap([nb.y, nb.y + nb.h / 2, nb.y + nb.h], ys);
+      sx = snap([nb.x, nb.x + nb.w / 2, nb.x + nb.w], xs);
+      sy = snap([nb.y, nb.y + nb.h / 2, nb.y + nb.h], ys);
       if (sx) { dx += sx.off; this.guides.push({ x: sx.t }); }
       if (sy) { dy += sy.off; this.guides.push({ y: sy.t }); }
+    }
+    // snap to the grid on any axis that didn't just line up with something
+    if (this.view.gridSnap && !noSnap) {
+      const g = this.gridSize;
+      if (!sx) dx = Math.round((b.x + dx) / g) * g - b.x;
+      if (!sy) dy = Math.round((b.y + dy) / g) * g - b.y;
     }
     for (const [id, o] of d.orig) {
       const el = this.byId(id);
@@ -1249,7 +1446,7 @@ export class Editor {
       if (mod && k === 'c') { if (this.selection.length) { e.preventDefault(); this.copy(); } return; }
       if (mod && k === 'x') { if (this.selection.length) { e.preventDefault(); this.copy(); this.deleteSelection(); } return; }
       if (mod && k === 'a') { e.preventDefault(); this.select(this.page.elements.filter((x) => !x.hidden).map((x) => x.id)); return; }
-      if (mod && k === 's') { e.preventDefault(); this.save.flush(); toast('Saved', 'good', 1200); return; }
+      if (mod && k === 's') { e.preventDefault(); void this.saveNow(); return; }
       if (mod && (k === '=' || k === '+')) { e.preventDefault(); this.zoomBy(1.2); return; }
       if (mod && k === '-') { e.preventDefault(); this.zoomBy(1 / 1.2); return; }
       if (mod && k === '0') { e.preventDefault(); this.fit(); return; }
@@ -1257,6 +1454,17 @@ export class Editor {
       if (mod && k === '[') { e.preventDefault(); this.reorder(e.shiftKey ? 'back' : 'down'); return; }
       if (k === 'delete' || k === 'backspace') { if (this.selection.length) { e.preventDefault(); this.deleteSelection(); } return; }
       if (k === 'escape') { if (this.tool !== 'select') this.setTool('select'); else this.select([]); return; }
+      // Tab / Shift+Tab steps through the objects (only while the canvas has focus, so Tab still moves through buttons)
+      if (k === 'tab' && !mod && (document.activeElement === this.canvas || document.activeElement === document.body)) {
+        const els = this.page.elements.filter((x) => !x.hidden);
+        if (!els.length) return;
+        e.preventDefault();
+        const cur = els.findIndex((x) => x.id === this.selection[this.selection.length - 1]);
+        const nxt = cur < 0 ? (e.shiftKey ? els.length - 1 : 0) : (cur + (e.shiftKey ? -1 : 1) + els.length) % els.length;
+        this.select([els[nxt].id]);
+        this.canvas.focus();
+        return;
+      }
       if (k === 'enter') { const s = this.selected; if (s.length === 1 && s[0].type === 'text') { e.preventDefault(); this.editText(s[0]); } return; }
       if (!mod && k === 't') { this.addText('heading'); return; }
       if (!mod && k === 'p') { this.panels.show('draw'); this.setTool('draw'); return; }

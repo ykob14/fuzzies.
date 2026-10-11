@@ -3,6 +3,7 @@
  * so there is no server and nothing is uploaded. Photos are shrunk to keep links short.
  */
 import type { Design, Page } from '../editor/types';
+import { migrateDesign } from '../editor/model';
 import { loadImage } from './util';
 
 interface Packed { v: 1; n: string; w: number; h: number; p: Page[]; a: Record<string, string> }
@@ -84,5 +85,5 @@ export async function readShareLink(data: string): Promise<Design> {
   const p = JSON.parse(new TextDecoder().decode(json)) as Packed;
   if (p.v !== 1 || !Array.isArray(p.p) || !p.w || !p.h) throw new Error('This link looks broken.');
   const now = Date.now();
-  return { id: 'shared', owner: '', name: p.n || 'Shared design', width: p.w, height: p.h, pages: p.p, assets: p.a ?? {}, createdAt: now, updatedAt: now };
+  return migrateDesign({ id: 'shared', owner: '', name: p.n || 'Shared design', width: p.w, height: p.h, pages: p.p, assets: p.a ?? {}, createdAt: now, updatedAt: now });
 }

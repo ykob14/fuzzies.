@@ -8,6 +8,7 @@ import { unlockDialog } from './unlock';
 import { templateThumb } from './thumbs';
 import { h, btn, modal, toast } from './dom';
 import type { Design } from '../editor/types';
+import { thumbnail } from '../editor/render';
 import { track } from '../core/missions';
 
 /** Something to show as soon as a new design opens: a side panel (scrolled to a pack) or a starter text in a font. */
@@ -26,6 +27,7 @@ export function takeTryIt(designId: string): TryIt | null {
 
 async function saveAndOpen(d: Design, tryIt?: TryIt): Promise<void> {
   try {
+    try { d.thumb = thumbnail(d); } catch { /* the editor makes one on the first save */ }
     await db.putDesign(d);
     accounts.update((a) => a.stats.designs++);
     track('design');
@@ -56,7 +58,7 @@ export function useTemplate(t: Template): void {
     return;
   }
   track('template');
-  void saveAndOpen(instantiate(t.design, a.id, t.name));
+  void saveAndOpen(instantiate(t.design, a.id, t.name, t.id));
 }
 
 export function createDialog(): void {

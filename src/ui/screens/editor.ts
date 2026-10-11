@@ -7,15 +7,19 @@ import { toast } from '../dom';
 import { takeTryIt } from '../create';
 import { ensureFont } from '../../content/fonts';
 import { makeText } from '../../editor/doc';
+import { migrateDesign } from '../../editor/model';
+import type { Design } from '../../editor/types';
 
 export async function openEditor(id: string): Promise<Screen | null> {
-  const d = await db.getDesign(id);
-  if (!d || d.owner !== accounts.current?.id) {
+  const raw = await db.getDesign(id);
+  if (!raw || raw.owner !== accounts.current?.id) {
     toast('That design could not be found', 'bad');
     location.replace('#/projects');
     return null;
   }
-  d.assets ??= {};
+  let d: Design;
+  try { d = migrateDesign(raw); } // older or damaged saves are upgraded/repaired here, never thrown away
+  catch { toast('That design could not be opened', 'bad'); location.replace('#/projects'); return null; }
   const ed = new Editor(d, () => { location.hash = '#/home'; });
   document.body.classList.add('in-editor');
   const tryIt = takeTryIt(d.id);

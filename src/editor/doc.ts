@@ -1,5 +1,6 @@
 /** Factories for designs, pages and elements, plus the canvas size presets. */
 import type { Design, DrawEl, El, EmojiEl, Fill, GraphicEl, ImageEl, Page, QrEl, ShapeEl, ShapeKind, TextEl } from './types';
+import { DOC_VERSION, migrateDesign } from './model';
 import { DEFAULT_FILTERS } from './types';
 import { uid, deepClone } from '../core/util';
 import { fitText } from './render';
@@ -28,7 +29,7 @@ export function newPage(background: Fill = '#ffffff', elements: El[] = []): Page
 
 export function newDesign(owner: string, name: string, w: number, h: number, pages?: Page[]): Design {
   const now = Date.now();
-  return { id: uid('d_'), owner, name, width: w, height: h, pages: pages ?? [newPage()], assets: {}, createdAt: now, updatedAt: now };
+  return { v: DOC_VERSION, id: uid('d_'), owner, name, width: w, height: h, pages: pages ?? [newPage()], assets: {}, createdAt: now, updatedAt: now };
 }
 
 const base = (x: number, y: number, w: number, h: number) => ({ id: uid('e_'), x, y, w, h, rotation: 0, opacity: 1, shadow: null });
@@ -81,8 +82,8 @@ export function cloneEls(els: El[], offset = 0): El[] {
 }
 
 /** Copy a design (e.g. from a template) for a new owner, with fresh ids everywhere. */
-export function instantiate(src: Design, owner: string, name?: string): Design {
-  const d = deepClone(src);
+export function instantiate(src: Design, owner: string, name?: string, templateId?: string): Design {
+  const d = migrateDesign(deepClone(src));
   const now = Date.now();
   d.id = uid('d_');
   d.owner = owner;
@@ -91,6 +92,8 @@ export function instantiate(src: Design, owner: string, name?: string): Design {
   d.pages = d.pages.map((p) => ({ ...p, id: uid('p_'), elements: cloneEls(p.elements) }));
   for (const p of d.pages) for (const el of p.elements) if (el.type === 'text') fitText(el);
   delete d.thumb;
+  delete d.folder;
+  if (templateId) d.template = templateId;
   return d;
 }
 

@@ -1,5 +1,6 @@
 /** Downloads and sharing: PNG, JPG, multi-page PDF and the .fuzzies project file. */
 import type { Design } from './types';
+import { DOC_VERSION, migrateDesign } from './model';
 import { pageCanvas, prepare } from './render';
 import { downloadBlob, safeName } from '../core/util';
 
@@ -17,7 +18,7 @@ function safeScale(d: Design, scale: number): number {
 export async function exportFiles(d: Design, fmt: ExportFormat, opts: { scale?: number; pages?: number[]; transparent?: boolean } = {}): Promise<File[]> {
   const base = safeName(d.name);
   if (fmt === 'fuzzies') {
-    const json = JSON.stringify({ app: 'fuzzies', version: 1, design: { ...d, thumb: undefined } });
+    const json = JSON.stringify({ app: 'fuzzies', version: DOC_VERSION, design: { ...d, thumb: undefined } });
     return [new File([json], `${base}.fuzzies`, { type: 'application/json' })];
   }
   const idx = opts.pages?.length ? opts.pages : d.pages.map((_, i) => i);
@@ -67,7 +68,7 @@ export async function readProjectFile(file: File): Promise<Design> {
   const data = JSON.parse(await file.text());
   const d = data?.design as Design | undefined;
   if (data?.app !== 'fuzzies' || !d || !Array.isArray(d.pages) || !d.width || !d.height) throw new Error('This is not a Fuzzies project file.');
-  return d;
+  return migrateDesign(d);
 }
 
 // ---------- minimal PDF writer: one full-bleed JPEG per page ----------
