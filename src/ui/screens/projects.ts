@@ -15,6 +15,8 @@ export function projectsScreen(): Screen {
   let all: Design[] = [];
   let q = '';
   let sort: 'recent' | 'name' | 'oldest' = 'recent';
+  let folder: string | null = null; // null = everything
+  const chips = h('div', { class: 'chips folder-chips' });
   const grid = h('div', { class: 'card-grid' });
   const search = h('input', { class: 'input search', type: 'search', placeholder: 'Search your designs', 'aria-label': 'Search your designs' });
   const sortSel = h('select', { class: 'input input-sm', 'aria-label': 'Sort' }, h('option', { value: 'recent' }, 'Last edited'), h('option', { value: 'name' }, 'Name A–Z'), h('option', { value: 'oldest' }, 'Oldest first'));
@@ -24,10 +26,15 @@ export function projectsScreen(): Screen {
   async function load(): Promise<void> { all = await db.listDesigns(a.id); fill(); }
 
   function fill(): void {
-    let list = all.filter((d) => !q || d.name.toLowerCase().includes(q));
+    const folders = [...new Set(all.map((d) => d.folder).filter((f): f is string => !!f))].sort((x, y) => x.localeCompare(y));
+    if (folder && !folders.includes(folder)) folder = null;
+    const chip = (label: string, value: string | null, n: number) => h('button', { class: `chip ${folder === value ? 'on' : ''}`, type: 'button', onclick: () => { folder = value; fill(); } },
+      value ? icon('folder', 14) : null, ` ${label} `, h('span', { class: 'chip-n' }, String(n)));
+    chips.replaceChildren(...(folders.length ? [chip('All designs', null, all.length), ...folders.map((f) => chip(f, f, all.filter((d) => d.folder === f).length))] : []));
+    let list = all.filter((d) => (!q || d.name.toLowerCase().includes(q)) && (!folder || d.folder === folder));
     if (sort === 'name') list = [...list].sort((x, y) => x.name.localeCompare(y.name));
     if (sort === 'oldest') list = [...list].sort((x, y) => x.createdAt - y.createdAt);
-    grid.replaceChildren(...list.map((d) => designCard(d, load)));
+    grid.replaceChildren(...list.map((d) => designCard(d, load, folders)));
     if (!all.length) grid.replaceChildren(h('div', { class: 'empty', style: 'grid-column:1/-1' }, mascot(72), h('h3', null, 'Your designs live here'), h('p', { class: 'muted' }, 'Everything saves automatically as you work.'), btn('Create your first design', { kind: 'primary', icon: 'plus', onClick: () => createDialog() })));
     else if (!list.length) grid.append(h('p', { class: 'muted' }, 'No designs match your search.'));
   }
@@ -49,9 +56,9 @@ export function projectsScreen(): Screen {
   void load();
   return {
     el: h('div', { class: 'page' },
-      h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'My designs'), h('p', { class: 'muted' }, 'Saved on this device. Share or download any time.')),
+      h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'My designs'), h('p', { class: 'muted' }, accounts.current?.cloud ? 'Saved to your account — open them on any device.' : 'Saved on this device. Share or download any time.')),
         h('div', { class: 'row' }, importBtn, btn('New design', { kind: 'primary', icon: 'plus', onClick: () => createDialog() }))),
       h('div', { class: 'toolbar' }, h('div', { class: 'search-wrap' }, icon('search', 18), search), sortSel),
-      grid),
+      chips, grid),
   };
 }

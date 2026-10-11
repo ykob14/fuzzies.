@@ -16,8 +16,9 @@ import { rewards } from '../core/rewards';
 import { accounts } from '../core/account';
 import { db } from '../core/db';
 import { h, btn, icon, toast, confirmDialog, pickFile, fuzzyMark, type IconName } from '../ui/dom';
-import { deepClone } from '../core/util';
+import { deepClone, uid } from '../core/util';
 import { track } from '../core/missions';
+import { loadPhotos, previewUrl, fetchPhoto, type StockPhoto } from './photos';
 
 export interface Panels {
   rail: HTMLElement;
@@ -28,13 +29,14 @@ export interface Panels {
 }
 
 type DropPayload = { kind: 'shape'; shape: ShapeKind } | { kind: 'art'; art: string } | { kind: 'emoji'; char: string }
-  | { kind: 'text'; text: 'heading' | 'subheading' | 'body' } | { kind: 'upload'; id: string };
+  | { kind: 'text'; text: 'heading' | 'subheading' | 'body' } | { kind: 'upload'; id: string } | { kind: 'photo'; id: string };
 
 const TABS: { id: string; label: string; icon: IconName }[] = [
   { id: 'templates', label: 'Templates', icon: 'grid' },
   { id: 'elements', label: 'Elements', icon: 'shapes' },
   { id: 'text', label: 'Text', icon: 'text' },
   { id: 'uploads', label: 'Uploads', icon: 'upload' },
+  { id: 'photos', label: 'Photos', icon: 'image' },
   { id: 'stickers', label: 'Stickers', icon: 'sticker' },
   { id: 'draw', label: 'Draw', icon: 'brush' },
   { id: 'background', label: 'Background', icon: 'palette' },
@@ -82,6 +84,7 @@ export function buildPanels(ed: Editor): Panels {
       case 'elements': body.append(elementsPanel()); break;
       case 'text': body.append(textPanel()); break;
       case 'uploads': body.append(uploadsPanel()); break;
+      case 'photos': body.append(photosPanel()); break;
       case 'stickers': body.append(stickersPanel()); break;
       case 'draw': body.append(drawPanel()); break;
       case 'background': body.append(backgroundPanel()); break;
@@ -377,6 +380,65 @@ export function buildPanels(ed: Editor): Panels {
       section('Your uploads', uploadsGrid));
   }
 
+  // ---------- photos ----------
+  const photosById = new Map<string, StockPhoto>();
+  /** Download a free photo and put it in the design (centred, or at a drop point). */
+  async function addPhoto(ph: StockPhoto, tile: HTMLElement | null, at?: { x: number; y: number }): Promise<void> {
+    tile?.classList.add('busy');
+    try {
+      const { src, w, h: ih } = await fetchPhoto(ph);
+      const id = uid('a_');
+      ed.addImage(id, src, w, ih, at);
+      const el = ed.page.elements[ed.page.elements.length - 1];
+      if (el?.type === 'image') { el.name = ph.author ? `Photo · ${ph.author}` : 'Photo'; ed.commit(); }
+      track('photo');
+      afterAdd();
+    } catch (e) {
+      console.warn(e);
+      toast(navigator.onLine ? 'That photo could not be loaded — try another one.' : 'Photos need an internet connection.', 'bad');
+    } finally { tile?.classList.remove('busy'); }
+  }
+
+  function photosPanel(): HTMLElement {
+    const cols = [h('div', { class: 'ph-col' }), h('div', { class: 'ph-col' })];
+    const heights = [0, 0];
+    const status = h('div', { class: 'ph-status' });
+    const more = btn('Load more photos', { kind: 'ghost', class: 'btn-block', onClick: () => void load(true) });
+    more.hidden = true;
+    let shown = 0;
+    const tile = (ph: StockPhoto) => {
+      photosById.set(ph.id, ph);
+      const img = h('img', { src: previewUrl(ph), alt: ph.author ? `Photo by ${ph.author}` : 'Photo', loading: 'lazy', style: `aspect-ratio:${ph.width}/${ph.height}` });
+      const b = h('button', { class: 'ph-item', type: 'button', title: ph.author ? `Photo by ${ph.author} (Unsplash) — tap to add` : 'Tap to add' }, img, h('span', { class: 'ph-by' }, ph.author));
+      b.addEventListener('click', () => void addPhoto(ph, b));
+      draggable(b, { kind: 'photo', id: ph.id });
+      return b;
+    };
+    async function load(next = false): Promise<void> {
+      status.replaceChildren(h('span', { class: 'ph-spin' }), 'Loading photos…');
+      more.disabled = true;
+      try {
+        const list = await loadPhotos(next);
+        for (const ph of list.slice(shown)) {
+          const col = heights[0] <= heights[1] ? 0 : 1; // simple masonry: add to the shorter column
+          cols[col].append(tile(ph));
+          heights[col] += ph.height / ph.width;
+        }
+        shown = list.length;
+        status.replaceChildren();
+        more.hidden = false;
+      } catch (e) {
+        console.warn(e);
+        status.replaceChildren(h('p', { class: 'muted' }, navigator.onLine ? 'Photos could not be loaded right now.' : 'Photos need an internet connection.'),
+          btn('Try again', { kind: 'soft', size: 'sm', onClick: () => void load(next) }));
+      } finally { more.disabled = false; }
+    }
+    void load();
+    return h('div', null,
+      h('p', { class: 'hint' }, 'Free photos from Unsplash photographers. Tap to add, or drag one onto your design.'),
+      h('div', { class: 'ph-grid' }, ...cols), status, more);
+  }
+
   // ---------- stickers ----------
   function stickersPanel(): HTMLElement {
     const wrap = h('div');
@@ -513,6 +575,7 @@ export function buildPanels(ed: Editor): Panels {
     if (p.kind === 'emoji') { ed.addEmoji(p.char); moveLast(at); }
     if (p.kind === 'text') { ed.addText(p.text); moveLast(at); }
     if (p.kind === 'upload') { const u = uploadsById.get(p.id); if (u) { ed.addImage(u.id, u.src, u.w, u.h, at); track('photo'); } }
+    if (p.kind === 'photo') { const ph = photosById.get(p.id); if (ph) void addPhoto(ph, null, at); }
   }
 
   function moveLast(at: { x: number; y: number }) {
