@@ -86,6 +86,7 @@ export class Editor {
   private pagesStrip: HTMLElement;
   private saveState: HTMLElement;
   private spaceDown = false;
+  private fitZoom = 0;
   private lastTap = { t: 0, id: '' };
   panels!: Panels;
   props!: Props;
@@ -120,7 +121,7 @@ export class Editor {
       h('div', { class: 'ed-title' }, this.nameInput, this.saveState),
       h('div', { class: 'ed-top-mid' }, this.undoBtn, this.redoBtn),
       h('div', { class: 'ed-top-right' },
-        h('span', { class: 'ed-size' }, `${design.width} × ${design.height} px`),
+        h('button', { class: 'ed-size', type: 'button', title: 'Resize the design', onclick: () => { this.select([]); this.props.open(); } }, `${design.width} × ${design.height} px`),
         btn('Share', { icon: 'share', kind: 'primary', onClick: () => openShare(this) })));
 
     this.root = h('div', { class: 'editor' }, top, h('div', { class: 'ed-main' }));
@@ -129,7 +130,8 @@ export class Editor {
     // Panels (left) and inspector (right) are separate modules.
     this.panels = buildPanels(this);
     this.props = buildProps(this);
-    this.root.querySelector('.ed-main')!.append(this.panels.rail, this.panels.panel, this.stage, this.props.el);
+    // the smart toolbar sits above the canvas and follows the selection; the full inspector opens on demand
+    this.root.querySelector('.ed-main')!.append(this.panels.rail, this.panels.panel, h('div', { class: 'ed-work' }, this.props.bar, this.stage), this.props.el);
 
     this.bindPointer();
     this.bindKeys();
@@ -258,7 +260,8 @@ export class Editor {
     this.canvas.height = Math.round(r.height * this.dpr);
     this.canvas.style.width = `${r.width}px`;
     this.canvas.style.height = `${r.height}px`;
-    if (first || !keepCenter) this.fit();
+    // still at the fitted zoom (nothing zoomed by hand): re-fit, so the design grows into freed space
+    if (first || !keepCenter || Math.abs(this.zoom - this.fitZoom) < 1e-9) this.fit();
     else { this.panX += (r.width - oldW) / 2; this.panY += (r.height - oldH) / 2; this.requestRender(); }
   }
 
@@ -268,7 +271,7 @@ export class Editor {
   fit(): void {
     const pad = this.cssW < 700 ? 20 : 48;
     const availH = this.cssH - this.bottomInset - pad;
-    this.zoom = Math.max(0.02, Math.min((this.cssW - pad * 2) / this.design.width, (availH - pad) / this.design.height));
+    this.zoom = this.fitZoom = Math.max(0.02, Math.min((this.cssW - pad * 2) / this.design.width, (availH - pad) / this.design.height));
     this.panX = (this.cssW - this.design.width * this.zoom) / 2;
     this.panY = (availH + pad - this.design.height * this.zoom) / 2;
     this.requestRender();

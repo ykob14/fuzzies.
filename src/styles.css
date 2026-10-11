@@ -1285,3 +1285,66 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 .side-card .mascot-shadow { background: radial-gradient(closest-side, rgba(0, 0, 0, .28), rgba(0, 0, 0, 0)); }
 :root.side-mini .side-card-top > div:first-child { display: block; }
 @media (min-width: 761px) and (max-width: 960px) { .side-card-top > div:first-child { display: block; } }
+
+/* ===================== Polish v2 — editor: smart toolbar, on-demand inspector ===================== */
+.ed-top { height: 56px; gap: 8px; }
+.ed-name { font-size: 14.5px; font-weight: 650; }
+.ed-size { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 10px; font-weight: 600; transition: border-color .15s, color .15s, background .15s; }
+.ed-size:hover { border-color: color-mix(in srgb, var(--text) 18%, var(--border)); color: var(--text); background: var(--surface-2); }
+.ed-rail { width: 76px; gap: 2px; padding: 8px 6px; }
+.rail-btn { border-radius: 10px; transition: background .15s, color .15s; }
+.rail-btn:hover { background: var(--hover); }
+.ed-panel:not([hidden]) { animation: panel-in .2s var(--ease); }
+@keyframes panel-in { from { opacity: 0; transform: translateX(-6px); } }
+.props-close { display: inline-flex; }
+.ctxbar { border-radius: 10px; box-shadow: var(--shadow-md); padding: 3px; }
+.zoom-ctl { border: 1px solid var(--border); box-shadow: var(--shadow-xs); border-radius: 10px; }
+.page-thumb { box-shadow: var(--shadow-xs); }
+
+.ed-work { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.ed-tools { flex: none; height: 48px; display: flex; align-items: center; gap: 4px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--border);
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; z-index: 3; }
+.ed-tools::-webkit-scrollbar { display: none; }
+.ed-tools > * { animation: tb-in .18s var(--ease) both; }
+@keyframes tb-in { from { opacity: 0; } }
+.tb-btn { height: 34px; min-width: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--text);
+  font-size: 13.5px; font-weight: 600; white-space: nowrap; flex: none; transition: background .12s, color .12s, border-color .12s; }
+.tb-btn:hover { background: var(--hover); }
+.tb-btn:active { background: var(--press); }
+.tb-btn.on { background: var(--accent-soft); color: var(--accent); }
+.tb-btn.has-text { padding: 0 10px 0 8px; }
+.tb-italic span { font: italic 600 15px/1 Georgia, serif; }
+.tb-under span { text-decoration: underline; text-underline-offset: 2px; }
+.tb-sep { width: 1px; height: 22px; background: var(--border); margin: 0 6px; flex: none; }
+.tb-label { font-size: 13px; font-weight: 650; color: var(--muted); padding: 0 8px 0 4px; flex: none; white-space: nowrap; }
+.tb-grow { flex: 1; min-width: 8px; }
+.tb-more { border: 1px solid var(--border); }
+.tb-more.on { border-color: transparent; }
+.ed-tools .swatch-btn { width: 30px; height: 30px; border-radius: 8px; margin: 0 2px; }
+.ed-tools .font-btn { width: 172px; height: 34px; flex: none; font-size: 14.5px; border-radius: 8px; padding: 0 8px 0 10px; }
+.ed-tools .font-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-size { display: inline-flex; align-items: center; height: 34px; flex: none; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 0 2px; }
+.tb-size .tb-btn { height: 32px; min-width: 28px; padding: 0; border-radius: 0; font-size: 16px; }
+.tb-num { width: 46px; height: 32px; border: 0; border-left: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--surface); text-align: center; font-size: 13.5px; font-weight: 600; outline: none; }
+.tb-num:focus { background: var(--accent-soft); }
+.tb-pop { padding: 12px 14px; min-width: 260px; }
+.tb-pop .slider-row { margin: 0; }
+
+/* wide screens: the inspector is a docked column that slides open on demand (the design re-fits) */
+@media (min-width: 1101px) {
+  .ed-props { width: 0; border-left-width: 0; overflow: hidden; transition: width .24s var(--ease); }
+  .ed-props > * { min-width: 300px; }
+  .editor.props-open .ed-props { width: 300px; border-left-width: 1px; }
+}
+/* phones: the smart toolbar slides up over the tool rail while something is selected (like a contextual tab bar) */
+@media (max-width: 760px) {
+  .ed-work { order: 1; position: static; }
+  .ed-tools { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; height: auto; min-height: calc(62px + var(--safe-b)); padding: 6px 8px calc(6px + var(--safe-b));
+    border-bottom: 0; border-top: 1px solid var(--border); transform: translateY(105%); transition: transform .22s var(--ease); }
+  .editor.has-sel .ed-tools { transform: none; }
+  .editor.props-open .ed-tools, .editor.panel-open .ed-tools { transform: translateY(105%); }
+  .ed-tools .font-btn { width: 140px; }
+  .tb-label { display: none; }
+}
+.tb-bold span { font-weight: 800; font-size: 15px; }
+.tgl[title="Bold"] span { font-weight: 800; }

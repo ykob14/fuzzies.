@@ -12,11 +12,14 @@ import { artById } from '../content/art';
 import { rewards } from '../core/rewards';
 import { accounts } from '../core/account';
 import { unlockDialog } from '../ui/unlock';
-import { h, btn, icon, pickFile, fuzzyMark, type IconName } from '../ui/dom';
+import { h, btn, icon, pickFile, fuzzyMark, popMenu, type IconName } from '../ui/dom';
 import { fileToImageData, uid } from '../core/util';
 import { db } from '../core/db';
 
-export interface Props { el: HTMLElement; open(): void; close(): void; refresh(): void }
+/** `el` is the full inspector; `bar` is the smart toolbar above the canvas (only what fits the current selection). */
+export interface Props { el: HTMLElement; bar: HTMLElement; open(): void; close(): void; toggle(): void; refresh(): void }
+
+const INSPECTOR_KEY = 'fz.ed.inspector';
 
 const FILTER_PRESETS: { name: string; f: Partial<typeof DEFAULT_FILTERS> }[] = [
   { name: 'Original', f: {} },
@@ -42,13 +45,18 @@ export function buildProps(ed: Editor): Props {
     h('div', { class: 'ed-panel-head' }, h('div', { class: 'sheet-grip' }), title, btn(null, { icon: 'close', kind: 'plain', size: 'sm', title: 'Close', onClick: () => close(), class: 'props-close' })),
     body);
   const isPhone = () => innerWidth < 760;
+  const docked = () => innerWidth > 1100; // wide screens: the inspector is a docked column you can show or hide
+  const remember = (on: boolean) => { if (docked()) try { localStorage.setItem(INSPECTOR_KEY, on ? '1' : '0'); } catch { /* private mode */ } };
+  const isOpen = () => ed.root.classList.contains('props-open');
 
   function open(): void {
     ed.root.classList.add('props-open');
     if (isPhone()) ed.panels.show(null);
-    render();
+    remember(true);
+    render(); renderBar();
   }
-  function close(): void { ed.root.classList.remove('props-open'); requestAnimationFrame(() => ed.requestRender()); }
+  function close(): void { ed.root.classList.remove('props-open'); remember(false); renderBar(); requestAnimationFrame(() => ed.requestRender()); }
+  const toggle = () => (isOpen() ? close() : open());
 
   // ---------- control helpers ----------
   const live = (fn: () => void) => { fn(); ed.requestRender(); };
@@ -153,7 +161,7 @@ export function buildProps(ed: Editor): Props {
       sec('Font', fontPicker(e), h('div', { class: 'row' }, weight), slider('Size', e.size, 6, Math.max(400, Math.round(e.size * 2)), 1, (v) => set((t) => (t.size = v)))),
       sec('Style',
         toggles([
-          { icon: 'bolt', title: 'Bold', on: e.weight >= 700, onClick: () => { set((t) => (t.weight = t.weight >= 700 ? 400 : 700)); done(); } },
+          { label: 'B', title: 'Bold', on: e.weight >= 700, onClick: () => { set((t) => (t.weight = t.weight >= 700 ? 400 : 700)); done(); } },
           { label: 'I', title: 'Italic', on: e.italic, onClick: () => { set((t) => (t.italic = !t.italic)); done(); } },
           { label: 'U', title: 'Underline', on: e.underline, onClick: () => { set((t) => (t.underline = !t.underline)); done(); } },
           { label: 'aA', title: 'Uppercase', on: e.uppercase, onClick: () => { set((t) => (t.uppercase = !t.uppercase)); done(); } },
@@ -327,10 +335,111 @@ export function buildProps(ed: Editor): Props {
     ];
   }
 
-  ed.on('select', () => { if (!ed.selection.length && isPhone()) close(); render(); });
-  ed.on('page', render);
-  ed.on('change', () => { if (!el.contains(document.activeElement)) render(); });
-  render();
+  // ---------- smart toolbar ----------
+  const bar = h('div', { class: 'ed-tools', role: 'toolbar', 'aria-label': 'Tools for the selection' });
+  const sep = () => h('span', { class: 'tb-sep', 'aria-hidden': 'true' });
+  const label = (t: string) => h('span', { class: 'tb-label' }, t);
+  const tb = (o: { icon?: IconName; text?: string; title: string; on?: boolean; cls?: string; onClick: (b: HTMLButtonElement) => void }) => {
+    const b = h('button', { type: 'button', class: `tb-btn ${o.on ? 'on' : ''} ${o.text ? 'has-text' : ''} ${o.cls ?? ''}`, title: o.title, 'aria-label': o.title, 'aria-pressed': o.on === undefined ? null : String(o.on) },
+      o.icon ? icon(o.icon, 18) : null, o.text ? h('span', null, o.text) : null);
+    b.addEventListener('click', () => o.onClick(b));
+    return b;
+  };
 
-  return { el, open, close, refresh: () => { if (!el.contains(document.activeElement)) render(); } };
+  /** A small popover under a toolbar button (closes on an outside tap). */
+  function popover(anchor: HTMLElement, content: HTMLElement): void {
+    document.querySelector('.tb-pop')?.remove();
+    const pop = h('div', { class: 'tb-pop popmenu' }, content);
+    document.body.append(pop);
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = `${Math.max(8, Math.min(r.left, innerWidth - pop.offsetWidth - 8))}px`;
+    pop.style.top = `${r.bottom + 6 + pop.offsetHeight > innerHeight ? Math.max(8, r.top - pop.offsetHeight - 6) : r.bottom + 6}px`;
+    const off = (ev: Event) => { if (!pop.contains(ev.target as Node) && ev.target !== anchor) { pop.remove(); removeEventListener('pointerdown', off, true); } };
+    setTimeout(() => addEventListener('pointerdown', off, true));
+  }
+  const transparency = (sel: El[]) => tb({ icon: 'eye', title: 'Transparency', onClick: (b) => popover(b, h('div', { class: 'tb-pop-body' },
+    slider('Transparency', Math.round(sel[0].opacity * 100), 0, 100, 1, (v) => sel.forEach((e) => (e.opacity = v / 100)), (v) => `${Math.round(v)}%`))) });
+  const positionMenu = (b: HTMLButtonElement, single: El | null) => popMenu(b, [
+    { label: 'Align left', icon: 'alignL', onClick: () => ed.align('left') },
+    { label: 'Align centre', icon: 'alignC', onClick: () => ed.align('center') },
+    { label: 'Align right', icon: 'alignR', onClick: () => ed.align('right') },
+    { label: 'Align top', icon: 'alignT', onClick: () => ed.align('top') },
+    { label: 'Align middle', icon: 'alignM', onClick: () => ed.align('middle') },
+    { label: 'Align bottom', icon: 'alignB', onClick: () => ed.align('bottom') },
+    null,
+    { label: 'Bring to front', icon: 'front', onClick: () => ed.reorder('front') },
+    { label: 'Bring forward', icon: 'up', onClick: () => ed.reorder('up') },
+    { label: 'Send backward', icon: 'down', onClick: () => ed.reorder('down') },
+    { label: 'Send to back', icon: 'layers', onClick: () => ed.reorder('back') },
+    ...(single ? [null, { label: 'Flip horizontal', icon: 'flipH' as IconName, onClick: () => { single.flipX = !single.flipX; done(); } }, { label: 'Flip vertical', icon: 'flipV' as IconName, onClick: () => { single.flipY = !single.flipY; done(); } }] : []),
+  ]);
+
+  function sizeControl(e: TextEl): HTMLElement {
+    const input = h('input', { class: 'tb-num', value: String(Math.round(e.size)), inputmode: 'decimal', 'aria-label': 'Font size' });
+    const setSize = (v: number) => { const n = Math.max(6, Math.min(2000, Math.round(v))); for (const t of ed.selected) if (t.type === 'text') { t.size = n; fitText(t); } input.value = String(n); ed.requestRender(); done(); };
+    input.addEventListener('change', () => { const v = parseFloat(input.value); if (!Number.isNaN(v)) setSize(v); });
+    input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); ev.stopPropagation(); });
+    const step = (d: number) => setSize(e.size + d * Math.max(1, Math.round(e.size * 0.08)));
+    return h('div', { class: 'tb-size' }, tb({ text: '−', title: 'Smaller', cls: 'tb-step', onClick: () => step(-1) }), input, tb({ text: '+', title: 'Bigger', cls: 'tb-step', onClick: () => step(1) }));
+  }
+
+  function textTools(e: TextEl): Node[] {
+    const set = (fn: (t: TextEl) => void) => { for (const t of ed.selected) if (t.type === 'text') { fn(t); fitText(t); } ed.requestRender(); done(); renderBar(); };
+    const nextAlign = { left: 'center', center: 'right', right: 'left' } as const;
+    const font = fontPicker(e);
+    font.classList.add('tb-font');
+    return [
+      font, sizeControl(e), color(e.fill, (f) => (e.fill = f), { gradient: true, title: 'Text colour' }), sep(),
+      tb({ text: 'B', cls: 'tb-bold', title: 'Bold', on: e.weight >= 700, onClick: () => { set((t) => (t.weight = t.weight >= 700 ? 400 : 700)); ensureFont(e.font, e.weight, e.italic); } }),
+      tb({ text: 'I', title: 'Italic', on: e.italic, cls: 'tb-italic', onClick: () => { set((t) => (t.italic = !t.italic)); ensureFont(e.font, e.weight, e.italic); } }),
+      tb({ text: 'U', title: 'Underline', on: e.underline, cls: 'tb-under', onClick: () => set((t) => (t.underline = !t.underline)) }),
+      tb({ text: 'aA', title: 'Uppercase', on: e.uppercase, onClick: () => set((t) => (t.uppercase = !t.uppercase)) }),
+      tb({ icon: e.align === 'left' ? 'alignL' : e.align === 'center' ? 'alignC' : 'alignR', title: `Text alignment: ${e.align}`, onClick: () => set((t) => (t.align = nextAlign[e.align])) }),
+    ];
+  }
+
+  function renderBar(): void {
+    // don't rebuild under someone typing in the size box
+    if (bar.contains(document.activeElement) && document.activeElement instanceof HTMLInputElement) return;
+    document.querySelector('.tb-pop')?.remove();
+    const sel = ed.selected;
+    ed.root.classList.toggle('has-sel', sel.length > 0);
+    const items: (Node | null)[] = [];
+    if (!sel.length) {
+      items.push(label('Page'),
+        color(ed.page.background, (f) => (ed.page.background = f), { gradient: true, title: 'Background colour' }),
+        tb({ icon: 'crop', text: 'Resize', title: 'Change the design size', onClick: () => open() }),
+        tb({ icon: 'plus', text: 'Add page', title: 'Add a page', onClick: () => ed.addPage() }));
+    } else if (sel.length > 1) {
+      items.push(label(`${sel.length} items`),
+        ed.canGroup ? tb({ icon: 'group', text: 'Group', title: 'Group (Ctrl+G)', onClick: () => ed.group() }) : ed.canUngroup ? tb({ icon: 'grid', text: 'Ungroup', title: 'Ungroup (Ctrl+Shift+G)', onClick: () => ed.ungroup() }) : null,
+        sep(), tb({ icon: 'layers', text: 'Position', title: 'Align and arrange', onClick: (b) => positionMenu(b, null) }), transparency(sel));
+    } else {
+      const e = sel[0];
+      if (e.type === 'text') items.push(...textTools(e));
+      if (e.type === 'shape') {
+        const lineish = e.shape === 'line' || e.shape === 'ring';
+        items.push(label(SHAPE_KINDS.find((k) => k.kind === e.shape)?.label ?? 'Shape'), color(e.fill, (f) => (e.fill = f), { gradient: true, allowNone: !lineish, title: lineish ? 'Colour' : 'Fill colour' }),
+          lineish ? null : color(e.stroke, (f) => { e.stroke = firstColor(f); if (!e.strokeWidth) e.strokeWidth = Math.max(2, Math.round(Math.min(e.w, e.h) * 0.03)); }, { title: 'Border colour' }));
+      }
+      if (e.type === 'image') items.push(label('Photo'), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
+      if (e.type === 'graphic') { const a = artById(e.art); items.push(label('Graphic'), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
+      if (e.type === 'qr') items.push(label('QR code'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Squares' }), color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true, title: 'Background' }), tb({ icon: 'edit', text: 'Link', title: 'Change the link', onClick: () => open() }));
+      if (e.type === 'draw') items.push(label('Drawing'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Stroke colour' }));
+      if (e.type === 'emoji') items.push(label('Sticker'));
+      items.push(sep(), tb({ icon: 'layers', text: 'Position', title: 'Align, arrange and flip', onClick: (b) => positionMenu(b, e) }), transparency(sel));
+    }
+    items.push(h('span', { class: 'tb-grow' }),
+      tb({ icon: 'edit', text: isOpen() ? 'Hide options' : 'All options', title: isOpen() ? 'Hide the options panel' : 'Show every option for this', on: isOpen(), cls: 'tb-more', onClick: () => toggle() }));
+    bar.replaceChildren(...items.filter((x): x is Node => !!x));
+  }
+
+  ed.on('select', () => { if (!ed.selection.length && isPhone()) close(); render(); renderBar(); });
+  ed.on('page', () => { render(); renderBar(); });
+  ed.on('change', () => { if (!el.contains(document.activeElement)) render(); if (!document.querySelector('.tb-pop')) renderBar(); });
+  // wide screens start with the inspector the way you left it (hidden the first time: more room for the design)
+  try { if (docked() && localStorage.getItem(INSPECTOR_KEY) === '1') ed.root.classList.add('props-open'); } catch { /* private mode */ }
+  render(); renderBar();
+
+  return { el, bar, open, close, toggle, refresh: () => { if (!el.contains(document.activeElement)) render(); renderBar(); } };
 }
