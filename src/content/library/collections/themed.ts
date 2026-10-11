@@ -203,7 +203,7 @@ function poster(c: Kit, f: Format, L: Look, wd: Words): void {
     det.forEach((d, i) => text(c, d, W * 0.11, cardY + u * (0.04 + i * 0.058), W * 0.78, { font: L.body[0], weight: i ? 600 : 800, size: u * (i ? 0.034 : 0.04), fill: i ? (P.panelMuted ?? P.muted) : (P.panelInk ?? P.ink) }));
   }
   if (wd.cta) pill(c, wd.cta, W / 2, H - u * 0.05 - ctaH * 0.85, u * 0.03, P.accent, P.onAccent, L.body[0], 800);
-  if (L.corner) art(c, L.corner, W * 0.03, cardY - u * 0.2, u * 0.22, { colors: L.cornerColors });
+  if (L.corner) { const r = ratio(L.corner), ch = Math.min(u * 0.22 / r, u * 0.2); art(c, L.corner, W * 0.03, cardY - ch + u * 0.02, ch * r, { h: ch, colors: L.cornerColors, name: 'Corner' }); }
 }
 
 /** Minimal: calm background, one small illustration, a left-aligned headline over a thin rule, quiet details. */
