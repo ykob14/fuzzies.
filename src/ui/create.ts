@@ -10,6 +10,7 @@ import { h, btn, modal, toast } from './dom';
 import type { Design } from '../editor/types';
 import { thumbnail } from '../editor/render';
 import { track } from '../core/missions';
+import type { TemplateMeta } from '../content/library/catalog';
 
 /** Something to show as soon as a new design opens: a side panel (scrolled to a pack) or a starter text in a font. */
 export interface TryIt { panel?: string; focus?: string; font?: string }
@@ -59,6 +60,26 @@ export function useTemplate(t: Template): void {
   }
   track('template');
   void saveAndOpen(instantiate(t.design, a.id, t.name, t.id));
+}
+
+/** Start a design from any template in the catalog (built-in library, originals or published ones). */
+export async function useCatalogTemplate(m: TemplateMeta): Promise<void> {
+  const a = accounts.current;
+  if (!a) return;
+  if (!rewards.isUnlocked(m.id, m.cost)) {
+    unlockDialog({ id: m.id, name: m.name, cost: m.cost, kind: `${m.formatLabel} template` }, () => void useCatalogTemplate(m));
+    return;
+  }
+  try {
+    const [{ loadTemplateDoc }, { recordUse }] = await Promise.all([import('../content/library/catalog'), import('../content/library/usage')]);
+    const doc = await loadTemplateDoc(m);
+    track('template');
+    recordUse(m.id);
+    await saveAndOpen(instantiate(doc, a.id, m.name, m.id));
+  } catch (e) {
+    console.error(e);
+    toast(navigator.onLine ? 'That template could not be opened — please try again.' : 'This template needs an internet connection the first time.', 'bad');
+  }
 }
 
 export function createDialog(): void {

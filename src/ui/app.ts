@@ -102,7 +102,7 @@ export async function signOut(): Promise<void> {
 }
 
 export function route(): void {
-  const hash = location.hash.replace(/^#\/?/, '') || 'home';
+  const hash = location.hash.replace(/^#\/?/, '').split('?')[0] || 'home'; // '?…' carries screen state (e.g. template filters)
   const [name, arg] = hash.split('/');
   current?.destroy?.();
   current = null;

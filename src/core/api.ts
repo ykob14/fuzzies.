@@ -21,7 +21,7 @@ const loggedOutListeners = new Set<() => void>();
 /** Called when the server says the login is no longer valid (password changed elsewhere, account deleted…). */
 export function onLoggedOut(fn: () => void): () => void { loggedOutListeners.add(fn); return () => loggedOutListeners.delete(fn); }
 
-export async function api<T = Record<string, unknown>>(endpoint: 'auth' | 'data', action: string, body: Record<string, unknown> = {}): Promise<T> {
+export async function api<T = Record<string, unknown>>(endpoint: 'auth' | 'data' | 'templates', action: string, body: Record<string, unknown> = {}): Promise<T> {
   let res: Response;
   const payload = JSON.stringify({ ...body, action });
   try {

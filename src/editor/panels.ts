@@ -4,13 +4,11 @@ import type { El, Fill, ShapeKind } from './types';
 import { SHAPE_KINDS, shapePath } from './shapes';
 import { qrMatrix } from './qr';
 import { fillToCss, getImage } from './render';
-import { makeText, elLabel, instantiate } from './doc';
+import { makeText, elLabel } from './doc';
 import { colorButton, GRADIENTS, PALETTE } from './colors';
 import { ART_PACKS, ARTS, artDataUrl } from '../content/art';
 import { STICKER_PACKS } from '../content/stickers';
 import { TEXT_STYLES, FX_PACK } from '../content/textstyles';
-import { CATEGORIES, templates, type Template } from '../content/templates';
-import { templateThumb } from '../ui/thumbs';
 import { unlockDialog } from '../ui/unlock';
 import { rewards } from '../core/rewards';
 import { accounts } from '../core/account';
@@ -171,53 +169,11 @@ export function buildPanels(ed: Editor): Panels {
 
   const section = (label: string, ...kids: (Node | null)[]) => h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, label), ...kids);
 
-  // ---------- templates ----------
-  let tplCat = 'All';
-  let tplQuery = '';
+  // ---------- templates (the library loads the first time this panel opens) ----------
   function templatesPanel(): HTMLElement {
-    const wrap = h('div');
-    const search = h('input', { class: 'input', placeholder: 'Search templates', value: tplQuery, type: 'search' });
-    const chips = h('div', { class: 'chips' });
-    const grid = h('div', { class: 'tpl-grid' });
-    const fill = () => {
-      chips.replaceChildren(...CATEGORIES.map((c) => {
-        const b = h('button', { class: `chip ${c === tplCat ? 'on' : ''}`, type: 'button' }, c);
-        b.addEventListener('click', () => { tplCat = c; fill(); });
-        return b;
-      }));
-      const q = tplQuery.toLowerCase();
-      const list = templates().filter((t) => (tplCat === 'All' || t.category === tplCat) && (!q || `${t.name} ${t.category}`.toLowerCase().includes(q)));
-      grid.replaceChildren(...list.map((t) => tplCard(t)));
-      if (!list.length) grid.append(h('p', { class: 'muted' }, 'No templates match.'));
-    };
-    search.addEventListener('input', () => { tplQuery = search.value; fill(); });
-    fill();
-    wrap.append(search, chips, grid);
+    const wrap = h('div', { class: 'lib-loading' }, h('span', { class: 'ph-spin' }), 'Loading templates…');
+    void import('./templatesPanel').then(({ templatesPanelBody }) => { if (wrap.isConnected || active === 'templates') wrap.replaceWith(templatesPanelBody(ed, { afterAdd, rerender: render, lockBadge })); });
     return wrap;
-  }
-
-  function tplCard(t: Template): HTMLElement {
-    const locked = !rewards.isUnlocked(t.id, t.cost);
-    const card = h('button', { class: 'tpl-card', type: 'button', title: t.name }, templateThumb(t, 300), locked ? lockBadge(t.cost) : null, h('span', { class: 'tpl-name' }, t.name));
-    card.addEventListener('click', async () => {
-      if (locked) { unlockDialog({ id: t.id, name: t.name, cost: t.cost, kind: `${t.category} template`, preview: templateThumb(t, 300) }, render); return; }
-      if (ed.page.elements.length && !(await confirmDialog('Use this template?', 'It replaces what is on the current page. You can undo this.', 'Use template', false))) return;
-      applyTemplate(t);
-      afterAdd();
-    });
-    return card;
-  }
-
-  function applyTemplate(t: Template): void {
-    const inst = instantiate(t.design, ed.design.owner);
-    const d = ed.design;
-    const sameSize = d.width === inst.width && d.height === inst.height;
-    d.pages.splice(ed.pageIndex, 1, ...inst.pages);
-    Object.assign(d.assets, inst.assets);
-    if (sameSize) ed.commit();
-    else ed.resizeDesign(inst.width, inst.height, false);
-    ed.goToPage(ed.pageIndex);
-    toast(`Template “${t.name}” applied`, 'good');
   }
 
   // ---------- elements ----------
