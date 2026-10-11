@@ -1,0 +1,3187 @@
+{
+  "version": 1,
+  "about": "Template library categories. Add a category or subcategory here (no code changes) and the library builds original, editable templates for it from the layout system. Fields: id (unique, lowercase), label, emoji (motif shown in designs), keywords (search words), palettes (preferred palette ids from palettes.ts, optional), events (2-4 starter texts: title, kicker, details[2], cta, occasion).",
+  "categories": [
+    {
+      "id": "sports",
+      "label": "Sports",
+      "emoji": "🏆",
+      "kind": "sports",
+      "subcategories": [
+        {
+          "id": "basketball",
+          "label": "Basketball",
+          "emoji": "🏀",
+          "keywords": [
+            "hoops",
+            "court",
+            "3x3",
+            "dunk",
+            "league",
+            "ball"
+          ],
+          "palettes": [
+            "court",
+            "night",
+            "electric"
+          ],
+          "events": [
+            {
+              "title": "3-on-3 Tournament",
+              "kicker": "Summer League",
+              "details": [
+                "Saturday, July 12 · 10 AM",
+                "Riverside Courts"
+              ],
+              "cta": "Register your team",
+              "occasion": "tournament"
+            },
+            {
+              "title": "Basketball Tryouts",
+              "kicker": "Varsity & JV",
+              "details": [
+                "Mon–Wed · 4–6 PM",
+                "Main Gym"
+              ],
+              "cta": "Bring water & sneakers",
+              "occasion": "tryouts"
+            },
+            {
+              "title": "Game Night",
+              "kicker": "Home Opener",
+              "details": [
+                "Friday · Tip-off 7 PM",
+                "Eagles vs. Hawks"
+              ],
+              "cta": "Pack the stands",
+              "occasion": "game"
+            }
+          ]
+        },
+        {
+          "id": "hockey",
+          "label": "Hockey",
+          "emoji": "🏒",
+          "keywords": [
+            "ice",
+            "rink",
+            "puck",
+            "skate",
+            "nhl"
+          ],
+          "palettes": [
+            "ice",
+            "night",
+            "classic"
+          ],
+          "events": [
+            {
+              "title": "Hockey Night",
+              "kicker": "Rivals Rematch",
+              "details": [
+                "Saturday · Puck drop 6 PM",
+                "Northside Arena"
+              ],
+              "cta": "Get your tickets",
+              "occasion": "game"
+            },
+            {
+              "title": "Learn to Skate",
+              "kicker": "Ages 5–12",
+              "details": [
+                "Sundays · 9 AM",
+                "Community Rink"
+              ],
+              "cta": "Skates provided",
+              "occasion": "class"
+            },
+            {
+              "title": "Pond Hockey Classic",
+              "kicker": "Outdoor Tournament",
+              "details": [
+                "Jan 25–26",
+                "Lake Park"
+              ],
+              "cta": "Sign up your squad",
+              "occasion": "tournament"
+            }
+          ]
+        },
+        {
+          "id": "soccer",
+          "label": "Soccer",
+          "emoji": "⚽",
+          "keywords": [
+            "football",
+            "futbol",
+            "pitch",
+            "goal",
+            "kick",
+            "fifa"
+          ],
+          "palettes": [
+            "pitch",
+            "electric",
+            "classic"
+          ],
+          "events": [
+            {
+              "title": "Youth Soccer Camp",
+              "kicker": "Summer Skills",
+              "details": [
+                "July 8–12 · 9 AM–1 PM",
+                "City Fields"
+              ],
+              "cta": "Spots are limited",
+              "occasion": "camp"
+            },
+            {
+              "title": "Match Day",
+              "kicker": "United vs. Rovers",
+              "details": [
+                "Sunday · Kick-off 3 PM",
+                "Memorial Stadium"
+              ],
+              "cta": "Wear your colours",
+              "occasion": "game"
+            },
+            {
+              "title": "Soccer Registration",
+              "kicker": "Fall Season",
+              "details": [
+                "Ages 4–16",
+                "Sign up by Aug 30"
+              ],
+              "cta": "Register online",
+              "occasion": "registration"
+            }
+          ]
+        },
+        {
+          "id": "football",
+          "label": "Football",
+          "emoji": "🏈",
+          "keywords": [
+            "gridiron",
+            "touchdown",
+            "nfl",
+            "homecoming",
+            "tailgate"
+          ],
+          "palettes": [
+            "classic",
+            "night",
+            "fire"
+          ],
+          "events": [
+            {
+              "title": "Friday Night Lights",
+              "kicker": "Homecoming Game",
+              "details": [
+                "Friday · Kick-off 7 PM",
+                "Wildcats Stadium"
+              ],
+              "cta": "Wear school colours",
+              "occasion": "game"
+            },
+            {
+              "title": "Tailgate Party",
+              "kicker": "Before the Big Game",
+              "details": [
+                "Sunday · From 11 AM",
+                "Lot C"
+              ],
+              "cta": "Food · Music · Games",
+              "occasion": "party"
+            },
+            {
+              "title": "Flag Football League",
+              "kicker": "Adult Co-ed",
+              "details": [
+                "Thursdays · 6:30 PM",
+                "Starts Sept 5"
+              ],
+              "cta": "Register your team",
+              "occasion": "registration"
+            }
+          ]
+        },
+        {
+          "id": "baseball",
+          "label": "Baseball",
+          "emoji": "⚾",
+          "keywords": [
+            "softball",
+            "diamond",
+            "home run",
+            "mlb",
+            "little league"
+          ],
+          "palettes": [
+            "classic",
+            "pitch",
+            "sunset"
+          ],
+          "events": [
+            {
+              "title": "Opening Day",
+              "kicker": "Little League",
+              "details": [
+                "Saturday · First pitch 10 AM",
+                "Sandlot Park"
+              ],
+              "cta": "Hot dogs & family fun",
+              "occasion": "game"
+            },
+            {
+              "title": "Batting Clinic",
+              "kicker": "Swing Smarter",
+              "details": [
+                "April 6 · 1–4 PM",
+                "Diamond 2"
+              ],
+              "cta": "All levels welcome",
+              "occasion": "class"
+            },
+            {
+              "title": "Softball Tournament",
+              "kicker": "Charity Classic",
+              "details": [
+                "June 14",
+                "Westfield Diamonds"
+              ],
+              "cta": "Teams of 10",
+              "occasion": "tournament"
+            }
+          ]
+        },
+        {
+          "id": "volleyball",
+          "label": "Volleyball",
+          "emoji": "🏐",
+          "keywords": [
+            "beach",
+            "spike",
+            "net",
+            "sand"
+          ],
+          "palettes": [
+            "beach",
+            "sunset",
+            "electric"
+          ],
+          "events": [
+            {
+              "title": "Beach Volleyball",
+              "kicker": "2v2 Sand Series",
+              "details": [
+                "Saturdays in August",
+                "South Beach Courts"
+              ],
+              "cta": "Grab a partner",
+              "occasion": "tournament"
+            },
+            {
+              "title": "Volleyball Tryouts",
+              "kicker": "Club Season",
+              "details": [
+                "Sept 3–4 · 5 PM",
+                "Gym B"
+              ],
+              "cta": "Knee pads required",
+              "occasion": "tryouts"
+            }
+          ]
+        },
+        {
+          "id": "tennis",
+          "label": "Tennis",
+          "emoji": "🎾",
+          "keywords": [
+            "racket",
+            "court",
+            "serve",
+            "open",
+            "doubles"
+          ],
+          "palettes": [
+            "court-green",
+            "classic",
+            "minimal"
+          ],
+          "events": [
+            {
+              "title": "Tennis Open",
+              "kicker": "Club Championship",
+              "details": [
+                "June 20–22",
+                "Lakeside Tennis Club"
+              ],
+              "cta": "Singles & doubles",
+              "occasion": "tournament"
+            },
+            {
+              "title": "Junior Tennis Lessons",
+              "kicker": "Ages 6–14",
+              "details": [
+                "Tue & Thu · 4 PM",
+                "Courts 1–3"
+              ],
+              "cta": "Rackets provided",
+              "occasion": "class"
+            }
+          ]
+        },
+        {
+          "id": "badminton",
+          "label": "Badminton",
+          "emoji": "🏸",
+          "keywords": [
+            "shuttlecock",
+            "racket",
+            "doubles",
+            "smash"
+          ],
+          "palettes": [
+            "electric",
+            "fresh",
+            "minimal"
+          ],
+          "events": [
+            {
+              "title": "Badminton Night",
+              "kicker": "Drop-in Play",
+              "details": [
+                "Wednesdays · 7–9 PM",
+                "Community Centre"
+              ],
+              "cta": "All levels welcome",
+              "occasion": "drop-in"
+            },
+            {
+              "title": "Shuttle Smash Cup",
+              "kicker": "Doubles Tournament",
+              "details": [
+                "March 8",
+                "Sports Hall"
+              ],
+              "cta": "Register by March 1",
+              "occasion": "tournament"
+            }
+          ]
+        },
+        {
+          "id": "swimming",
+          "label": "Swimming",
+          "emoji": "🏊",
+          "keywords": [
+            "pool",
+            "swim",
+            "lessons",
+            "aquatics",
+            "meet"
+          ],
+          "palettes": [
+            "ocean",
+            "ice",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Swim Lessons",
+              "kicker": "Learn to Swim",
+              "details": [
+                "Saturdays · 9 AM",
+                "Aquatic Centre"
+              ],
+              "cta": "All ages & levels",
+              "occasion": "class"
+            },
+            {
+              "title": "Swim Meet",
+              "kicker": "Regional Championship",
+              "details": [
+                "May 18 · Warm-up 8 AM",
+                "Olympic Pool"
+              ],
+              "cta": "Cheer on the team",
+              "occasion": "competition"
+            }
+          ]
+        },
+        {
+          "id": "boxing",
+          "label": "Boxing",
+          "emoji": "🥊",
+          "keywords": [
+            "fight",
+            "gloves",
+            "ring",
+            "bout",
+            "fitness"
+          ],
+          "palettes": [
+            "fire",
+            "night",
+            "classic"
+          ],
+          "events": [
+            {
+              "title": "Fight Night",
+              "kicker": "Main Event",
+              "details": [
+                "Saturday · Doors 6 PM",
+                "Downtown Arena"
+              ],
+              "cta": "Ringside seats available",
+              "occasion": "event"
+            },
+            {
+              "title": "Boxing Bootcamp",
+              "kicker": "Get Fight Fit",
+              "details": [
+                "Mon · Wed · Fri 6 AM",
+                "Iron Gym"
+              ],
+              "cta": "First class free",
+              "occasion": "class"
+            }
+          ]
+        },
+        {
+          "id": "martial-arts",
+          "label": "Martial Arts",
+          "emoji": "🥋",
+          "keywords": [
+            "karate",
+            "judo",
+            "taekwondo",
+            "jiu-jitsu",
+            "dojo",
+            "belt"
+          ],
+          "palettes": [
+            "zen",
+            "fire",
+            "minimal"
+          ],
+          "events": [
+            {
+              "title": "Karate Classes",
+              "kicker": "Kids & Adults",
+              "details": [
+                "Tue & Thu · 5 PM",
+                "Dragon Dojo"
+              ],
+              "cta": "Free trial week",
+              "occasion": "class"
+            },
+            {
+              "title": "Belt Grading",
+              "kicker": "Spring Ceremony",
+              "details": [
+                "April 27 · 10 AM",
+                "Main Hall"
+              ],
+              "cta": "Families welcome",
+              "occasion": "ceremony"
+            }
+          ]
+        },
+        {
+          "id": "golf",
+          "label": "Golf",
+          "emoji": "⛳",
+          "keywords": [
+            "tee",
+            "course",
+            "putt",
+            "fairway",
+            "charity golf"
+          ],
+          "palettes": [
+            "court-green",
+            "classic",
+            "elegant"
+          ],
+          "events": [
+            {
+              "title": "Charity Golf Classic",
+              "kicker": "18 Holes for Good",
+              "details": [
+                "Sept 14 · Shotgun 9 AM",
+                "Pine Valley Course"
+              ],
+              "cta": "Foursomes & sponsors",
+              "occasion": "fundraiser"
+            },
+            {
+              "title": "Golf Lessons",
+              "kicker": "Swing Into Spring",
+              "details": [
+                "Saturdays · 8 AM",
+                "Driving Range"
+              ],
+              "cta": "Beginners welcome",
+              "occasion": "class"
+            }
+          ]
+        },
+        {
+          "id": "cycling",
+          "label": "Cycling",
+          "emoji": "🚴",
+          "keywords": [
+            "bike",
+            "ride",
+            "tour",
+            "spin",
+            "gran fondo"
+          ],
+          "palettes": [
+            "sunset",
+            "electric",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Group Ride",
+              "kicker": "Sunday Spin",
+              "details": [
+                "Sundays · 7 AM",
+                "40 km · Café stop"
+              ],
+              "cta": "All paces welcome",
+              "occasion": "ride"
+            },
+            {
+              "title": "Gran Fondo",
+              "kicker": "Ride the Valley",
+              "details": [
+                "June 2",
+                "60 · 100 · 160 km"
+              ],
+              "cta": "Register now",
+              "occasion": "race"
+            }
+          ]
+        },
+        {
+          "id": "running",
+          "label": "Running",
+          "emoji": "🏃",
+          "keywords": [
+            "run",
+            "jog",
+            "5k",
+            "10k",
+            "club",
+            "track"
+          ],
+          "palettes": [
+            "electric",
+            "sunset",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Run Club",
+              "kicker": "Every Tuesday",
+              "details": [
+                "6:30 PM · 5 km loop",
+                "Meet at the fountain"
+              ],
+              "cta": "All paces welcome",
+              "occasion": "club"
+            },
+            {
+              "title": "Color Run 5K",
+              "kicker": "Fun for Everyone",
+              "details": [
+                "May 11 · 9 AM",
+                "Harbour Park"
+              ],
+              "cta": "Register today",
+              "occasion": "race"
+            }
+          ]
+        },
+        {
+          "id": "marathon",
+          "label": "Marathons",
+          "emoji": "🏅",
+          "keywords": [
+            "marathon",
+            "half marathon",
+            "race",
+            "finish line",
+            "42k"
+          ],
+          "palettes": [
+            "classic",
+            "electric",
+            "sunset"
+          ],
+          "events": [
+            {
+              "title": "City Marathon",
+              "kicker": "Race Day",
+              "details": [
+                "October 20 · 7 AM start",
+                "Full · Half · 10K"
+              ],
+              "cta": "Register before Sept 30",
+              "occasion": "race"
+            },
+            {
+              "title": "You Did It!",
+              "kicker": "Finisher",
+              "details": [
+                "42.2 km",
+                "Every step counted"
+              ],
+              "cta": "Proud of you",
+              "occasion": "celebration"
+            }
+          ]
+        },
+        {
+          "id": "cricket",
+          "label": "Cricket",
+          "emoji": "🏏",
+          "keywords": [
+            "bat",
+            "wicket",
+            "pitch",
+            "t20",
+            "innings"
+          ],
+          "palettes": [
+            "pitch",
+            "classic",
+            "sunset"
+          ],
+          "events": [
+            {
+              "title": "T20 Cricket Cup",
+              "kicker": "Community League",
+              "details": [
+                "Saturdays from May 4",
+                "Victoria Oval"
+              ],
+              "cta": "Enter your XI",
+              "occasion": "tournament"
+            },
+            {
+              "title": "Cricket Nets",
+              "kicker": "Practice Sessions",
+              "details": [
+                "Thursdays · 6 PM",
+                "Club Nets"
+              ],
+              "cta": "All welcome",
+              "occasion": "practice"
+            }
+          ]
+        },
+        {
+          "id": "rugby",
+          "label": "Rugby",
+          "emoji": "🏉",
+          "keywords": [
+            "try",
+            "scrum",
+            "sevens",
+            "union",
+            "league"
+          ],
+          "palettes": [
+            "classic",
+            "pitch",
+            "fire"
+          ],
+          "events": [
+            {
+              "title": "Rugby Sevens",
+              "kicker": "Summer Festival",
+              "details": [
+                "August 3",
+                "Riverside Fields"
+              ],
+              "cta": "Teams & spectators welcome",
+              "occasion": "tournament"
+            },
+            {
+              "title": "Rookie Rugby",
+              "kicker": "Try It Out",
+              "details": [
+                "Sundays · 10 AM",
+                "Ages 8–14"
+              ],
+              "cta": "No experience needed",
+              "occasion": "class"
+            }
+          ]
+        },
+        {
+          "id": "table-tennis",
+          "label": "Table Tennis",
+          "emoji": "🏓",
+          "keywords": [
+            "ping pong",
+            "paddle",
+            "spin"
+          ],
+          "palettes": [
+            "electric",
+            "fresh",
+            "retro"
+          ],
+          "events": [
+            {
+              "title": "Ping Pong Night",
+              "kicker": "Paddles Up",
+              "details": [
+                "Fridays · 8 PM",
+                "The Rec Room"
+              ],
+              "cta": "Winner stays on",
+              "occasion": "drop-in"
+            },
+            {
+              "title": "Table Tennis Open",
+              "kicker": "Club Tournament",
+              "details": [
+                "Feb 15",
+                "Sports Hall"
+              ],
+              "cta": "Singles & doubles",
+              "occasion": "tournament"
+            }
+          ]
+        },
+        {
+          "id": "skiing",
+          "label": "Skiing & Snowboarding",
+          "emoji": "⛷️",
+          "keywords": [
+            "ski",
+            "snowboard",
+            "slopes",
+            "winter",
+            "mountain"
+          ],
+          "palettes": [
+            "ice",
+            "ocean",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "Ski Trip",
+              "kicker": "Weekend on the Slopes",
+              "details": [
+                "Feb 7–9",
+                "Whistle Peak"
+              ],
+              "cta": "Bus & lift pass included",
+              "occasion": "trip"
+            },
+            {
+              "title": "Snowboard Lessons",
+              "kicker": "First Turns",
+              "details": [
+                "Saturdays · 10 AM",
+                "Bunny Hill"
+              ],
+              "cta": "Gear rental available",
+              "occasion": "class"
+            }
+          ]
+        },
+        {
+          "id": "climbing",
+          "label": "Climbing",
+          "emoji": "🧗",
+          "keywords": [
+            "boulder",
+            "rock",
+            "wall",
+            "gym",
+            "crag"
+          ],
+          "palettes": [
+            "earth",
+            "sunset",
+            "minimal"
+          ],
+          "events": [
+            {
+              "title": "Bouldering Night",
+              "kicker": "New Routes",
+              "details": [
+                "Thursdays · 7 PM",
+                "Summit Gym"
+              ],
+              "cta": "Shoes for rent",
+              "occasion": "drop-in"
+            },
+            {
+              "title": "Climbing Comp",
+              "kicker": "Send It Series",
+              "details": [
+                "March 22",
+                "Summit Gym"
+              ],
+              "cta": "All levels",
+              "occasion": "competition"
+            }
+          ]
+        },
+        {
+          "id": "skateboarding",
+          "label": "Skateboarding",
+          "emoji": "🛹",
+          "keywords": [
+            "skate",
+            "park",
+            "board",
+            "tricks"
+          ],
+          "palettes": [
+            "retro",
+            "electric",
+            "fire"
+          ],
+          "events": [
+            {
+              "title": "Skate Jam",
+              "kicker": "Best Trick Contest",
+              "details": [
+                "Saturday · 1 PM",
+                "Eastside Skatepark"
+              ],
+              "cta": "Prizes & music",
+              "occasion": "competition"
+            },
+            {
+              "title": "Skate Lessons",
+              "kicker": "Girls Who Shred",
+              "details": [
+                "Sundays · 11 AM",
+                "Ages 8+"
+              ],
+              "cta": "Boards & helmets provided",
+              "occasion": "class"
+            }
+          ]
+        },
+        {
+          "id": "yoga",
+          "label": "Yoga & Fitness",
+          "emoji": "🧘",
+          "keywords": [
+            "yoga",
+            "fitness",
+            "pilates",
+            "wellness",
+            "workout",
+            "gym"
+          ],
+          "palettes": [
+            "zen",
+            "pastel",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Sunrise Yoga",
+              "kicker": "In the Park",
+              "details": [
+                "Saturdays · 7 AM",
+                "Bring a mat"
+              ],
+              "cta": "Pay what you can",
+              "occasion": "class"
+            },
+            {
+              "title": "30-Day Fitness Challenge",
+              "kicker": "Stronger Together",
+              "details": [
+                "Starts June 1",
+                "Daily 20-min workouts"
+              ],
+              "cta": "Join the crew",
+              "occasion": "challenge"
+            }
+          ]
+        },
+        {
+          "id": "esports",
+          "label": "Esports",
+          "emoji": "🎮",
+          "keywords": [
+            "gaming",
+            "tournament",
+            "lan",
+            "console",
+            "stream"
+          ],
+          "palettes": [
+            "neon",
+            "night",
+            "electric"
+          ],
+          "events": [
+            {
+              "title": "Esports Showdown",
+              "kicker": "5v5 Tournament",
+              "details": [
+                "Saturday · 2 PM",
+                "Online & on stage"
+              ],
+              "cta": "Register your team",
+              "occasion": "tournament"
+            },
+            {
+              "title": "LAN Party",
+              "kicker": "Bring Your Rig",
+              "details": [
+                "Friday · 6 PM – late",
+                "Student Centre"
+              ],
+              "cta": "Pizza provided",
+              "occasion": "party"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "entertainment",
+      "label": "Entertainment",
+      "emoji": "🎤",
+      "kind": "entertainment",
+      "subcategories": [
+        {
+          "id": "open-mic",
+          "label": "Open Mic",
+          "emoji": "🎤",
+          "keywords": [
+            "poetry",
+            "acoustic",
+            "stage",
+            "spoken word",
+            "music"
+          ],
+          "palettes": [
+            "night",
+            "retro",
+            "warm"
+          ],
+          "events": [
+            {
+              "title": "Open Mic Night",
+              "kicker": "Every Thursday",
+              "details": [
+                "Sign-up 7 PM · Show 7:30",
+                "The Corner Café"
+              ],
+              "cta": "Music · Poetry · Comedy",
+              "occasion": "show"
+            },
+            {
+              "title": "Poetry Slam",
+              "kicker": "Words Out Loud",
+              "details": [
+                "Friday · 8 PM",
+                "Library Hall"
+              ],
+              "cta": "3 minutes. Make it count.",
+              "occasion": "competition"
+            }
+          ]
+        },
+        {
+          "id": "karaoke",
+          "label": "Karaoke",
+          "emoji": "🎶",
+          "keywords": [
+            "sing",
+            "song",
+            "microphone",
+            "party"
+          ],
+          "palettes": [
+            "neon",
+            "pop",
+            "retro"
+          ],
+          "events": [
+            {
+              "title": "Karaoke Night",
+              "kicker": "Sing Your Heart Out",
+              "details": [
+                "Wednesdays · 9 PM",
+                "Lucky's Bar"
+              ],
+              "cta": "Drink specials all night",
+              "occasion": "party"
+            },
+            {
+              "title": "Karaoke Battle",
+              "kicker": "Duets Edition",
+              "details": [
+                "Saturday · 8 PM",
+                "Main Stage"
+              ],
+              "cta": "Prizes for the best duo",
+              "occasion": "competition"
+            }
+          ]
+        },
+        {
+          "id": "bingo",
+          "label": "Bingo",
+          "emoji": "🎱",
+          "keywords": [
+            "bingo",
+            "game night",
+            "prizes",
+            "numbers"
+          ],
+          "palettes": [
+            "pop",
+            "retro",
+            "warm"
+          ],
+          "events": [
+            {
+              "title": "Bingo Night",
+              "kicker": "Eyes Down!",
+              "details": [
+                "Friday · 7 PM",
+                "Community Hall"
+              ],
+              "cta": "Cards $5 · Big prizes",
+              "occasion": "game-night"
+            },
+            {
+              "title": "Drag Bingo",
+              "kicker": "Fabulous Fun",
+              "details": [
+                "Sunday Brunch · 12 PM",
+                "The Velvet Room"
+              ],
+              "cta": "Book your table",
+              "occasion": "show"
+            }
+          ]
+        },
+        {
+          "id": "comedy",
+          "label": "Comedy Show",
+          "emoji": "😂",
+          "keywords": [
+            "stand-up",
+            "comedy",
+            "laugh",
+            "improv"
+          ],
+          "palettes": [
+            "night",
+            "pop",
+            "fire"
+          ],
+          "events": [
+            {
+              "title": "Stand-Up Comedy",
+              "kicker": "Live & Unfiltered",
+              "details": [
+                "Saturday · 9 PM",
+                "The Laugh Factory"
+              ],
+              "cta": "18+ · Tickets $15",
+              "occasion": "show"
+            },
+            {
+              "title": "Improv Night",
+              "kicker": "You Make the Rules",
+              "details": [
+                "Thursdays · 8 PM",
+                "Black Box Theatre"
+              ],
+              "cta": "Shout your suggestions",
+              "occasion": "show"
+            }
+          ]
+        },
+        {
+          "id": "concert",
+          "label": "Concerts",
+          "emoji": "🎸",
+          "keywords": [
+            "live music",
+            "band",
+            "gig",
+            "tour",
+            "festival",
+            "show"
+          ],
+          "palettes": [
+            "night",
+            "fire",
+            "neon"
+          ],
+          "events": [
+            {
+              "title": "Live in Concert",
+              "kicker": "One Night Only",
+              "details": [
+                "Saturday · Doors 7 PM",
+                "The Grand Theatre"
+              ],
+              "cta": "Tickets on sale now",
+              "occasion": "concert"
+            },
+            {
+              "title": "Summer Sounds",
+              "kicker": "Free Outdoor Concert",
+              "details": [
+                "July 19 · 6 PM",
+                "Bandshell Park"
+              ],
+              "cta": "Bring a blanket",
+              "occasion": "concert"
+            }
+          ]
+        },
+        {
+          "id": "dj-night",
+          "label": "DJ Night",
+          "emoji": "🎧",
+          "keywords": [
+            "club",
+            "party",
+            "dj",
+            "dance",
+            "edm",
+            "rave"
+          ],
+          "palettes": [
+            "neon",
+            "electric",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "DJ Night",
+              "kicker": "All Night Long",
+              "details": [
+                "Saturday · 10 PM",
+                "Club Pulse"
+              ],
+              "cta": "Free before 11",
+              "occasion": "party"
+            },
+            {
+              "title": "Silent Disco",
+              "kicker": "Three Channels",
+              "details": [
+                "Friday · 9 PM",
+                "Rooftop"
+              ],
+              "cta": "Headphones included",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "talent-show",
+          "label": "Talent Show",
+          "emoji": "🌟",
+          "keywords": [
+            "talent",
+            "competition",
+            "audition",
+            "stage",
+            "show"
+          ],
+          "palettes": [
+            "pop",
+            "gold",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "Talent Show",
+              "kicker": "Show Us What You Got",
+              "details": [
+                "May 3 · 6 PM",
+                "School Auditorium"
+              ],
+              "cta": "Auditions open",
+              "occasion": "competition"
+            },
+            {
+              "title": "Got Talent?",
+              "kicker": "Auditions",
+              "details": [
+                "Sign up by April 20",
+                "Singers · Dancers · Magicians"
+              ],
+              "cta": "Everyone welcome",
+              "occasion": "auditions"
+            }
+          ]
+        },
+        {
+          "id": "trivia",
+          "label": "Trivia",
+          "emoji": "🧠",
+          "keywords": [
+            "quiz",
+            "pub quiz",
+            "trivia night",
+            "questions"
+          ],
+          "palettes": [
+            "warm",
+            "retro",
+            "classic"
+          ],
+          "events": [
+            {
+              "title": "Trivia Night",
+              "kicker": "Think You Know It All?",
+              "details": [
+                "Tuesdays · 7:30 PM",
+                "The Fox & Hound"
+              ],
+              "cta": "Teams up to 6",
+              "occasion": "game-night"
+            },
+            {
+              "title": "Movie Quiz",
+              "kicker": "Lights, Camera, Answers",
+              "details": [
+                "Friday · 8 PM",
+                "Cinema Lounge"
+              ],
+              "cta": "Prizes for the top 3",
+              "occasion": "game-night"
+            }
+          ]
+        },
+        {
+          "id": "gaming",
+          "label": "Gaming Tournament",
+          "emoji": "🕹️",
+          "keywords": [
+            "gaming",
+            "video games",
+            "tournament",
+            "arcade",
+            "smash"
+          ],
+          "palettes": [
+            "neon",
+            "retro",
+            "electric"
+          ],
+          "events": [
+            {
+              "title": "Gaming Tournament",
+              "kicker": "1v1 Bracket",
+              "details": [
+                "Saturday · 1 PM",
+                "Pixel Lounge"
+              ],
+              "cta": "Grand prize $500",
+              "occasion": "tournament"
+            },
+            {
+              "title": "Retro Arcade Night",
+              "kicker": "High Score Challenge",
+              "details": [
+                "Friday · 7 PM",
+                "Free play all night"
+              ],
+              "cta": "Beat the top score",
+              "occasion": "game-night"
+            }
+          ]
+        },
+        {
+          "id": "movie-night",
+          "label": "Movie Night",
+          "emoji": "🎬",
+          "keywords": [
+            "film",
+            "cinema",
+            "outdoor movie",
+            "screening"
+          ],
+          "palettes": [
+            "night",
+            "retro",
+            "warm"
+          ],
+          "events": [
+            {
+              "title": "Movie Night",
+              "kicker": "Under the Stars",
+              "details": [
+                "Friday · Sunset",
+                "Central Park Lawn"
+              ],
+              "cta": "Free popcorn",
+              "occasion": "screening"
+            },
+            {
+              "title": "Film Festival",
+              "kicker": "Local Shorts",
+              "details": [
+                "Nov 8–10",
+                "Arts Centre"
+              ],
+              "cta": "Passes available",
+              "occasion": "festival"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "celebrations",
+      "label": "Celebrations",
+      "emoji": "🎉",
+      "kind": "celebrations",
+      "subcategories": [
+        {
+          "id": "birthday",
+          "label": "Birthdays",
+          "emoji": "🎂",
+          "keywords": [
+            "birthday",
+            "party",
+            "invite",
+            "cake",
+            "bday"
+          ],
+          "palettes": [
+            "pop",
+            "pastel",
+            "gold"
+          ],
+          "events": [
+            {
+              "title": "Mia Turns 7!",
+              "kicker": "You're Invited",
+              "details": [
+                "Saturday, May 10 · 2 PM",
+                "12 Maple Street"
+              ],
+              "cta": "RSVP to Jess · 555-0142",
+              "occasion": "party"
+            },
+            {
+              "title": "Happy Birthday",
+              "kicker": "To the best friend ever",
+              "details": [
+                "Here's to another",
+                "amazing year"
+              ],
+              "cta": "Love, Sam",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Dirty Thirty",
+              "kicker": "Let's Celebrate",
+              "details": [
+                "Friday · 8 PM",
+                "The Rooftop"
+              ],
+              "cta": "Dress to impress",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "wedding",
+          "label": "Weddings",
+          "emoji": "💍",
+          "keywords": [
+            "wedding",
+            "save the date",
+            "invitation",
+            "bride",
+            "rsvp"
+          ],
+          "palettes": [
+            "elegant",
+            "blush",
+            "sage"
+          ],
+          "events": [
+            {
+              "title": "Emma & James",
+              "kicker": "Together with their families",
+              "details": [
+                "Saturday, the 14th of June",
+                "Rosewood Gardens · 4 PM"
+              ],
+              "cta": "Kindly reply by May 1",
+              "occasion": "invitation"
+            },
+            {
+              "title": "Save the Date",
+              "kicker": "Olivia & Noah",
+              "details": [
+                "09.20.2025",
+                "Napa Valley"
+              ],
+              "cta": "Invitation to follow",
+              "occasion": "save-the-date"
+            },
+            {
+              "title": "Welcome to Our Wedding",
+              "kicker": "Ava & Liam",
+              "details": [
+                "Please find your seat",
+                "and enjoy the day"
+              ],
+              "cta": "#AvaAndLiam",
+              "occasion": "sign"
+            }
+          ]
+        },
+        {
+          "id": "anniversary",
+          "label": "Anniversaries",
+          "emoji": "💞",
+          "keywords": [
+            "anniversary",
+            "love",
+            "years",
+            "celebration"
+          ],
+          "palettes": [
+            "elegant",
+            "gold",
+            "blush"
+          ],
+          "events": [
+            {
+              "title": "25 Years of Love",
+              "kicker": "Silver Anniversary",
+              "details": [
+                "Saturday · 6 PM",
+                "The Grand Hall"
+              ],
+              "cta": "Join us to celebrate",
+              "occasion": "party"
+            },
+            {
+              "title": "Happy Anniversary",
+              "kicker": "Every day with you",
+              "details": [
+                "is my favourite day",
+                ""
+              ],
+              "cta": "Forever yours",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "baby-shower",
+          "label": "Baby Showers",
+          "emoji": "🍼",
+          "keywords": [
+            "baby shower",
+            "baby",
+            "gender reveal",
+            "newborn"
+          ],
+          "palettes": [
+            "pastel",
+            "sage",
+            "blush"
+          ],
+          "events": [
+            {
+              "title": "Oh Baby!",
+              "kicker": "A Baby Shower for Grace",
+              "details": [
+                "Sunday, April 13 · 1 PM",
+                "24 Willow Lane"
+              ],
+              "cta": "RSVP to Anna",
+              "occasion": "party"
+            },
+            {
+              "title": "He or She?",
+              "kicker": "Gender Reveal Party",
+              "details": [
+                "Saturday · 3 PM",
+                "Our backyard"
+              ],
+              "cta": "Wear pink or blue",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "graduation",
+          "label": "Graduations",
+          "emoji": "🎓",
+          "keywords": [
+            "graduation",
+            "grad",
+            "class of",
+            "commencement",
+            "degree"
+          ],
+          "palettes": [
+            "gold",
+            "classic",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "Class of 2025",
+              "kicker": "Graduation Party",
+              "details": [
+                "Saturday, June 21 · 4 PM",
+                "Our House"
+              ],
+              "cta": "Celebrate with us",
+              "occasion": "party"
+            },
+            {
+              "title": "Congrats, Grad!",
+              "kicker": "The tassel was worth the hassle",
+              "details": [
+                "So proud of you",
+                ""
+              ],
+              "cta": "Love, Mom & Dad",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "retirement",
+          "label": "Retirement",
+          "emoji": "🏖️",
+          "keywords": [
+            "retirement",
+            "farewell",
+            "send-off",
+            "career"
+          ],
+          "palettes": [
+            "gold",
+            "beach",
+            "classic"
+          ],
+          "events": [
+            {
+              "title": "Happy Retirement, Linda!",
+              "kicker": "After 32 Wonderful Years",
+              "details": [
+                "Friday · 5 PM",
+                "Office Lounge"
+              ],
+              "cta": "Cake & stories",
+              "occasion": "party"
+            },
+            {
+              "title": "Officially Retired",
+              "kicker": "Goodbye tension, hello pension",
+              "details": [
+                "Join the send-off",
+                "Friday at 4"
+              ],
+              "cta": "Light refreshments",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "christmas",
+          "label": "Christmas",
+          "emoji": "🎄",
+          "keywords": [
+            "christmas",
+            "holiday",
+            "xmas",
+            "festive",
+            "santa",
+            "winter"
+          ],
+          "palettes": [
+            "festive",
+            "elegant",
+            "ice"
+          ],
+          "events": [
+            {
+              "title": "Merry Christmas",
+              "kicker": "From our family to yours",
+              "details": [
+                "Wishing you peace & joy",
+                "this holiday season"
+              ],
+              "cta": "The Johnsons",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Holiday Party",
+              "kicker": "Ugly Sweater Edition",
+              "details": [
+                "Dec 20 · 7 PM",
+                "The Smith's Place"
+              ],
+              "cta": "Bring a $20 gift",
+              "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "halloween",
+          "label": "Halloween",
+          "emoji": "🎃",
+          "keywords": [
+            "halloween",
+            "spooky",
+            "costume",
+            "trick or treat",
+            "pumpkin"
+          ],
+          "palettes": [
+            "spooky",
+            "night",
+            "fire"
+          ],
+          "events": [
+            {
+              "title": "Halloween Bash",
+              "kicker": "Costume Party",
+              "details": [
+                "Oct 31 · 8 PM",
+                "The Haunted Barn"
+              ],
+              "cta": "Best costume wins",
+              "occasion": "party"
+            },
+            {
+              "title": "Trick or Treat",
+              "kicker": "Spooky Street",
+              "details": [
+                "Oct 31 · 5–8 PM",
+                "Elm Street"
+              ],
+              "cta": "Candy for all",
+              "occasion": "event"
+            }
+          ]
+        },
+        {
+          "id": "new-year",
+          "label": "New Year",
+          "emoji": "🥂",
+          "keywords": [
+            "new year",
+            "nye",
+            "countdown",
+            "midnight",
+            "party"
+          ],
+          "palettes": [
+            "gold",
+            "night",
+            "neon"
+          ],
+          "events": [
+            {
+              "title": "New Year's Eve",
+              "kicker": "Countdown Party",
+              "details": [
+                "Dec 31 · 9 PM",
+                "The Skyline Lounge"
+              ],
+              "cta": "Champagne at midnight",
+              "occasion": "party"
+            },
+            {
+              "title": "Happy New Year",
+              "kicker": "Cheers to new beginnings",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "valentines",
+          "label": "Valentine's Day",
+          "emoji": "💘",
+          "keywords": [
+            "valentine",
+            "love",
+            "romance",
+            "heart",
+            "date night"
+          ],
+          "palettes": [
+            "blush",
+            "pop",
+            "elegant"
+          ],
+          "events": [
+            {
+              "title": "Be Mine",
+              "kicker": "Happy Valentine's Day",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "xoxo",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Date Night Special",
+              "kicker": "Valentine's Dinner",
+              "details": [
+                "Feb 14 · Two seatings",
+                "3 courses for two"
+              ],
+              "cta": "Book your table",
+              "occasion": "promotion"
+            }
+          ]
+        },
+        {
+          "id": "thanksgiving",
+          "label": "Thanksgiving",
+          "emoji": "🦃",
+          "keywords": [
+            "thanksgiving",
+            "grateful",
+            "harvest",
+            "feast",
+            "fall"
+          ],
+          "palettes": [
+            "harvest",
+            "warm",
+            "earth"
+          ],
+          "events": [
+            {
+              "title": "Friendsgiving",
+              "kicker": "Potluck Dinner",
+              "details": [
+                "Nov 23 · 6 PM",
+                "Bring a dish to share"
+              ],
+              "cta": "RSVP by Nov 18",
+              "occasion": "party"
+            },
+            {
+              "title": "Give Thanks",
+              "kicker": "Happy Thanksgiving",
+              "details": [
+                "Grateful for",
+                "every one of you"
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "diwali",
+          "label": "Diwali",
+          "emoji": "🪔",
+          "keywords": [
+            "diwali",
+            "deepavali",
+            "festival of lights",
+            "diya"
+          ],
+          "palettes": [
+            "gold",
+            "festive-warm",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "Happy Diwali",
+              "kicker": "Festival of Lights",
+              "details": [
+                "May the lights fill your home",
+                "with joy and prosperity"
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Diwali Celebration",
+              "kicker": "Food · Music · Rangoli",
+              "details": [
+                "Nov 1 · 6 PM",
+                "Community Centre"
+              ],
+              "cta": "All are welcome",
+              "occasion": "festival"
+            }
+          ]
+        },
+        {
+          "id": "eid",
+          "label": "Eid",
+          "emoji": "🌙",
+          "keywords": [
+            "eid",
+            "eid mubarak",
+            "ramadan",
+            "iftar"
+          ],
+          "palettes": [
+            "night",
+            "gold",
+            "sage"
+          ],
+          "events": [
+            {
+              "title": "Eid Mubarak",
+              "kicker": "Wishing you joy & peace",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Community Iftar",
+              "kicker": "Ramadan Kareem",
+              "details": [
+                "Fridays at sunset",
+                "Grand Hall"
+              ],
+              "cta": "Everyone welcome",
+              "occasion": "event"
+            }
+          ]
+        },
+        {
+          "id": "lunar-new-year",
+          "label": "Lunar New Year",
+          "emoji": "🧧",
+          "keywords": [
+            "lunar new year",
+            "chinese new year",
+            "spring festival",
+            "red envelope"
+          ],
+          "palettes": [
+            "festive-warm",
+            "gold",
+            "fire"
+          ],
+          "events": [
+            {
+              "title": "Happy Lunar New Year",
+              "kicker": "Wishing you luck & prosperity",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Lunar New Year Festival",
+              "kicker": "Lion Dance · Lanterns · Food",
+              "details": [
+                "Feb 1 · 11 AM",
+                "Chinatown Square"
+              ],
+              "cta": "Free entry",
+              "occasion": "festival"
+            }
+          ]
+        },
+        {
+          "id": "hanukkah",
+          "label": "Hanukkah",
+          "emoji": "🕎",
+          "keywords": [
+            "hanukkah",
+            "chanukah",
+            "menorah",
+            "festival"
+          ],
+          "palettes": [
+            "ice",
+            "ocean",
+            "elegant"
+          ],
+          "events": [
+            {
+              "title": "Happy Hanukkah",
+              "kicker": "Eight nights of light",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            },
+            {
+              "title": "Hanukkah Party",
+              "kicker": "Latkes & Laughter",
+              "details": [
+                "Dec 18 · 6 PM",
+                "The Cohen's"
+              ],
+              "cta": "Bring your dreidel",
+              "occasion": "party"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "community",
+      "label": "Community",
+      "emoji": "🤝",
+      "kind": "community",
+      "subcategories": [
+        {
+          "id": "festival",
+          "label": "Festivals",
+          "emoji": "🎪",
+          "keywords": [
+            "festival",
+            "fair",
+            "street fair",
+            "music festival",
+            "food festival"
+          ],
+          "palettes": [
+            "sunset",
+            "pop",
+            "retro"
+          ],
+          "events": [
+            {
+              "title": "Summer Street Festival",
+              "kicker": "Music · Food · Art",
+              "details": [
+                "July 26–27",
+                "Downtown Main Street"
+              ],
+              "cta": "Free admission",
+              "occasion": "festival"
+            },
+            {
+              "title": "Food Truck Festival",
+              "kicker": "30+ Trucks",
+              "details": [
+                "Saturday · 11 AM–9 PM",
+                "Harbourfront"
+              ],
+              "cta": "Bring your appetite",
+              "occasion": "festival"
+            }
+          ]
+        },
+        {
+          "id": "fundraiser",
+          "label": "Fundraisers",
+          "emoji": "💝",
+          "keywords": [
+            "fundraiser",
+            "donate",
+            "charity",
+            "gala",
+            "auction"
+          ],
+          "palettes": [
+            "warm",
+            "elegant",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Charity Gala",
+              "kicker": "An Evening for Hope",
+              "details": [
+                "Nov 15 · 7 PM",
+                "The Grand Ballroom"
+              ],
+              "cta": "Black tie · Silent auction",
+              "occasion": "gala"
+            },
+            {
+              "title": "Bake Sale",
+              "kicker": "Every Treat Helps",
+              "details": [
+                "Saturday · 9 AM–1 PM",
+                "School Gym"
+              ],
+              "cta": "Proceeds to the library",
+              "occasion": "fundraiser"
+            },
+            {
+              "title": "Help Us Reach $10,000",
+              "kicker": "Community Fund Drive",
+              "details": [
+                "Every dollar counts",
+                "Donate by Dec 31"
+              ],
+              "cta": "Give today",
+              "occasion": "fundraiser"
+            }
+          ]
+        },
+        {
+          "id": "charity-run",
+          "label": "Charity Runs & Walks",
+          "emoji": "👟",
+          "keywords": [
+            "charity run",
+            "walk",
+            "5k",
+            "fun run",
+            "cause"
+          ],
+          "palettes": [
+            "fresh",
+            "electric",
+            "pop"
+          ],
+          "events": [
+            {
+              "title": "Walk for a Cure",
+              "kicker": "5K Charity Walk",
+              "details": [
+                "Sept 21 · 9 AM",
+                "Lakeshore Trail"
+              ],
+              "cta": "Every step makes a difference",
+              "occasion": "fundraiser"
+            },
+            {
+              "title": "Fun Run for Kids",
+              "kicker": "Run · Laugh · Give",
+              "details": [
+                "June 8 · 10 AM",
+                "Greenway Park"
+              ],
+              "cta": "All ages welcome",
+              "occasion": "race"
+            }
+          ]
+        },
+        {
+          "id": "market",
+          "label": "Markets",
+          "emoji": "🧺",
+          "keywords": [
+            "farmers market",
+            "flea market",
+            "craft fair",
+            "vendors",
+            "local"
+          ],
+          "palettes": [
+            "harvest",
+            "fresh",
+            "earth"
+          ],
+          "events": [
+            {
+              "title": "Farmers Market",
+              "kicker": "Fresh · Local · Seasonal",
+              "details": [
+                "Saturdays · 8 AM–1 PM",
+                "Town Square"
+              ],
+              "cta": "Rain or shine",
+              "occasion": "market"
+            },
+            {
+              "title": "Holiday Craft Fair",
+              "kicker": "Handmade Gifts",
+              "details": [
+                "Dec 7 · 10 AM–4 PM",
+                "Community Hall"
+              ],
+              "cta": "50+ local makers",
+              "occasion": "market"
+            }
+          ]
+        },
+        {
+          "id": "volunteering",
+          "label": "Volunteering",
+          "emoji": "🙌",
+          "keywords": [
+            "volunteer",
+            "help",
+            "cleanup",
+            "food bank",
+            "give back"
+          ],
+          "palettes": [
+            "fresh",
+            "warm",
+            "sage"
+          ],
+          "events": [
+            {
+              "title": "Volunteers Needed",
+              "kicker": "Food Bank Drive",
+              "details": [
+                "Saturdays · 9 AM–12 PM",
+                "Hope Food Bank"
+              ],
+              "cta": "Sign up today",
+              "occasion": "volunteer"
+            },
+            {
+              "title": "Park Cleanup Day",
+              "kicker": "Make It Shine",
+              "details": [
+                "April 22 · 10 AM",
+                "Riverside Park"
+              ],
+              "cta": "Gloves & bags provided",
+              "occasion": "volunteer"
+            }
+          ]
+        },
+        {
+          "id": "workshop",
+          "label": "Workshops",
+          "emoji": "🛠️",
+          "keywords": [
+            "workshop",
+            "class",
+            "diy",
+            "learn",
+            "seminar",
+            "how to"
+          ],
+          "palettes": [
+            "minimal",
+            "warm",
+            "earth"
+          ],
+          "events": [
+            {
+              "title": "Pottery Workshop",
+              "kicker": "Get Your Hands Dirty",
+              "details": [
+                "Saturday · 2–5 PM",
+                "Clay Studio"
+              ],
+              "cta": "Materials included",
+              "occasion": "workshop"
+            },
+            {
+              "title": "Intro to Coding",
+              "kicker": "Free Workshop",
+              "details": [
+                "Tuesdays · 6 PM",
+                "Public Library"
+              ],
+              "cta": "Bring a laptop",
+              "occasion": "workshop"
+            }
+          ]
+        },
+        {
+          "id": "local-event",
+          "label": "Local Events",
+          "emoji": "📍",
+          "keywords": [
+            "town",
+            "neighbourhood",
+            "block party",
+            "meeting",
+            "open house"
+          ],
+          "palettes": [
+            "sunset",
+            "fresh",
+            "classic"
+          ],
+          "events": [
+            {
+              "title": "Block Party",
+              "kicker": "Meet the Neighbours",
+              "details": [
+                "Saturday · 3 PM",
+                "Oak Avenue"
+              ],
+              "cta": "BBQ · Games · Music",
+              "occasion": "party"
+            },
+            {
+              "title": "Town Hall Meeting",
+              "kicker": "Your Voice Matters",
+              "details": [
+                "Thursday · 7 PM",
+                "City Hall"
+              ],
+              "cta": "Everyone welcome",
+              "occasion": "meeting"
+            }
+          ]
+        },
+        {
+          "id": "garden",
+          "label": "Garden & Outdoors",
+          "emoji": "🌻",
+          "keywords": [
+            "garden",
+            "plant",
+            "seed swap",
+            "nature",
+            "hike"
+          ],
+          "palettes": [
+            "sage",
+            "fresh",
+            "earth"
+          ],
+          "events": [
+            {
+              "title": "Seed Swap",
+              "kicker": "Community Garden",
+              "details": [
+                "March 30 · 10 AM",
+                "Greenhouse"
+              ],
+              "cta": "Bring seeds, take seeds",
+              "occasion": "event"
+            },
+            {
+              "title": "Guided Nature Walk",
+              "kicker": "Spring Wildflowers",
+              "details": [
+                "Sunday · 9 AM",
+                "Trailhead Lot"
+              ],
+              "cta": "Free · Family friendly",
+              "occasion": "event"
+            }
+          ]
+        },
+        {
+          "id": "book-club",
+          "label": "Book Clubs",
+          "emoji": "📚",
+          "keywords": [
+            "book club",
+            "reading",
+            "library",
+            "author talk"
+          ],
+          "palettes": [
+            "elegant",
+            "warm",
+            "minimal"
+          ],
+          "events": [
+            {
+              "title": "Book Club",
+              "kicker": "This Month's Read",
+              "details": [
+                "Last Wednesday · 7 PM",
+                "Corner Bookshop"
+              ],
+              "cta": "New members welcome",
+              "occasion": "club"
+            },
+            {
+              "title": "Author Talk",
+              "kicker": "An Evening With",
+              "details": [
+                "Oct 10 · 6:30 PM",
+                "Central Library"
+              ],
+              "cta": "Book signing to follow",
+              "occasion": "talk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "business",
+      "label": "Business",
+      "emoji": "💼",
+      "kind": "business",
+      "subcategories": [
+        {
+          "id": "promotion",
+          "label": "Promotions",
+          "emoji": "🏷️",
+          "keywords": [
+            "promo",
+            "offer",
+            "deal",
+            "discount",
+            "coupon"
+          ],
+          "palettes": [
+            "pop",
+            "fire",
+            "electric"
+          ],
+          "events": [
+            {
+              "title": "Buy One Get One",
+              "kicker": "This Week Only",
+              "details": [
+                "All drinks · All day",
+                "Until Sunday"
+              ],
+              "cta": "Show this post",
+              "occasion": "promotion"
+            },
+            {
+              "title": "Happy Hour",
+              "kicker": "Weekdays 4–7 PM",
+              "details": [
+                "Half-price appetisers",
+                "$5 drinks"
+              ],
+              "cta": "See you there",
+              "occasion": "promotion"
+            }
+          ]
+        },
+        {
+          "id": "grand-opening",
+          "label": "Grand Openings",
+          "emoji": "✂️",
+          "keywords": [
+            "grand opening",
+            "now open",
+            "launch",
+            "ribbon cutting",
+            "new store"
+          ],
+          "palettes": [
+            "gold",
+            "pop",
+            "classic"
+          ],
+          "events": [
+            {
+              "title": "Grand Opening",
+              "kicker": "We're Finally Here",
+              "details": [
+                "Saturday · 10 AM",
+                "123 Market Street"
+              ],
+              "cta": "Free gifts for the first 50",
+              "occasion": "opening"
+            },
+            {
+              "title": "Now Open",
+              "kicker": "Fresh Coffee & Pastries",
+              "details": [
+                "Mon–Sat · 7 AM–5 PM",
+                "Corner of 5th & Main"
+              ],
+              "cta": "Come say hi",
+              "occasion": "opening"
+            }
+          ]
+        },
+        {
+          "id": "advertisement",
+          "label": "Advertisements",
+          "emoji": "📣",
+          "keywords": [
+            "ad",
+            "advert",
+            "product",
+            "brand",
+            "marketing"
+          ],
+          "palettes": [
+            "minimal",
+            "electric",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "Meet the New Glow Serum",
+              "kicker": "Skincare, Simplified",
+              "details": [
+                "Vegan · Cruelty-free",
+                "Visible results in 14 days"
+              ],
+              "cta": "Shop now",
+              "occasion": "product"
+            },
+            {
+              "title": "Your Home, Spotless",
+              "kicker": "Professional Cleaning",
+              "details": [
+                "Insured · Eco products",
+                "Book in 60 seconds"
+              ],
+              "cta": "Get a free quote",
+              "occasion": "service"
+            }
+          ]
+        },
+        {
+          "id": "announcement",
+          "label": "Announcements",
+          "emoji": "📢",
+          "keywords": [
+            "announcement",
+            "news",
+            "update",
+            "launch",
+            "coming soon"
+          ],
+          "palettes": [
+            "minimal",
+            "night",
+            "pop"
+          ],
+          "events": [
+            {
+              "title": "Big News!",
+              "kicker": "Announcement",
+              "details": [
+                "Something exciting",
+                "is coming soon"
+              ],
+              "cta": "Stay tuned",
+              "occasion": "announcement"
+            },
+            {
+              "title": "We're Moving",
+              "kicker": "New Location",
+              "details": [
+                "From June 1",
+                "45 Harbour Road"
+              ],
+              "cta": "Same team, bigger space",
+              "occasion": "announcement"
+            },
+            {
+              "title": "Holiday Hours",
+              "kicker": "Please Note",
+              "details": [
+                "Closed Dec 24–26",
+                "Back on Dec 27"
+              ],
+              "cta": "Happy holidays!",
+              "occasion": "announcement"
+            }
+          ]
+        },
+        {
+          "id": "sale",
+          "label": "Sales",
+          "emoji": "💸",
+          "keywords": [
+            "sale",
+            "clearance",
+            "black friday",
+            "discount",
+            "% off"
+          ],
+          "palettes": [
+            "fire",
+            "pop",
+            "night"
+          ],
+          "events": [
+            {
+              "title": "Flash Sale",
+              "kicker": "48 Hours Only",
+              "details": [
+                "Up to 60% off",
+                "Online & in store"
+              ],
+              "cta": "Shop the sale",
+              "occasion": "sale"
+            },
+            {
+              "title": "Black Friday",
+              "kicker": "Biggest Sale of the Year",
+              "details": [
+                "Friday–Monday",
+                "Doors open 7 AM"
+              ],
+              "cta": "Don't miss out",
+              "occasion": "sale"
+            },
+            {
+              "title": "End of Season",
+              "kicker": "Clearance",
+              "details": [
+                "Everything must go",
+                "Final reductions"
+              ],
+              "cta": "While stocks last",
+              "occasion": "sale"
+            }
+          ]
+        },
+        {
+          "id": "presentation",
+          "label": "Presentations",
+          "emoji": "📊",
+          "keywords": [
+            "presentation",
+            "slides",
+            "deck",
+            "pitch",
+            "report",
+            "meeting"
+          ],
+          "palettes": [
+            "minimal",
+            "classic",
+            "electric"
+          ],
+          "events": [
+            {
+              "title": "Quarterly Review",
+              "kicker": "Q3 Results",
+              "details": [
+                "Growth · Highlights · Next steps",
+                "Prepared by the Strategy Team"
+              ],
+              "cta": "Thank you",
+              "occasion": "presentation"
+            },
+            {
+              "title": "Project Kickoff",
+              "kicker": "Team Meeting",
+              "details": [
+                "Goals · Timeline · Roles",
+                "Monday, 10 AM"
+              ],
+              "cta": "Questions?",
+              "occasion": "presentation"
+            }
+          ]
+        },
+        {
+          "id": "hiring",
+          "label": "Hiring",
+          "emoji": "🧑‍💼",
+          "keywords": [
+            "hiring",
+            "job",
+            "careers",
+            "we're hiring",
+            "recruitment"
+          ],
+          "palettes": [
+            "electric",
+            "minimal",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "We're Hiring",
+              "kicker": "Join Our Team",
+              "details": [
+                "Baristas · Shift leads",
+                "Full & part time"
+              ],
+              "cta": "Apply in store or online",
+              "occasion": "hiring"
+            },
+            {
+              "title": "Now Hiring Designers",
+              "kicker": "Remote-Friendly",
+              "details": [
+                "Product & brand roles",
+                "Great benefits"
+              ],
+              "cta": "Apply by June 30",
+              "occasion": "hiring"
+            }
+          ]
+        },
+        {
+          "id": "restaurant",
+          "label": "Restaurants & Cafés",
+          "emoji": "🍽️",
+          "keywords": [
+            "restaurant",
+            "menu",
+            "cafe",
+            "food",
+            "special",
+            "brunch"
+          ],
+          "palettes": [
+            "warm",
+            "harvest",
+            "elegant"
+          ],
+          "events": [
+            {
+              "title": "Weekend Brunch",
+              "kicker": "Sat & Sun · 9–2",
+              "details": [
+                "Bottomless coffee",
+                "Pancakes · Eggs · Mimosas"
+              ],
+              "cta": "Walk-ins welcome",
+              "occasion": "menu"
+            },
+            {
+              "title": "Chef's Special",
+              "kicker": "This Week",
+              "details": [
+                "Slow-roasted lamb",
+                "with herbed potatoes"
+              ],
+              "cta": "$24",
+              "occasion": "promotion"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "education",
+      "label": "Education",
+      "emoji": "🎒",
+      "kind": "education",
+      "subcategories": [
+        {
+          "id": "school-event",
+          "label": "School Events",
+          "emoji": "🏫",
+          "keywords": [
+            "school",
+            "assembly",
+            "open house",
+            "parents night",
+            "spirit week"
+          ],
+          "palettes": [
+            "classic",
+            "pop",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Open House",
+              "kicker": "Meet the Teachers",
+              "details": [
+                "Sept 12 · 6–8 PM",
+                "Lincoln Elementary"
+              ],
+              "cta": "Families welcome",
+              "occasion": "event"
+            },
+            {
+              "title": "Spirit Week",
+              "kicker": "Show Your Pride",
+              "details": [
+                "Oct 14–18",
+                "Theme day, every day"
+              ],
+              "cta": "Go Wildcats!",
+              "occasion": "event"
+            }
+          ]
+        },
+        {
+          "id": "club",
+          "label": "Clubs",
+          "emoji": "🧩",
+          "keywords": [
+            "club",
+            "chess club",
+            "robotics",
+            "drama club",
+            "debate",
+            "join"
+          ],
+          "palettes": [
+            "electric",
+            "retro",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Join the Robotics Club",
+              "kicker": "Build · Code · Compete",
+              "details": [
+                "Wednesdays · 3:30 PM",
+                "Room 204"
+              ],
+              "cta": "No experience needed",
+              "occasion": "club"
+            },
+            {
+              "title": "Chess Club",
+              "kicker": "Your Move",
+              "details": [
+                "Fridays at lunch",
+                "Library"
+              ],
+              "cta": "All levels",
+              "occasion": "club"
+            }
+          ]
+        },
+        {
+          "id": "student-activity",
+          "label": "Student Activities",
+          "emoji": "🎨",
+          "keywords": [
+            "student",
+            "activity",
+            "field trip",
+            "dance",
+            "prom",
+            "student council"
+          ],
+          "palettes": [
+            "pop",
+            "pastel",
+            "neon"
+          ],
+          "events": [
+            {
+              "title": "Spring Dance",
+              "kicker": "A Night Under the Stars",
+              "details": [
+                "May 16 · 7 PM",
+                "School Gym"
+              ],
+              "cta": "Tickets $10",
+              "occasion": "dance"
+            },
+            {
+              "title": "Vote for Ava",
+              "kicker": "Student Council President",
+              "details": [
+                "Listen · Lead · Deliver",
+                "Election Day: Oct 3"
+              ],
+              "cta": "Every voice counts",
+              "occasion": "campaign"
+            }
+          ]
+        },
+        {
+          "id": "awards",
+          "label": "Awards",
+          "emoji": "🏆",
+          "keywords": [
+            "award",
+            "awards night",
+            "honor roll",
+            "recognition",
+            "winner"
+          ],
+          "palettes": [
+            "gold",
+            "night",
+            "elegant"
+          ],
+          "events": [
+            {
+              "title": "Awards Night",
+              "kicker": "Celebrating Excellence",
+              "details": [
+                "June 5 · 6 PM",
+                "Main Auditorium"
+              ],
+              "cta": "Families welcome",
+              "occasion": "ceremony"
+            },
+            {
+              "title": "Student of the Month",
+              "kicker": "Congratulations",
+              "details": [
+                "Jordan Lee",
+                "Grade 8 · Kindness & leadership"
+              ],
+              "cta": "Keep shining!",
+              "occasion": "recognition"
+            }
+          ]
+        },
+        {
+          "id": "certificate",
+          "label": "Certificates",
+          "emoji": "📜",
+          "keywords": [
+            "certificate",
+            "diploma",
+            "achievement",
+            "completion",
+            "award certificate"
+          ],
+          "palettes": [
+            "gold",
+            "classic",
+            "elegant"
+          ],
+          "events": [
+            {
+              "title": "Certificate of Achievement",
+              "kicker": "This certificate is proudly presented to",
+              "details": [
+                "Alex Morgan",
+                "for outstanding performance in Mathematics"
+              ],
+              "cta": "June 2025",
+              "occasion": "certificate"
+            },
+            {
+              "title": "Certificate of Completion",
+              "kicker": "This is to certify that",
+              "details": [
+                "Jamie Rivera",
+                "has successfully completed the Web Design Course"
+              ],
+              "cta": "Instructor",
+              "occasion": "certificate"
+            }
+          ]
+        },
+        {
+          "id": "back-to-school",
+          "label": "Back to School",
+          "emoji": "✏️",
+          "keywords": [
+            "back to school",
+            "first day",
+            "supplies",
+            "new year"
+          ],
+          "palettes": [
+            "pop",
+            "fresh",
+            "retro"
+          ],
+          "events": [
+            {
+              "title": "Back to School",
+              "kicker": "Welcome Back!",
+              "details": [
+                "Classes start Sept 3",
+                "Let's make it a great year"
+              ],
+              "cta": "See you soon",
+              "occasion": "announcement"
+            },
+            {
+              "title": "My First Day",
+              "kicker": "Grade 1",
+              "details": [
+                "I want to be a…",
+                "astronaut"
+              ],
+              "cta": "2025",
+              "occasion": "milestone"
+            }
+          ]
+        },
+        {
+          "id": "science-fair",
+          "label": "Science Fair",
+          "emoji": "🔬",
+          "keywords": [
+            "science fair",
+            "stem",
+            "experiment",
+            "project",
+            "lab"
+          ],
+          "palettes": [
+            "electric",
+            "fresh",
+            "minimal"
+          ],
+          "events": [
+            {
+              "title": "Science Fair",
+              "kicker": "Discover · Create · Inspire",
+              "details": [
+                "March 14 · 1–4 PM",
+                "School Gym"
+              ],
+              "cta": "Projects due March 7",
+              "occasion": "event"
+            },
+            {
+              "title": "STEM Night",
+              "kicker": "Hands-on Experiments",
+              "details": [
+                "Thursday · 6 PM",
+                "Science Wing"
+              ],
+              "cta": "For curious families",
+              "occasion": "event"
+            }
+          ]
+        },
+        {
+          "id": "class-workshop",
+          "label": "Classes & Tutoring",
+          "emoji": "📝",
+          "keywords": [
+            "tutoring",
+            "class",
+            "lesson",
+            "course",
+            "study group",
+            "exam prep"
+          ],
+          "palettes": [
+            "minimal",
+            "classic",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Math Tutoring",
+              "kicker": "Ace Your Exams",
+              "details": [
+                "Grades 6–12",
+                "1:1 or small groups"
+              ],
+              "cta": "Book a free session",
+              "occasion": "class"
+            },
+            {
+              "title": "Study Group",
+              "kicker": "Finals Prep",
+              "details": [
+                "Sundays · 2 PM",
+                "Library Room 3"
+              ],
+              "cta": "Snacks provided",
+              "occasion": "class"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "creators",
+      "label": "Social & Creators",
+      "emoji": "📱",
+      "kind": "creators",
+      "subcategories": [
+        {
+          "id": "quote",
+          "label": "Quotes & Motivation",
+          "emoji": "💬",
+          "keywords": [
+            "quote",
+            "motivation",
+            "inspiration",
+            "monday",
+            "affirmation"
+          ],
+          "palettes": [
+            "minimal",
+            "zen",
+            "blush"
+          ],
+          "events": [
+            {
+              "title": "Small steps every day.",
+              "kicker": "Monday Motivation",
+              "details": [
+                "Progress, not perfection",
+                ""
+              ],
+              "cta": "@yourhandle",
+              "occasion": "quote"
+            },
+            {
+              "title": "Be the energy you want to attract.",
+              "kicker": "Daily Reminder",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "@yourhandle",
+              "occasion": "quote"
+            }
+          ]
+        },
+        {
+          "id": "giveaway",
+          "label": "Giveaways",
+          "emoji": "🎁",
+          "keywords": [
+            "giveaway",
+            "contest",
+            "win",
+            "prize",
+            "follow"
+          ],
+          "palettes": [
+            "pop",
+            "neon",
+            "gold"
+          ],
+          "events": [
+            {
+              "title": "Giveaway Time!",
+              "kicker": "Win a $100 Gift Card",
+              "details": [
+                "1. Follow us  2. Like  3. Tag 2 friends",
+                "Ends Friday at midnight"
+              ],
+              "cta": "Good luck!",
+              "occasion": "giveaway"
+            },
+            {
+              "title": "10K Followers Giveaway",
+              "kicker": "Thank You!",
+              "details": [
+                "3 winners · Big prizes",
+                "Enter below"
+              ],
+              "cta": "Tag a friend",
+              "occasion": "giveaway"
+            }
+          ]
+        },
+        {
+          "id": "youtube",
+          "label": "YouTube & Video",
+          "emoji": "▶️",
+          "keywords": [
+            "youtube",
+            "thumbnail",
+            "video",
+            "vlog",
+            "channel",
+            "stream"
+          ],
+          "palettes": [
+            "electric",
+            "fire",
+            "pop"
+          ],
+          "events": [
+            {
+              "title": "I Tried It for 30 Days",
+              "kicker": "New Video",
+              "details": [
+                "Here's what happened",
+                ""
+              ],
+              "cta": "Watch now",
+              "occasion": "video"
+            },
+            {
+              "title": "Top 10 Hidden Gems",
+              "kicker": "Travel Vlog",
+              "details": [
+                "Episode 12",
+                ""
+              ],
+              "cta": "Subscribe",
+              "occasion": "video"
+            }
+          ]
+        },
+        {
+          "id": "travel",
+          "label": "Travel",
+          "emoji": "✈️",
+          "keywords": [
+            "travel",
+            "trip",
+            "vacation",
+            "adventure",
+            "holiday",
+            "road trip"
+          ],
+          "palettes": [
+            "beach",
+            "ocean",
+            "sunset"
+          ],
+          "events": [
+            {
+              "title": "Weekend Escape",
+              "kicker": "Adventure Awaits",
+              "details": [
+                "3 days · 2 nights",
+                "Mountains & lakes"
+              ],
+              "cta": "Book now",
+              "occasion": "travel"
+            },
+            {
+              "title": "Wish You Were Here",
+              "kicker": "Postcard from Lisbon",
+              "details": [
+                "Sun, tiles & pastel de nata",
+                ""
+              ],
+              "cta": "xx",
+              "occasion": "travel"
+            }
+          ]
+        },
+        {
+          "id": "branding",
+          "label": "Logos & Business Cards",
+          "emoji": "🪪",
+          "keywords": [
+            "logo",
+            "business card",
+            "brand",
+            "identity"
+          ],
+          "generate": false,
+          "events": []
+        },
+        {
+          "id": "wallpaper",
+          "label": "Wallpapers",
+          "emoji": "🌈",
+          "keywords": [
+            "wallpaper",
+            "phone background",
+            "lock screen"
+          ],
+          "generate": false,
+          "events": []
+        }
+      ]
+    }
+  ]
+}
