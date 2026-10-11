@@ -80,7 +80,7 @@ The gallery works without any of these. Each one is a Vercel → **Settings → 
 
 | Setting | What it switches on |
 |---|---|
-| `ADMIN_EMAILS` | Who may **publish templates** — the login emails of template managers, separated by commas (e.g. `you@gmail.com`). They get **Download → Publish as template** in the editor and **Manage templates** in Templates (publish, unpublish, edit, delete). Everyone else just sees and uses published templates. |
+| `ADMIN_EMAILS` | Who may **publish templates** — the login emails of template managers, separated by commas (e.g. `you@gmail.com`). They get **Download → Publish as template** in the editor and **Manage templates** in Templates (publish, unpublish, edit, delete). Everyone else just sees and uses published templates. Managers can also be added in the database without a redeploy: `insert into fz_admins (user_id) select id from fz_users where email = '…';` |
 | `PEXELS_API_KEY` | **Pexels** photos in the editor's Photos search (free key: pexels.com/api → *Your API key*). Without it, search uses **Openverse** (no key; only CC0, public-domain and CC BY photos — CC BY ones carry a credit the app shows and lets people copy). |
 | `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` | **Draft with AI** in Manage templates: Claude writes the wording for new templates and the app lays it out. Needs a key from console.anthropic.com (paid per use) and a Claude model id from Anthropic's model list. Both must be set; without them the AI button doesn't appear. |
 

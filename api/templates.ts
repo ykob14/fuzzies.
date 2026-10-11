@@ -9,7 +9,7 @@
  * GET  /api/templates?thumb=<id>&r=<revision>          → the preview picture (image)
  * POST /api/templates { action, ... }  (logged in)
  *   use     { id }                 → { ok }      counts one use per person per template per day
- *   me                             → { admin, ai } may this account manage templates? (ADMIN_EMAILS in Vercel);
+ *   me                             → { admin, ai } may this account manage templates? (ADMIN_EMAILS in Vercel or fz_admins);
  *                                                 is AI drafting switched on? (ANTHROPIC_API_KEY + ANTHROPIC_MODEL)
  *   mine                           → { items }   every template, drafts too (admin)
  *   get     { id }                 → { meta, doc } drafts too (admin)
@@ -54,13 +54,16 @@ function tsQuery(text: string): string {
   return ws.map((w) => `${w}:*`).join(' & ');
 }
 
-function isAdmin(u: AuthedUser): boolean {
+/** Template managers: emails in ADMIN_EMAILS (Vercel), or accounts listed in the fz_admins table (set in the database). */
+async function isAdmin(u: AuthedUser): Promise<boolean> {
   const list = (process.env.ADMIN_EMAILS ?? '').split(/[,\s;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
-  return list.includes(u.email.toLowerCase());
+  if (list.includes(u.email.toLowerCase())) return true;
+  const { rows } = await q('select 1 from fz_admins where user_id = $1', [u.id]);
+  return rows.length > 0;
 }
 async function requireAdmin(req: Request): Promise<AuthedUser> {
   const u = await requireUser(req);
-  if (!isAdmin(u)) throw new HttpError(403, 'Only template managers can do that.');
+  if (!(await isAdmin(u))) throw new HttpError(403, 'Only template managers can do that.');
   return u;
 }
 
@@ -172,7 +175,7 @@ export function POST(req: Request): Promise<Response> {
         return { ok: true };
       }
       case 'me': {
-        const admin = isAdmin(await requireUser(req));
+        const admin = await isAdmin(await requireUser(req));
         return { admin, ai: admin && aiReady() };
       }
       case 'ai': {

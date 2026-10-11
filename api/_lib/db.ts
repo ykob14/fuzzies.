@@ -76,6 +76,11 @@ create table if not exists fz_template_uses (
   primary key (template_id, user_id, day)
 );
 create index if not exists fz_template_uses_day on fz_template_uses (day);
+-- Template managers chosen in the database (in addition to ADMIN_EMAILS in Vercel).
+create table if not exists fz_admins (
+  user_id uuid primary key references fz_users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
 create table if not exists fz_login_fails (
   email text not null,
   at timestamptz not null default now()

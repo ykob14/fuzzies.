@@ -189,7 +189,7 @@ IndexedDB database `fuzzies` with stores `designs` and `uploads` (both indexed b
 `fz_profiles` (account JSON minus device-only fields + `updated_at` version), `fz_designs` / `fz_uploads` (PK `(owner, id)`,
 `data` JSON, `deleted` tombstone, `updated_at`), `fz_login_fails` (10 wrong passwords / 15 min / email),
 `fz_templates` (published/draft templates: searchable metadata + `search` tsvector, `doc` JSON kept apart, `thumb`, `revision`),
-`fz_template_uses` (one row per person per template per day → Trending/Popular). Every query is
+`fz_template_uses` (one row per person per template per day → Trending/Popular), `fz_admins` (template managers set in the database; RLS on). Every query is
 scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 ## 6. Rules of the codebase (gotchas)
@@ -341,7 +341,8 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Template library is live** — owner steps (BACKEND.md →
+0. **Template library is live.** The owner (hotlavayaniv@gmail.com) was made a template manager through the new `fz_admins` table
+   (Claude's Vercel connector still gets 403, so `ADMIN_EMAILS` couldn't be set; either way works). Remaining owner steps (BACKEND.md →
    "Template library extras"): `ADMIN_EMAILS` (their own login email) to publish templates; optional `PEXELS_API_KEY`;
    optional `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` for Draft with AI. Then publish a few real templates and check photo search live.
    **Editor upgrade is live** — check the Photos panel on the live site (untested against the real service); collect feedback; finish the reset-email setup (ask for the new `ref:` code).
