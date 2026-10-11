@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-11 (session 2, later) · by Claude Code · `main` and `claude/fuzzies-design-app-jwv4tu` are identical (polish pass is live)_
+_Last updated: 2026-10-11 (session 2, later) · by Claude Code · `claude/fuzzies-design-app-jwv4tu` is ahead of `main` by the bolder home/layout pass (awaiting the owner's OK)_
 
 ---
 
@@ -25,7 +25,7 @@ keeps people coming back (the mascot, the game, missions).
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested. |
 | **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
-| **Branches** | `main` = `claude/fuzzies-design-app-jwv4tu` (live): the owner said "just make it live" for the polish pass on 2026-10-11. Keep working on the branch and ask before the next merge to `main`. |
+| **Branches** | `main` = live polish pass. The branch is ahead by the **bolder pass** (owner found the polish "looks the same"): Canva-style Home banner + inset workspace panel — waiting for the owner's OK to merge. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
 ## 3. Owner preferences (learned — respect these)
@@ -210,6 +210,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   `startPlacing(item, id)`; `view.setGhost({…, moving})` hides the original; `L.move()` is free.
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
+- **Scrolling (computers):** inside the app shell the `.main` panel scrolls, not the window (≥961 px); phones/tablets still scroll the window.
 - **Theme:** use `var(--accent)`, `var(--on-accent)`, `var(--text)`, etc. Never hard-code purple or gradients in UI chrome.
   Shadows `--shadow-xs` / `--shadow` / `--shadow-md` / `--shadow-lg`, hover tint `--hover`, easing `--ease`. The "Polish v2" blocks at the end of
   `styles.css` refine the older rules above them (same class names) — put new chrome styling there.
@@ -255,6 +256,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | _(updates)_ | **"A new version is ready" banner** (`core/updates.ts`): the owner kept seeing an old screen because the single-page app keeps running the version a tab was opened with. The app now compares its main script with the live `index.html` every 2 minutes and on returning to the tab, and offers a one-tap Refresh. Service worker (`fuzzies-v3`): `cache: 'no-store'` requests and `index.html` always go to the network (the old one answered the version check from cache). Tested with the service worker on and off. |
 | `1fc6159` | **Reset email fixes (live):** a reset link whose email failed is deleted, so failed tries don't use up the 3-per-hour limit; stray spaces/quotes around `RESEND_API_KEY` are ignored; errors show Resend's reason + a safe key hint. On `main`. |
 | _(polish)_ | **Canva-easy, Linear-clean polish pass** (owner asked; nothing rebuilt, all features kept). Shell: sidebar grouped into Create / Play / You with tighter type, tooltips on the folded rail, tablets (761–960 px) get the slim rail instead of the tab bar; top bar shows the page title + a search box; **quick find** (`ui/quickfind.ts`, Ctrl/Cmd+K) jumps to screens, templates and your designs. Styling: layered low-contrast shadows (`--shadow-xs/-md`), `--ease`, refined buttons/inputs/chips/menus/modals, hover states, page fade-in — all in the "Polish v2" sections at the end of `styles.css`. Editor: **smart toolbar** above the canvas (`props.bar`, built in `editor/props.ts` → `renderBar()`): text = font, size −/+, colour, B/I/U/aA, align; shapes = fill/border; graphics/QR = colours; Position menu + Transparency for everything; page colour/Resize/Add page when nothing is selected. The full inspector is a docked column shown on demand ("All options", remembered in `fz.ed.inspector`); the design re-fits when space changes unless zoomed by hand (`fitZoom`). The size label in the top bar opens page settings. Phones: the toolbar slides up over the tool rail while something is selected (Done brings the rail back). **Drag and drop** from panels (shapes, graphics, stickers, text, uploads) with mouse or finger (press-and-hold on touch so swiping still scrolls). Fix: phones with a folded sidebar saved got a squashed page. Tested at 1440/834/390 px, light and dark, plus the production smoke test (every screen, editor, Fuzzies Land): no errors. Merged to `main` (live). |
+| `2d9ab5f` | **Bolder look** (owner: the polish pass "still looks the same"). Home: raspberry banner "What will you design today?" with a big search box (opens quick find with what you type) and round size shortcuts (Instagram, Story, Poster, Presentation, YouTube, Logo, Invitation, Custom); order is now Recent designs → Popular templates (one swipeable equal-height row) → Play & earn (game + town side by side) → missions. Computers (≥961 px): sidebar on the page colour, each screen in a raised white panel that scrolls itself (`.main` is the scroller), active menu item is a white pill. Branch only. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
@@ -288,7 +290,7 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Polish pass is live** — collect the owner's feedback; finish the reset-email setup (ask for the new `ref:` code).
+0. **Bolder pass on the branch** — merge to `main` on the owner's OK; then collect feedback; finish the reset-email setup (ask for the new `ref:` code).
    **Live for testing** (owner approved). Collect the owner's feedback from real devices (performance on their phone!).
    Next for Fuzzies Land: restyle the decorations (bench, lamps, fountain, statue, rainbow arch), crops and construction site;
    residents carrying goods to the barn and avoiding each other; a guided first 5 minutes; day-to-dusk light; real-phone
