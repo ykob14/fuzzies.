@@ -2,7 +2,8 @@
 import type { Editor } from './editor';
 import type { El, Fill, ImageEl, Mask, ShapeEl, ShapeKind, TextEl } from './types';
 import { DEFAULT_FILTERS } from './types';
-import { fitText, filterCss } from './render';
+import { fitText, filterCss, curveOf } from './render';
+import { TEXT_FX, applyTextFx, currentFx } from './textfx';
 import { colorButton, firstColor } from './colors';
 import { SHAPE_KINDS } from './shapes';
 import { qrMatrix } from './qr';
@@ -172,11 +173,30 @@ export function buildProps(ed: Editor): Props {
         row('Colour', color(e.fill, (f) => (e.fill = f), { gradient: true })),
         slider('Line height', e.lineHeight, 0.6, 3, 0.05, (v) => set((t) => (t.lineHeight = v)), (v) => v.toFixed(2)),
         slider('Letter spacing', e.letterSpacing, -e.size * 0.15, e.size * 0.8, 0.5, (v) => set((t) => (t.letterSpacing = v)))),
-      sec('Effects',
-        row('Outline', color(e.strokeColor || '#1c1830', (f) => { e.strokeColor = firstColor(f); if (!e.strokeWidth) e.strokeWidth = Math.max(1, e.size * 0.03); })),
-        slider('Outline width', e.strokeWidth, 0, Math.max(10, e.size * 0.2), 0.5, (v) => set((t) => (t.strokeWidth = v))),
-        row('Highlight', color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true }))),
+      effectsSection(e, set),
     ];
+  }
+
+  /** Canva-style text effects: one-tap presets, then fine-tuning; plus Curve. */
+  function effectsSection(e: TextEl, set: (fn: (t: TextEl) => void) => void): Node {
+    const cur = currentFx(e);
+    const grid = h('div', { class: 'fx-grid' }, ...TEXT_FX.map((fx) => {
+      const b = h('button', { type: 'button', class: `fx-tile ${cur === fx.id ? 'on' : ''}`, 'aria-pressed': String(cur === fx.id), title: fx.label }, h('span', { class: `fx-sample fx-${fx.id}` }, 'Ag'), h('small', null, fx.label));
+      b.addEventListener('click', () => { set((t) => applyTextFx(t, fx.id)); done(); render(); });
+      return b;
+    }));
+    const fx = e.effect;
+    const canCurve = !!e.text.trim() && (curveOf({ ...e, curve: 50 }) !== null);
+    return sec('Effects', grid,
+      fx ? row('Effect colour', color(fx.color, (f) => { if (e.effect) e.effect = { ...e.effect, color: firstColor(f) }; })) : null,
+      fx ? slider('Offset', fx.offset, 0, Math.max(20, e.size * 0.25), 0.5, (v) => set((t) => { if (t.effect) t.effect = { ...t.effect, offset: v }; })) : null,
+      e.shadow ? row('Shadow colour', color(e.shadow.color, (f) => { if (e.shadow) e.shadow = { ...e.shadow, color: firstColor(f) }; })) : null,
+      e.shadow ? slider('Shadow blur', e.shadow.blur, 0, Math.max(60, e.size * 0.6), 0.5, (v) => set((t) => { if (t.shadow) t.shadow = { ...t.shadow, blur: v }; })) : null,
+      row('Outline', color(e.strokeColor || '#1c1830', (f) => { e.strokeColor = firstColor(f); if (!e.strokeWidth) e.strokeWidth = Math.max(1, e.size * 0.03); })),
+      slider('Outline width', e.strokeWidth, 0, Math.max(10, e.size * 0.2), 0.5, (v) => set((t) => (t.strokeWidth = v))),
+      row('Highlight', color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true })),
+      canCurve ? slider('Curve', e.curve ?? 0, -100, 100, 1, (v) => set((t) => (t.curve = v)), (v) => `${Math.round(v)}`)
+        : h('p', { class: 'hint' }, 'Curve works for single-script Latin, Cyrillic and Greek text (it would break joined or right-to-left scripts).'));
   }
 
   // ---------- shape ----------
@@ -423,6 +443,7 @@ export function buildProps(ed: Editor): Props {
       tb({ text: 'U', title: 'Underline', on: e.underline, cls: 'tb-under', onClick: () => set((t) => (t.underline = !t.underline)) }),
       tb({ text: 'aA', title: 'Uppercase', on: e.uppercase, onClick: () => set((t) => (t.uppercase = !t.uppercase)) }),
       tb({ icon: e.align === 'left' ? 'alignL' : e.align === 'center' ? 'alignC' : 'alignR', title: `Text alignment: ${e.align}`, onClick: () => set((t) => (t.align = nextAlign[e.align])) }),
+      tb({ icon: 'sparkles', text: 'Effects', title: 'Shadow, neon, hollow, echo, curve…', on: currentFx(e) !== 'none' || !!e.curve, onClick: () => open() }),
     ];
   }
 

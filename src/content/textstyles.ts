@@ -7,7 +7,7 @@ export const FX_PACK = { id: 'fx-magic', name: 'Magic Text FX', cost: 20 };
 
 export const TEXT_STYLES: TextStyle[] = [
   { id: 'bold-pop', name: 'BOLD POP', premium: false, css: 'font:400 22px "Archivo Black";color:#7c4dff', style: (u) => ({ font: 'Archivo Black', weight: 400, size: u * 0.1, fill: '#7c4dff', text: 'BOLD POP' }) },
-  { id: 'outline', name: 'OUTLINE', premium: false, css: 'font:400 24px "Bebas Neue";color:transparent;-webkit-text-stroke:1.2px currentColor;letter-spacing:2px', style: (u) => ({ font: 'Bebas Neue', weight: 400, size: u * 0.13, fill: 'rgba(0,0,0,0)', strokeColor: '#1c1830', strokeWidth: u * 0.003, letterSpacing: u * 0.006, text: 'OUTLINE' }) },
+  { id: 'outline', name: 'OUTLINE', premium: false, css: 'font:400 24px "Bebas Neue";color:transparent;-webkit-text-stroke:1.2px #1c1830;letter-spacing:2px', style: (u) => ({ font: 'Bebas Neue', weight: 400, size: u * 0.13, fill: 'rgba(0,0,0,0)', strokeColor: '#1c1830', strokeWidth: u * 0.003, letterSpacing: u * 0.006, text: 'OUTLINE' }) },
   { id: 'script', name: 'Lovely script', premium: false, css: 'font:400 20px "Pacifico";color:#ff4f9a', style: (u) => ({ font: 'Pacifico', weight: 400, size: u * 0.08, fill: '#ff4f9a', text: 'Lovely script' }) },
   { id: 'highlight', name: 'Highlight', premium: false, css: 'font:700 18px "Poppins";background:#ffd23f;padding:2px 8px;border-radius:6px;color:#1c1830', style: (u) => ({ font: 'Poppins', weight: 700, size: u * 0.05, fill: '#1c1830', bg: '#ffd23f', text: 'Highlight' }) },
   { id: 'elegant', name: 'Elegant', premium: false, css: 'font:italic 600 20px "Playfair Display";color:#3d2c2e', style: (u) => ({ font: 'Playfair Display', weight: 600, italic: true, size: u * 0.07, fill: '#3d2c2e', text: 'Elegant' }) },

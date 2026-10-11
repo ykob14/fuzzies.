@@ -101,6 +101,23 @@ function setSpacing(ctx: CanvasRenderingContext2D, px: number): void {
 
 export interface TextLayout { lines: string[]; lineH: number; height: number }
 
+/** Scripts whose letters must stay joined or reordered by the browser — never drawn letter by letter on a curve. */
+const NO_CURVE = /[\u0590-\u08ff\u0900-\u0dff\u0e00-\u0fff\u1000-\u109f\ufb1d-\ufdff\ufe70-\ufeff]/;
+export interface CurveGeom { R: number; theta: number; sign: 1 | -1; text: string; lineH: number }
+/** Arc geometry for curved text, or null when the text is straight (or can't be curved). */
+export function curveOf(el: TextEl): CurveGeom | null {
+  const c = el.curve ?? 0;
+  if (Math.abs(c) < 1) return null;
+  const text = (el.uppercase ? el.text.toUpperCase() : el.text).replace(/\s*\n\s*/g, ' ').trim();
+  if (!text || NO_CURVE.test(text)) return null;
+  const ctx = measureCtx;
+  ctx.font = fontString(el);
+  setSpacing(ctx, el.letterSpacing);
+  const width = Math.max(1, ctx.measureText(text).width);
+  const theta = (Math.abs(c) / 100) * Math.PI * 1.75;
+  return { R: width / theta, theta, sign: c > 0 ? 1 : -1, text, lineH: el.size * el.lineHeight };
+}
+
 export function layoutText(el: TextEl): TextLayout {
   const ctx = measureCtx;
   ensureFont(el.font, el.weight, el.italic);
@@ -132,12 +149,17 @@ export function layoutText(el: TextEl): TextLayout {
     lines.push(line.trimEnd());
   }
   const lineH = el.size * el.lineHeight;
+  const cg = curveOf(el);
+  if (cg) return { lines: [cg.text], lineH, height: lineH + cg.R * (1 - Math.cos(cg.theta / 2)) };
   return { lines, lineH, height: Math.max(lineH, lines.length * lineH) };
 }
 
 /** Text boxes grow and shrink with their content; call after any text change. */
 export function fitText(el: TextEl): void {
   el.h = Math.round(layoutText(el).height);
+  // a curved line needs room for its arc: widen the box (never narrows, so straightening keeps the user's width)
+  const cg = curveOf(el);
+  if (cg) { const chord = cg.theta >= Math.PI ? cg.R * 2 : 2 * cg.R * Math.sin(cg.theta / 2); el.w = Math.max(el.w, Math.round(chord + el.size * 0.6)); }
 }
 
 function drawText(ctx: CanvasRenderingContext2D, el: TextEl): void {
@@ -158,18 +180,43 @@ function drawText(ctx: CanvasRenderingContext2D, el: TextEl): void {
   const ax = el.align === 'left' ? 0 : el.align === 'center' ? w / 2 : w;
   // letterSpacing adds trailing space after the last glyph; nudge so centred/right text stays optical.
   const nudge = hasLetterSpacing ? (el.align === 'center' ? el.letterSpacing / 2 : el.align === 'right' ? el.letterSpacing : 0) : 0;
-  ctx.fillStyle = fillStyle(ctx, el.fill, w, h);
   const ys = lines.map((_, i) => i * lineH + lineH / 2);
+  const cg = curveOf(el);
+  /** Draw every line (or the arc) once, filled or outlined, shifted by dx/dy. */
+  const paint = (mode: 'fill' | 'stroke', dx = 0, dy = 0) => {
+    if (cg) { drawArcText(ctx, el, cg, w, h, mode, dx, dy); return; }
+    lines.forEach((line, i) => (mode === 'fill' ? ctx.fillText(line, ax + nudge + dx, ys[i] + dy) : ctx.strokeText(line, ax + nudge + dx, ys[i] + dy)));
+  };
+  // effect copies behind the text (no shadow on them)
+  const fx = el.effect;
+  if (fx && fx.offset) {
+    ctx.save();
+    ctx.shadowColor = 'transparent';
+    const o = fx.offset;
+    if (fx.kind === 'echo') {
+      ctx.fillStyle = fx.color;
+      ctx.globalAlpha *= 0.25; paint('fill', o * 2, o * 2);
+      ctx.globalAlpha *= 2; paint('fill', o, o);
+    } else if (fx.kind === 'splice') {
+      ctx.fillStyle = fx.color; paint('fill', o, o);
+    } else {
+      ctx.fillStyle = '#ff2bd6'; paint('fill', o, 0);
+      ctx.fillStyle = fx.color; paint('fill', -o, 0);
+    }
+    ctx.restore();
+  }
+  ctx.fillStyle = fillStyle(ctx, el.fill, w, h);
   if (el.strokeWidth > 0 && el.strokeColor) {
     // Outline first (it carries the shadow), then the fill on top without a second shadow.
     ctx.save();
     ctx.lineJoin = 'round';
     ctx.lineWidth = el.strokeWidth * 2;
     ctx.strokeStyle = el.strokeColor;
-    lines.forEach((line, i) => ctx.strokeText(line, ax + nudge, ys[i]));
+    paint('stroke');
     ctx.restore();
     ctx.shadowColor = 'transparent';
   }
+  if (cg) { paint('fill'); return; }
   lines.forEach((line, i) => {
     ctx.fillText(line, ax + nudge, ys[i]);
     if (el.underline && line) {
@@ -178,6 +225,26 @@ function drawText(ctx: CanvasRenderingContext2D, el: TextEl): void {
       ctx.fillRect(x0, ys[i] + el.size * 0.42, lw, Math.max(1, el.size * 0.06));
     }
   });
+}
+
+/** Curved text: each letter placed and rotated along the arc (arch for positive curve, smile for negative). */
+function drawArcText(ctx: CanvasRenderingContext2D, el: TextEl, g: CurveGeom, w: number, h: number, mode: 'fill' | 'stroke', dx: number, dy: number): void {
+  ctx.save();
+  ctx.textAlign = 'center';
+  const cx = w / 2 + dx;
+  const cy = g.sign > 0 ? g.lineH / 2 + g.R + dy : h - g.lineH / 2 - g.R + dy;
+  let acc = 0;
+  for (const ch of Array.from(g.text)) {
+    const cw = ctx.measureText(ch).width;
+    const a = -g.theta / 2 + (acc + cw / 2) / g.R;
+    acc += cw;
+    ctx.save();
+    if (g.sign > 0) { ctx.translate(cx + g.R * Math.sin(a), cy - g.R * Math.cos(a)); ctx.rotate(a); }
+    else { ctx.translate(cx + g.R * Math.sin(a), cy + g.R * Math.cos(a)); ctx.rotate(-a); }
+    if (mode === 'fill') ctx.fillText(ch, 0, 0); else ctx.strokeText(ch, 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 // ---------- images ----------

@@ -67,7 +67,12 @@ export interface TextEl extends Base {
   strokeColor: string;
   strokeWidth: number;
   bg: string; // highlight behind text, '' = none
+  /** Curve along an arc: -100 (smile) … 100 (arch); 0/absent = straight. Ignored for right-to-left and complex scripts. */
+  curve?: number;
+  /** Copies drawn behind the text for Canva-style effects (echo, splice, glitch). */
+  effect?: TextEffect | null;
 }
+export interface TextEffect { kind: 'echo' | 'splice' | 'glitch'; color: string; offset: number }
 
 export type Mask = 'none' | 'circle' | 'rounded' | 'arch' | 'blob' | 'star' | 'heart' | 'hexagon';
 

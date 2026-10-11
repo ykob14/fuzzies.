@@ -88,3 +88,46 @@ code, templates or content.
   Fonts only from Google Fonts (open licences). Never copy Canva (or anyone's) templates or artwork.
 - Every asset records `license` and `author`; every template is fully layered (no flattened pictures of a whole design).
 - Templates must pass: text fits its box, readable contrast, every font exists, nothing important outside the page.
+
+---
+
+## Phase 3 plan — editor upgrades + multicultural library (2026-10-12)
+
+**Rollback points:** live site `main` = `ae74508` (Halloween collection). Work branch before this phase = `28b65cc`
+(Christmas, Hanukkah, Passover — not yet live). Every stage below is its own commit on the work branch.
+
+### LidoJS evaluation (github.com/lidojs/canva-clone)
+- **Licence: none.** The repository has no LICENSE file (so all rights are reserved by default), and the actual editor
+  engine is in the `@lidojs/*` npm packages, which declare no licence either (LidoJS sells commercial licences).
+  **No LidoJS code can be reused.**
+- **Architecture:** a thin React 18 + Material UI + Emotion app around the closed `@lidojs/design-editor` packages
+  (ProseMirror-style rich text, layers, frames, tables, video, draw, QR). Fuzzies is framework-free TypeScript with its own
+  Canvas 2D engine shared by editor, previews and exports; bringing in React/MUI would add ~300 KB and a second rendering
+  model. **Decision: keep the Fuzzies editor** and adopt ideas only.
+- Ideas worth adopting (built originally in Fuzzies): text effects (shadow, lift, hollow, outline, neon, background,
+  echo, splice, glitch) and curved text; frames; tables; per-word rich text. Already present: layers, groups, align &
+  distribute, snapping, drag-and-drop, masks, filters, QR, draw, PNG/JPG/PDF export, pages.
+
+### Asset providers
+| Provider | Licence / rules | Status |
+|---|---|---|
+| Original Fuzzies SVG collections | Ours | Main source of illustrations (recolourable, tagged, licence recorded) |
+| Pexels API | Free use, credit appreciated; key required; 200 req/h | Built (needs `PEXELS_API_KEY`) |
+| Openverse API | CC0 / PDM / CC BY only (CC BY needs credit — stored and shown) | Built (no key) |
+| Unsplash API | Free licence, but the API terms require hotlinking Unsplash's image URLs, calling the download endpoint and crediting | Not built yet: needs a key and designs that reference remote images instead of embedding them |
+
+### Workstream A — editor
+1. **A1 Text effects & curved text** (this phase): Effects section + toolbar button; presets map onto existing text
+   properties plus two new ones (`curve`, `effect`); RTL / complex scripts are never curved (it would break shaping).
+2. Next candidates: frames (shaped photo placeholders), tables, rich text runs, persistent preview cache.
+
+### Workstream B — themed template system + collections
+- **Themes as data, layouts as reusable components:** a theme (topic, art collection, hero + accent artwork, palettes,
+  fonts incl. native script, wording per purpose) × illustrated layouts (hero greeting, arch invitation, framed poster,
+  split flyer, story stack, banner, minimal card, medallion post) → several genuinely different, fully layered templates.
+- **Benchmark first:** 5 polished templates across 5 categories (Ramadan, Rosh Hashanah, Easter, Diwali, baby shower),
+  verified for rendering, editability, save/reopen and export — then expand category by category with contact-sheet review.
+- New top-level categories: Islamic holidays, Jewish holidays, Christian holidays, Cultural celebrations, Baby & newborn;
+  milestones stay in Celebrations. Existing topics move into them where they belong (ids unchanged, nothing removed).
+- Native-script wording (Arabic, Hebrew, Devanagari, Chinese, Persian…) only where the wording is certain, in proper
+  Google fonts, checked visually for right-to-left order and letter joining. Different traditions are never mixed.
