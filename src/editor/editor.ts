@@ -594,7 +594,7 @@ export class Editor {
   }
 
   private viewMenu(anchor: HTMLElement): void {
-    const on = (b: boolean) => (b ? '✓ ' : '   ');
+    const on = (b: boolean) => (b ? '✓ ' : '\u2003 '); // keeps labels lined up with or without the tick
     const v = this.view;
     popMenu(anchor, [
       { label: `${on(this.snapEnabled)}Smart guides (snap to objects & page)`, onClick: () => { this.snapEnabled = !this.snapEnabled; accounts.update((a) => (a.settings.snap = this.snapEnabled)); this.props.refresh(); } },
