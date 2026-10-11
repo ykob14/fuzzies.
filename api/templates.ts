@@ -9,11 +9,15 @@
  * GET  /api/templates?thumb=<id>&r=<revision>          → the preview picture (image)
  * POST /api/templates { action, ... }  (logged in)
  *   use     { id }                 → { ok }      counts one use per person per template per day
- *   me                             → { admin }   may this account manage templates? (ADMIN_EMAILS in Vercel)
+ *   me                             → { admin, ai } may this account manage templates? (ADMIN_EMAILS in Vercel);
+ *                                                 is AI drafting switched on? (ANTHROPIC_API_KEY + ANTHROPIC_MODEL)
  *   mine                           → { items }   every template, drafts too (admin)
  *   get     { id }                 → { meta, doc } drafts too (admin)
  *   save    { meta, doc, thumb, status? } → { id, revision }  create or update (admin)
  *   publish / unpublish / delete { id } → { ok } (admin)
+ *   ai      { brief, topic, n }    → { drafts: [{ title, kicker, details[2], cta, occasion }] }  wording for new
+ *                                    templates, written by Claude through Anthropic's Messages API (admin; only
+ *                                    when the site has its own key — never pretends without one)
  */
 import { randomBytes } from 'node:crypto';
 import { db, q, databaseUrl } from './_lib/db.js';
@@ -58,6 +62,49 @@ async function requireAdmin(req: Request): Promise<AuthedUser> {
   const u = await requireUser(req);
   if (!isAdmin(u)) throw new HttpError(403, 'Only template managers can do that.');
   return u;
+}
+
+const aiKey = () => process.env.ANTHROPIC_API_KEY?.trim().replace(/^["']|["']$/g, '') ?? '';
+const aiModel = () => process.env.ANTHROPIC_MODEL?.trim() ?? '';
+const aiReady = () => !!(aiKey() && aiModel());
+
+const AI_SYSTEM = `You write the words for graphic-design templates (posters, social posts, flyers, invitations) in a design app.
+Reply with ONLY a JSON array, no other text. Each item: {"title": string (2-5 words, the big headline),
+"kicker": string (2-6 words shown above the title), "details": [string, string] (short lines such as date/time and place;
+use friendly placeholders like "Saturday · 10 AM" or "Your venue name" — never real people, brands, logos or addresses),
+"cta": string (2-4 words, e.g. "Register now"), "occasion": string (one lower-case word or hyphenated phrase)}.
+Make every item clearly different in tone and angle. Plain, original wording; no emoji; no copyrighted slogans.`;
+
+/** Wording drafts from Claude (Anthropic Messages API). Throws HttpError with a readable reason on failure. */
+async function aiDrafts(brief: string, topic: string, n: number) {
+  let r: Response;
+  try {
+    r = await fetch(`${process.env.ANTHROPIC_BASE_URL?.trim().replace(/\/+$/, '') || 'https://api.anthropic.com'}/v1/messages`, {
+      method: 'POST',
+      headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: aiModel(), max_tokens: 1500, system: AI_SYSTEM,
+        messages: [{ role: 'user', content: `Topic: ${topic || 'any'}\nWhat the template is for: ${brief || topic}\nWrite ${n} different versions.` }],
+      }),
+    });
+  } catch { throw new HttpError(502, 'Couldn’t reach the AI service — try again in a moment.'); }
+  if (!r.ok) {
+    const why = ((await r.json().catch(() => ({}))) as { error?: { type?: string } }).error?.type ?? '';
+    console.error('ai draft failed', r.status, why);
+    throw new HttpError(502, `The AI service said no (${r.status}${why ? ` ${why}` : ''}). Check ANTHROPIC_API_KEY and ANTHROPIC_MODEL in Vercel.`);
+  }
+  const d = (await r.json()) as { content?: { type: string; text?: string }[] };
+  const text = (d.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
+  let list: unknown;
+  try { list = JSON.parse(text.slice(text.indexOf('['), text.lastIndexOf(']') + 1)); } catch { list = null; }
+  if (!Array.isArray(list)) throw new HttpError(502, 'The AI answer couldn’t be read — try again.');
+  const drafts = list.slice(0, n).map((x) => {
+    const o = (x ?? {}) as Record<string, unknown>;
+    const det = Array.isArray(o.details) ? o.details.map((v) => str(v, 60)).filter(Boolean) : [];
+    return { title: str(o.title, 60), kicker: str(o.kicker, 60), details: [det[0] ?? 'Date · Time', det[1] ?? 'Place'], cta: str(o.cta, 30) || 'Learn more', occasion: str(o.occasion, 30).toLowerCase().replace(/[^a-z0-9-]+/g, '-') };
+  }).filter((x) => x.title);
+  if (!drafts.length) throw new HttpError(502, 'The AI answer was empty — try a clearer description.');
+  return drafts;
 }
 
 const cached = (data: unknown, seconds: number) => new Response(JSON.stringify(data), {
@@ -124,8 +171,17 @@ export function POST(req: Request): Promise<Response> {
         await q('insert into fz_template_uses (template_id, user_id) values ($1, $2) on conflict do nothing', [id, u.id]);
         return { ok: true };
       }
-      case 'me':
-        return { admin: isAdmin(await requireUser(req)) };
+      case 'me': {
+        const admin = isAdmin(await requireUser(req));
+        return { admin, ai: admin && aiReady() };
+      }
+      case 'ai': {
+        await requireAdmin(req);
+        if (!aiReady()) throw new HttpError(501, 'AI drafting isn’t switched on for this site (it needs ANTHROPIC_API_KEY and ANTHROPIC_MODEL in Vercel).');
+        const brief = str(b.brief, 400), topic = str(b.topic, 80);
+        if (!brief && !topic) throw new HttpError(400, 'Describe the template you want first.');
+        return { drafts: await aiDrafts(brief, topic, Math.min(4, Math.max(1, Math.round(Number(b.n)) || 3))) };
+      }
       case 'mine': {
         await requireAdmin(req);
         const { rows } = await q<Row>(`select ${META_COLS} from fz_templates order by updated_at desc limit 500`);

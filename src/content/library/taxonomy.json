@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "Template library categories. Add a category or subcategory here (no code changes) and the library builds original, editable templates for it from the layout system. Fields: id (unique, lowercase), label, emoji (motif shown in designs), keywords (search words), palettes (preferred palette ids from palettes.ts, optional), events (2-4 starter texts: title, kicker, details[2], cta, occasion).",
+  "about": "Template library categories. Add a category or subcategory here (no code changes) and the library builds original, editable templates for it from the layout system. Fields: id (unique, lowercase), label, emoji (motif shown in designs), keywords (search words), palettes (preferred palette ids from palettes.ts, optional), events (2-4 starter texts: title, kicker, details[2], cta, occasion). Optional \"generate\": false keeps a topic in the menus without building templates for it (for topics only made by hand or published from the template manager).",
   "categories": [
     {
       "id": "sports",
@@ -952,6 +952,172 @@
               ],
               "cta": "Pizza provided",
               "occasion": "party"
+            }
+          ]
+        },
+        {
+          "id": "pickleball",
+          "label": "Pickleball",
+          "emoji": "🏓",
+          "keywords": [
+            "paddle",
+            "dink",
+            "doubles",
+            "court",
+            "open play"
+          ],
+          "palettes": [
+            "court-green",
+            "sunset",
+            "fresh"
+          ],
+          "events": [
+            {
+              "title": "Pickleball Open Play",
+              "kicker": "All Ages · All Levels",
+              "details": [
+                "Saturdays · 9 AM",
+                "Park Courts"
+              ],
+              "cta": "Paddles provided",
+              "occasion": "open-play"
+            },
+            {
+              "title": "Dink & Drive Classic",
+              "kicker": "Doubles Tournament",
+              "details": [
+                "May 18",
+                "Riverside Courts"
+              ],
+              "cta": "Register your team",
+              "occasion": "tournament"
+            },
+            {
+              "title": "Learn Pickleball",
+              "kicker": "Beginner Clinic",
+              "details": [
+                "Tuesdays · 6 PM",
+                "Community Centre"
+              ],
+              "cta": "Sign up today",
+              "occasion": "clinic"
+            }
+          ]
+        },
+        {
+          "id": "softball",
+          "label": "Softball",
+          "emoji": "🥎",
+          "keywords": [
+            "slowpitch",
+            "fastpitch",
+            "league",
+            "diamond",
+            "innings"
+          ],
+          "palettes": [
+            "classic",
+            "sunset",
+            "pitch"
+          ],
+          "events": [
+            {
+              "title": "Softball League",
+              "kicker": "Summer Season",
+              "details": [
+                "Thursdays · 6:30 PM",
+                "Memorial Field"
+              ],
+              "cta": "Teams forming now",
+              "occasion": "league"
+            },
+            {
+              "title": "Game Day",
+              "kicker": "Home Opener",
+              "details": [
+                "June 7 · 1 PM",
+                "City Diamond"
+              ],
+              "cta": "Come cheer us on",
+              "occasion": "game"
+            }
+          ]
+        },
+        {
+          "id": "gymnastics",
+          "label": "Gymnastics",
+          "emoji": "🤸",
+          "keywords": [
+            "tumbling",
+            "beam",
+            "floor",
+            "vault",
+            "meet"
+          ],
+          "palettes": [
+            "pastel",
+            "electric",
+            "sunset"
+          ],
+          "events": [
+            {
+              "title": "Spring Gymnastics Meet",
+              "kicker": "Invitational",
+              "details": [
+                "April 12",
+                "Main Gym"
+              ],
+              "cta": "Tickets at the door",
+              "occasion": "meet"
+            },
+            {
+              "title": "Tumble Tots",
+              "kicker": "Kids Classes",
+              "details": [
+                "Ages 3–6 · Saturdays",
+                "Flip Studio"
+              ],
+              "cta": "Book a free trial",
+              "occasion": "class"
+            }
+          ]
+        },
+        {
+          "id": "surfing",
+          "label": "Surfing",
+          "emoji": "🏄",
+          "keywords": [
+            "surf",
+            "waves",
+            "board",
+            "beach",
+            "swell"
+          ],
+          "palettes": [
+            "beach",
+            "ocean",
+            "sunset"
+          ],
+          "events": [
+            {
+              "title": "Surf Camp",
+              "kicker": "Learn to Ride",
+              "details": [
+                "July 8–12",
+                "North Beach"
+              ],
+              "cta": "Spots are limited",
+              "occasion": "camp"
+            },
+            {
+              "title": "Dawn Patrol Classic",
+              "kicker": "Surf Contest",
+              "details": [
+                "August 3 · 7 AM",
+                "Point Break"
+              ],
+              "cta": "Enter now",
+              "occasion": "contest"
             }
           ]
         }

@@ -10,7 +10,7 @@ import { firstColor, closePicker } from './colors';
 import { buildPanels, type Panels } from './panels';
 import { buildProps, type Props } from './props';
 import { openShare } from './share';
-import { openPreview, downloadMenu } from './preview';
+import { openPreview, downloadMenu, checkTemplateRights } from './preview';
 import { onFontsLoaded } from '../content/fonts';
 import { db } from '../core/db';
 import { track } from '../core/missions';
@@ -137,6 +137,7 @@ export class Editor {
     const previewBtn = btn('Preview', { icon: 'play', kind: 'plain', title: 'Preview every page full screen', class: 'ed-preview', onClick: () => openPreview(this) });
     const dlBtn = btn(null, { icon: 'download', kind: 'ghost', title: 'Download (PNG, JPG, PDF)', class: 'ed-dl' });
     dlBtn.addEventListener('click', () => downloadMenu(this, dlBtn));
+    checkTemplateRights();
     const top = h('header', { class: 'ed-top' },
       btn(null, { icon: 'back', kind: 'plain', title: 'Back to home', onClick: () => this.exit() }),
       h('div', { class: 'ed-title' }, this.nameInput, this.saveState),

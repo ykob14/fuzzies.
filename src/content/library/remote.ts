@@ -2,17 +2,17 @@
  * Templates published from the template manager (stored in the database, see api/templates.ts).
  * The newest ones are loaded into the catalog when the gallery opens; when there are more than that, searches
  * also ask the server (Postgres full-text search) and the matches join the catalog. Documents download only
- * when someone previews or uses a template. Template managers (ADMIN_EMAILS in Vercel) can save and publish.
+ * when someone previews or uses a template. Managing templates lives in ./admin.ts.
  */
-import { api, cloudEnabled } from '../../core/api';
-import { accounts } from '../../core/account';
+import { cloudEnabled } from '../../core/api';
 import { migrateDesign } from '../../editor/model';
-import type { Design } from '../../editor/types';
 import { setPublished, setRemoteLoader, type TemplateMeta } from './catalog';
 import type { Filters } from './search';
 
 const FIRST = 200;
 let loadedAt = 0;
+/** Forget the loaded list so the next gallery visit fetches it again (after publishing). */
+export function refreshPublished(): void { loadedAt = 0; }
 let loading: Promise<void> | null = null;
 let more = false; // the server has more published templates than we loaded
 const asked = new Set<string>();
@@ -56,23 +56,3 @@ export async function searchPublished(q: string, f: Filters): Promise<void> {
   const d = await list({ q: q.trim(), cat: f.category, sub: f.sub, format: f.format, limit: '60' });
   if (d?.items.length) setPublished(d.items, true);
 }
-
-// ---------- template managers ----------
-let adminFor: { id: string; yes: Promise<boolean> } | null = null;
-/** May the signed-in account create and publish templates? (decided by the server) */
-export function isTemplateAdmin(): Promise<boolean> {
-  const a = accounts.current;
-  if (!cloudEnabled || !a?.cloud) return Promise.resolve(false);
-  if (adminFor?.id !== a.id) adminFor = { id: a.id, yes: api<{ admin: boolean }>('templates', 'me').then((r) => !!r.admin).catch(() => false) };
-  return adminFor.yes;
-}
-
-export interface ManagedTemplate extends TemplateMeta { status: 'draft' | 'published'; hasThumb?: boolean }
-export const manager = {
-  list: () => api<{ items: ManagedTemplate[] }>('templates', 'mine').then((r) => r.items),
-  get: (id: string) => api<{ meta: ManagedTemplate; doc: unknown }>('templates', 'get', { id }).then((r) => ({ meta: r.meta, doc: migrateDesign(r.doc) })),
-  save: (meta: Partial<TemplateMeta>, doc: Design, thumb: string | null, status: 'draft' | 'published') =>
-    api<{ id: string; revision: number }>('templates', 'save', { meta, doc, thumb, status }).then((r) => { loadedAt = 0; return r; }),
-  publish: (id: string, on: boolean) => api('templates', on ? 'publish' : 'unpublish', { id }).then(() => { loadedAt = 0; }),
-  remove: (id: string) => api('templates', 'delete', { id }).then(() => { loadedAt = 0; }),
-};

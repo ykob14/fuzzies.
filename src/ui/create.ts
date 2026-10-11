@@ -26,7 +26,7 @@ export function takeTryIt(designId: string): TryIt | null {
   } catch { return null; }
 }
 
-async function saveAndOpen(d: Design, tryIt?: TryIt): Promise<void> {
+export async function saveAndOpen(d: Design, tryIt?: TryIt): Promise<void> {
   try {
     try { d.thumb = thumbnail(d); } catch { /* the editor makes one on the first save */ }
     await db.putDesign(d);

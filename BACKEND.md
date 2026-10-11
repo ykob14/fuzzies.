@@ -74,6 +74,20 @@ shows, then set `MAIL_FROM` in Vercel to e.g. `Fuzzies <hello@fuzzies.app>` and 
 Optional: `APP_URL` (e.g. `https://fuzzies.app`) sets the address used in email links; by default it's your Vercel
 production address.
 
+## Template library extras (all optional)
+
+The gallery works without any of these. Each one is a Vercel → **Settings → Environment Variables** entry, then **Redeploy**.
+
+| Setting | What it switches on |
+|---|---|
+| `ADMIN_EMAILS` | Who may **publish templates** — the login emails of template managers, separated by commas (e.g. `you@gmail.com`). They get **Download → Publish as template** in the editor and **Manage templates** in Templates (publish, unpublish, edit, delete). Everyone else just sees and uses published templates. |
+| `PEXELS_API_KEY` | **Pexels** photos in the editor's Photos search (free key: pexels.com/api → *Your API key*). Without it, search uses **Openverse** (no key; only CC0, public-domain and CC BY photos — CC BY ones carry a credit the app shows and lets people copy). |
+| `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` | **Draft with AI** in Manage templates: Claude writes the wording for new templates and the app lays it out. Needs a key from console.anthropic.com (paid per use) and a Claude model id from Anthropic's model list. Both must be set; without them the AI button doesn't appear. |
+
+Why not Unsplash's own API? Its rules require showing photos from Unsplash's servers (hotlinking), but a design must keep
+its photos inside the file to work offline and export, so the app only uses Unsplash photos through Lorem Picsum's
+free browse list.
+
 ## Troubleshooting
 
 - **Health check:** open `https://<your-site>/api/auth?check` in a browser.

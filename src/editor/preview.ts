@@ -5,6 +5,7 @@ import { exportFiles, download, type ExportFormat } from './export';
 import { rewards } from '../core/rewards';
 import { h, btn, icon, modal, popMenu, toast } from '../ui/dom';
 import { creditLine } from './photos';
+import { knownRights, templateRights } from '../content/library/admin';
 import type { Credit, Design } from './types';
 
 export function openPreview(ed: Editor): void {
@@ -77,8 +78,11 @@ export function downloadMenu(ed: Editor, anchor: HTMLElement): void {
     { label: many ? 'PDF · all pages' : 'PDF document', icon: 'file', onClick: () => void run('pdf') },
     null,
     { label: 'Project file (.fuzzies)', icon: 'folder', onClick: () => void run('fuzzies') },
+    ...(knownRights().admin ? [null, { label: d.template?.startsWith('pub-') ? 'Update template…' : 'Publish as template…', icon: 'upload' as const, onClick: () => void import('./publish').then((m) => m.publishDialog(ed)) }] : []),
   ]);
 }
+/** Ask early (in the background) whether this account manages templates, so the menu can show it instantly. */
+export const checkTemplateRights = (): void => void templateRights();
 
 /** Every stock photo's credit in a design (one per photo, even if used twice). */
 export function photoCredits(d: Design): Credit[] {

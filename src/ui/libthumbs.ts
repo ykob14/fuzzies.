@@ -13,7 +13,7 @@ const queue: { m: TemplateMeta; max: number; img: HTMLImageElement; box: HTMLEle
 let running = false;
 let fontsReady: Promise<void> | null = null;
 
-function waitFonts(): Promise<void> {
+export function waitFonts(): Promise<void> {
   fontsReady ??= (async () => {
     if (!document.fonts) return;
     const faces = new Set<string>();

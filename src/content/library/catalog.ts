@@ -182,3 +182,33 @@ export function forgetBuiltDocs(): void { for (const [id] of docs) if (metaById(
 export function asTemplate(m: TemplateMeta): Template {
   return { id: m.id, name: m.name, category: m.formatLabel, cost: m.cost, get design() { return templateDoc(m); } } as Template;
 }
+
+/**
+ * Layouts for new wording (AI drafts in the template manager): several different archetypes in the topic's colours,
+ * built by the same layout engine as the library. Returns editable designs; nothing is saved here.
+ */
+export function draftDesigns(subId: string, ev: EventText, n = 4, seed = 0): { label: string; style: string; design: Design }[] {
+  const s = subById(subId);
+  if (!s) return [];
+  const h0 = hash(subId + ev.title) + seed;
+  const pals = s.sub.palettes?.length ? s.sub.palettes : PALETTES.map((p) => p.id);
+  const picks = ARCHETYPES.filter((a) => (a.kinds.includes(s.cat.kind) || a.also?.includes(s.sub.id)) && (!a.fits || a.fits(ev)))
+    .map((a) => ({ a, k: hash(a.id + h0) })).sort((x, y) => x.k - y.k).slice(0, n).map((x) => x.a);
+  return picks.map((a, i) => {
+    const format = a.formats[(h0 + i) % a.formats.length];
+    const { pages, assets, w, h } = buildPages(a, { pal: paletteById(pals[(h0 + i) % pals.length]), f: FONTS[a.voices[(h0 + i) % a.voices.length]], ev, motif: s.sub.emoji, label: s.sub.label, kind: s.cat.kind, seed: (h0 + i) % 97 }, format);
+    const now = Date.now();
+    return { label: `${a.label} · ${FORMATS[format].label}`, style: a.style, design: { v: DOC_VERSION, id: `draft_${i}`, owner: 'system', name: ev.title, width: w, height: h, pages, assets, createdAt: now, updatedAt: now } };
+  });
+}
+
+/** The format key + label for a design size (library formats first, otherwise "W × H"). */
+export function formatFor(w: number, h: number, pages: number): { format: string; formatLabel: string } {
+  const hit = (Object.entries(FORMATS) as [Format, { w: number; h: number; label: string }][]).find(([k, f]) => f.w === w && f.h === h && (k !== 'slides' || pages > 1) && (k !== 'landscape' || pages === 1));
+  return hit ? { format: hit[0], formatLabel: hit[1].label } : { format: `${w}x${h}`, formatLabel: `${w} × ${h} px` };
+}
+
+/** Every style and colour word used in the library (choices for the publish form). */
+export function styleWords(): { styles: string[]; colors: string[] } {
+  return { styles: [...new Set(ARCHETYPES.map((a) => a.style))].sort(), colors: [...new Set(PALETTES.flatMap((p) => p.families))].sort() };
+}

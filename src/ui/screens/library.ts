@@ -10,6 +10,7 @@ import { catalog, CATEGORIES_TREE, metaById, onCatalogChange, subById, type Temp
 import { search, facets, related, type Filters } from '../../content/library/search';
 import { usage, loadStats } from '../../content/library/usage';
 import { loadPublished, searchPublished } from '../../content/library/remote';
+import { templateRights } from '../../content/library/admin';
 import { h, btn, icon, fuzzyMark, modal } from '../dom';
 import { createBlank, createDialog, useCatalogTemplate } from '../create';
 import { lazyThumb } from '../libthumbs';
@@ -184,8 +185,13 @@ export function libraryScreen(): Screen {
   const offAcc = accounts.onChange(() => { if (main.isConnected && location.hash.startsWith('#/templates')) fill(); });
   fill();
 
+  const headActions = h('div', { class: 'page-actions' });
+  // template managers get their tools here (the server decides who that is)
+  void templateRights().then((r) => {
+    if (r.admin && main.isConnected) headActions.append(btn('Manage templates', { kind: 'ghost', icon: 'settings', onClick: () => void import('../templateManager').then((m) => m.openTemplateManager(r.ai)) }));
+  });
   const el = h('div', { class: 'page lib' },
-    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Templates'), h('p', { class: 'muted' }, `${catalog().length} original, fully editable templates for every event, sport and celebration.`))),
+    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Templates'), h('p', { class: 'muted' }, `${catalog().length} original, fully editable templates for every event, sport and celebration.`)), headActions),
     h('div', { class: 'lib-searchbar' }, icon('search', 20), input),
     h('div', { class: 'lib-layout' }, h('aside', { class: 'lib-side' }, tree), h('div', { class: 'lib-body' }, filterRow, main)));
   if (q) setTimeout(() => input.focus(), 50);

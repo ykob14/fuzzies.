@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-11 (session 2, later) · by Claude Code · `main` and `claude/fuzzies-design-app-jwv4tu` are identical (editor upgrade is live)_
+_Last updated: 2026-10-11 (session 2, latest) · by Claude Code · the **template library** is on `claude/fuzzies-design-app-jwv4tu` only, waiting for the owner's OK to go to `main`_
 
 ---
 
@@ -25,7 +25,7 @@ keeps people coming back (the mascot, the game, missions).
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested. |
 | **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
-| **Branches** | `main` = `claude/fuzzies-design-app-jwv4tu` (live): the owner approved the **editor upgrade** ("Yes") on 2026-10-11. Keep working on the branch and ask before the next merge to `main`. **Rollback point:** commit `76fa0bb` (local tag `before-editor-upgrade`; pushing tags is blocked from Claude sessions). |
+| **Branches** | `main` = editor upgrade (live, owner said "Yes" on 2026-10-11). `claude/fuzzies-design-app-jwv4tu` = `main` + the **template library** (categories, 363 templates, search, publishing, photo search) — **ask the owner before merging**. **Rollback point:** commit `76fa0bb` (local tag `before-editor-upgrade`; pushing tags is blocked from Claude sessions). |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
 ## 3. Owner preferences (learned — respect these)
@@ -123,7 +123,8 @@ src/
     types.ts           design model (Design → Page → El union: shape, text, image, graphic, emoji, draw, qr)
     model.ts           the versioned document format (DOC_VERSION = 2), its invariants, and migrateDesign() (upgrade + repair)
     preview.ts         full-screen Preview and the top bar's Download menu
-    photos.ts          free photos for the Photos panel (Lorem Picsum / Unsplash licence, no key)
+    photos.ts          Photos panel source: search via api/assets (Pexels or Openverse) + Lorem Picsum browse; credits
+    publish.ts         "Publish as template" form (template managers only; lazy)
     render.ts          canvas renderer shared by editor, thumbnails and exports (WYSIWYG)
     editor.ts          the editor: selection, move/resize/rotate, snapping, grouping, pages, undo, autosave, keys
     panels.ts          left panels (Templates, Elements, Text, Uploads, Stickers, Draw, Background, Layers)
@@ -132,7 +133,18 @@ src/
     doc.ts             factories, size presets, clone/instantiate
     export.ts / share.ts  PNG/JPG/PDF/.fuzzies export, share sheet, share links
     shapes.ts, qr.ts   shape paths; QR encoder (byte mode, level M, v1–10)
-  content/             templates (28), art packs, sticker packs, fonts (Google Fonts), text styles
+  content/             classic templates (28), art packs, sticker packs, fonts (Google Fonts), text styles
+    library/           the template library (lazy chunk):
+      taxonomy.json    DATA: categories › topics (keywords, palettes, starter texts). Add topics here — no code.
+      layouts.ts       14 layout archetypes (split, badge, photo, ticket, matchup, editorial, burst, stack, collage,
+                       certificate, bignum, confetti, circle, slides) × 8 formats; text sized by measuring the real font
+      palettes.ts      28 palettes + 9 font "voices" (free Google fonts)
+      catalog.ts       TemplateMeta (metadata only) for library + classic + published templates; documents built/
+                       downloaded lazily (templateDoc / loadTemplateDoc); draftDesigns() for AI wording
+      search.ts        search (prefix, typo, synonyms, title weight, usage boost), facets, related()
+      usage.ts         real usage: this device's recent list + server counts (Trending = 7 days, Popular = all time)
+      remote.ts        published templates from the server into the catalog; server search when there are more
+      admin.ts         template-manager rights (server decides) + manager API (save/publish/delete/AI draft)
   game/
     crossing.ts        Fuzzy Crossing RULES only (lanes, collisions, scoring) + View interface + Fx events
     view3d.ts          realistic Three.js view (sky, shadows, water, fur, intro cinematic)
@@ -151,26 +163,33 @@ src/
     app.ts             shell (sidebar / top bar / phone tab bar) + hash router
     mascot.ts          the living mascot component (bounce, shadow, sparkles, wink, tap hop, tickle)
     landIcons.ts       Fuzzies Land's own "sticker" icon set (coin, star, hammer, crate, barn, music, gate…)
+    libthumbs.ts       lazy template previews (IntersectionObserver, one per frame, waits for fonts, cached)
+    templateManager.ts "Manage templates" window (list, publish/unpublish, edit, delete, Draft with AI)
     travel.ts          the circle-wipe transition between Fuzzy Crossing and Fuzzies Land (waits for 'fz:scene-ready')
     missions.ts        missions card + badge grid
-    screens/           auth, home, templates, projects, editor, play, land, rewards, profile, settings, shared (link viewer)
+    screens/           auth, home, templates (lazy wrapper → library.ts gallery), projects, editor, play, land, rewards, profile, settings, shared
 api/                   Vercel serverless functions (the backend)
   auth.ts              signup / login / me / password / delete / username
   data.ts              profile get/put (version-checked), designs & uploads list/get/put
+  templates.ts         published template catalog (list/search/doc/thumb, public + CDN-cached), usage stats,
+                       template-manager actions (ADMIN_EMAILS), AI wording (ANTHROPIC_API_KEY + ANTHROPIC_MODEL)
+  assets.ts            licensed photo search (Pexels if PEXELS_API_KEY, else Openverse CC0/PD/CC BY) + allowlisted image fetcher
   _lib/db.ts           pg pool from DATABASE_URL + auto-created tables
   _lib/auth.ts         scrypt passwords, HMAC login tokens, JSON/error helpers
 ```
 
 **Storage keys:** `localStorage` `fz.accounts`, `fz.session`, `fz.sync.<userId>` (pending uploads queue),
 `fz.sync.base.<userId>` (last profile copy agreed with the cloud), `fz.token` (login token for the backend),
-`fz.time.<accountId>` (seconds towards the next time bonus), `fz.look` + `fz.splash.frames` (launch screen look); Cache Storage `fuzzies-icon` (your app icon);
+`fz.time.<accountId>` (seconds towards the next time bonus), `fz.tpl.used` (recently used templates per account), `fz.look` + `fz.splash.frames` (launch screen look); Cache Storage `fuzzies-icon` (your app icon);
 `sessionStorage` `fz.remix` (pending remix after
 sign-up), `fz.try` (what to open when a new design is started from Rewards → Use);
 IndexedDB database `fuzzies` with stores `designs` and `uploads` (both indexed by `owner`).
 
 **Backend (Neon):** tables `fz_users` (email, username, scrypt `pass`, `token_v` — bump to log out all devices),
 `fz_profiles` (account JSON minus device-only fields + `updated_at` version), `fz_designs` / `fz_uploads` (PK `(owner, id)`,
-`data` JSON, `deleted` tombstone, `updated_at`), `fz_login_fails` (10 wrong passwords / 15 min / email). Every query is
+`data` JSON, `deleted` tombstone, `updated_at`), `fz_login_fails` (10 wrong passwords / 15 min / email),
+`fz_templates` (published/draft templates: searchable metadata + `search` tsvector, `doc` JSON kept apart, `thumb`, `revision`),
+`fz_template_uses` (one row per person per template per day → Trending/Popular). Every query is
 scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 ## 6. Rules of the codebase (gotchas)
@@ -220,6 +239,13 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   the app sidebar fold in `fz.sidebar`.
   **Move Mode:** tap a building → "Move or turn", or press and hold it (450 ms, `startHold` in `ui/screens/land.ts`) — both use
   `startPlacing(item, id)`; `view.setGhost({…, moving})` hides the original; `L.move()` is free.
+- **Template library:** new categories/topics = edit `content/library/taxonomy.json` only (each topic gets 4–5 templates built
+  from different archetypes/formats/palettes; `generate: false` = menu only). New layouts = an `Archetype` in `layouts.ts`
+  (`kinds` it suits, `also` topic ids, `fits(ev)` to refuse texts it can't show). Library template ids are `${topic}--${arch}`
+  and are referenced by usage stats and `design.template` — renaming a topic or archetype id breaks those links.
+  Template metadata never contains documents; `loadTemplateDoc()` builds/downloads them. Previews must wait for fonts
+  (`waitFonts()` in `ui/libthumbs.ts`) because text is sized by measuring. Published template ids start with `pub-`; a design
+  whose `template` is a `pub-` id offers "Update template" to managers. Stock photos keep `credit` on the image element.
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
 - **Scrolling (computers):** inside the app shell the `.main` panel scrolls, not the window (≥961 px); phones/tablets still scroll the window.
@@ -270,12 +296,19 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | _(polish)_ | **Canva-easy, Linear-clean polish pass** (owner asked; nothing rebuilt, all features kept). Shell: sidebar grouped into Create / Play / You with tighter type, tooltips on the folded rail, tablets (761–960 px) get the slim rail instead of the tab bar; top bar shows the page title + a search box; **quick find** (`ui/quickfind.ts`, Ctrl/Cmd+K) jumps to screens, templates and your designs. Styling: layered low-contrast shadows (`--shadow-xs/-md`), `--ease`, refined buttons/inputs/chips/menus/modals, hover states, page fade-in — all in the "Polish v2" sections at the end of `styles.css`. Editor: **smart toolbar** above the canvas (`props.bar`, built in `editor/props.ts` → `renderBar()`): text = font, size −/+, colour, B/I/U/aA, align; shapes = fill/border; graphics/QR = colours; Position menu + Transparency for everything; page colour/Resize/Add page when nothing is selected. The full inspector is a docked column shown on demand ("All options", remembered in `fz.ed.inspector`); the design re-fits when space changes unless zoomed by hand (`fitZoom`). The size label in the top bar opens page settings. Phones: the toolbar slides up over the tool rail while something is selected (Done brings the rail back). **Drag and drop** from panels (shapes, graphics, stickers, text, uploads) with mouse or finger (press-and-hold on touch so swiping still scrolls). Fix: phones with a folded sidebar saved got a squashed page. Tested at 1440/834/390 px, light and dark, plus the production smoke test (every screen, editor, Fuzzies Land): no errors. Merged to `main` (live). |
 | `2d9ab5f` | **Bolder look** (owner: the polish pass "still looks the same"). Home: raspberry banner "What will you design today?" with a big search box (opens quick find with what you type) and round size shortcuts (Instagram, Story, Poster, Presentation, YouTube, Logo, Invitation, Custom); order is now Recent designs → Popular templates (one swipeable equal-height row) → Play & earn (game + town side by side) → missions. Computers (≥961 px): sidebar on the page colour, each screen in a raised white panel that scrolls itself (`.main` is the scroller), active menu item is a white pill. Re-checked before going live: production smoke test (every screen, editor, Fuzzies Land) on computer + phone, editor toolbar/undo and drag-and-drop on 3 sizes, panel scrolling, folded menu, daily bonus, shortcuts, quick find, dark mode (banner deepened): no errors. Merged to `main` (live). |
 | _(editor)_ | **Editor upgrade** (owner: Create → Templates / My Designs only, competitive with pro tools). Kept the app's own Canvas 2D engine after weighing Konva/Fabric (both MIT, but a switch would mean rewriting the renderer shared by editor/thumbnails/exports and migrating every saved design for no feature gain). **Document format v2** (`editor/model.ts`): versioned, documented invariants, `migrateDesign()` upgrades/repairs old or damaged saves on every load path; designs remember their template; `folder`. **Autosave**: serialized writes, save on tab hide/close, Ctrl/Cmd+S, Saving/Saved/Not saved·Retry chip, thumbnail at creation. **Performance**: cached layers while dragging + page picture while panning (400-object design: 1–16 ms per frame), accent colour cached. **Editing**: View menu (smart guides, show grid, snap to grid, grid size), Preview (full-screen pages), Download menu (PNG/JPG/PDF/.fuzzies), Hide in menus, Tab/Shift+Tab through objects. **Photos** tab (free Unsplash-licensed photos via Lorem Picsum; tested with simulated responses — the container can't reach it). **Templates**: shape filter, count, Blank design card. **My Designs**: folders. Tested: save/reload/reopen identical, hide-tab save, old-format design repaired, grid snap, hide+undo, preview, PNG/PDF downloads, drag-and-drop, toolbar/undo on 3 sizes, production smoke test (computer + phone, no errors). Merged to `main` (live). |
+| _(library)_ | **Template library** (owner: Create → Templates / My Designs only, "large-scale, searchable, inspired by Canva", original templates, licensed assets, no scraping). Data-driven taxonomy: 7 categories, 83 topics (27 sports incl. pickleball/softball/gymnastics/surfing, entertainment, celebrations, community, business, education, creators). 14 layout archetypes × 8 formats × 28 palettes × 9 font voices → **335 original templates** with real differences (4–5 per topic, never near-duplicates), plus the 28 classics placed in topics (363 in all). Gallery: search (typos, synonyms), category tree, format/style/colour/occasion/free filters, Recently used / Trending / Popular (real usage only, hidden until there is data) / Recently added, lazy previews, infinite paging, preview with similar templates, blank starters; editor Templates panel searches the same library. Backend: `fz_templates` catalog with Postgres full-text search + paging, documents and pictures served separately, revisions; usage counts. **Publishing:** template managers (`ADMIN_EMAILS`) get Download → Publish as template / Update template and Manage templates (publish, unpublish, edit, delete); **Draft with AI** only when `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are set (Claude writes wording, the layout engine lays it out). **Photos:** search through Pexels (with a key) or Openverse (CC0/public domain/CC BY), safe image fetcher (allowlisted hosts), credits saved with each photo, inspector credit + Download → Photo credits. Tested: 33 catalog API checks + AI checks on real Postgres and a fake AI service, 23 photo-API checks (incl. blocked hosts/redirects/size), browser runs of gallery, editor panel, photo search/credits, publish → user finds and uses it, manager, AI drafts, at desktop and phone sizes. Branch only. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
 ## 8. Known limitations / not verified
+
+- **Template library:** Pexels, Openverse and the AI drafting were tested only against simulated answers (no internet in the Claude
+  container) — check them on the live site once the keys are set. Openverse without a key has low anonymous rate limits (searches
+  are CDN-cached for an hour). Published templates' photos are stored inside the template JSON (3.5 MB cap per template).
+  Trending/Popular appear only after people use templates while logged in to cloud accounts. Search runs in the browser over
+  the loaded catalog; the server is asked only when more than 200 templates are published.
 
 - **Photos panel** was only tested against simulated picsum.photos responses (the Claude container has no internet). Check it on the live
   site; if picsum is ever down the panel shows a friendly "Try again". No photo search (picsum has none) — a real search needs an
@@ -308,7 +341,10 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Editor upgrade is live** — check the Photos panel on the live site (untested against the real service); collect feedback; finish the reset-email setup (ask for the new `ref:` code).
+0. **Template library is on the branch** — show the owner, ask before merging to `main`. Owner steps after merging (BACKEND.md →
+   "Template library extras"): `ADMIN_EMAILS` (their own login email) to publish templates; optional `PEXELS_API_KEY`;
+   optional `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` for Draft with AI. Then publish a few real templates and check photo search live.
+   **Editor upgrade is live** — check the Photos panel on the live site (untested against the real service); collect feedback; finish the reset-email setup (ask for the new `ref:` code).
    **Live for testing** (owner approved). Collect the owner's feedback from real devices (performance on their phone!).
    Next for Fuzzies Land: restyle the decorations (bench, lamps, fountain, statue, rainbow arch), crops and construction site;
    residents carrying goods to the barn and avoiding each other; a guided first 5 minutes; day-to-dusk light; real-phone
