@@ -29,11 +29,12 @@ export const NAV_GROUPS: { label: string; items: { id: string; label: string; ic
 
 let open = false;
 
-export function openQuickFind(): void {
+export function openQuickFind(initial = ''): void {
   const a = accounts.current;
   if (!a || open) return;
   open = true;
   const input = h('input', { class: 'qf-input', type: 'search', placeholder: 'Search screens, templates and your designs…', 'aria-label': 'Quick find', autocomplete: 'off', spellcheck: 'false' });
+  input.value = initial;
   const list = h('div', { class: 'qf-list', role: 'listbox' });
   const box = h('div', { class: 'qf', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Quick find' },
     h('div', { class: 'qf-head' }, icon('search', 18), input, h('kbd', { class: 'qf-esc' }, 'Esc')),
@@ -107,8 +108,9 @@ export function openQuickFind(): void {
   addEventListener('hashchange', close, { once: true });
   fill();
   document.body.append(backdrop);
+  input.focus(); // right away, so keys typed straight after opening land here
   requestAnimationFrame(() => backdrop.classList.add('in'));
-  setTimeout(() => input.focus(), 20);
+  setTimeout(() => { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 20);
 }
 
 /** Ctrl/Cmd+K opens quick find on the app's screens (the editor and the games keep their own keys). */

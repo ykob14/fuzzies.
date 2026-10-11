@@ -5,7 +5,8 @@ import { rewards } from '../../core/rewards';
 import { db } from '../../core/db';
 import { SIZE_PRESETS } from '../../editor/doc';
 import { templates } from '../../content/templates';
-import { h, btn, icon, fuzzyMark, QUOTE } from '../dom';
+import { h, btn, icon, fuzzyMark } from '../dom';
+import { openQuickFind } from '../quickfind';
 import { createBlank, createDialog } from '../create';
 import { designCard, templateCard } from './cards';
 import { missionsCard } from '../missions';
@@ -17,18 +18,27 @@ export function homeScreen(): Screen {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const hero = h('section', { class: 'hero' },
-    h('div', { class: 'hero-text' },
-      h('p', { class: 'hero-kicker' }, `${greet}, ${a.name.split(' ')[0]} 👋`),
-      h('h1', null, 'What will you ', h('span', { class: 'grad-text' }, 'create'), ' today?'),
-      h('p', { class: 'hero-quote' }, `“${QUOTE}”`),
-      h('div', { class: 'hero-actions' },
-        btn('Create a design', { kind: 'primary', size: 'lg', icon: 'plus', onClick: () => createDialog() }),
-        btn('Browse templates', { kind: 'ghost', size: 'lg', icon: 'grid', onClick: () => (location.hash = '#/templates') }))),
-    h('div', { class: 'hero-art', 'aria-hidden': 'true' },
-      h('div', { class: 'ha-card ha1' }, h('span', null, 'SALE')),
-      h('div', { class: 'ha-card ha2' }, h('span', null, 'Hello!')),
-      h('div', { class: 'ha-card ha3' }, mascot(70))));
+  // Canva-style banner: one big question, one search box, round shortcuts for the most-used sizes
+  const search = h('input', { class: 'home-search-input', type: 'search', placeholder: 'Search templates, sizes, designs', 'aria-label': 'Search', autocomplete: 'off' });
+  // typing (or tapping, on phones) hands over to quick find, which searches everything as you type
+  search.addEventListener('input', () => { const v = search.value; search.value = ''; search.blur(); openQuickFind(v); });
+  search.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') { e.preventDefault(); openQuickFind(); } });
+  const KINDS = ['ig-post', 'story', 'poster', 'presentation', 'yt-thumb', 'logo', 'invite'];
+  const SHORT: Record<string, string> = { 'ig-post': 'Instagram', story: 'Story', 'yt-thumb': 'YouTube' };
+  const kind = (label: string, w: number, hh: number, onClick: () => void, plus = false) => {
+    const r = w / hh, bw = r >= 1 ? 26 : 26 * r, bh = r >= 1 ? 26 / r : 26;
+    return h('button', { class: 'home-kind', type: 'button', onclick: onClick },
+      h('span', { class: 'home-kind-ic' }, plus ? icon('plus', 24) : h('span', { class: 'home-kind-shape', style: `width:${bw.toFixed(1)}px;height:${bh.toFixed(1)}px` })),
+      h('span', { class: 'home-kind-label' }, label));
+  };
+  const banner = h('section', { class: 'home-banner' },
+    h('div', { class: 'home-banner-mascot', 'aria-hidden': 'true' }, mascot(76)),
+    h('p', { class: 'home-banner-kicker' }, `${greet}, ${a.name.split(' ')[0]} 👋`),
+    h('h1', null, 'What will you design today?'),
+    h('label', { class: 'home-search' }, icon('search', 20), search),
+    h('div', { class: 'home-kinds' },
+      ...KINDS.map((id) => SIZE_PRESETS.find((p) => p.id === id)!).filter(Boolean).map((p) => kind(SHORT[p.id] ?? p.name, p.w, p.h, () => createBlank(p.name, p.w, p.h))),
+      kind('Custom size', 1, 1, () => createDialog(), true)));
 
   // daily bonus
   const daily = rewards.dailyStatus();
@@ -39,12 +49,6 @@ export function homeScreen(): Screen {
       const n = rewards.claimDaily();
       if (n) (e.currentTarget as HTMLElement).closest('.daily')?.remove();
     } })) : null;
-
-  const sizes = h('div', { class: 'quick-sizes' }, ...SIZE_PRESETS.slice(0, 10).map((p) => {
-    const b = h('button', { class: 'qs', type: 'button' }, h('span', { class: 'qs-ic' }, p.icon), h('span', null, p.name));
-    b.addEventListener('click', () => createBlank(p.name, p.w, p.h));
-    return b;
-  }), h('button', { class: 'qs', type: 'button', onclick: () => createDialog() }, h('span', { class: 'qs-ic' }, '➕'), h('span', null, 'Custom size')));
 
   const recent = h('div', { class: 'card-grid' });
   const recentSec = h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Recent designs'), h('a', { href: '#/projects', class: 'link' }, 'See all')), recent);
@@ -79,10 +83,11 @@ export function homeScreen(): Screen {
       h('div', { class: 'gp-stats' }, h('span', null, `⭐ Level ${land.level}`), h('span', null, `🪙 ${land.coins}`)),
       btn('Visit my town', { kind: 'primary', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) })));
 
-  const el = h('div', { class: 'page home' }, hero, dailyCard, missionsCard(),
-    h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Start something new')), sizes),
-    recentSec, game, landCard,
-    h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Popular templates'), h('a', { href: '#/templates', class: 'link' }, 'Browse all')), featured));
+  // your work first, then ideas, then play
+  const el = h('div', { class: 'page home' }, banner, dailyCard, recentSec,
+    h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Popular templates'), h('a', { href: '#/templates', class: 'link' }, 'Browse all')), featured),
+    h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Play & earn Fuzzies')), h('div', { class: 'home-play' }, game, landCard)),
+    h('section', { class: 'sec' }, missionsCard()));
 
   function homeScreenRefresh() { if (location.hash === '#/home' || location.hash === '') dispatchEvent(new HashChangeEvent('hashchange')); }
   return { el };

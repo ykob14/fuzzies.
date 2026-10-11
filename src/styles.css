@@ -1358,3 +1358,78 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 @media (max-width: 760px) { .editor.dragging .ed-panel { opacity: 0; transition: opacity .15s; } }
 .tb-done { display: none; }
 @media (max-width: 760px) { .tb-done { display: inline-flex; background: var(--accent); color: var(--on-accent); } .tb-done:hover { background: var(--accent); filter: brightness(1.05); } }
+
+/* ===================== Polish v3 — bolder: inset workspace, Canva-style home ===================== */
+/* computers: the sidebar sits on the page colour and the screen lives in a raised panel beside it (scrolls inside) */
+@media (min-width: 961px) {
+  .app { height: 100vh; height: 100dvh; }
+  .sidebar { background: transparent; border-right: 0; }
+  .main { height: calc(100dvh - 16px); margin: 8px 8px 8px 0; overflow-y: auto; overscroll-behavior: contain; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
+  .topbar { background: color-mix(in srgb, var(--surface) 90%, transparent); }
+  .main .card, .main .missions, .main .land-promo { box-shadow: none; }
+  .sidebar-fold { background: var(--surface); }
+  .nav-link.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs), 0 0 0 1px var(--border); }
+  .nav-link.on svg { color: var(--accent); }
+  .side-card { background: var(--surface); }
+}
+
+/* home banner */
+.home-banner { position: relative; text-align: center; padding: 44px 28px 30px; border-radius: 24px; background: var(--accent); color: var(--on-accent); overflow: hidden; isolation: isolate; }
+.home-banner::before, .home-banner::after { content: ''; position: absolute; z-index: -1; border-radius: 50%; background: rgba(255,255,255,.10); pointer-events: none; }
+.home-banner::before { width: 420px; height: 420px; left: -140px; top: -220px; }
+.home-banner::after { width: 300px; height: 300px; right: -90px; bottom: -170px; background: rgba(255,255,255,.08); }
+.home-banner-kicker { font-weight: 650; font-size: 14px; opacity: .88; margin-bottom: 6px; }
+.home-banner h1 { font-size: clamp(28px, 3.6vw, 44px); letter-spacing: -0.03em; color: inherit; }
+.home-banner-mascot { position: absolute; right: 26px; top: 18px; }
+.home-search { display: flex; align-items: center; gap: 10px; width: min(640px, 100%); height: 54px; margin: 22px auto 0; padding: 0 18px; border-radius: 14px;
+  background: var(--surface); color: var(--muted); box-shadow: 0 1px 2px rgba(17,15,24,.12), 0 12px 32px -10px rgba(17,15,24,.35); cursor: text; transition: box-shadow .2s var(--ease), transform .2s var(--ease); }
+.home-search:hover { transform: translateY(-1px); }
+.home-search-input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; font-size: 16px; color: var(--text); }
+.home-search-input::placeholder { color: var(--muted); }
+.home-kinds { display: flex; justify-content: center; gap: 6px; margin-top: 26px; flex-wrap: wrap; }
+.home-kind { display: grid; justify-items: center; gap: 8px; width: 96px; padding: 6px 4px; border: 0; background: none; color: inherit; border-radius: 14px; font-size: 12.5px; font-weight: 650; transition: transform .18s var(--ease); }
+.home-kind:hover { transform: translateY(-3px); }
+.home-kind-ic { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); color: var(--accent); box-shadow: 0 6px 16px -6px rgba(17,15,24,.35); transition: box-shadow .18s; }
+.home-kind:hover .home-kind-ic { box-shadow: 0 10px 22px -8px rgba(17,15,24,.45); }
+.home-kind-shape { display: block; border-radius: 4px; border: 2.5px solid var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.home-kind-label { line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.home .daily { margin-top: 20px; }
+
+/* bigger, cleaner cards */
+.home .card-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.home .card-grid.tpl, .card-grid.tpl { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
+.dcard { border-radius: 14px; }
+.dcard-thumb { background: var(--surface-2); padding: 12px; }
+.dcard-thumb img { border-radius: 6px; box-shadow: var(--shadow-xs); }
+.sec-head h2 { font-size: 19px; }
+
+/* play row: game and town side by side */
+.home-play { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: stretch; }
+.home-play .game-promo, .home-play .land-promo { margin: 0; grid-template-columns: 1fr; padding: 24px; border-radius: 20px; align-content: start; }
+.home-play .gp-art { height: 120px; order: -1; }
+.home-play .lp-art { grid-template-columns: repeat(4, 1fr); order: -1; }
+.home-play .lp-art span { height: 56px; }
+.home-play .land-promo > div:last-child { display: grid; justify-items: start; }
+
+@media (max-width: 960px) {
+  .home-banner { padding: 30px 18px 22px; border-radius: 20px; }
+  .home-banner-mascot { display: none; }
+  .home-kinds { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; margin: 22px -18px 0; padding: 0 14px; scrollbar-width: none; }
+  .home-kinds::-webkit-scrollbar { display: none; }
+  .home-kind { flex: none; width: 88px; }
+  .home-play { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .home-banner h1 { font-size: 27px; }
+  .home-search { height: 50px; margin-top: 18px; }
+  .home .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .home .card-grid.tpl, .card-grid.tpl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+}
+/* home: templates as one swipeable row of equal-height cards (like Canva) */
+.home .card-grid.tpl { display: flex; gap: 16px; overflow-x: auto; padding: 4px 2px 10px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.home .card-grid.tpl .tcard { flex: none; width: max-content; display: flex; flex-direction: column; scroll-snap-align: start; }
+.home .card-grid.tpl .tcard-thumb { height: 230px; }
+.home .card-grid.tpl .tcard-meta { width: 0; min-width: 100%; }
+@media (max-width: 760px) { .home .card-grid.tpl .tcard-thumb { height: 180px; } .home .card-grid.tpl { gap: 12px; } }
+.home .empty { padding: 26px 20px; }
