@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-11 (session 2, latest) · by Claude Code · `main` and `claude/fuzzies-design-app-jwv4tu` are identical (Halloween collection is live)_
+_Last updated: 2026-10-12 · by Claude Code · `claude/fuzzies-design-app-jwv4tu` = `main` + Christmas, Hanukkah & Passover collections (ask before merging)_
 
 ---
 
@@ -25,7 +25,7 @@ keeps people coming back (the mascot, the game, missions).
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested. |
 | **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
-| **Branches** | `main` = `claude/fuzzies-design-app-jwv4tu` (live): the owner said "test and upload" for the asset system + Halloween collection on 2026-10-11. Keep working on the branch and ask before the next merge to `main`. |
+| **Branches** | `main` = Halloween collection (live). `claude/fuzzies-design-app-jwv4tu` = `main` + **Christmas, Hanukkah & Passover collections** (artwork, 60 templates, holiday search, type filters, Replace artwork) — **ask the owner before merging**. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
 ## 3. Owner preferences (learned — respect these)
@@ -145,10 +145,13 @@ src/
       usage.ts         real usage: this device's recent list + server counts (Trending = 7 days, Popular = all time)
       remote.ts        published templates from the server into the catalog; server search when there are more
       admin.ts         template-manager rights (server decides) + manager API (save/publish/delete/AI draft)
-      collections/halloween.ts  20 hand-composed Halloween templates (composition kit: art/scene/text/box/pill/below)
+      collections/      hand-made collections: kit.ts (composition kit: art/scene/text/box/pill/below, Use types,
+                       buildCollectionDoc), index.ts (COLLECTION_SETS + fonts), halloween/christmas/hanukkah/passover.ts (20 each)
     assets/            the asset library: index.ts = registry (tags, kind, licence, author) + lazy collections
-                       (ensureArt, searchAssets); collections/halloween.ts = 34 original SVG illustrations + 6 scene
-                       backgrounds × 4 page shapes (-sq/-po/-st/-ls)
+                       (ensureArt, searchAssets); draw.ts = shared drawing helpers (colour, svg, asset(), backgrounds(),
+                       stars/snow/bokeh/mist/hills, flame, gift, lightString, davidStar, blossom, frame);
+                       collections/ halloween (hw-), christmas (xm-), hanukkah (hk-), passover (ps-): original SVG
+                       illustrations + scene backgrounds × 4 page shapes (-sq/-po/-st/-ls)
   game/
     crossing.ts        Fuzzy Crossing RULES only (lanes, collisions, scoring) + View interface + Fx events
     view3d.ts          realistic Three.js view (sky, shadows, water, fur, intro cinematic)
@@ -256,8 +259,15 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   collection = `content/assets/collections/<name>.ts` exporting `ASSETS` (ids share one prefix) + one line in `COLLECTIONS`.
   Every asset needs `tags`, `license`, `author`. Shading must derive from the colour slots (`dk`/`lt`/`mix`) so recolouring
   works. Scene backgrounds come in 4 shapes; `ed.addSceneBackground(base)` picks the closest and swaps an existing one.
-  Collection templates: compose with the kit in `content/library/collections/halloween.ts`; place text under titles with
-  `below()` (titles wrap), keep everything as layers, render a contact sheet and look at it before committing.
+  Collection templates: compose with the kit (`content/library/collections/kit.ts`), give each a `use` (greeting /
+  invitation / party / social / flyer / poster — the holiday filter chips), place text under titles with `below()` (titles
+  wrap), keep everything as layers, render a contact sheet and look at it before committing. New holiday = art collection +
+  templates file + one line in `collections/index.ts` (+ topic in taxonomy.json, `generate: false` if it has no typographic set).
+  **Jewish holiday accuracy:** hanukkiyot always have 8 lights in a row + a raised shamash (never the 7-branch menorah); dreidel
+  letters נ ג ה ש are drawn shapes; the seder plate shows zeroa, beitzah, maror, charoset, karpas, chazeret. Hebrew text goes in
+  Hebrew-capable fonts (Frank Ruhl Libre, David Libre, Suez One, Secular One, Bellefair, Heebo, Rubik, Amatic SC) without
+  punctuation (canvas lays it out RTL by itself). **Search** normalises with Unicode letters (Hebrew kept, niqqud dropped);
+  spellings/Hebrew synonyms live in `SYNONYMS` (search.ts). Graphics have **Replace artwork** (props.ts → graphicProps).
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
 - **Scrolling (computers):** inside the app shell the `.main` panel scrolls, not the window (≥961 px); phones/tablets still scroll the window.
@@ -310,12 +320,17 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | _(editor)_ | **Editor upgrade** (owner: Create → Templates / My Designs only, competitive with pro tools). Kept the app's own Canvas 2D engine after weighing Konva/Fabric (both MIT, but a switch would mean rewriting the renderer shared by editor/thumbnails/exports and migrating every saved design for no feature gain). **Document format v2** (`editor/model.ts`): versioned, documented invariants, `migrateDesign()` upgrades/repairs old or damaged saves on every load path; designs remember their template; `folder`. **Autosave**: serialized writes, save on tab hide/close, Ctrl/Cmd+S, Saving/Saved/Not saved·Retry chip, thumbnail at creation. **Performance**: cached layers while dragging + page picture while panning (400-object design: 1–16 ms per frame), accent colour cached. **Editing**: View menu (smart guides, show grid, snap to grid, grid size), Preview (full-screen pages), Download menu (PNG/JPG/PDF/.fuzzies), Hide in menus, Tab/Shift+Tab through objects. **Photos** tab (free Unsplash-licensed photos via Lorem Picsum; tested with simulated responses — the container can't reach it). **Templates**: shape filter, count, Blank design card. **My Designs**: folders. Tested: save/reload/reopen identical, hide-tab save, old-format design repaired, grid snap, hide+undo, preview, PNG/PDF downloads, drag-and-drop, toolbar/undo on 3 sizes, production smoke test (computer + phone, no errors). Merged to `main` (live). |
 | _(library)_ | **Template library** (owner: Create → Templates / My Designs only, "large-scale, searchable, inspired by Canva", original templates, licensed assets, no scraping). Data-driven taxonomy: 7 categories, 83 topics (27 sports incl. pickleball/softball/gymnastics/surfing, entertainment, celebrations, community, business, education, creators). 14 layout archetypes × 8 formats × 28 palettes × 9 font voices → **335 original templates** with real differences (4–5 per topic, never near-duplicates), plus the 28 classics placed in topics (363 in all). Gallery: search (typos, synonyms), category tree, format/style/colour/occasion/free filters, Recently used / Trending / Popular (real usage only, hidden until there is data) / Recently added, lazy previews, infinite paging, preview with similar templates, blank starters; editor Templates panel searches the same library. Backend: `fz_templates` catalog with Postgres full-text search + paging, documents and pictures served separately, revisions; usage counts. **Publishing:** template managers (`ADMIN_EMAILS`) get Download → Publish as template / Update template and Manage templates (publish, unpublish, edit, delete); **Draft with AI** only when `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are set (Claude writes wording, the layout engine lays it out). **Photos:** search through Pexels (with a key) or Openverse (CC0/public domain/CC BY), safe image fetcher (allowlisted hosts), credits saved with each photo, inspector credit + Download → Photo credits. Tested: 33 catalog API checks + AI checks on real Postgres and a fake AI service, 23 photo-API checks (incl. blocked hosts/redirects/size), browser runs of gallery, editor panel, photo search/credits, publish → user finds and uses it, manager, AI drafts, at desktop and phone sizes. Merged to `main` (live). |
 | _(halloween)_ | **Asset system + illustrated Halloween collection** (owner: go beyond the look; production-quality platform; Halloween with pumpkins, ghosts, haunted houses, bats — no text-only flyers; audit first). `PLATFORM-PLAN.md` = audit + prioritized plan (Canva concepts from Claude's knowledge — canva.dev was not reachable from the container). Asset registry with tags/licence/author and lazy collections; 34 original recolourable illustrations + 6 scene backgrounds in 4 shapes; Elements panel collection sections, tag search, page backgrounds (replace the existing one); free "Spooky Season" fonts (Creepster, Griffy, Henny Penny, Mystery Quest, Jolly Lodger — checked on Google Fonts). **20 hand-composed Halloween templates** (fully layered: scene, illustrations, live text, shapes) replace the typographic Halloween layouts. Tested: contact sheets reviewed and overlaps fixed, gallery search/topic, open → 10 editable layers, reload, PNG export, graphic recolour slots, Elements search + background swap, phone, production smoke test (every screen): no errors. Merged to `main` (live). |
+| _(holidays)_ | **Christmas, Hanukkah & Passover collections** (owner: same quality as Halloween; accurate Jewish symbolism; Hebrew; holiday search incl. Chanukah/Hanukah/חנוכה and Pesach/פסח; sub-filters Greetings/Invitations/Parties/Social/Flyers/Posters; nothing removed). Shared drawing kit + composition kit (Halloween moved onto it unchanged). Art: Christmas 29 illustrations + 6 backgrounds, Hanukkah 18 + 5 (hanukkiyot 8 + shamash in gold/silver/oil, window scene, dreidels with נ ג ה ש, gelt, Stars of David, sufganiyot, latkes, oil jug…), Passover 17 + 5 (seder plate with its six items, matzah, Kiddush cup, Cup of Elijah, Haggadot, flowers, almond blossom, wheat, candlesticks, seder table, frog, pomegranate…). **60 hand-composed templates** (20 each) with Hebrew greetings (חג חנוכה שמח, חג אורים שמח, נס גדול היה שם, חג פסח שמח, חג כשר ושמח, ליל סדר, לשנה הבאה בירושלים). Free font packs Festive & Elegant + Hebrew (all checked on Google Fonts). Gallery: Holiday collections row, type chips with counts (URL `use=`), collection templates rank first; Passover topic added; existing typographic Christmas/Hanukkah templates kept. Editor: Replace artwork for graphics (toolbar + inspector, keeps size, undoable). Tested: contact sheets reviewed and layouts fixed, Hebrew read RTL correctly, 17 holiday searches, chips, open → layers → reload in My Designs, Elements search (menorah/seder/reindeer), Replace + undo, phone, production smoke (every screen): no errors. Branch only. |
 
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
 ## 8. Known limitations / not verified
+
+- **Holiday collections:** checked in Chromium only (not Safari / a real phone). Hebrew lines are single phrases without punctuation;
+  editing mixed Hebrew + English in one text box follows the browser's bidi rules. Replace artwork offers pieces from the same
+  collection/pack only. The server-side search for *published* templates (Postgres) still only understands Latin words.
 
 - **Halloween collection:** drawn and checked in Chromium only (SVG with gradients/patterns drawn to canvas); not yet seen in Safari
   or on a real phone. Photos are not used in these templates. Canva's docs couldn't be opened from the container, so the plan's
@@ -359,7 +374,8 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Halloween collection is live** — next per PLATFORM-PLAN.md: quality checks + review stage for publishing, a seasonal
+0. **Christmas, Hanukkah & Passover are on the branch** — ask the owner before merging to `main`.
+   **Halloween collection is live** — next per PLATFORM-PLAN.md: quality checks + review stage for publishing, a seasonal
    "Halloween" row in October, more collections (Christmas, Diwali, Lunar New Year…) with the same asset system.
    **Template library is live.** The owner (hotlavayaniv@gmail.com) was made a template manager through the new `fz_admins` table
    (Claude's Vercel connector still gets 403, so `ADMIN_EMAILS` couldn't be set; either way works). Remaining owner steps (BACKEND.md →

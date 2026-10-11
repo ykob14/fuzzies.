@@ -8,7 +8,8 @@ import { SHAPE_KINDS } from './shapes';
 import { qrMatrix } from './qr';
 import { SIZE_PRESETS } from './doc';
 import { FONT_PACKS, ensureFont } from '../content/fonts';
-import { artById } from '../content/art';
+import { ARTS, artById, artDataUrl } from '../content/art';
+import { assetsIn, collectionOf } from '../content/assets';
 import { rewards } from '../core/rewards';
 import { accounts } from '../core/account';
 import { unlockDialog } from '../ui/unlock';
@@ -260,7 +261,24 @@ export function buildProps(ed: Editor): Props {
 
   function graphicProps(e: Extract<El, { type: 'graphic' }>): Node[] {
     const a = artById(e.art);
-    return [sec('Colours', h('div', { class: 'row' }, ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))))];
+    // Replace artwork: other pieces from the same pack or collection (page backgrounds swap with backgrounds of the same shape)
+    const col = collectionOf(e.art);
+    const shape = /-(sq|po|st|ls)$/.exec(e.art)?.[1];
+    const pool = (col ? assetsIn(col) : ARTS.filter((x) => x.pack === a?.pack)).filter((x) => x.id !== e.art && (shape ? x.id.endsWith(`-${shape}`) : !/-(sq|po|st|ls)$/.test(x.id)));
+    const swap = (id: string) => {
+      const next = artById(id);
+      if (!next) return;
+      const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
+      if (!shape) { const h = e.w / next.ratio; e.y = cy - h / 2; e.h = h; e.x = cx - e.w / 2; }
+      e.art = id; e.colors = [...next.colors]; e.name = next.name;
+      done(); render();
+    };
+    const replace = pool.length ? sec('Replace artwork', h('div', { class: 'el-grid swap-grid' }, ...pool.map((x) => {
+      const b = h('button', { type: 'button', class: 'el-item', title: `Replace with ${x.name}`, 'aria-label': `Replace with ${x.name}` }, h('img', { src: artDataUrl(x.id, x.colors), alt: '', loading: 'lazy' }));
+      b.addEventListener('click', () => swap(x.id));
+      return b;
+    })), h('p', { class: 'hint' }, 'Keeps the position and size — you can recolour the new one above.')) : null;
+    return [sec('Colours', h('div', { class: 'row' }, ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` })))), ...(replace ? [replace] : [])];
   }
 
   // ---------- shared ----------
@@ -435,7 +453,7 @@ export function buildProps(ed: Editor): Props {
           lineish ? null : color(e.stroke, (f) => { e.stroke = firstColor(f); if (!e.strokeWidth) e.strokeWidth = Math.max(2, Math.round(Math.min(e.w, e.h) * 0.03)); }, { title: 'Border colour' }));
       }
       if (e.type === 'image') items.push(label('Photo'), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
-      if (e.type === 'graphic') { const a = artById(e.art); items.push(label('Graphic'), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
+      if (e.type === 'graphic') { const a = artById(e.art); items.push(label('Graphic'), tb({ icon: 'image', text: 'Replace', title: 'Swap this artwork for another', onClick: () => open() }), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
       if (e.type === 'qr') items.push(label('QR code'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Squares' }), color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true, title: 'Background' }), tb({ icon: 'edit', text: 'Link', title: 'Change the link', onClick: () => open() }));
       if (e.type === 'draw') items.push(label('Drawing'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Stroke colour' }));
       if (e.type === 'emoji') items.push(label('Sticker'));

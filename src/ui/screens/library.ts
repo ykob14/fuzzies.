@@ -7,6 +7,7 @@ import type { Screen } from '../app';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { catalog, CATEGORIES_TREE, metaById, onCatalogChange, subById, type TemplateMeta } from '../../content/library/catalog';
+import { COLLECTION_SETS, USES } from '../../content/library/collections';
 import { search, facets, related, type Filters } from '../../content/library/search';
 import { usage, loadStats } from '../../content/library/usage';
 import { loadPublished, searchPublished } from '../../content/library/remote';
@@ -24,7 +25,7 @@ const BLANKS: [string, number, number, string][] = [
 export function libraryScreen(): Screen {
   const params = new URLSearchParams(location.hash.split('?')[1] ?? '');
   let q = params.get('q') ?? '';
-  const f: Filters = { category: params.get('cat') ?? undefined, sub: params.get('sub') ?? undefined };
+  const f: Filters = { category: params.get('cat') ?? undefined, sub: params.get('sub') ?? undefined, use: params.get('use') ?? undefined };
   let shown = PAGE;
   let results: TemplateMeta[] = [];
 
@@ -45,18 +46,33 @@ export function libraryScreen(): Screen {
       b.addEventListener('click', onClick);
       return b;
     };
-    tree.replaceChildren(item('All templates', !f.category && !f.sub, all.length, () => { f.category = f.sub = undefined; shown = PAGE; fill(); }, 'lib-all'));
+    tree.replaceChildren(item('All templates', !f.category && !f.sub, all.length, () => { f.category = f.sub = f.use = undefined; shown = PAGE; fill(); }, 'lib-all'));
     for (const cat of CATEGORIES_TREE) {
       const isOpen = open.has(cat.id);
       const toggle = h('span', { class: `lib-caret ${isOpen ? 'open' : ''}`, role: 'button', 'aria-label': isOpen ? `Collapse ${cat.label}` : `Expand ${cat.label}` }, icon('chevR', 14));
-      const head = item(cat.label, f.category === cat.id && !f.sub, n(cat.id), () => { f.category = cat.id; f.sub = undefined; open.add(cat.id); shown = PAGE; fill(); }, 'lib-cat', h('span', { class: 'lib-emoji' }, cat.emoji));
+      const head = item(cat.label, f.category === cat.id && !f.sub, n(cat.id), () => { f.category = cat.id; f.sub = undefined; f.use = undefined; open.add(cat.id); shown = PAGE; fill(); }, 'lib-cat', h('span', { class: 'lib-emoji' }, cat.emoji));
       head.setAttribute('aria-expanded', String(isOpen));
       toggle.addEventListener('click', (e) => { e.stopPropagation(); if (open.has(cat.id)) open.delete(cat.id); else open.add(cat.id); renderTree(); });
       head.prepend(toggle);
       const subs = h('div', { class: 'lib-subs', hidden: !isOpen },
-        ...cat.subcategories.filter((s) => n(cat.id, s.id)).map((s) => item(s.label, f.sub === s.id, n(cat.id, s.id), () => { f.category = cat.id; f.sub = s.id; shown = PAGE; fill(); }, 'lib-sub', h('span', { class: 'lib-emoji' }, s.emoji))));
+        ...cat.subcategories.filter((s) => n(cat.id, s.id)).map((s) => item(s.label, f.sub === s.id, n(cat.id, s.id), () => { f.category = cat.id; f.sub = s.id; f.use = undefined; shown = PAGE; fill(); }, 'lib-sub', h('span', { class: 'lib-emoji' }, s.emoji))));
       tree.append(h('div', { class: 'lib-group' }, head, subs));
     }
+  }
+
+  // ---------- what it's for (holiday collections): Greetings, Invitations, Parties… ----------
+  const useRow = h('div', { class: 'lib-uses chips', role: 'toolbar', 'aria-label': 'Template type' });
+  function renderUses(base: TemplateMeta[]): void {
+    const counts = new Map<string, number>();
+    for (const m of base) if (m.use) counts.set(m.use, (counts.get(m.use) ?? 0) + 1);
+    if (!counts.size) { useRow.replaceChildren(); useRow.hidden = true; if (f.use) f.use = undefined; return; }
+    useRow.hidden = false;
+    const chip = (id: string | undefined, label: string, n: number) => {
+      const b = h('button', { type: 'button', class: `chip ${f.use === id ? 'on' : ''}`, 'aria-pressed': String(f.use === id) }, label, h('span', { class: 'chip-n' }, ` ${n}`));
+      b.addEventListener('click', () => { f.use = id; shown = PAGE; fill(); });
+      return b;
+    };
+    useRow.replaceChildren(chip(undefined, 'All', base.length), ...USES.filter(([id]) => counts.has(id)).map(([id, label]) => chip(id, label, counts.get(id)!)));
   }
 
   // ---------- filters ----------
@@ -136,12 +152,26 @@ export function libraryScreen(): Screen {
       }), h('button', { class: 'lib-blank', type: 'button', onclick: () => createDialog() }, h('span', { class: 'lib-blank-shape' }, icon('plus', 26)), h('b', null, 'Custom size'), h('small', null, 'Any size'))));
   }
 
+  /** The illustrated holiday collections, one card each (cover picture + count). */
+  function holidays(): HTMLElement {
+    const all = catalog();
+    return h('section', { class: 'lib-row' }, h('div', { class: 'sec-head' }, h('div', null, h('h2', null, 'Holiday collections'), h('small', { class: 'muted' }, 'Illustrated, fully editable designs'))),
+      h('div', { class: 'lib-strip holidays' }, ...COLLECTION_SETS.map((set) => {
+        const cover = metaById(`${set.sub}--${set.cover}`);
+        const n = all.filter((m) => m.sub === set.sub).length;
+        const b = h('button', { type: 'button', class: 'lib-holiday', 'aria-label': `${set.label} templates` }, h('span', { class: 'lib-holiday-pic' }, cover ? lazyThumb(cover, 260, 0.8) : null), h('span', { class: 'lib-holiday-label' }, h('b', null, set.label), h('small', null, `${n} templates`)));
+        b.addEventListener('click', () => { const s = subById(set.sub); f.category = s?.cat.id; f.sub = set.sub; f.use = undefined; if (s) open.add(s.cat.id); shown = PAGE; fill(); });
+        return b;
+      })));
+  }
+
   function fill(): void {
     const all = catalog();
-    const filtering = !!(q.trim() || f.category || f.sub || f.format || f.style || f.color || f.occasion || f.free);
+    const filtering = !!(q.trim() || f.category || f.sub || f.format || f.style || f.color || f.occasion || f.free || f.use);
     // the filter menus only offer choices that have results for the current topic/search
     const base = search(all, q, { category: f.category, sub: f.sub });
     results = search(all, q, f, usage);
+    renderUses(search(all, q, { ...f, use: undefined }));
     void searchPublished(q, f); // only asks the server when it holds more templates than we loaded
     renderTree();
     renderFilters(base);
@@ -150,6 +180,7 @@ export function libraryScreen(): Screen {
     if (q.trim()) ps.set('q', q.trim());
     if (f.category) ps.set('cat', f.category);
     if (f.sub) ps.set('sub', f.sub);
+    if (f.use) ps.set('use', f.use);
     const hash = `#/templates${[...ps].length ? `?${ps}` : ''}`;
     // only while the gallery is the current screen (opening a template changes the address to the editor)
     if (location.hash.startsWith('#/templates') && location.hash !== hash) history.replaceState(null, '', hash);
@@ -157,7 +188,7 @@ export function libraryScreen(): Screen {
     if (!filtering) {
       const pick = (ids: string[]) => ids.map((id) => metaById(id)).filter((m): m is TemplateMeta => !!m).slice(0, 12);
       const onePerTopic = (list: TemplateMeta[]) => list.filter((m, i, arr) => !m.sub || arr.findIndex((x) => x.sub === m.sub) === i);
-      main.append(...[blanks(),
+      main.append(...[blanks(), holidays(),
         row('Recently used', pick(usage.recent()), undefined, 'On this device'),
         row('Trending this week', pick(usage.trending().map(([id]) => id)), undefined, 'Most used by everyone in the last 7 days'),
         row('Popular', pick(usage.popular().map(([id]) => id)), undefined, 'Most used of all time'),
@@ -169,7 +200,7 @@ export function libraryScreen(): Screen {
     }
     const topic = f.sub ? subById(f.sub) : null;
     const heading = topic ? `${topic.sub.emoji} ${topic.sub.label}` : f.category ? CATEGORIES_TREE.find((c) => c.id === f.category)?.label ?? 'Templates' : q.trim() ? `Results for “${q.trim()}”` : 'Templates';
-    main.append(h('div', { class: 'lib-results-head' }, h('h2', null, heading), count));
+    main.append(h('div', { class: 'lib-results-head' }, h('h2', null, heading), count), useRow);
     if (!results.length) {
       main.append(h('div', { class: 'empty' }, fuzzyMark(48), h('p', null, 'No templates match yet.'), h('p', { class: 'muted' }, 'Try fewer words or clear a filter — or start from a blank design.'), btn('Start from blank', { kind: 'primary', icon: 'plus', onClick: () => createDialog() })));
       return;

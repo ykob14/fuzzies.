@@ -1660,3 +1660,15 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 .el-grid.scenes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .el-item.el-scene { padding: 0; overflow: hidden; }
 .el-item.el-scene img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- Holiday collections + template-type chips ---------- */
+.lib-uses { margin: -4px 0 14px; flex-wrap: wrap; }
+.lib-uses[hidden] { display: none; }
+.lib-strip.holidays .lib-holiday { flex: 0 0 200px; scroll-snap-align: start; }
+.lib-holiday { display: grid; gap: 8px; padding: 10px; border: 0; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-xs); cursor: pointer; text-align: left; transition: box-shadow .2s var(--ease), transform .2s var(--ease); }
+.lib-holiday:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.lib-holiday .lt { border-radius: 10px; }
+.lib-holiday-label { display: grid; }
+.lib-holiday-label small { color: var(--muted); }
+.lib-holiday-pic { display: grid; place-items: center; height: 220px; padding: 10px; border-radius: 12px; background: var(--surface-2); overflow: hidden; }
+.swap-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: 280px; overflow-y: auto; }

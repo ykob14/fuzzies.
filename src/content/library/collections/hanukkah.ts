@@ -18,7 +18,7 @@ export const HANUKKAH: CollectionTemplate[] = [
     scene(c, 'hk-bg-night', 'post');
     const h = text(c, 'חג חנוכה שמח', W * 0.08, H * 0.07, W * 0.84, { font: 'Suez One', size: u * 0.13, fill: GOLD, shadow: glow('#ffb238', u * 0.03), name: 'Hebrew title' });
     text(c, 'Happy Hanukkah', W * 0.1, below(h, u * 0.01), W * 0.8, { font: 'Cinzel', weight: 700, size: u * 0.06, fill: WHITE, upper: true, spacing: u * 0.014 });
-    art(c, 'hk-menorah', W * 0.12, H * 0.4, W * 0.76);
+    art(c, 'hk-menorah', W * 0.15, H * 0.36, W * 0.7);
   } },
   { id: 'chanukah-party-invite', name: 'Chanukah Party Invitation', format: 'card', use: 'invitation', style: 'Elegant', colors: ['white', 'silver', 'blue'], occasion: 'party', tags: ['party', 'invitation', 'dreidel', 'rsvp', 'silver', 'family'], build(c) {
     const { W, H, u } = c;

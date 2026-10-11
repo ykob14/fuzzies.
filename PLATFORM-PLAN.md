@@ -79,7 +79,7 @@ code, templates or content.
 | P3 | Template placeholders (fill date/place/name once for the whole design) and one-tap palette swap | Faster editing | Later |
 | P3 | Persistent preview cache (Cache Storage), virtualised grid, art packs fully lazy | Scale beyond ~1,000 templates | Later |
 | P4 | AI "describe your design" for everyone: Claude picks topic, wording, layout and art ids from the registry; per-user daily limit; needs the owner's Anthropic key | Needs a key + cost decision by the owner | Waiting on owner |
-| P4 | More collections (Christmas, Diwali, Lunar New Year, Easter, sports seasons) using the same asset system | Breadth | Later |
+| P4 | More collections using the same asset system | Breadth | ✅ Christmas, Hanukkah, Passover done (20 each + art); next: Diwali, Lunar New Year, Eid, Easter, Thanksgiving |
 
 ## Rules for new assets and templates
 

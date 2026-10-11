@@ -65,7 +65,7 @@ export function search(all: TemplateMeta[], query: string, f: Filters, usage?: U
     }
     if (!ok) continue;
     if (norm(m.name).includes(norm(query))) total += 3; // the whole phrase in the title
-    scored.push({ m, s: total + Math.min(2, (usage?.uses(m.id) ?? 0) / 25) });
+    scored.push({ m, s: total + Math.min(2, (usage?.uses(m.id) ?? 0) / 25) + (m.source === 'collection' ? 1.5 : 0) });
   }
   return scored.sort((a, b) => b.s - a.s).map((x) => x.m);
 }
