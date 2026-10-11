@@ -21,7 +21,10 @@ const SYNONYMS: Record<string, string[]> = {
 };
 
 /** Lower-case words; keeps letters of every script (Hebrew included) and drops accents and Hebrew vowel points. */
-const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f\u0591-\u05c7]/g, '').replace(/[^\p{L}\p{N}%#+&]+/gu, ' ').trim();
+// Lower-case, drop Latin accents, Hebrew niqqud and Arabic harakat/tatweel, fold Arabic letter variants (أإآ→ا, ى→ي,
+// ة→ه); keep combining marks inside words (Devanagari and other Indic vowel signs are marks, not separators).
+const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f\u0591-\u05c7\u064b-\u065f\u0670\u0640]/g, '')
+  .replace(/[\u0622\u0623\u0625]/g, '\u0627').replace(/\u0649/g, '\u064a').replace(/\u0629/g, '\u0647').replace(/[^\p{L}\p{M}\p{N}%#+&]+/gu, ' ').trim();
 
 function close(a: string, b: string): boolean {
   // one edit (insert / delete / substitute / swap) for words of 4+ letters

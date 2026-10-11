@@ -1993,7 +1993,15 @@
             "diwali",
             "deepavali",
             "festival of lights",
-            "diya"
+            "diya",
+            "divali",
+            "dipawali",
+            "deepawali",
+            "shubh deepavali",
+            "दीपावली",
+            "दिवाली",
+            "rangoli",
+            "diyas"
           ],
           "palettes": [
             "gold",
@@ -2031,7 +2039,16 @@
             "eid",
             "eid mubarak",
             "ramadan",
-            "iftar"
+            "iftar",
+            "eid al fitr",
+            "eid al-fitr",
+            "eid ul fitr",
+            "eid al adha",
+            "eid al-adha",
+            "bakrid",
+            "عيد",
+            "عيد مبارك",
+            "عيد سعيد"
           ],
           "palettes": [
             "night",
@@ -2172,6 +2189,104 @@
                 "With family"
               ],
               "cta": "Chag sameach",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "easter",
+          "label": "Easter",
+          "emoji": "🐣",
+          "keywords": [
+            "easter",
+            "easter sunday",
+            "he is risen",
+            "resurrection",
+            "pascha",
+            "pascua",
+            "pâques",
+            "ostern",
+            "egg hunt",
+            "easter eggs",
+            "lilies",
+            "church"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Happy Easter",
+              "kicker": "He is risen",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "rosh-hashanah",
+          "label": "Rosh Hashanah",
+          "emoji": "🍎",
+          "keywords": [
+            "rosh hashanah",
+            "rosh hashana",
+            "rosh ha-shanah",
+            "jewish new year",
+            "shana tova",
+            "shanah tovah",
+            "l'shana tova",
+            "ראש השנה",
+            "שנה טובה",
+            "apples and honey",
+            "shofar",
+            "pomegranate"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Shana Tova",
+              "kicker": "שנה טובה",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "greeting"
+            }
+          ]
+        },
+        {
+          "id": "ramadan",
+          "label": "Ramadan",
+          "emoji": "🌙",
+          "keywords": [
+            "ramadan",
+            "ramadhan",
+            "ramazan",
+            "ramadan kareem",
+            "ramadan mubarak",
+            "رمضان",
+            "رمضان كريم",
+            "iftar",
+            "suhoor",
+            "sehri",
+            "fasting",
+            "lantern",
+            "fanous",
+            "mosque"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Ramadan Kareem",
+              "kicker": "رمضان كريم",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
               "occasion": "greeting"
             }
           ]

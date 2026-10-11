@@ -12,6 +12,11 @@ import { ASSETS as HW } from '../../assets/collections/halloween';
 import { ASSETS as XM } from '../../assets/collections/christmas';
 import { ASSETS as HK } from '../../assets/collections/hanukkah';
 import { ASSETS as PS } from '../../assets/collections/passover';
+import { ASSETS as IS } from '../../assets/collections/islamic';
+import { ASSETS as JH } from '../../assets/collections/jewish';
+import { ASSETS as CR } from '../../assets/collections/christian';
+import { ASSETS as IN } from '../../assets/collections/indian';
+import { ASSETS as BB } from '../../assets/collections/baby';
 import { FORMATS, fitSize, widthOf, type Format } from '../layouts';
 
 /** What a template is for — the holiday sub-filters (Greetings, Invitations, Parties, Social media, Flyers, Posters). */
@@ -26,9 +31,11 @@ export interface CollectionTemplate {
 
 // ---------- composition kit ----------
 export interface Kit { W: number; H: number; u: number; els: El[]; bg: Fill }
-const ALL_ASSETS = [...HW, ...XM, ...HK, ...PS];
+const ALL_ASSETS = [...HW, ...XM, ...HK, ...PS, ...IS, ...JH, ...CR, ...IN, ...BB];
 const ratioOf = new Map(ALL_ASSETS.map((a) => [a.id, a.ratio]));
 const colorsOf = new Map(ALL_ASSETS.map((a) => [a.id, a.colors]));
+/** Width ÷ height of an illustration (1 if unknown). */
+export const ratio = (id: string) => ratioOf.get(id) ?? 1;
 const SHAPE: Record<Format, string> = { post: 'sq', story: 'st', poster: 'po', flyer: 'po', card: 'po', landscape: 'ls', certificate: 'ls', slides: 'ls' };
 
 /** An illustration at (x, y), `w` wide (height from its shape unless given). */

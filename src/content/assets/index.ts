@@ -31,6 +31,11 @@ export const COLLECTIONS: Collection[] = [
   { id: 'christmas', name: 'Christmas', blurb: 'Trees, ornaments, Santa, reindeer, snowflakes, presents and winter scenes', prefix: 'xm-', cover: 'xm-tree', load: () => import('./collections/christmas') },
   { id: 'hanukkah', name: 'Hanukkah', blurb: 'Hanukkiyot, dreidels, gelt, Stars of David and festival lights', prefix: 'hk-', cover: 'hk-menorah', load: () => import('./collections/hanukkah') },
   { id: 'passover', name: 'Passover', blurb: 'Seder plates, matzah, wine cups, Haggadot and spring flowers', prefix: 'ps-', cover: 'ps-seder-plate', load: () => import('./collections/passover') },
+  { id: 'islamic', name: 'Ramadan & Eid', blurb: 'Lanterns, crescents, mosques, geometric patterns, dates and Eid gifts', prefix: 'is-', cover: 'is-lantern', load: () => import('./collections/islamic') },
+  { id: 'jewish', name: 'Jewish holidays', blurb: 'Apples & honey, shofar, pomegranates, sukkah, lulav & etrog, Torah, Purim and more', prefix: 'jh-', cover: 'jh-apple-honey', load: () => import('./collections/jewish') },
+  { id: 'christian', name: 'Easter & Christian', blurb: 'Crosses, empty tomb, lilies, eggs, palms, Advent wreath, doves, chalice and baptism shell', prefix: 'cr-', cover: 'cr-cross-sunrise', load: () => import('./collections/christian') },
+  { id: 'indian', name: 'Diwali, Holi & more', blurb: 'Diyas, rangoli, marigold torans, star lanterns, mithai, Holi colours, dandiya, pookalam and dhol', prefix: 'in-', cover: 'in-diya', load: () => import('./collections/indian') },
+  { id: 'baby', name: 'Baby', blurb: 'Teddy bears, clouds, moon & stars, boho rainbows, balloons, baby animals, onesies and soft flowers', prefix: 'bb-', cover: 'bb-teddy', load: () => import('./collections/baby') },
 ];
 
 const loaded = new Map<string, AssetDef>();

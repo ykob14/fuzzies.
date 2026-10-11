@@ -53,6 +53,25 @@ const FONT_DEFS: [string, string][] = [
   ['Secular One', ''],
   ['Bellefair', ''],
   ['Amatic SC', '400;700'],
+  ['Amiri', '400;700'],
+  ['Aref Ruqaa', '400;700'],
+  ['Reem Kufi', '400;500;600;700'],
+  ['Cairo', '400;600;700;800;900'],
+  ['Noto Naskh Arabic', '400;700'],
+  ['Vazirmatn', '400;500;700;800'],
+  ['Yatra One', ''],
+  ['Tiro Devanagari Hindi', ''],
+  ['Rozha One', ''],
+  ['Mukta', '400;500;600;700;800'],
+  ['Baloo 2', '400;500;600;700;800'],
+  ['Noto Sans Devanagari', '400;600;700'],
+  ['Manjari', '400;700'],
+  ['Noto Serif SC', '400;600;700;900'],
+  ['Ma Shan Zheng', ''],
+  ['Quicksand', '400;500;600;700'],
+  ['Josefin Sans', '400;600;700'],
+  ['Parisienne', ''],
+  ['Sacramento', ''],
 ];
 
 export const FONT_PACKS: FontPack[] = [
@@ -63,6 +82,10 @@ export const FONT_PACKS: FontPack[] = [
   { id: 'fonts-spooky', name: 'Spooky Season', cost: 0, fonts: ['Creepster', 'Griffy', 'Henny Penny', 'Mystery Quest', 'Jolly Lodger'] },
   { id: 'fonts-festive', name: 'Festive & Elegant', cost: 0, fonts: ['Mountains of Christmas', 'Cinzel', 'Cormorant Garamond', 'Pinyon Script', 'Berkshire Swash', 'Marcellus'] },
   { id: 'fonts-hebrew', name: 'Hebrew (עברית)', cost: 0, fonts: ['Frank Ruhl Libre', 'David Libre', 'Heebo', 'Rubik', 'Suez One', 'Secular One', 'Bellefair', 'Amatic SC'] },
+  { id: 'fonts-arabic', name: 'Arabic & Persian (العربية)', cost: 0, fonts: ['Amiri', 'Aref Ruqaa', 'Reem Kufi', 'Cairo', 'Noto Naskh Arabic', 'Vazirmatn'] },
+  { id: 'fonts-indic', name: 'Indian scripts (हिन्दी)', cost: 0, fonts: ['Yatra One', 'Tiro Devanagari Hindi', 'Rozha One', 'Mukta', 'Baloo 2', 'Noto Sans Devanagari', 'Manjari'] },
+  { id: 'fonts-chinese', name: 'Chinese (中文)', cost: 0, fonts: ['Noto Serif SC', 'Ma Shan Zheng'] },
+  { id: 'fonts-soft', name: 'Soft & Sweet', cost: 0, fonts: ['Quicksand', 'Josefin Sans', 'Parisienne', 'Sacramento'] },
 ];
 
 export const ALL_FONTS = FONT_DEFS.map(([f]) => f);

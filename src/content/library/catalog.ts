@@ -53,7 +53,10 @@ export interface TemplateMeta {
 const LIBRARY_ADDED = Date.UTC(2026, 9, 11);
 const CLASSIC_ADDED = Date.UTC(2026, 9, 1);
 
-const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f\u0591-\u05c7]/g, '').replace(/[^\p{L}\p{N}%#+&]+/gu, ' ').trim();
+// Lower-case, drop Latin accents, Hebrew niqqud and Arabic harakat/tatweel, fold Arabic letter variants (أإآ→ا, ى→ي,
+// ة→ه); keep combining marks inside words (Devanagari and other Indic vowel signs are marks, not separators).
+const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f\u0591-\u05c7\u064b-\u065f\u0670\u0640]/g, '')
+  .replace(/[\u0622\u0623\u0625]/g, '\u0627').replace(/\u0649/g, '\u064a').replace(/\u0629/g, '\u0647').replace(/[^\p{L}\p{M}\p{N}%#+&]+/gu, ' ').trim();
 const wordsOf = (...parts: (string | string[] | undefined)[]) => [...new Set(parts.flat().filter(Boolean).flatMap((p) => norm(p as string).split(' ')).filter((w) => w.length > 1 || /\d/.test(w)))];
 
 function hash(s: string): number { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
