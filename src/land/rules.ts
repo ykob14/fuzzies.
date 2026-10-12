@@ -56,6 +56,8 @@ export interface LandState {
   layout?: number;
   /** First-time tutorial progress (land/tutorial.ts); missing = decide from whether the town was played. */
   tutorial?: { status: 'active' | 'done' | 'skipped' | 'off'; step: number; got: string[]; paid: string[] };
+  /** Temporary storage (Town Edit Mode): whole pieces lifted off the map, timers and all, waiting to be placed again. */
+  storage?: Placed[];
 }
 
 export const MAP = 30; // the whole island is MAP × MAP tiles; the buildable square grows with expansions
@@ -127,7 +129,8 @@ export const buildProgress = (p: Placed, now = Date.now()): number => {
 /** Tiles people can walk on. */
 export const walkway = (id: string): boolean => id === 'path' || id === 'road';
 export const barnUsed = (s: LandState): number => Object.values(s.barn).reduce((a, b) => a + b, 0);
-export const count = (s: LandState, id: string): number => s.buildings.filter((b) => b.item === id).length;
+/** How many of an item you own — on the map or in storage (so storing fields never lets you buy extra ones). */
+export const count = (s: LandState, id: string): number => s.buildings.filter((b) => b.item === id).length + (s.storage ?? []).filter((b) => b.item === id).length;
 
 // ---------- the starting town ----------
 type Spot = [item: string, x: number, z: number];
@@ -159,7 +162,7 @@ const OLD_ROADS: [number, number][] = [...Array.from({ length: 14 }, (_, k) => [
 export function freshLand(now = Date.now()): LandState {
   const s: LandState = {
     v: 1, level: 1, xp: 0, coins: 150, size: SIZES[0], buildings: [], barn: { wheat: 4 }, orders: [], nextId: 1,
-    stats: { harvests: 0, made: 0, orders: 0, built: 0 }, savedAt: now, layout: 2,
+    stats: { harvests: 0, made: 0, orders: 0, built: 0 }, savedAt: now, layout: 2, storage: [],
   };
   const add = (it: string, x: number, z: number, extra: Partial<Placed> = {}) => s.buildings.push({ id: s.nextId++, item: it, x, z, rot: 0, builtAt: 0, ...extra });
   STARTER.forEach(([it, x, z], i) => add(it, x, z, i === 4 ? { crop: { good: 'wheat', at: now - 50_000 } } : {}));
@@ -350,6 +353,81 @@ export function restore(s: LandState, pieces: Placed[]): void {
   for (const p of pieces) s.buildings.push(JSON.parse(JSON.stringify(p)));
 }
 
+// ---------- temporary storage (Town Edit Mode) ----------
+/**
+ * Storage keeps whole pieces — ids, crops, workshop queues and construction timers included — so storing never
+ * sells, resets or duplicates anything. Only the Town Hall and the Crossing Gate stay where they are.
+ */
+export type StoreCat = 'house' | 'factory' | 'field' | 'road' | 'decor';
+export const STORE_CATS: { id: StoreCat; name: string }[] = [
+  { id: 'house', name: 'Houses' }, { id: 'factory', name: 'Workshops' }, { id: 'field', name: 'Fields' }, { id: 'decor', name: 'Decor' }, { id: 'road', name: 'Roads & paths' },
+];
+export const storeCat = (itemId: string): StoreCat => {
+  const it = item(itemId);
+  return it.kind === 'house' ? 'house' : it.kind === 'factory' ? 'factory' : it.kind === 'field' ? 'field' : walkway(itemId) ? 'road' : 'decor';
+};
+export const storage = (s: LandState): Placed[] => (s.storage ??= []);
+/** Why this piece can't go into storage ('' = it can). */
+export const cantStore = (p: Placed): string => (item(p.item).kind === 'special' ? `The ${item(p.item).name} stays where it is.` : '');
+
+/** Lift pieces off the map into storage. Pieces that can't be stored stay put and are listed in `kept`. */
+export function store(s: LandState, ids: number[]): { stored: Placed[]; kept: { id: number; why: string }[] } {
+  const set = new Set(ids);
+  const stored: Placed[] = [], kept: { id: number; why: string }[] = [];
+  const bag = storage(s);
+  s.buildings = s.buildings.filter((b) => {
+    if (!set.has(b.id)) return true;
+    const why = cantStore(b);
+    if (why) { kept.push({ id: b.id, why }); return true; }
+    stored.push(b); bag.push(b);
+    return false;
+  });
+  return { stored, kept };
+}
+
+/** Put one stored piece back on the map here. Throws with the reason if it doesn't fit. */
+export function unstore(s: LandState, id: number, x: number, z: number, rot: Rot): Placed {
+  const bag = storage(s);
+  const i = bag.findIndex((b) => b.id === id);
+  if (i < 0) throw new Error('That isn’t in storage any more.');
+  const p = bag[i];
+  const why = placeProblem(s, p.item, x, z, rot);
+  if (why) throw new Error(why);
+  bag.splice(i, 1);
+  p.x = x; p.z = z; p.rot = rot;
+  s.buildings.push(p);
+  return p;
+}
+
+/** Put stored pieces back exactly where they were (undo of a store). Throws, changing nothing, if a spot is taken. */
+export function unstoreExact(s: LandState, pieces: Placed[]): void {
+  const bag = storage(s);
+  const temp: LandState = { ...s, buildings: [...s.buildings] };
+  for (const p of pieces) {
+    if (!bag.some((b) => b.id === p.id)) throw new Error('That isn’t in storage any more.');
+    const why = placeProblem(temp, p.item, p.x, p.z, p.rot);
+    if (why) throw new Error(why);
+    temp.buildings.push(p);
+  }
+  for (const p of pieces) unstore(s, p.id, p.x, p.z, p.rot);
+}
+
+/**
+ * Place everything in storage back on the map: each piece goes to its old spot if it's free, otherwise to the
+ * nearest free one (biggest pieces first). Whatever doesn't fit stays safely in storage (`left`).
+ */
+export function restoreAll(s: LandState, ids?: number[]): { placed: Placed[]; left: Placed[] } {
+  const bag = storage(s);
+  const todo = (ids ? bag.filter((b) => ids.includes(b.id)) : [...bag]).sort((a, b) => { const fa = item(a.item), fb = item(b.item); return fb.w * fb.d - fa.w * fa.d; });
+  const placed: Placed[] = [], left: Placed[] = [];
+  for (const p of todo) {
+    const spot = canPlace(s, p.item, p.x, p.z, p.rot) ? { x: p.x, z: p.z } : nearestFree(s, p.item, p.x, p.z, p.rot);
+    if (!spot) { left.push(p); continue; }
+    placed.push(unstore(s, p.id, spot.x, spot.z, p.rot));
+  }
+  return { placed, left };
+}
+
 // ---------- fields ----------
 export const cropProgress = (p: Placed, now = Date.now()): number => (p.crop ? Math.min(1, (now - p.crop.at) / (good(p.crop.good).time * 1000)) : 0);
 
@@ -490,7 +568,8 @@ export function expand(s: LandState): void {
 export function migrateLand(s: Partial<LandState> | undefined): LandState {
   if (!s || s.v !== 1 || !Array.isArray(s.buildings)) return freshLand();
   const f = freshLand();
-  const out = { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn }, buildings: s.buildings.map((b) => ({ ...b, rot: ((b.rot ?? 0) & 3) as Rot })) } as LandState;
+  const fix = (b: Placed) => ({ ...b, rot: ((b.rot ?? 0) & 3) as Rot });
+  const out = { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn }, buildings: s.buildings.map(fix), storage: Array.isArray(s.storage) ? s.storage.map(fix) : [] } as LandState;
   if (!s.layout) { out.layout = undefined; tidyOldStarter(out); out.layout = 2; }
   return out;
 }

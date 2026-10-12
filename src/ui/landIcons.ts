@@ -5,7 +5,7 @@
 export type LandIcon =
   | 'coin' | 'star' | 'pop' | 'hammer' | 'crate' | 'barn' | 'sparkles' | 'music' | 'musicOff'
   | 'zoomIn' | 'zoomOut' | 'back' | 'house' | 'wheat' | 'workshop' | 'flower' | 'clock' | 'lock'
-  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select';
+  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn';
 
 const O = 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const HL = 'fill="#fff" opacity=".55"';
@@ -79,6 +79,19 @@ const ART: Record<LandIcon, string> = {
     <path d="M3 15L16 4.5 29 15" fill="none" stroke="#fff4e3" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
     <rect x="10" y="16" width="12" height="12" fill="#fff4e3" stroke="#b84f36" stroke-width="1.4"/><path d="M10 16l12 12M22 16L10 28" stroke="#f2785c" stroke-width="2"/>
     <rect x="13.6" y="9" width="4.8" height="4" rx="1" fill="#fff4e3" stroke="#b84f36" stroke-width="1"/><path d="M15 6.5c1-1.2 3-1.2 2 .5" fill="#ffd43b"/>`,
+  // Town Edit Mode: a pencil over a little house; a storage crate; a crate with an arrow dropping in
+  edit: `<path d="M5 15.5v11h12v-11L11 10z" fill="#fff4e3" stroke="#c9a77e" ${O}/><path d="M3.5 16.5L11 9.5l7.5 7" fill="none" stroke="#e0527f" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="8.8" y="20" width="4.4" height="6.5" rx="2.2" fill="#c98b55"/>
+    <g transform="rotate(45 22 14)"><rect x="19.6" y="3" width="4.8" height="17" rx="1.4" fill="#ffc94a" stroke="#d1900f" ${O}/><path d="M19.6 20l2.4 5 2.4-5z" fill="#f4d9b5" stroke="#d1900f" ${O}/><path d="M21.2 22.5l.8 1.6.8-1.6z" fill="#3d2f2a"/><rect x="19.6" y="3" width="4.8" height="3.2" rx="1.2" fill="#ff9fc8" stroke="#d6336c" stroke-width="1.6"/></g>`,
+  box: `<path d="M4.5 12.5h23V26a2 2 0 0 1-2 2h-19a2 2 0 0 1-2-2z" fill="#c98b55" stroke="#8a5a30" ${O}/>
+    <path d="M3 8.5h26v4.5H3z" fill="#e2b77f" stroke="#8a5a30" ${O}/>
+    <path d="M13 16.5h6" stroke="#8a5a30" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="10.5" cy="7.5" r="3.2" fill="#ff9fc8" stroke="#d6336c" stroke-width="1.6"/><circle cx="17" cy="6" r="3.6" fill="#7fc8f0" stroke="#3a8fc0" stroke-width="1.6"/><circle cx="23" cy="7.5" r="3" fill="#7ad36b" stroke="#58a14a" stroke-width="1.6"/>
+    <ellipse cx="9" cy="22" rx="2.2" ry="1.2" ${HL}/>`,
+  boxIn: `<path d="M4.5 15.5h23V26a2 2 0 0 1-2 2h-19a2 2 0 0 1-2-2z" fill="#c98b55" stroke="#8a5a30" ${O}/>
+    <path d="M3 11.5h26v4.5H3z" fill="#e2b77f" stroke="#8a5a30" ${O}/>
+    <path d="M13 19.5h6" stroke="#8a5a30" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M16 2.5v9M12 8l4 4 4-4" fill="none" stroke="#e0527f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`,
   select: `<rect x="4.5" y="5.5" width="17" height="15" rx="3.5" fill="#fff4e3" stroke="#c9a77e" stroke-dasharray="3.2 2.6" ${O}/>
     <rect x="8" y="9" width="5" height="4.5" rx="1.2" fill="#7ad36b" stroke="#58a14a" ${O}/><rect x="14" y="12.5" width="4.5" height="4" rx="1.2" fill="#ff9fc8" stroke="#c8326e" ${O}/>
     <path d="M18.5 17l9 3.5-4 1.6 3.4 4.2-2.2 1.7-3.4-4.2-2.2 3.7z" fill="#fff" stroke="#3d2f2a" ${O}/>`,

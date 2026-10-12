@@ -56,7 +56,7 @@ export function landScreen(): Screen {
   const placeBar = h('div', { class: 'land-place', hidden: true });
   let view: LandView | null = null;
   let panel: Panel = null;
-  let placing: { item: string; x: number; z: number; rot: L.Rot; moving?: number } | null = null;
+  let placing: { item: string; x: number; z: number; rot: L.Rot; moving?: number; store?: number } | null = null;
   let alive = true;
 
   // ---------- saving & rewards ----------
@@ -83,6 +83,8 @@ export function landScreen(): Screen {
     if (!remote || remote.savedAt <= s.savedAt) return;
     for (const k of Object.keys(s)) delete (s as unknown as Record<string, unknown>)[k];
     Object.assign(s, JSON.parse(JSON.stringify(remote)));
+    // a different copy of the town: the layout kept for "Cancel editing" no longer applies
+    if (session) { session = null; persistSession(); undoStack.length = 0; redoStack.length = 0; sel.clear(); if (selMode) paintSel(); }
     view?.sync(s);
     renderHud();
     renderPanel();
@@ -520,7 +522,7 @@ export function landScreen(): Screen {
     if (!b || placing) { quick.hidden = true; return; }
     quick.replaceChildren(
       btn('Move', { kind: 'soft', size: 'sm', icon: 'hand', title: 'Move (or press and hold it)', onClick: () => startPlacing(b.item, b.id) }),
-      btn(null, { kind: 'soft', size: 'sm', icon: 'plus', title: 'Select more (move several together)', onClick: () => enterSelect(b.id) }),
+      btn(null, { kind: 'soft', size: 'sm', icon: 'plus', title: 'Edit town (select several, store, rearrange)', onClick: () => enterSelect(b.id) }),
       ...(canTurn(b.item) ? [btn('Turn', { kind: 'soft', size: 'sm', icon: 'rotate', title: 'Turn (R)', onClick: () => turnInPlace(b.id) })] : []));
     quick.hidden = false;
     const follow = () => {
@@ -546,30 +548,35 @@ export function landScreen(): Screen {
   }
 
   // ---------- placing & moving ----------
-  function startPlacing(itemId: string, moving?: number): void {
+  /** Carry something onto the map: a new item from the shop, a building being moved (`moving`), or a piece from Storage (`store`). */
+  function startPlacing(itemId: string, moving?: number, store?: number): void {
     const existing = moving !== undefined ? s.buildings.find((b) => b.id === moving) : undefined;
+    const stored = store !== undefined ? L.storage(s).find((b) => b.id === store) : undefined;
     panel = null;
     sheet.hidden = true;
     view?.select(null);
-    // start in the middle of the screen, or where it already stands
+    const rot: L.Rot = existing?.rot ?? stored?.rot ?? 0;
+    // start in the middle of the screen, or where it already stands (a stored piece: its old spot if that's free and on screen)
     let x = existing?.x ?? Math.floor((view?.target.x ?? L.MAP / 2) - 0.5);
     let z = existing?.z ?? Math.floor((view?.target.z ?? L.MAP / 2) - 0.5);
-    if (!existing) {
+    if (stored && L.canPlace(s, itemId, stored.x, stored.z, rot) && Math.abs(stored.x - x) < 7 && Math.abs(stored.z - z) < 7) { x = stored.x; z = stored.z; }
+    else if (!existing) {
       // look for a free spot near the middle
       outer: for (let r = 0; r < 10; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
-        if (L.canPlace(s, itemId, x + dx, z + dz, 0)) { x += dx; z += dz; break outer; }
+        if (L.canPlace(s, itemId, x + dx, z + dz, rot)) { x += dx; z += dz; break outer; }
       }
     }
-    placing = { item: itemId, x, z, rot: existing?.rot ?? 0, moving };
+    placing = { item: itemId, x, z, rot, moving, store };
     quick.hidden = true;
+    paintEdit();
     const it = L.item(itemId);
-    placeHint = h('small', null, hintFor(itemId, moving));
+    placeHint = h('small', null, hintFor(itemId, moving, store));
     placeBar.hidden = false;
     placeBar.replaceChildren(...[
       h('div', { class: 'land-place-info' }, h('b', null, it.name), placeHint),
       canTurn(itemId) ? btn(null, { icon: 'rotate', kind: 'soft', title: 'Turn it (R)', onClick: rotatePlacing }) : null,
       btn(null, { icon: 'close', kind: 'soft', title: 'Cancel (Esc)', onClick: cancelPlacing }),
-      btn(moving !== undefined ? 'Put here' : 'Build here', { kind: 'primary', icon: 'check', title: 'Enter', onClick: confirmPlacing })].filter((x) => x !== null) as HTMLElement[]);
+      btn(moving !== undefined ? 'Put here' : store !== undefined ? 'Place here' : 'Build here', { kind: 'primary', icon: 'check', title: 'Enter', onClick: confirmPlacing })].filter((x) => x !== null) as HTMLElement[]);
     updateGhost(); // show what you're carrying straight away (green or red)
   }
 
@@ -581,16 +588,17 @@ export function landScreen(): Screen {
   }
 
   let placeHint: HTMLElement | null = null;
-  const hintFor = (itemId: string, moving?: number) => moving !== undefined ? `Moving is free — drag it, then tap “Put here”`
+  const hintFor = (itemId: string, moving?: number, store?: number) => moving !== undefined ? `Moving is free — drag it, then tap “Put here”`
+    : store !== undefined ? `From Storage — drag it to a free spot, then tap “Place here”`
     : L.walkway(itemId) ? 'Drag across the grass to lay a line' : isTouch() ? 'Drag it, or tap where it should go' : 'Drag it, or click where it should go';
   function updateGhost(): void {
     if (!placing) return;
     const why = L.placeProblem(s, placing.item, placing.x, placing.z, placing.rot, placing.moving ?? -1);
-    view?.setGhost({ ...placing, ok: !why });
+    view?.setGhost({ item: placing.item, x: placing.x, z: placing.z, rot: placing.rot, moving: placing.moving, seed: placing.store, ok: !why });
     placeBar.classList.toggle('bad', !!why);
     if (placeHint) {
       if (why) placeHint.textContent = why;
-      else placeHint.textContent = hintFor(placing.item, placing.moving);
+      else placeHint.textContent = hintFor(placing.item, placing.moving, placing.store);
     }
   }
 
@@ -607,16 +615,42 @@ export function landScreen(): Screen {
   }
 
   function cancelPlacing(): void {
+    const fromStore = placing?.store !== undefined;
     placing = null;
     placeBar.hidden = true;
     view?.setGhost(null); // the original (if moving) shows again exactly where it was
     showQuick();
+    paintEdit();
+    if (fromStore && selMode && L.storage(s).length) openDrawer();
   }
 
   function confirmPlacing(): void {
     if (!placing) return;
     const p = placing;
     try {
+      if (p.store !== undefined) {
+        // a piece from Storage: back on the map exactly as it was (crop, queue, timers), just here
+        const placed = L.unstore(s, p.store, p.x, p.z, p.rot);
+        record({ kind: 'unstore', pieces: [clone(placed)] });
+        sfx.build();
+        save();
+        view?.settle([placed.id]);
+        sel.add(placed.id);
+        // more of the same kind waiting? keep placing them in a row
+        const next = L.storage(s).find((b) => b.item === p.item);
+        if (next) {
+          const f = L.footprint(L.item(p.item), p.rot);
+          placing = { ...p, store: next.id, x: p.x + f.w };
+          if (!L.canPlace(s, p.item, placing.x, placing.z, p.rot)) { const sp = L.nearestFree(s, p.item, p.x, p.z, p.rot); if (sp) { placing.x = sp.x; placing.z = sp.z; } }
+          if (placeHint) placeHint.textContent = `Placed ✓ — ${plural(L.storage(s).filter((b) => b.item === p.item).length, L.item(p.item).name)} left in Storage`;
+          view?.setGhost({ item: placing.item, x: placing.x, z: placing.z, rot: placing.rot, seed: placing.store, ok: L.canPlace(s, placing.item, placing.x, placing.z, placing.rot) });
+          placeBar.classList.remove('bad');
+          return;
+        }
+        cancelPlacing();
+        paintSel();
+        return;
+      }
       if (p.moving !== undefined) { L.move(s, p.moving, p.x, p.z, p.rot); sfx.hop(); tut.emit('moved'); }
       else {
         const it = L.item(p.item);
@@ -643,32 +677,92 @@ export function landScreen(): Screen {
     save();
   }
 
-  // ---------- multi-select & group editing ----------
-  // Select mode: tap pieces to add/remove them, double-tap a road or field for its whole connected stretch, drag an empty
-  // spot (mouse) or press-and-hold then drag (touch) for an area; drag any selected piece to move the whole group.
-  // Moves are previewed (green / red per piece) and only happen on "Put here"; every edit can be undone.
-  type EditOp = { kind: 'move'; ids: number[]; dx: number; dz: number } | { kind: 'remove'; pieces: L.Placed[]; refund: number } | { kind: 'turn'; id: number; from: L.Rot; to: L.Rot };
+  // ---------- Town Edit Mode: select, move, store & restore ----------
+  // Edit mode (the pencil button, ➕ next to a building, or Shift-click): tap pieces to add/remove them, double-tap a road or
+  // field for its whole connected stretch, drag an empty spot (mouse) or press-and-hold then drag (touch) for an area; drag
+  // any selected piece to move the whole group. Moves are previewed (green / red per piece) and only happen on "Put here".
+  // Pieces can be lifted into Storage (whole, timers and all) and placed back later; every edit can be undone, and the layout
+  // from before editing is kept (also across a refresh) until you Save — Cancel puts it back.
+  type EditOp = { kind: 'move'; ids: number[]; dx: number; dz: number } | { kind: 'remove'; pieces: L.Placed[]; refund: number } | { kind: 'turn'; id: number; from: L.Rot; to: L.Rot }
+    | { kind: 'store'; pieces: L.Placed[] } | { kind: 'unstore'; pieces: L.Placed[] };
+  const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
   let selMode = false;
   const sel = new Set<number>();
   let gmove: { dx: number; dz: number; why: string; bad: number[] } | null = null;
   const undoStack: EditOp[] = [], redoStack: EditOp[] = [];
   const editBar = h('div', { class: 'land-edit', hidden: true, role: 'toolbar', 'aria-label': 'Edit your town' });
+  const editTag = h('div', { class: 'land-edit-tag', hidden: true }, icon('edit', 14), h('span', null, 'Editing your town'));
+  const drawer = h('section', { class: 'land-store', hidden: true, 'aria-label': 'Storage' });
+  let drawerTab: L.StoreCat | 'all' = 'all';
   const selIds = () => [...sel].filter((id) => s.buildings.some((b) => b.id === id));
   const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const bag = () => L.storage(s);
+
+  // The layout from before you started editing: kept on this device (so a refresh mid-edit loses nothing) until you Save.
+  // `refund` = coins removals gave back meanwhile (Cancel takes them back, so coins can't be made out of thin air).
+  const EDIT_KEY = `fz.land.edit.${a.id}`;
+  let session: { buildings: L.Placed[]; storage: L.Placed[]; refund: number; at: number } | null = null;
+  const persistSession = () => { try { if (session) localStorage.setItem(EDIT_KEY, JSON.stringify(session)); else localStorage.removeItem(EDIT_KEY); } catch { /* private mode */ } };
+  const layoutKey = (b: L.Placed[], st: L.Placed[]) => JSON.stringify([b.map((p) => [p.id, p.x, p.z, p.rot]).sort((x, y) => x[0] - y[0]), st.map((p) => p.id).sort()]);
+  const changed = () => !!session && (session.refund !== 0 || layoutKey(session.buildings, session.storage) !== layoutKey(s.buildings, bag()));
   function enterSelect(first?: number): void {
     if (placing) cancelPlacing();
     openPanel(null);
+    document.querySelector('.land-away')?.remove();
+    if (!session) { session = { buildings: clone(s.buildings), storage: clone(bag()), refund: 0, at: Date.now() }; persistSession(); }
     selMode = true;
     if (first !== undefined) sel.add(first);
     stage.classList.add('editing');
+    editTag.hidden = false;
+    view?.editMode(true);
     paintSel();
   }
+  /** Leave edit mode. `commit` keeps the new layout (Save); otherwise the caller has already put the old one back. */
   function exitSelect(): void {
+    if (placing) cancelPlacing();
     cancelGroup();
+    closeMenu();
+    drawer.hidden = true;
     selMode = false;
     sel.clear();
+    undoStack.length = 0; redoStack.length = 0;
+    session = null; persistSession();
     stage.classList.remove('editing');
+    editTag.hidden = true;
+    view?.editMode(false);
     paintSel();
+  }
+  function saveLayout(): void {
+    const had = changed();
+    exitSelect();
+    if (had) { sfx.build(); toast('Layout saved ✓', 'good'); }
+  }
+  async function cancelEditing(): Promise<void> {
+    if (!session || !changed()) { exitSelect(); return; }
+    closeMenu();
+    const ok = await confirmDialog('Cancel editing?', 'Your town goes back to how it was before you started editing. Nothing you built is lost.', 'Go back', false);
+    if (!ok) return;
+    if (s.coins < session.refund) { toast(`You spent the ${session.refund} coins you got back for removed pieces, so the old layout can’t be restored. Save instead.`, 'info', 4200); return; }
+    s.coins -= session.refund;
+    s.buildings = clone(session.buildings);
+    s.storage = clone(session.storage);
+    exitSelect();
+    save();
+    sfx.whoosh();
+    toast('Back to how it was', 'info');
+  }
+  /** After a refresh (or coming back) mid-edit: pick up where you left off, with the old layout still safe. */
+  function resumeEditing(): void {
+    try {
+      const saved = JSON.parse(localStorage.getItem(EDIT_KEY) || 'null') as typeof session;
+      if (!saved || !Array.isArray(saved.buildings) || !Array.isArray(saved.storage)) return;
+      // only when it belongs to this copy of the town (not one that came from another device since)
+      if (saved.at > s.savedAt + 5000 || Date.now() - saved.at > 86_400_000) { localStorage.removeItem(EDIT_KEY); return; }
+      session = { ...saved, refund: saved.refund || 0 };
+      if (!changed()) { session = null; persistSession(); return; }
+      enterSelect();
+      toast('You were editing your town — Save when you’re happy, or Cancel to go back.', 'info', 4200);
+    } catch { /* nothing saved */ }
   }
   function toggleSel(id: number): void {
     if (gmove) return; // finish (or cancel) the move first
@@ -682,16 +776,18 @@ export function landScreen(): Screen {
     view?.setMulti(selMode ? selIds() : []);
     paintEdit();
   }
+  const ib = (ic: Parameters<typeof icon>[0], title: string, onClick: (e: MouseEvent) => void, opts: { disabled?: boolean; cls?: string; label?: string; badge?: number; land?: LandIcon } = {}) => {
+    const b = h('button', { class: `land-edit-b ${opts.cls ?? ''}`, type: 'button', title, 'aria-label': opts.badge ? `${title} (${opts.badge})` : title },
+      opts.land ? landIcon(opts.land, 24) : icon(ic, 20), opts.label ? h('span', null, opts.label) : null, opts.badge ? h('i', { class: 'land-edit-badge' }, String(opts.badge)) : null);
+    b.disabled = !!opts.disabled;
+    b.addEventListener('click', onClick);
+    return b;
+  };
   function paintEdit(): void {
-    editBar.hidden = !selMode;
-    if (!selMode) return;
+    editBar.hidden = !selMode || !!placing;
+    if (!drawer.hidden) paintDrawer();
+    if (editBar.hidden) return;
     const n = sel.size;
-    const ib = (ic: Parameters<typeof icon>[0], title: string, onClick: () => void, opts: { disabled?: boolean; cls?: string; label?: string } = {}) => {
-      const b = h('button', { class: `land-edit-b ${opts.cls ?? ''}`, type: 'button', title, 'aria-label': title }, icon(ic, 20), opts.label ? h('span', null, opts.label) : null);
-      b.disabled = !!opts.disabled;
-      b.addEventListener('click', onClick);
-      return b;
-    };
     if (gmove) {
       const ok = !gmove.why && (gmove.dx || gmove.dz);
       editBar.replaceChildren(
@@ -701,16 +797,24 @@ export function landScreen(): Screen {
       return;
     }
     const one = n === 1 ? s.buildings.find((b) => b.id === [...sel][0]) : undefined;
-    const removable = selIds().filter((id) => L.item(s.buildings.find((b) => b.id === id)!.item).sellable).length;
+    const ids = selIds();
+    const removable = ids.filter((id) => L.item(s.buildings.find((b) => b.id === id)!.item).sellable).length;
+    const storable = ids.filter((id) => !L.cantStore(s.buildings.find((b) => b.id === id)!)).length;
+    const stored = bag().length;
     editBar.replaceChildren(
-      h('div', { class: 'land-edit-count' }, h('b', null, String(n)), h('span', null, n ? 'selected' : isTouch() ? 'Tap to select' : 'Click to select')),
-      h('small', { class: 'land-edit-hint' }, n ? 'Drag to move' : isTouch() ? 'Hold + drag: area' : 'Drag: area'),
-      ib('rotate', 'Turn (R)', () => { if (one) turnRecorded(one.id); }, { disabled: !one || !canTurn(one.item) }),
-      ib('trash', 'Remove (Delete)', () => void removeSel(), { disabled: !removable }),
-      ib('undo', 'Undo (Ctrl+Z)', undo, { disabled: !undoStack.length }),
-      ib('redo', 'Redo (Ctrl+Shift+Z)', redo, { disabled: !redoStack.length }),
-      ib('close', 'Clear selection', () => { sel.clear(); paintSel(); }, { disabled: !n }),
-      ib('check', 'Done (Esc)', exitSelect, { cls: 'done', label: 'Done' }));
+      h('div', { class: 'land-edit-g' },
+        h('div', { class: 'land-edit-count' }, h('b', null, String(n)), h('span', null, n ? 'selected' : isTouch() ? 'Tap to select' : 'Click to select')),
+        h('small', { class: 'land-edit-hint' }, n ? 'Drag to move' : isTouch() ? 'Hold + drag: area' : 'Drag: area'),
+        ib('rotate', 'Turn (R)', () => { if (one) turnRecorded(one.id); }, { disabled: !one || !canTurn(one.item) }),
+        ib('download', n ? `Store ${plural(storable, 'piece')}` : 'Store…', (e) => { if (n) void storeSel(); else storeMenu(e.currentTarget as HTMLElement); }, { disabled: n > 0 && !storable, land: 'boxIn', label: 'Store' }),
+        ib('trash', 'Remove (Delete)', () => void removeSel(), { disabled: !removable }),
+        ib('close', 'Clear selection', () => { sel.clear(); paintSel(); }, { disabled: !n, cls: 'clear' })),
+      h('div', { class: 'land-edit-g' },
+        ib('download', stored ? `Storage (${stored})` : 'Storage', () => (drawer.hidden ? openDrawer() : closeDrawer()), { land: 'box', badge: stored, cls: drawer.hidden ? '' : 'on' }),
+        ib('undo', 'Undo (Ctrl+Z)', undo, { disabled: !undoStack.length }),
+        ib('redo', 'Redo (Ctrl+Shift+Z)', redo, { disabled: !redoStack.length }),
+        ib('close', 'Cancel editing', () => void cancelEditing(), { cls: 'cancel' }),
+        ib('check', 'Save layout (Esc)', saveLayout, { cls: 'done', label: 'Save' })));
   }
   /** Drag the group to (dx, dz) from where it stands: preview it, green where it fits and red where it doesn't. */
   function previewGroup(dx: number, dz: number): void {
@@ -738,6 +842,7 @@ export function landScreen(): Screen {
     record({ kind: 'move', ids, dx, dz });
     sfx.hop();
     save();
+    view?.settle(ids);
     paintSel();
     tut.emit('moved');
   }
@@ -753,35 +858,141 @@ export function landScreen(): Screen {
     if (!pieces.length) return;
     const refund = pieces.reduce((a, b) => { const it = L.item(b.item); return a + (it.currency === 'coins' ? Math.floor(it.cost / 2) : 0); }, 0);
     const growing = pieces.some((b) => b.crop);
-    const ok = await confirmDialog(`Remove ${plural(pieces.length, 'piece')}?`, `${refund ? `You get ${refund} coins back. ` : ''}${growing ? 'Crops on these fields will be lost. ' : ''}You can undo this.`, 'Remove');
+    const ok = await confirmDialog(`Remove ${plural(pieces.length, 'piece')}?`, `${refund ? `You get ${refund} coins back. ` : ''}${growing ? 'Crops on these fields will be lost. ' : ''}Want to keep them instead? Use Store — it’s free and nothing is lost. You can undo this.`, 'Remove');
     if (!ok) return;
-    const copies = pieces.map((b) => JSON.parse(JSON.stringify(b)) as L.Placed);
+    const copies = clone(pieces);
     let back = 0;
     for (const b of pieces) back += L.sell(s, b.id);
     for (const b of pieces) sel.delete(b.id);
+    if (session) { session.refund += back; persistSession(); }
     record({ kind: 'remove', pieces: copies, refund: back });
     sfx.coins();
     if (back) toast(`+${back} coins`, 'good');
     save();
     paintSel();
   }
+  // ----- storage -----
+  /** Lift the selected pieces into Storage (nothing is sold; they keep crops, queues and timers). */
+  function storeSel(ids = selIds(), quiet = false): void {
+    if (!ids.length) return;
+    cancelGroup();
+    const pieces = ids.map((id) => s.buildings.find((b) => b.id === id)!).filter((b) => !L.cantStore(b));
+    if (!pieces.length) { toast(L.cantStore(s.buildings.find((b) => b.id === ids[0])!) || 'Nothing to store here.', 'info'); return; }
+    for (const p of pieces) { const c = view?.centerOf(p.id); if (c) view?.sparkle(c.x, 0.5, c.z, 6); }
+    const r = L.store(s, pieces.map((p) => p.id));
+    for (const p of r.stored) sel.delete(p.id);
+    record({ kind: 'store', pieces: clone(r.stored) });
+    sfx.whoosh();
+    save();
+    paintSel();
+    if (!quiet) toast(`${plural(r.stored.length, 'piece')} in Storage${r.kept.length ? ` — the ${r.kept.map((k) => L.item(s.buildings.find((b) => b.id === k.id)!.item).name).join(' and ')} stays` : ''}`, 'good');
+  }
+  /** "Store…" with nothing selected: everything, or one kind of thing. */
+  function storeMenu(anchor: HTMLElement): void {
+    const all = s.buildings.filter((b) => !L.cantStore(b));
+    const byCat = (c: L.StoreCat) => all.filter((b) => L.storeCat(b.item) === c);
+    const rows = [
+      { icon: 'box' as LandIcon, label: 'Store everything', n: all.length, run: () => void storeMany(all.map((b) => b.id), 'everything') },
+      ...L.STORE_CATS.map((c) => ({ icon: ({ house: 'house', factory: 'workshop', field: 'wheat', decor: 'flower', road: 'select' } as Record<L.StoreCat, LandIcon>)[c.id], label: c.name, n: byCat(c.id).length, run: () => void storeMany(byCat(c.id).map((b) => b.id), c.name.toLowerCase()) })),
+    ].filter((r) => r.n > 0) as { icon: LandIcon; label: string; n: number; run: () => void }[];
+    if (!rows.length) { toast('Nothing on the map can be stored — the Town Hall and Gate stay.', 'info'); return; }
+    openMenu(anchor, 'Store…', rows.map((r) => ({ icon: r.icon, label: r.label, meta: String(r.n), run: r.run })));
+  }
+  async function storeMany(ids: number[], what: string): Promise<void> {
+    if (ids.length > 3 && !(await confirmDialog(`Store ${what}?`, `${plural(ids.length, 'piece')} go into Storage. The Town Hall and Crossing Gate stay. Nothing is sold or lost — place them back any time, or Cancel editing to undo it all.`, 'Store', false))) return;
+    storeSel(ids);
+  }
+  /** Place every stored piece back where it was (or the nearest free spot). Whatever doesn't fit stays in Storage. */
+  function restoreAllNow(): void {
+    cancelGroup();
+    const r = L.restoreAll(s);
+    if (!r.placed.length) { toast(r.left.length ? 'No room right now — move something or expand your land, then try again.' : 'Storage is empty.', 'info'); return; }
+    record({ kind: 'unstore', pieces: clone(r.placed) });
+    sfx.build();
+    save();
+    view?.settle(r.placed.map((p) => p.id));
+    sel.clear(); for (const p of r.placed) sel.add(p.id);
+    paintSel();
+    toast(r.left.length ? `Placed ${r.placed.length} · ${plural(r.left.length, 'piece')} didn’t fit — still safe in Storage` : `Placed ${plural(r.placed.length, 'piece')} back ✓`, 'good', 3200);
+  }
+  /** Pick a stored piece of this kind up and carry it onto the map. */
+  function placeFromStore(itemId: string): void {
+    const p = bag().find((b) => b.item === itemId);
+    if (!p) return;
+    drawer.hidden = true;
+    startPlacing(p.item, undefined, p.id);
+  }
+  // ----- storage drawer -----
+  function openDrawer(tab = drawerTab): void { closeMenu(); drawerTab = tab; drawer.hidden = false; paintDrawer(); paintEdit(); }
+  function closeDrawer(): void { drawer.hidden = true; paintEdit(); }
+  function paintDrawer(): void {
+    const items = bag();
+    const inTab = drawerTab === 'all' ? items : items.filter((b) => L.storeCat(b.item) === drawerTab);
+    const groups = new Map<string, L.Placed[]>();
+    for (const b of inTab) groups.set(b.item, [...(groups.get(b.item) ?? []), b]);
+    const tabs = [{ id: 'all' as const, name: 'All', n: items.length }, ...L.STORE_CATS.map((c) => ({ id: c.id, name: c.name, n: items.filter((b) => L.storeCat(b.item) === c.id).length }))].filter((t) => t.id === 'all' || t.n > 0);
+    if (drawerTab !== 'all' && !tabs.some((t) => t.id === drawerTab)) { drawerTab = 'all'; paintDrawer(); return; }
+    const note = (ps: L.Placed[]) => { const now = Date.now(); const g = ps.filter((p) => p.crop).length, q = ps.filter((p) => p.queue?.length).length, c = ps.filter((p) => p.doneAt && p.doneAt > now).length; return [g ? `🌱 ${g} growing` : '', q ? `⚙️ ${q} busy` : '', c ? `🔨 ${c} building` : ''].filter(Boolean).join(' · '); };
+    drawer.replaceChildren(
+      h('div', { class: 'land-store-head' }, h('span', { class: 'land-sheet-ic' }, landIcon('box', 30)),
+        h('div', null, h('h3', null, 'Storage'), h('small', { class: 'muted' }, items.length ? `${plural(items.length, 'piece')} waiting — tap one to place it` : 'Empty — select pieces and tap Store to clear space')),
+        items.length ? btn('Restore all', { kind: 'primary', size: 'sm', icon: 'upload', title: 'Put everything back where it was (or the nearest free spot)', onClick: restoreAllNow }) : null,
+        btn(null, { icon: 'close', kind: 'plain', size: 'sm', title: 'Close', onClick: closeDrawer })),
+      ...(tabs.length > 2 ? [h('div', { class: 'land-tabs land-store-tabs', role: 'tablist' }, ...tabs.map((t) => h('button', { class: `land-tab ${t.id === drawerTab ? 'on' : ''}`, type: 'button', role: 'tab', 'data-tab': t.id, 'aria-selected': String(t.id === drawerTab), onclick: () => openDrawer(t.id) }, h('span', null, t.name), h('i', { class: 'land-tab-n' }, String(t.n)))))] : []),
+      items.length ? h('div', { class: 'land-store-grid' }, ...[...groups.entries()].map(([itemId, ps]) => {
+        const it = L.item(itemId);
+        const card = h('button', { class: 'land-card land-store-card', type: 'button', 'data-item': itemId, title: `Place a ${it.name}` },
+          h('span', { class: 'land-card-art' }, thumb(itemId, it.emoji), h('i', { class: 'land-store-n' }, `×${ps.length}`)),
+          h('b', null, it.name), h('small', null, note(ps) || (isTouch() ? 'Tap to place' : 'Click to place')));
+        card.addEventListener('click', () => placeFromStore(itemId));
+        return card;
+      })) : h('div', { class: 'land-store-empty' }, mascot(56, { sparkles: false, interactive: false }), h('p', null, 'Store houses, fields, decor and roads here while you rearrange — they keep everything, even growing crops.')));
+  }
+  // ----- a small cream popover menu above the toolbar (Store…) -----
+  let menuEl: HTMLElement | null = null;
+  const closeMenu = () => { menuEl?.remove(); menuEl = null; };
+  function openMenu(anchor: HTMLElement, title: string, rows: { icon: LandIcon; label: string; meta: string; run: () => void }[]): void {
+    closeMenu();
+    const m = h('div', { class: 'land-menu', role: 'menu' }, h('small', null, title), ...rows.map((r) => {
+      const b = h('button', { class: 'land-menu-item', type: 'button', role: 'menuitem' }, landIcon(r.icon, 22), h('span', null, r.label), h('i', null, r.meta));
+      b.addEventListener('click', () => { closeMenu(); r.run(); });
+      return b;
+    }));
+    stage.append(m);
+    menuEl = m;
+    const ar = anchor.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const x = Math.max(8, Math.min(sr.width - m.offsetWidth - 8, ar.left - sr.left + ar.width / 2 - m.offsetWidth / 2));
+    m.style.left = `${x}px`;
+    m.style.bottom = `${sr.bottom - ar.top + 10}px`;
+    const off = (e: Event) => { if (!m.contains(e.target as Node)) { closeMenu(); removeEventListener('pointerdown', off, true); } };
+    setTimeout(() => addEventListener('pointerdown', off, true));
+  }
+  // ----- undo / redo -----
   function applyOp(op: EditOp, forward: boolean): void {
     if (op.kind === 'move') {
       const d = forward ? 1 : -1;
       L.moveGroup(s, op.ids, op.dx * d, op.dz * d);
       sel.clear(); for (const id of op.ids) sel.add(id);
+      view?.settle(op.ids);
     } else if (op.kind === 'turn') {
       const b = s.buildings.find((o) => o.id === op.id);
       if (!b) throw new Error('That’s gone.');
       L.move(s, b.id, b.x, b.z, forward ? op.to : op.from);
+    } else if (op.kind === 'store' || op.kind === 'unstore') {
+      const toStore = op.kind === 'store' ? forward : !forward;
+      if (toStore) { const r = L.store(s, op.pieces.map((p) => p.id)); if (r.stored.length !== op.pieces.length) throw new Error('Some of those pieces aren’t on the map any more.'); for (const p of op.pieces) sel.delete(p.id); }
+      else { L.unstoreExact(s, op.pieces); sel.clear(); for (const p of op.pieces) sel.add(p.id); view?.settle(op.pieces.map((p) => p.id)); }
     } else if (forward) {
       for (const p of op.pieces) L.sell(s, p.id);
+      if (session) session.refund += op.refund;
     } else {
       if (s.coins < op.refund) throw new Error('You need the coins you got back to undo this.');
       L.restore(s, op.pieces);
       s.coins -= op.refund;
+      if (session) session.refund -= op.refund;
       sel.clear(); for (const p of op.pieces) sel.add(p.id);
     }
+    persistSession();
   }
   function undo(): void {
     cancelGroup();
@@ -1043,8 +1254,8 @@ export function landScreen(): Screen {
       if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); return; }
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (selMode) {
-      if (k === 'escape') { e.preventDefault(); if (boxEl) clearBox(); else if (gmove) cancelGroup(); else if (sel.size) { sel.clear(); paintSel(); } else exitSelect(); return; }
+    if (selMode && !placing) {
+      if (k === 'escape') { e.preventDefault(); if (menuEl) closeMenu(); else if (boxEl) clearBox(); else if (gmove) cancelGroup(); else if (!drawer.hidden) closeDrawer(); else if (sel.size) { sel.clear(); paintSel(); } else saveLayout(); return; }
       if (k === 'enter' && gmove) { e.preventDefault(); confirmGroup(); return; }
       if ((k === 'delete' || k === 'backspace') && sel.size && !gmove) { e.preventDefault(); void removeSel(); return; }
       if (k === 'r' && sel.size === 1) { turnRecorded([...sel][0]); return; }
@@ -1220,7 +1431,7 @@ export function landScreen(): Screen {
   }
 
   // ---------- setup ----------
-  const stage = h('div', { class: 'land-wrap' }, wrap, overlay, quick, hud, side, bar, dockTab, placeBar, editBar, sheet);
+  const stage = h('div', { class: 'land-wrap' }, wrap, overlay, quick, hud, editTag, side, bar, dockTab, placeBar, drawer, editBar, sheet);
   const round = (ic: Node, title: string, onClick: () => void, cls = '') => {
     const b = h('button', { class: `land-round ${cls}`, type: 'button', title, 'aria-label': title }, ic);
     b.addEventListener('click', onClick);
@@ -1242,7 +1453,7 @@ export function landScreen(): Screen {
   const sideToggle = h('button', { class: 'land-side-toggle', type: 'button' }, landIcon('chevRight', 18));
   const sideBody = h('div', { class: 'land-side-body' }, ...[
     musicBtn,
-    round(landIcon('select', 30), 'Select & move several', () => (selMode ? exitSelect() : enterSelect()), 'land-select'),
+    round(landIcon('edit', 30), 'Edit town — move, store & rearrange', () => (selMode ? saveLayout() : enterSelect()), 'land-select'),
     round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
       round(landIcon('zoomIn', 20), 'Zoom in', () => { view?.zoom(0.8); tut.emit('zoom'); }),
@@ -1275,11 +1486,12 @@ export function landScreen(): Screen {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
       } catch { /* first visit */ }
-      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode }; // for tests
+      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
       setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
       setTimeout(() => { if (alive) startTutorial(); }, a.settings.reduceMotion ? 300 : 2200);
+      resumeEditing();
       view.start();
       music.start();
       wrap.classList.remove('loading');
@@ -1320,6 +1532,6 @@ export function landScreen(): Screen {
 
   return {
     el: h('div', { class: 'page land' }, stage),
-    destroy: () => { tutUi?.destroy(); removeEventListener('keydown', onKeyDown); removeEventListener('keyup', onKeyUp); removeEventListener('blur', onBlur); cancelAnimationFrame(quickRaf); cancelAnimationFrame(edgeRaf); music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
+    destroy: () => { closeMenu(); tutUi?.destroy(); removeEventListener('keydown', onKeyDown); removeEventListener('keyup', onKeyUp); removeEventListener('blur', onBlur); cancelAnimationFrame(quickRaf); cancelAnimationFrame(edgeRaf); music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
   };
 }

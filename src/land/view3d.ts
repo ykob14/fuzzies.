@@ -714,8 +714,8 @@ export class LandView {
   }
 
   // ---------- placing ----------
-  setGhost(g: { item: string; x: number; z: number; rot: number; ok: boolean; moving?: number } | null): void {
-    this.grid.visible = !!g;
+  setGhost(g: { item: string; x: number; z: number; rot: number; ok: boolean; moving?: number; seed?: number } | null): void {
+    this.grid.visible = !!g || this.editing;
     // while moving something, its old self is hidden so you only see the one you're carrying
     const hide = g?.moving !== undefined ? this.built.get(g.moving)?.node ?? null : null;
     if (this.hiddenNode && this.hiddenNode !== hide) this.hiddenNode.visible = true;
@@ -729,11 +729,11 @@ export class LandView {
       }
       return;
     }
-    const key = `${g.item}:${g.rot}:${g.moving ?? ''}`;
+    const key = `${g.item}:${g.rot}:${g.moving ?? ''}:${g.seed ?? ''}`;
     if (!this.ghost || this.ghost.key !== key) {
       if (this.ghost) { this.ghost.node.removeFromParent(); this.ghost.pad.removeFromParent(); this.ghost = null; }
       // the one you're carrying looks exactly like the real thing (same colours)
-      const node = LM.modelFor(g.item, g.moving ?? 1);
+      const node = LM.modelFor(g.item, g.moving ?? g.seed ?? 1);
       node.rotation.y = -(g.rot & 3) * Math.PI / 2;
       // a see-through preview (its own copies of the materials, so the real buildings stay solid)
       node.traverse((o) => {
@@ -826,7 +826,7 @@ export class LandView {
       this.groupOff = { x: 0, z: 0 };
       this.groupKey = '';
       for (const m of this.groupPads) m.visible = false;
-      this.grid.visible = false;
+      this.grid.visible = this.editing;
       if (this.state) { this.buildRoads(this.state); this.buildFences(this.state); }
       this.setMulti(this.multiIds);
       return;
@@ -865,6 +865,24 @@ export class LandView {
     }
     this.groupOff = { x: p.dx, z: p.dz };
     this.setMulti(this.multiIds);
+  }
+
+  // ---------- Town Edit Mode ----------
+  private editing = false;
+  /** Edit mode shows a faint grid over the whole land so moves and drops read clearly. */
+  editMode(on: boolean): void {
+    this.editing = on;
+    (this.grid.material as THREE.LineBasicMaterial).opacity = on ? 0.26 : 0.45;
+    this.grid.visible = on || !!this.ghost;
+  }
+  /** Pieces that were just moved or placed back drop onto their spot with a little squash (a satisfying "plop"). */
+  settle(ids: number[]): void {
+    for (const id of ids) {
+      const b = this.built.get(id);
+      if (!b || b.node.userData.grow !== undefined) continue;
+      b.node.userData.drop = 0;
+      b.node.position.y = 0.6;
+    }
   }
 
   /** Mouse hover (computers): a fainter outline under what the pointer is over. */
@@ -1044,6 +1062,14 @@ export class LandView {
         const k = Math.min(1, n.userData.grow / 0.6);
         n.scale.setScalar(k < 1 ? 1 + Math.sin(k * Math.PI) * 0.18 - (1 - k) * 0.9 : 1);
         if (k >= 1) { n.scale.setScalar(1); delete n.userData.grow; this.sparkle(n.position.x, 0.4, n.position.z, 14); }
+      }
+      if (n.userData.drop !== undefined) {
+        n.userData.drop += dt;
+        const k = Math.min(1, n.userData.drop / 0.42);
+        n.position.y = k < 0.55 ? 0.6 * (1 - k / 0.55) ** 2 : 0;
+        const sq = k >= 0.55 ? Math.sin((k - 0.55) / 0.45 * Math.PI) * 0.12 : 0;
+        n.scale.set(1 + sq, 1 - sq, 1 + sq);
+        if (k >= 1) { n.position.y = 0; n.scale.setScalar(1); delete n.userData.drop; this.sparkle(n.position.x, 0.25, n.position.z, 6); }
       }
       if (n.userData.boing !== undefined) {
         n.userData.boing += dt;
