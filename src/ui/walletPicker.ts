@@ -83,6 +83,8 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
   const list = h('div', { class: 'wallet-list', 'aria-busy': 'true' }, h('p', { class: 'muted wallet-looking' }, 'Looking for wallets…'));
   const more = h('div', { class: 'wallet-list' });
   const msg = h('p', { class: 'form-err', role: 'alert' });
+  // "add a little more" (not enough for the payment + fee) is guidance, not an error: shown as a calm note
+  const showErr = (e: unknown) => { const friendly = !!(e as { friendly?: boolean })?.friendly; msg.className = friendly ? 'wallet-topup' : 'form-err'; msg.textContent = (e as Error).message; };
   const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', placeholder: 'Your Fuzzies password' });
   const pwField = opts.password
     ? h('label', { class: 'field wallet-pw' }, h('span', null, 'First, confirm it’s you'), pw, h('small', { class: 'muted' }, 'A linked wallet can log in to your account, so we ask for your password.'))
@@ -108,7 +110,7 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
       say('Approve in your wallet app…');
       try { await opts.run(remote, pw.value); m.close(); }
       finally { void remote.done(); }
-    } catch (e) { msg.textContent = (e as Error).message; }
+    } catch (e) { showErr(e); }
     finally { say(idle); setBusy(false); }
   } : null;
 
@@ -119,13 +121,13 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
       const b = h('button', { type: 'button', class: 'wallet-opt' }, walletBadge(w), h('b', null, w.name), status);
       b.addEventListener('click', async () => {
         if (busy) return;
-        msg.textContent = '';
+        msg.textContent = ''; msg.className = 'form-err';
         if (opts.password && !pw.value) { msg.textContent = 'Please enter your Fuzzies password first.'; pw.focus(); return; }
         setBusy(true);
         b.classList.add('busy');
         status.textContent = 'Check your wallet…';
         try { await opts.run(w, pw.value); m.close(); }
-        catch (e) { msg.textContent = (e as Error).message; status.textContent = 'Connect'; }
+        catch (e) { showErr(e); status.textContent = 'Connect'; }
         finally { b.classList.remove('busy'); setBusy(false); }
       });
       return b;

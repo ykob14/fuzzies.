@@ -3,14 +3,15 @@
  *   pay.config                          → { enabled, networks, packs, walletFeeCents, walletGift }
  *   pay.quote  { kind: 'pack'|'wallet', item, network, asset } (logged in) → { payment }
  *   pay.check  { id, tx? } (logged in)  → { payment, state: 'paid'|'pending'|'confirming'|'expired', detail?, gift? }
- *   pay.precheck { id, from } (logged in) → { ok } or 400 when a smart wallet tries to pay in ETH (only USDC can be matched)
+ *   pay.precheck { id, from } (logged in) → { ok } | { ok: false, short } (not enough for payment + network fee: what to add),
+ *                                         or 400 when a smart wallet tries to pay in ETH (only USDC can be matched)
  *   pay.history (logged in)             → { payments } (paid ones, newest first)
  *   gift.list  (logged in)              → { gifts } (unopened)
  *   gift.open  { id } (logged in)       → { amount } — adds the Fuzzies to the account, once
  */
 import { db, q } from './_lib/db.js';
 import { handle, requireUser, HttpError } from './_lib/auth.js';
-import { payConfig, createQuote, publicPayment, verifyOnChain, fulfil, applyCredits, isSmartWallet, isEvm, NETS, type PaymentRow } from './_lib/pay.js';
+import { payConfig, createQuote, publicPayment, verifyOnChain, fulfil, applyCredits, isSmartWallet, fundsProblem, isEvm, NETS, type PaymentRow } from './_lib/pay.js';
 
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const clientIp = (req: Request) => (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64);
@@ -70,7 +71,9 @@ export function POST(req: Request): Promise<Response> {
         if (!/^0x[0-9a-fA-F]{40}$/.test(from)) throw new HttpError(400, 'That wallet address doesn’t look right.');
         if (rows[0].asset === 'ETH' && isEvm(rows[0].network) && (await isSmartWallet(rows[0], from)))
           throw new HttpError(400, 'This is a smart wallet — please go back and choose USDC (ETH from smart wallets can’t be matched to your order).');
-        return { ok: true };
+        // enough for the payment and the network fee? (otherwise the wallet would fail with "insufficient funds")
+        const short = await fundsProblem(rows[0], from);
+        return short ? { ok: false, short } : { ok: true };
       }
       case 'pay.history': {
         const u = await requireUser(req);

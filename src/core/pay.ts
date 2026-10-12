@@ -171,8 +171,13 @@ export async function sendEvmPayment(w: WalletChoice, p: Payment): Promise<strin
     const from = String(accounts?.[0] ?? '');
     if (!/^0x[0-9a-fA-F]{40}$/.test(from)) throw new Error('Your wallet didn’t share an address.');
     if (Date.now() > new Date(p.expiresAt).getTime() - 15_000) throw new Error('This price has expired — choose your coin again for a fresh one. Nothing was paid.');
-    // smart wallets can only pay in USDC (their ETH payments can't be matched to the order)
-    if (p.asset === 'ETH') await api('pay', 'pay.precheck', { id: p.id, from });
+    // before asking the wallet: enough for the payment and its network fee? (smart wallets: USDC only — their ETH payments
+    // can't be matched). If it's short we say how much to add instead of letting the wallet fail. Never blocks if unsure.
+    const pre = await api<{ ok: boolean; short?: string }>('pay', 'pay.precheck', { id: p.id, from }).catch((e) => {
+      if ((e as { status?: number }).status === 400) throw Object.assign(new Error((e as Error).message), { friendly: true });
+      return { ok: true } as { ok: boolean; short?: string };
+    });
+    if (!pre.ok && pre.short) throw Object.assign(new Error(pre.short), { friendly: true });
     await onNetwork(w, p.chainId!);
     const amount = BigInt(p.amount);
     const chainId = hex(p.chainId!);
@@ -186,8 +191,9 @@ export async function sendEvmPayment(w: WalletChoice, p: Payment): Promise<strin
     pay.remember(p.id, hash);
     return hash;
   } catch (e) {
+    if ((e as { friendly?: boolean }).friendly) throw e; // our own clear message (e.g. "add a little more")
     const msg = String((e as Error)?.message ?? '');
-    if (/insufficient|funds/i.test(msg)) throw new Error(`Not enough ${p.asset} on ${p.networkName} in this wallet (the network fee needs a little ETH too).`);
+    if (/insufficient|funds/i.test(msg)) throw Object.assign(new Error(`Not quite enough in this wallet for ${p.display} ${p.asset} plus the network fee on ${p.networkName}. Add a little more (tap “Add Cash” or “Buy” in your wallet), then try again — nothing was charged.`), { friendly: true });
     const err = walletError(e);
     throw err.message.startsWith('You cancelled') ? new Error('You cancelled in your wallet — nothing was paid.') : err;
   }

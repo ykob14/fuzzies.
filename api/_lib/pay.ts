@@ -346,6 +346,62 @@ async function findUsdc(p: PaymentRow, rpc: string): Promise<string | null> {
 }
 const TRANSFER_EVENT = { type: 'event', name: 'Transfer', inputs: [{ type: 'address', name: 'from', indexed: true }, { type: 'address', name: 'to', indexed: true }, { type: 'uint256', name: 'value', indexed: false }] } as const;
 
+/**
+ * Before the wallet is asked to pay: does `from` hold enough for the payment AND the network fee? Wallets refuse a payment
+ * they can't cover ("insufficient funds for gas"), so we check first and, if it's short, say exactly how much more to add —
+ * nothing is sent. Read-only; if the network can't be reached we let the wallet decide (never block a good payment).
+ */
+const NATIVE: Partial<Record<Net, string>> = { base: 'ETH', ethereum: 'ETH', robinhood: 'ETH', bnb: 'BNB' };
+/** A short amount for people: 2 significant digits, rounded up for "add this much" (never too little), down for "you have". */
+const fmtShort = (v: bigint, dec: number, up = false) => {
+  const x = Number(formatUnits(v, dec));
+  if (!x) return '0';
+  const k = Math.max(2, 1 - Math.floor(Math.log10(x)));
+  const m = 10 ** k, r = (up ? Math.ceil(x * m - 1e-9) : Math.floor(x * m + 1e-9)) / m;
+  return r.toFixed(k).replace(/\.?0+$/, '');
+};
+export async function fundsProblem(p: PaymentRow, from: string): Promise<string | null> {
+  if (!isEvm(p.network)) return null;
+  const info = netInfo(p.network);
+  try {
+    const c = createPublicClient({ chain: info.chain, transport: http(info.rpcs[0], { timeout: 6000, retryCount: 1 }) });
+    if ((await c.getChainId()) !== info.chainId) return null;
+    const who = from as `0x${string}`, amount = BigInt(p.amount);
+    const token = tokenOf(p.network, p.asset) as `0x${string}` | null;
+    const [native, code, fees] = await Promise.all([
+      c.getBalance({ address: who }),
+      c.getCode({ address: who }).catch(() => undefined),
+      c.estimateFeesPerGas().catch(async () => ({ maxFeePerGas: await c.getGasPrice() })),
+    ]);
+    const smart = !!code && code !== '0x' && !code.toLowerCase().startsWith('0xef0100'); // smart wallets often have their fees paid for
+    const gasPrice = (fees as { maxFeePerGas?: bigint; gasPrice?: bigint }).maxFeePerGas ?? (fees as { gasPrice?: bigint }).gasPrice ?? 0n;
+    const gas = token ? 90_000n : 25_000n; // a token transfer / a plain transfer, with room to spare
+    const l1 = p.network === 'base' || p.network === 'robinhood' ? 20_000_000_000_000n : 0n; // rollups add a small L1 data fee (≤ 0.00002 ETH)
+    const fee = (gas * gasPrice * 3n) / 2n + l1; // +50% in case fees rise before you approve
+    const coin = NATIVE[p.network] ?? 'ETH';
+    const usd = async (wei: bigint) => {
+      if (coin !== 'ETH') return '';
+      try { const price = await usdPrice('ETH'); const d = Number(wei) / 1e18 * price; return d < 0.01 ? ' (less than 1¢)' : ` (about $${d.toFixed(2)})`; } catch { return ''; }
+    };
+    if (token) {
+      const bal = (await c.readContract({ address: token, abi: BALANCE_ABI, functionName: 'balanceOf', args: [who] })) as bigint;
+      const dec = decimalsOf(p.network, p.asset);
+      const add: string[] = [];
+      if (bal < amount) add.push(`${fmtShort(amount - bal, dec, true)} ${p.asset}`);
+      if (!smart && native < fee) add.push(`about ${fmtShort(fee - native + fee, 18, true)} ${coin}${await usd(fee - native + fee)} for the network fee`);
+      if (!add.length) return null;
+      return `${bal < amount ? `This costs ${formatUnits(amount, dec)} ${p.asset} and this wallet has ${formatUnits(bal, dec)}.` : `Almost there! Sending ${p.asset} needs a tiny network fee paid in ${coin}.`} Add ${add.join(' and ')} on ${info.name} to this wallet (tap “Add Cash” or “Buy” in your wallet), then try again — nothing was charged.`;
+    }
+    const need = amount + (smart ? 0n : fee);
+    if (native < need) return `This wallet has ${formatUnits(native, 18)} ${coin} on ${info.name}; this payment is ${formatUnits(amount, 18)} ${coin} plus a small network fee. Add about ${fmtShort(need - native + fee, 18, true)} ${coin}${await usd(need - native + fee)} on ${info.name} (tap “Add Cash” or “Buy” in your wallet), then try again — nothing was charged.`;
+    return null;
+  } catch (e) {
+    console.error('funds check skipped', e);
+    return null;
+  }
+}
+const BALANCE_ABI = [{ type: 'function', name: 'balanceOf', stateMutability: 'view', inputs: [{ name: 'a', type: 'address' }], outputs: [{ type: 'uint256' }] }] as const;
+
 /** Is `address` a smart-contract wallet on this payment's network? (EIP-7702 accounts count as regular wallets.) */
 export async function isSmartWallet(p: PaymentRow, address: string): Promise<boolean> {
   const info = netInfo(p.network);

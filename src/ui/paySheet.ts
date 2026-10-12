@@ -105,10 +105,10 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
     body.replaceChildren(summary(),
       h('ol', { class: 'pay-steps' },
         step(1, h('b', null, 'Open your wallet app'), h('small', null, 'Phantom, Coinbase Wallet, MetaMask or Trust Wallet. No wallet yet? '), getApp),
-        step(2, h('b', null, 'Tap “Add Cash” or “Buy”'), h('small', null, `Pay with Apple Pay, your card or bank. Buy about ${money(o.cents + 100)} of ETH on Base (or USDC) — a little extra covers the app’s fee and some apps have a small minimum.`)),
+        step(2, h('b', null, 'Tap “Add Cash” or “Buy”'), h('small', null, `Pay with Apple Pay, your card or bank. Buy about ${money(o.cents + 100)} of ETH on Base (or USDC) — that’s the price plus about $1, so every fee is covered (some apps also have a small minimum).`)),
         step(3, h('b', null, 'Come back and pay with it'), h('small', null, 'Choose the coin you bought:'))),
       h('div', { class: 'pay-opts' }, ...pick.map((x) => optButton(x, err))),
-      h('p', { class: 'pay-fine' }, 'Paying with USDC? Keep a few cents of ETH (Base) or SOL (Solana) in your wallet for the network fee.'),
+      h('p', { class: 'pay-fine' }, 'Paying with USDC? Also buy about $1 of ETH (Base) or SOL (Solana) — the network fee is paid in that coin. With ETH on Base, one purchase covers everything.'),
       err, back,
       h('p', { class: 'pay-fine' }, icon('lock', 12), ' Your card is handled by your wallet app and its payment partner — Fuzzies never sees your card or bank details.'));
   }
@@ -133,15 +133,21 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
       sol ? btn(null, { icon: 'copy', kind: 'plain', size: 'sm', title: 'Copy address', onClick: () => void copy(p.payTo, 'Address') }) : null);
     const back = h('button', { type: 'button', class: 'link small' }, '← Choose another coin');
     back.addEventListener('click', choose);
+    // the network fee is always added on top by the wallet — say how much to keep, so the wallet never says "not enough"
+    const feeNote = h('p', { class: 'pay-fee' }, icon('check', 14), h('span', null,
+      p.network === 'bitcoin' ? 'Your wallet adds the Bitcoin network fee on top, so keep a little extra BTC. Send exactly the amount shown — don’t use “subtract fee from amount”.'
+        : p.network === 'solana' && p.asset === 'SOL' ? `Have at least ${(Number(p.display) + 0.001).toFixed(6).replace(/0+$/, '')} SOL in your wallet — the tiny network fee is added on top and Solana keeps a small minimum in your wallet.`
+          : p.network === 'solana' ? 'Keep about 0.003 SOL (well under $1) in your wallet as well — Solana’s network fee is paid in SOL.'
+            : `The network fee (${p.network === 'ethereum' ? 'paid in ETH' : 'a fraction of a cent'}) is added on top. We check your wallet has enough before it opens — if it’s a little short, we’ll tell you exactly how much to add. Nothing is charged until you approve.`));
 
     if (sol) {
       const btcNet = p.network === 'bitcoin';
       const uri = (btcNet ? p.bitcoinPay : p.solanaPay)!;
       const link = h('a', { class: 'btn btn-primary btn-md btn-block', href: uri, rel: 'noopener' }, h('img', { src: logoUrl(`net-${p.network}`), alt: '', width: '18', height: '18' }), h('span', null, btcNet ? 'Open in my Bitcoin wallet' : 'Open in my Solana wallet'));
-      body.replaceChildren(summary(), amount, to,
+      body.replaceChildren(summary(), amount, to, feeNote,
         h('div', { class: 'pay-qr-box' }, qrCanvas(uri), h('small', null, isPhone() ? 'Or scan this from another device' : btcNet ? 'Scan with any Bitcoin wallet' : 'Scan with Phantom, Solflare, Backpack or any Solana Pay wallet')),
         ...(isPhone() ? [link] : []),
-        ...(btcNet ? [h('p', { class: 'pay-fine' }, 'Send exactly this amount — if your wallet takes the network fee out of the amount, the payment won’t match. Bitcoin takes about 10–30 minutes to confirm; you can close this window, your Fuzzies arrive automatically.')] : []),
+        ...(btcNet ? [h('p', { class: 'pay-fine' }, 'Bitcoin takes about 10–30 minutes to confirm; you can close this window — your Fuzzies arrive automatically (we check again when you open Fuzzies).')] : []),
         h('div', { class: 'pay-row' }, btn('Copy payment link', { kind: 'ghost', size: 'sm', icon: 'copy', onClick: () => void copy(uri, 'Payment link') }), back),
         status, left, fine());
       pay.remember(p.id, ''); // checked again the next time the app opens, even if this window is closed
@@ -180,7 +186,7 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
       inp.focus();
     });
     paidAlready.append(pasteLink);
-    body.replaceChildren(summary(), amount, to, payBtn, h('div', { class: 'pay-row' }, back, paidAlready), status, left, fine());
+    body.replaceChildren(summary(), amount, to, feeNote, payBtn, h('div', { class: 'pay-row' }, back, paidAlready), status, left, fine());
     // USDC payments are found by their exact amount even without a transaction id
     if (p.asset === 'USDC') waitFor(p, undefined, status, true);
   }
