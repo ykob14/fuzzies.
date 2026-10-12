@@ -164,20 +164,37 @@ async function onNetwork(w: WalletChoice, chainId: number): Promise<void> {
   if (after !== chainId) throw new Error(`Please switch your wallet to ${NET_NAME[chainId] ?? 'the right network'} and try again.`);
 }
 
-/** Ask the wallet to send exactly this payment. Returns the transaction id. */
-export async function sendEvmPayment(w: WalletChoice, p: Payment): Promise<string> {
+/** The wallet's address (asks the wallet to share it — no signing, no payment). */
+export async function walletAddress(w: WalletChoice): Promise<string> {
   try {
     const accounts = (await w.provider.request({ method: 'eth_requestAccounts' })) as string[];
     const from = String(accounts?.[0] ?? '');
     if (!/^0x[0-9a-fA-F]{40}$/.test(from)) throw new Error('Your wallet didn’t share an address.');
+    return from;
+  } catch (e) { throw walletError(e); }
+}
+
+/**
+ * Enough in this wallet for the payment AND its network fee? Read-only, asked on the server. `short` says in one sentence
+ * what to add. A smart wallet paying in ETH is refused (`blocked`). If the check can't be done, it says ready (the
+ * wallet itself has the last word) — it never stops a good payment.
+ */
+export async function fundsFor(p: Payment, from: string): Promise<{ ready: boolean; short?: string; blocked?: string }> {
+  try {
+    const r = await api<{ ok: boolean; short?: string }>('pay', 'pay.precheck', { id: p.id, from });
+    return r.ok ? { ready: true } : { ready: false, short: r.short };
+  } catch (e) {
+    if ((e as { status?: number }).status === 400) return { ready: false, blocked: (e as Error).message };
+    return { ready: true };
+  }
+}
+
+/** Ask the wallet to send exactly this payment (from `from`, already checked to hold enough). Returns the transaction id. */
+export async function sendEvmPayment(w: WalletChoice, p: Payment, from: string): Promise<string> {
+  try {
     if (Date.now() > new Date(p.expiresAt).getTime() - 15_000) throw new Error('This price has expired — choose your coin again for a fresh one. Nothing was paid.');
-    // before asking the wallet: enough for the payment and its network fee? (smart wallets: USDC only — their ETH payments
-    // can't be matched). If it's short we say how much to add instead of letting the wallet fail. Never blocks if unsure.
-    const pre = await api<{ ok: boolean; short?: string }>('pay', 'pay.precheck', { id: p.id, from }).catch((e) => {
-      if ((e as { status?: number }).status === 400) throw Object.assign(new Error((e as Error).message), { friendly: true });
-      return { ok: true } as { ok: boolean; short?: string };
-    });
-    if (!pre.ok && pre.short) throw Object.assign(new Error(pre.short), { friendly: true });
+    const now = ((await w.provider.request({ method: 'eth_requestAccounts' })) as string[])?.[0];
+    if (String(now ?? '').toLowerCase() !== from.toLowerCase()) throw new Error('Your wallet switched to another account — tap “Use another wallet” and connect again. Nothing was paid.');
     await onNetwork(w, p.chainId!);
     const amount = BigInt(p.amount);
     const chainId = hex(p.chainId!);

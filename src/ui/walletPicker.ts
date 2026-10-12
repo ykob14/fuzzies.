@@ -79,7 +79,7 @@ function helpFor(t: TopWallet, url: string, phone: boolean, qr: (() => void) | n
     h('div', { class: 'btn-row' }, official, copy));
 }
 
-export function pickWallet(opts: { title: string; intro: string; run: (w: WalletChoice, password: string) => Promise<void>; hash?: string; password?: boolean; remote?: () => Promise<RemoteWallet>; safety?: HTMLElement }): void {
+export function pickWallet(opts: { title: string; intro: string; run: (w: WalletChoice, password: string) => Promise<void>; hash?: string; password?: boolean; remote?: () => Promise<RemoteWallet>; safety?: HTMLElement; keep?: boolean }): void {
   const list = h('div', { class: 'wallet-list', 'aria-busy': 'true' }, h('p', { class: 'muted wallet-looking' }, 'Looking for wallets…'));
   const more = h('div', { class: 'wallet-list' });
   const msg = h('p', { class: 'form-err', role: 'alert' });
@@ -108,8 +108,9 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
     try {
       const remote = await (opts.remote ?? (() => connectRemote()))();
       say('Approve in your wallet app…');
-      try { await opts.run(remote, pw.value); m.close(); }
-      finally { void remote.done(); }
+      let ok = false;
+      try { await opts.run(remote, pw.value); ok = true; m.close(); }
+      finally { if (!ok || !opts.keep) void remote.done(); } // keep: the caller disconnects when it's finished
     } catch (e) { showErr(e); }
     finally { say(idle); setBusy(false); }
   } : null;

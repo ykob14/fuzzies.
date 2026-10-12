@@ -5,8 +5,8 @@
 import { h, btn, icon, modal, toast, fuzzyMark } from './dom';
 import { logoUrl } from './logos';
 import { pickWallet } from './walletPicker';
-import { pay, money, sendEvmPayment, isEvmNet, type Asset, type CheckResult, type Network, type Payment } from '../core/pay';
-import { isPhone, shortAddress } from '../core/wallet';
+import { pay, money, sendEvmPayment, walletAddress, fundsFor, isEvmNet, type Asset, type CheckResult, type Network, type Payment } from '../core/pay';
+import { isPhone, shortAddress, type WalletChoice } from '../core/wallet';
 import { connectRemote } from '../core/walletconnect';
 import { qrMatrix } from '../editor/qr';
 import { celebrateFuzzies } from './celebrate';
@@ -46,8 +46,9 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
   const cfg = await pay.config();
   if (!cfg.enabled) { toast('Paying with crypto isn’t switched on yet.', 'info'); return; }
   const body = h('div', { class: 'pay-sheet' });
-  let timer = 0, poll = 0, closed = false;
-  const stop = () => { clearInterval(timer); clearTimeout(poll); };
+  let timer = 0, poll = 0, fundsPoll = 0, closed = false;
+  let release: (() => void) | null = null; // disconnects a WalletConnect session kept open while paying
+  const stop = () => { clearInterval(timer); clearTimeout(poll); clearTimeout(fundsPoll); release?.(); release = null; };
   const m = modal(o.title, body, { onClose: () => { closed = true; stop(); } });
   const busy = (on: boolean) => { m.el.dataset.busy = String(on); };
 
@@ -138,7 +139,7 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
       p.network === 'bitcoin' ? 'Your wallet adds the Bitcoin network fee on top, so keep a little extra BTC. Send exactly the amount shown — don’t use “subtract fee from amount”.'
         : p.network === 'solana' && p.asset === 'SOL' ? `Have at least ${(Number(p.display) + 0.001).toFixed(6).replace(/0+$/, '')} SOL in your wallet — the tiny network fee is added on top and Solana keeps a small minimum in your wallet.`
           : p.network === 'solana' ? 'Keep about 0.003 SOL (well under $1) in your wallet as well — Solana’s network fee is paid in SOL.'
-            : `The network fee (${p.network === 'ethereum' ? 'paid in ETH' : 'a fraction of a cent'}) is added on top. We check your wallet has enough before it opens — if it’s a little short, we’ll tell you exactly how much to add. Nothing is charged until you approve.`));
+            : `The network fee (${p.network === 'ethereum' ? 'paid in ETH' : 'a fraction of a cent'}) is included in our check: Pay unlocks once your wallet holds enough for both. Nothing is charged until you approve.`));
 
     if (sol) {
       const btcNet = p.network === 'bitcoin';
@@ -154,24 +155,75 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
       waitFor(p, undefined, status);
       return;
     }
-    payBtn = btn('Pay with my wallet', { kind: 'primary', size: 'lg', class: 'btn-block', icon: 'wallet', onClick: () => pickWallet({
-      title: `Pay ${money(p.usdCents)}`,
-      intro: `Your wallet will show a payment of ${p.display} ${p.asset} on ${p.networkName} to ${shortAddress(p.payTo)}. Check it, then approve.`,
-      remote: () => connectRemote('pay', p.chainId),
-      safety: h('div', { class: 'wallet-safe' }, icon('lock', 16), h('div', null, h('b', null, 'Only this payment'), h('small', null, 'Fuzzies asks your wallet for this one payment — never for approvals, other tokens or your recovery phrase.'))),
-      run: async (w) => {
-        busy(true);
-        try {
-          const hash = await sendEvmPayment(w, p);
-          payBtn?.remove();
-          paidAlready.remove();
-          waitFor(p, hash, status);
-        } finally {
-          busy(false);
-          if ('done' in w) void (w as { done(): Promise<void> }).done(); // WalletConnect: disconnect straight away
-        }
-      },
-    }) });
+    // Pay is only possible once the wallet holds enough for the price AND the network fee: until then the button stays
+    // locked and we keep an eye on the balance — it unlocks by itself the moment the top-up arrives. No errors, no failed tries.
+    let conn: { w: WalletChoice; from: string } | null = null;
+    const funds = h('div', { class: 'pay-funds', hidden: true, role: 'status' });
+    const expired = () => Date.now() > new Date(p.expiresAt).getTime() - 15_000;
+    const setFunds = (kind: 'checking' | 'ready' | 'short' | 'blocked', text: string) => {
+      funds.hidden = false;
+      funds.className = `pay-funds ${kind}`;
+      const name = conn ? shortAddress(conn.from) : '';
+      const other = h('button', { type: 'button', class: 'link small' }, 'Use another wallet');
+      other.addEventListener('click', () => { clearTimeout(fundsPoll); release?.(); release = null; conn = null; funds.hidden = true; setPay('connect'); });
+      funds.replaceChildren(
+        h('div', { class: 'pay-funds-top' }, icon('wallet', 16), h('span', null, 'From ', h('code', null, name)), other),
+        h('div', { class: 'pay-funds-msg' }, kind === 'ready' ? icon('check', 16) : kind === 'blocked' ? icon('lock', 16) : h('span', { class: 'spin' }), h('span', null, text)));
+    };
+    const setPay = (state: 'connect' | 'locked' | 'ready' | 'sending') => {
+      if (!payBtn) return;
+      payBtn.disabled = state === 'locked' || state === 'sending' || (state !== 'connect' && expired());
+      payBtn.classList.toggle('locked', state === 'locked');
+      const label = payBtn.querySelector('span:last-child') ?? payBtn;
+      label.textContent = state === 'connect' ? 'Pay with my wallet' : state === 'locked' ? 'Pay unlocks when there’s enough' : state === 'sending' ? 'Approve in your wallet…' : `Pay ${money(p.usdCents)} now`;
+    };
+    const checkFunds = async (first = false) => {
+      clearTimeout(fundsPoll);
+      const c = conn;
+      if (!c || closed) return;
+      if (first) setFunds('checking', 'Checking this wallet has enough for the payment and the network fee…');
+      const r = await fundsFor(p, c.from);
+      if (conn !== c || closed) return;
+      if (r.ready) { setFunds('ready', 'Ready — enough for the payment and the network fee.'); setPay('ready'); return; }
+      setPay('locked');
+      if (r.blocked) { setFunds('blocked', r.blocked); return; }
+      setFunds('short', `${(r.short ?? '').replace(/,? then try again — nothing was charged\.?$/, '.')} Pay unlocks by itself as soon as it arrives — nothing is charged until you approve.`);
+      fundsPoll = window.setTimeout(() => void checkFunds(), 5000);
+    };
+    const doPay = async () => {
+      const c = conn;
+      if (!c) return;
+      setPay('sending'); busy(true);
+      try {
+        const hash = await sendEvmPayment(c.w, p, c.from);
+        clearTimeout(fundsPoll);
+        payBtn?.remove(); funds.remove(); paidAlready.remove();
+        waitFor(p, hash, status);
+        release?.(); release = null;
+      } catch (e) {
+        setFunds((e as { friendly?: boolean }).friendly ? 'short' : 'blocked', (e as Error).message);
+        setPay(conn ? 'ready' : 'connect');
+        void checkFunds();
+      } finally { busy(false); }
+    };
+    payBtn = btn('Pay with my wallet', { kind: 'primary', size: 'lg', class: 'btn-block', icon: 'wallet', onClick: () => {
+      if (conn) { void doPay(); return; }
+      pickWallet({
+        title: `Pay ${money(p.usdCents)}`,
+        intro: `Choose the wallet to pay ${p.display} ${p.asset} on ${p.networkName} from. We’ll check it has enough first — nothing is sent until you approve in your wallet.`,
+        remote: () => connectRemote('pay', p.chainId),
+        keep: true,
+        safety: h('div', { class: 'wallet-safe' }, icon('lock', 16), h('div', null, h('b', null, 'Only this payment'), h('small', null, 'Fuzzies asks your wallet for this one payment — never for approvals, other tokens or your recovery phrase.'))),
+        run: async (w) => {
+          const from = await walletAddress(w);
+          release?.();
+          release = 'done' in w ? () => void (w as { done(): Promise<void> }).done() : null; // WalletConnect: disconnect when finished
+          conn = { w, from };
+          setPay('locked');
+          void checkFunds(true);
+        },
+      });
+    } });
     // already paid but the window lost track (e.g. the phone reloaded)? paste the transaction id
     const paidAlready = h('div', { class: 'pay-paste' });
     const pasteLink = h('button', { type: 'button', class: 'link small' }, 'Already paid? Enter the transaction id');
@@ -180,13 +232,13 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
       const go = btn('Check', { kind: 'soft', size: 'sm', onClick: () => {
         const v = inp.value.trim();
         if (!/^0x[0-9a-fA-F]{64}$/.test(v)) { toast('That doesn’t look like a transaction id (0x + 64 characters).', 'bad'); return; }
-        pay.remember(p.id, v); payBtn?.remove(); paidAlready.remove(); waitFor(p, v, status);
+        pay.remember(p.id, v); clearTimeout(fundsPoll); payBtn?.remove(); funds.remove(); paidAlready.remove(); waitFor(p, v, status);
       } });
       paidAlready.replaceChildren(h('div', { class: 'pay-paste-row' }, inp, go));
       inp.focus();
     });
     paidAlready.append(pasteLink);
-    body.replaceChildren(summary(), amount, to, feeNote, payBtn, h('div', { class: 'pay-row' }, back, paidAlready), status, left, fine());
+    body.replaceChildren(summary(), amount, to, feeNote, funds, payBtn, h('div', { class: 'pay-row' }, back, paidAlready), status, left, fine());
     // USDC payments are found by their exact amount even without a transaction id
     if (p.asset === 'USDC') waitFor(p, undefined, status, true);
   }
