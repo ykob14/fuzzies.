@@ -2164,3 +2164,13 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
   .land-ev-ch .land-ev-reward { grid-column: 1; }
   .land-ev-ch .btn, .land-ev-ch .land-ev-done { grid-column: 2; grid-row: 1 / span 2; }
 }
+/* five dock buttons (events on) still fit a phone: they share the width instead of overflowing */
+@media (max-width: 560px) {
+  .land-dock { width: calc(100% - 12px); max-width: 420px; }
+  .land-dock-tools { flex: 1; min-width: 0; }
+  .land-dock-btn { flex: 1 1 0; min-width: 0; width: auto; max-width: 68px; padding-left: 2px; padding-right: 2px; }
+  .land-dock-l { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; letter-spacing: -.15px; }
+  .land-dock-btn { padding-left: 0; padding-right: 0; }
+  .land-dock { gap: 3px; padding: 6px 5px 6px 6px; }
+  .land-dock-tools { gap: 5px; }
+}
