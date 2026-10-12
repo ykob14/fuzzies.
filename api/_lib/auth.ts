@@ -21,7 +21,8 @@ export async function hashPassword(pw: string): Promise<string> {
   return `s1$${salt.toString('base64')}$${hash.toString('base64')}`;
 }
 
-export async function checkPassword(pw: string, stored: string): Promise<boolean> {
+export async function checkPassword(pw: string, stored: string | null | undefined): Promise<boolean> {
+  if (!stored || !pw) return false; // accounts made with a wallet only have no password at all
   const [kind, salt, hash] = stored.split('$');
   if (kind !== 's1' || !salt || !hash) return false;
   const want = Buffer.from(hash, 'base64');
@@ -46,7 +47,29 @@ export function makeToken(userId: string, version: number): string {
   return `${body}.${sign(body)}`;
 }
 
-export interface AuthedUser { id: string; email: string; username: string; token_v: number }
+export interface AuthedUser { id: string; email: string | null; username: string; token_v: number; has_password: boolean }
+
+/**
+ * A wallet proof: "this browser just proved, by signature, that it holds wallet X" — signed by the server, valid for
+ * 10 minutes. It lets the next step (create an account, link to an account you then log in to, re-authenticate for a
+ * sensitive change) happen without asking the wallet to sign again. It is never a login by itself.
+ */
+const PROOF_MINUTES = 10;
+export function makeProof(address: string, wallet: string): string {
+  const body = b64u(JSON.stringify({ k: 'wallet', a: address, w: wallet.slice(0, 40), exp: Date.now() + PROOF_MINUTES * 60_000, j: randomBytes(8).toString('hex') }));
+  return `${body}.${sign(body)}`;
+}
+export function readProof(proof: unknown): { address: string; wallet: string } {
+  const bad = () => new HttpError(400, 'This wallet confirmation has expired — please connect your wallet again.');
+  if (typeof proof !== 'string' || proof.length > 600) throw bad();
+  const [body, sig] = proof.split('.');
+  const expected = body ? sign(body) : '';
+  if (!body || !sig || sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) throw bad();
+  let p: { k?: string; a?: string; w?: string; exp?: number };
+  try { p = JSON.parse(Buffer.from(body, 'base64url').toString()); } catch { throw bad(); }
+  if (p.k !== 'wallet' || typeof p.a !== 'string' || !/^0x[0-9a-f]{40}$/.test(p.a) || !p.exp || p.exp < Date.now()) throw bad();
+  return { address: p.a, wallet: typeof p.w === 'string' ? p.w : '' };
+}
 
 /** The signed-in user for this request, or a 401. */
 export async function requireUser(req: Request): Promise<AuthedUser> {
@@ -59,7 +82,7 @@ export async function requireUser(req: Request): Promise<AuthedUser> {
   let p: { sub: string; v: number; exp: number };
   try { p = JSON.parse(Buffer.from(body, 'base64url').toString()); } catch { throw new HttpError(401, 'Please log in again.'); }
   if (!p.exp || p.exp < Date.now()) throw new HttpError(401, 'Please log in again.');
-  const { rows } = await q<AuthedUser>('select id, email, username, token_v from fz_users where id = $1', [p.sub]);
+  const { rows } = await q<AuthedUser>('select id, email, username, token_v, (pass is not null) as has_password from fz_users where id = $1', [p.sub]);
   if (!rows[0] || rows[0].token_v !== p.v) throw new HttpError(401, 'Please log in again.');
   return rows[0];
 }

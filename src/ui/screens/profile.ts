@@ -4,13 +4,15 @@ import { accounts } from '../../core/account';
 import { db } from '../../core/db';
 import { h, btn, avatarEl, fuzzyMark, toast, pickFile, confirmDialog, icon } from '../dom';
 import { fileToImageData, timeAgo } from '../../core/util';
-import { cloud, type LinkedWallet } from '../../core/cloud';
+import { cloud, type LinkResult, type LoginInfo, type Reauth } from '../../core/cloud';
 import { sync } from '../../core/sync';
 import { signOut } from '../app';
 import { achievementsGrid } from '../missions';
 import { ACHIEVEMENTS } from '../../core/missions';
-import { shortAddress } from '../../core/wallet';
+import { shortAddress, walletSession } from '../../core/wallet';
 import { pickWallet, walletSafetyNote, walletBadge } from '../walletPicker';
+import { walletOnboard } from '../walletOnboard';
+import { modal } from '../dom';
 import { openPaySheet } from '../paySheet';
 import { checkGifts } from '../giftBox';
 import { pay, money } from '../../core/pay';
@@ -84,6 +86,8 @@ export function profileScreen(): Screen {
         btn('Create my login', { kind: 'primary', onClick: async () => {
           try { await accounts.claimGuest({ name: name.value || 'Creator', username: u.value, email: email.value, password: p.value }); toast('Account saved! 🎉', 'good'); render(); } catch (e) { err.textContent = (e as Error).message; }
         } }));
+    } else if (a.cloud) {
+      security = accountCard(); // email + password live with the wallets in "Account & login"
     } else {
       const o = h('input', { class: 'input', type: 'password', placeholder: 'Current password', autocomplete: 'current-password' });
       const n = h('input', { class: 'input', type: 'password', placeholder: 'New password', autocomplete: 'new-password' });
@@ -103,7 +107,6 @@ export function profileScreen(): Screen {
           h('section', { class: 'card' }, h('h3', null, 'Your stats'), stats),
           h('section', { class: 'card' }, h('h3', null, `Badges · ${a.achievements.length}/${ACHIEVEMENTS.length}`), achievementsGrid(true), h('a', { class: 'link', href: '#/rewards' }, 'See all badges →')),
           syncCard(),
-          walletsCard(),
           security,
           h('section', { class: 'card danger-zone' }, h('h3', null, 'Account'),
             h('div', { class: 'btn-row' },
@@ -121,50 +124,122 @@ export function profileScreen(): Screen {
               ? ' Saved privately in your Fuzzies account — only you can see it.'
               : ' This account is stored privately on this device — nothing is uploaded.')))));
   }
-  /** Cloud accounts: crypto wallets linked for signing in (the wallet only signs a free message). */
-  function walletsCard(): HTMLElement | null {
+  /**
+   * Cloud accounts: every way into the account in one place — email + password, linked crypto wallets (with the one
+   * connected in this browser), connect / switch / disconnect / remove, and adding an email + password to a wallet-only
+   * account. Sensitive changes re-authenticate (password, or a signature from a wallet that's already linked).
+   */
+  function accountCard(): HTMLElement {
     const a = accounts.current!;
-    if (!a.cloud) return null;
-    const list = h('div', { class: 'wallet-linked' }, h('p', { class: 'muted' }, 'Loading…'));
+    const field = (label: string, input: HTMLElement) => h('label', { class: 'field' }, h('span', null, label), input);
+    const list = h('div', { class: 'acct-methods' }, h('p', { class: 'muted' }, 'Loading…'));
+    let info: LoginInfo | null = null;
     let feeCents = 0, gift = 0;
     void pay.config().then((c) => { feeCents = c.walletFeeCents; gift = c.walletGift; });
     /** The one-time activation: pay $0.50, then the gift box pops up. */
     const activate = (address: string, cents: number) => openPaySheet({
       kind: 'wallet', item: address, title: 'Activate your wallet', cents,
       what: `Activate ${shortAddress(address)}`, note: `One time only · includes a gift of ${gift || 100} Fuzzies 🎁`,
-      onPaid: () => { void cloud.wallets().then(show); void checkGifts(); },
+      onPaid: () => { void reload(); void checkGifts(); },
     });
-    const show = (ws: LinkedWallet[]) => {
-      list.replaceChildren(...(ws.length ? ws.map((w) => h('div', { class: `wallet-row ${w.active ? '' : 'inactive'}` },
-        walletBadge({ name: w.wallet }),
-        h('div', null,
-          h('b', { title: w.address }, shortAddress(w.address), w.active ? null : h('span', { class: 'wallet-pill' }, 'Not active yet')),
-          h('small', null, `${w.wallet || 'Wallet'} · linked ${timeAgo(new Date(w.created_at).getTime())}${w.last_used_at ? ` · last log-in ${timeAgo(new Date(w.last_used_at).getTime())}` : ''}`)),
-        w.active ? null : btn(`Activate · ${money(feeCents || 50)}`, { kind: 'primary', size: 'sm', onClick: () => void activate(w.address, feeCents || 50) }),
-        btn(null, { icon: 'trash', kind: 'plain', size: 'sm', title: 'Remove wallet', onClick: async () => {
-          if (!(await confirmDialog('Remove this wallet?', `${shortAddress(w.address)} won’t be able to sign in to your account any more. Nothing happens to the wallet itself or its funds.`, 'Remove'))) return;
-          try { show(await cloud.unlinkWallet(w.address)); toast('Wallet removed', 'good'); } catch (e) { toast((e as Error).message, 'bad'); }
-        } })))
-        : [h('p', { class: 'muted' }, 'No wallet linked yet.')]));
+    const reload = () => cloud.loginInfo().then(show).catch((e) => list.replaceChildren(h('p', { class: 'form-err' }, (e as Error).message)));
+    /** Re-authenticate: the password (asked in a small window), or — for accounts without one — a linked wallet's signature. */
+    const reauth = (what: string): Promise<Reauth | null> => new Promise((res) => {
+      if (!info?.hasPassword) {
+        pickWallet({ title: 'Confirm it’s you', intro: `To ${what}, sign once with a wallet that’s already linked to this account.`, hash: '#/profile',
+          run: async (w) => { const r = await cloud.identifyWallet(w); if (!r.linked?.same) throw new Error('That wallet isn’t linked to this account — use one that is.'); res({ proof: r.proof }); } });
+        return;
+      }
+      let done = false;
+      const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', placeholder: 'Your Fuzzies password' });
+      const go = btn('Continue', { kind: 'primary', onClick: () => { if (!pw.value) { pw.focus(); return; } done = true; res({ password: pw.value }); m.close(); } });
+      pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
+      const m = modal('Confirm it’s you', h('div', { class: 'acct-reauth' }, h('p', { class: 'muted' }, `To ${what}, please enter your password.`), pw), { actions: [btn('Cancel', { kind: 'ghost', onClick: () => m.close() }), go], onClose: () => { if (!done) res(null); } });
+      setTimeout(() => pw.focus(), 60);
+    });
+    const afterLink = (r: LinkResult) => {
+      void reload();
+      if (r.activate) { toast('Wallet linked — one last step: activate it', 'good', 3000); setTimeout(() => void activate(r.activate!.address, r.activate!.feeCents), 350); }
+      else { toast('Wallet linked — you can log in with it now 🎉', 'good', 3500); if (r.gift) setTimeout(() => void checkGifts(), 400); }
     };
-    cloud.wallets().then(show).catch((e) => list.replaceChildren(h('p', { class: 'form-err' }, (e as Error).message)));
-    const lead = h('p', { class: 'muted' }, 'Link MetaMask, Coinbase Wallet, Trust Wallet, Crypto.com Onchain, Robinhood Wallet or another wallet, then use it to log in to Fuzzies on any device. We email you whenever a wallet is linked.');
-    void pay.config().then((c) => { if (c.walletFeeCents) lead.append(` Each new wallet is activated once for ${money(c.walletFeeCents)} — and comes with a gift of ${c.walletGift} Fuzzies 🎁`); });
-    return h('section', { class: 'card' }, h('h3', null, icon('wallet', 18), ' Crypto wallets'),
+    /** Link a new wallet: password accounts type their password in the picker; wallet-only accounts sign with a linked wallet first. */
+    const connectWallet = async () => {
+      let auth: Reauth | null = null;
+      if (!info?.hasPassword) { auth = await reauth('link a new wallet'); if (!auth) return; }
+      pickWallet({ title: 'Connect a wallet', intro: 'Choose the wallet to add. It will ask you to sign a short message that proves it’s yours (free).', hash: '#/profile', password: !!info?.hasPassword,
+        run: async (w, password) => afterLink(await cloud.linkWallet(w, auth ?? { password })) });
+    };
+    /** Switch wallet: use another wallet — yours (connected), someone else's account (switch on purpose) or a new one (link). */
+    const switchWallet = () => pickWallet({ title: 'Switch wallet', intro: 'Pick the wallet to use. If it’s linked to another Fuzzies account you’ll be asked before switching; a new wallet can be linked to this account.', hash: '#/profile',
+      run: async (w) => {
+        const r = await cloud.identifyWallet(w);
+        if (r.linked?.same) { walletSession.set({ address: r.address, wallet: r.wallet }); toast(`Connected ${shortAddress(r.address)}`, 'good'); void reload(); return; }
+        if (r.linked) { setTimeout(() => walletOnboard(r, (acc) => { toast(`Switched to @${acc.username}`, 'good'); location.hash = '#/home'; }), 250); return; }
+        // not linked anywhere: offer to link it to this account
+        setTimeout(async () => {
+          if (!(await confirmDialog('Link this wallet?', `${shortAddress(r.address)} isn’t linked to any Fuzzies account yet. Link it to @${a.username} so it can sign you in?`, 'Link it', false))) return;
+          const auth = await reauth('link a wallet');
+          if (!auth) return;
+          try { afterLink(await cloud.attachWallet(r, 'password' in auth ? auth.password : '', 'proof' in auth ? auth.proof : undefined)); } catch (e) { toast((e as Error).message, 'bad', 5000); }
+        }, 250);
+      } });
+    const show = (x: LoginInfo) => {
+      info = x;
+      const now = walletSession.get();
+      const emailRow = h('div', { class: 'acct-row' }, h('span', { class: 'acct-ic' }, icon('user', 20)),
+        h('div', null, h('b', null, 'Email & password'), h('small', null, x.hasPassword ? x.email : 'Not set — add one so you can get back in without your wallet')),
+        btn(x.hasPassword ? 'Change' : 'Add', { kind: x.hasPassword ? 'ghost' : 'primary', size: 'sm', onClick: () => credentialsModal(x) }));
+      const rows = x.wallets.map((w) => {
+        const connected = now?.address === w.address;
+        return h('div', { class: `acct-row wallet ${w.active ? '' : 'inactive'} ${connected ? 'now' : ''}` },
+          walletBadge({ name: w.wallet }),
+          h('div', null,
+            h('b', { title: w.address }, shortAddress(w.address), connected ? h('span', { class: 'wallet-pill on' }, 'Connected now') : null, w.active ? null : h('span', { class: 'wallet-pill' }, 'Not active yet')),
+            h('small', null, `${w.wallet || 'Wallet'} · linked ${timeAgo(new Date(w.created_at).getTime())}${w.last_used_at ? ` · last log-in ${timeAgo(new Date(w.last_used_at).getTime())}` : ''}`)),
+          w.active ? null : btn(`Activate · ${money(feeCents || 50)}`, { kind: 'primary', size: 'sm', onClick: () => void activate(w.address, feeCents || 50) }),
+          connected ? btn('Disconnect', { kind: 'ghost', size: 'sm', title: 'Forget this wallet in this browser (it stays linked to your account)', onClick: () => { walletSession.clear(); toast('Wallet disconnected — it’s still linked to your account', 'info'); show(info!); } }) : null,
+          btn(null, { icon: 'trash', kind: 'plain', size: 'sm', title: 'Remove this wallet as a way to log in', onClick: async () => {
+            if (!x.hasPassword && x.wallets.length <= 1) { toast('This wallet is the only way into your account — add an email and password first.', 'info', 4500); return; }
+            if (!(await confirmDialog('Remove this wallet?', `${shortAddress(w.address)} won’t be able to log in to your account any more. Nothing happens to the wallet itself or its funds. (Disconnect only forgets it in this browser.)`, 'Remove'))) return;
+            const auth = await reauth('remove a wallet');
+            if (!auth) return;
+            try { await cloud.unlinkWallet(w.address, auth); toast('Wallet removed', 'good'); void reload(); } catch (e) { toast((e as Error).message, 'bad', 5000); }
+          } }));
+      });
+      list.replaceChildren(emailRow, ...rows, ...(x.wallets.length ? [] : [h('p', { class: 'muted acct-none' }, 'No wallet linked yet.')]));
+    };
+    /** Add or change the email + password (re-authenticated). */
+    const credentialsModal = (x: LoginInfo) => {
+      const email = h('input', { class: 'input', type: 'email', autocomplete: 'email', placeholder: 'you@example.com', value: x.email });
+      const pw = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'At least 6 characters' });
+      const old = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', placeholder: 'Current password' });
+      const err = h('p', { class: 'form-err' });
+      const go = btn(x.hasPassword ? 'Save' : 'Confirm with my wallet & save', { kind: 'primary', onClick: async () => {
+        err.textContent = '';
+        try {
+          if (x.hasPassword) { await cloud.setCredentials(email.value, pw.value, { old: old.value }); m.close(); toast('Login details saved', 'good'); void reload(); render(); return; }
+          if (!email.value || pw.value.length < 6) { err.textContent = 'Enter an email and a password of at least 6 characters.'; return; }
+          m.close();
+          pickWallet({ title: 'Confirm it’s you', intro: 'Sign once with a wallet linked to this account, then your email and password are saved.', hash: '#/profile',
+            run: async (w) => { const r = await cloud.identifyWallet(w); if (!r.linked?.same) throw new Error('That wallet isn’t linked to this account.'); await cloud.setCredentials(email.value, pw.value, { proof: r.proof }); toast('Email and password added — you can log in with them too 🎉', 'good', 3500); void reload(); render(); } });
+        } catch (e) { err.textContent = (e as Error).message; }
+      } });
+      const m = modal(x.hasPassword ? 'Change email or password' : 'Add an email & password', h('div', { class: 'acct-form' },
+        x.hasPassword ? null : h('p', { class: 'muted' }, 'Right now only your wallet can open this account. An email and password are the way back in if you ever lose it.'),
+        field('Email', email), field(x.hasPassword ? 'New password' : 'Password', pw), ...(x.hasPassword ? [field('Current password', old)] : []), err),
+        { actions: [btn('Cancel', { kind: 'ghost', onClick: () => m.close() }), go] });
+    };
+    void reload();
+    const now = walletSession.get();
+    const lead = h('p', { class: 'muted' }, 'Every way into this account. Each one opens the same town, designs and Fuzzies.');
+    void pay.config().then((c) => { if (c.walletFeeCents) lead.append(` New wallets are activated once for ${money(c.walletFeeCents)} — with a gift of ${c.walletGift} Fuzzies 🎁`); });
+    return h('section', { class: 'card acct' }, h('h3', null, icon('lock', 18), ' Account & login'),
+      h('div', { class: 'acct-who' }, avatarEl(a, 44), h('div', null, h('b', null, `@${a.username}`), h('small', null, now ? `Signed in with ${now.wallet || 'a wallet'} · ${shortAddress(now.address)}` : a.email ? `Signed in with ${a.email}` : 'Signed in'))),
       lead,
       list,
-      btn('Connect a wallet', { kind: 'soft', icon: 'plus', onClick: () => pickWallet({
-        title: 'Connect a wallet',
-        intro: 'Choose your wallet. It will ask you to sign a short message that proves the wallet is yours (free).',
-        hash: '#/profile',
-        password: true,
-        run: async (w, password) => {
-          const r = await cloud.linkWallet(w, password);
-          show(r.wallets);
-          if (r.activate) { toast('Wallet linked — one last step: activate it', 'good', 3000); setTimeout(() => void activate(r.activate!.address, r.activate!.feeCents), 350); }
-          else { toast('Wallet linked — you can log in with it now 🎉', 'good', 3500); if (r.gift) setTimeout(() => void checkGifts(), 400); }
-        },
-      }) }),
+      h('div', { class: 'btn-row' },
+        btn('Connect a wallet', { kind: 'soft', icon: 'plus', onClick: () => void connectWallet() }),
+        btn('Switch wallet', { kind: 'ghost', icon: 'wallet', onClick: switchWallet })),
       walletSafetyNote());
   }
 

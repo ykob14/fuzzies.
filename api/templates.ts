@@ -57,7 +57,7 @@ function tsQuery(text: string): string {
 /** Template managers: emails in ADMIN_EMAILS (Vercel), or accounts listed in the fz_admins table (set in the database). */
 async function isAdmin(u: AuthedUser): Promise<boolean> {
   const list = (process.env.ADMIN_EMAILS ?? '').split(/[,\s;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
-  if (list.includes(u.email.toLowerCase())) return true;
+  if (list.includes((u.email ?? '').toLowerCase())) return true;
   const { rows } = await q('select 1 from fz_admins where user_id = $1', [u.id]);
   return rows.length > 0;
 }

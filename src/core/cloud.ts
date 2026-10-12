@@ -8,13 +8,23 @@ import { db } from './db';
 import { api, token, onLoggedOut, cloudEnabled } from './api';
 import { sync, accountFromRow, profileData, writeBase, type ProfileRow } from './sync';
 import { merge3 } from './merge';
-import { connect, signMessage, type WalletChoice } from './wallet';
+import { connect, signMessage, walletSession, type WalletChoice } from './wallet';
 
 export { cloudEnabled };
 
-interface CloudUser { id: string; email: string; username: string }
+interface CloudUser { id: string; email: string; username: string; hasPassword?: boolean }
 export interface LinkedWallet { address: string; wallet: string; created_at: string; last_used_at: string | null; active: boolean }
 export interface LinkResult { wallets: LinkedWallet[]; activate: { address: string; feeCents: number } | null; gift: { id: string; amount: number; reason?: string } | null }
+/** Everything the server knows about an account's ways in (Profile → Account). */
+export interface LoginInfo { wallets: LinkedWallet[]; hasPassword: boolean; email: string }
+/**
+ * What signing in with a wallet found out. `proof` = a 10-minute server note that this browser holds the wallet (used to
+ * create an account, link it after logging in another way, or confirm a sensitive change). `token`/`user` are only there
+ * when the wallet is linked, active and this device isn't logged in to a different account.
+ */
+export interface WalletResult { proof: string; address: string; wallet: string; linked: { username: string; same: boolean; active: boolean } | null; token?: string; user?: CloudUser }
+/** Re-authentication for sensitive changes: the password, or a proof from a wallet already linked to the account. */
+export type Reauth = { password: string } | { proof: string };
 interface SignUpInput { name: string; username: string; email: string; password: string }
 
 const USERNAME = /^[a-z0-9_.]{3,20}$/;
@@ -40,6 +50,9 @@ function addInto(target: Account, extra: Account): Account {
 
 /** Make this device's copy of the logged-in cloud user and start syncing. `from` = a guest/local account moving in. */
 async function adopt(user: CloudUser, name?: string, from?: Account | null): Promise<Account> {
+  // switching from another cloud account on this device: its last changes go up first, so nothing is lost or mixed up
+  const prev = accounts.current;
+  if (prev?.cloud && prev.id !== user.id) { await sync.drain(); sync.stop(); }
   const { profile: row } = await api<{ profile: ProfileRow | null }>('data', 'profile.get');
   let acc: Account;
   let mergeFrom = from ?? null;
@@ -135,6 +148,7 @@ export const cloud = {
       token.clear();
       if (allSent) { await db.deleteOwner(a.id); accounts.forget(a.id); sync.clear(a.id); }
     }
+    walletSession.clear();
     accounts.setSession(null);
   },
 
@@ -146,33 +160,98 @@ export const cloud = {
   },
 
   // ---------- crypto wallets (the wallet only signs a free message written by the server) ----------
-  /** Sign in with a wallet that's already linked to an account. */
-  async signInWithWallet(w: WalletChoice): Promise<Account> {
+  /** Connect a wallet and prove it's yours (one free signature). Says whether — and to whom — it's linked. */
+  async identifyWallet(w: WalletChoice): Promise<WalletResult> {
     const { address, chainId } = await connect(w);
     const { message, nonce } = await api<{ message: string; nonce: string }>('auth', 'wallet.challenge', { purpose: 'login', address, chainId, wallet: w.name });
     const signature = await signMessage(w, address, message);
-    const res = await api<{ token: string; user: CloudUser }>('auth', 'wallet.verify', { nonce, signature });
-    token.set(res.token);
-    return adopt(res.user);
+    return api<WalletResult>('auth', 'wallet.verify', { nonce, signature });
   },
 
-  /** Link a wallet to the logged-in account (proves you own it). Needs the account password too. */
-  async linkWallet(w: WalletChoice, password: string): Promise<LinkResult> {
+  /**
+   * Sign in with a wallet. Linked to an account → logged in (`account`). Not linked, or linked to another account while
+   * this device is logged in → `result` for the app to offer the next step (create / link / switch), never a silent switch.
+   */
+  async signInWithWallet(w: WalletChoice): Promise<{ account: Account; result: WalletResult } | { account: null; result: WalletResult }> {
+    const result = await this.identifyWallet(w);
+    if (!result.token || !result.user) {
+      // linked to you (or to nobody this device is logged in as) but its one-time activation isn't paid yet
+      if (result.linked && !result.linked.active && (result.linked.same || !accounts.current?.cloud)) throw new Error('This wallet isn’t activated yet. Log in another way, then tap “Activate” next to it in Profile → Account & login (one time).');
+      return { account: null, result };
+    }
+    token.set(result.token);
+    const account = await adopt(result.user);
+    walletSession.set({ address: result.address, wallet: result.wallet });
+    return { account, result };
+  },
+
+  /** Switch to the account a proven wallet belongs to (the app has warned first; the current account's changes go up first). */
+  async switchToWallet(r: WalletResult): Promise<Account> {
+    const res = await api<{ token: string; user: CloudUser }>('auth', 'wallet.login', { proof: r.proof });
+    token.set(res.token);
+    const account = await adopt(res.user);
+    walletSession.set({ address: r.address, wallet: r.wallet });
+    return account;
+  },
+
+  /** A new account for a wallet nobody has linked yet. `keep` = bring this device's guest / on-device progress along. */
+  async signUpWithWallet(r: WalletResult, input: { username: string; name?: string; email?: string; password?: string; keep?: boolean }): Promise<Account> {
+    const username = input.username.trim().toLowerCase();
+    if (!USERNAME.test(username)) throw new Error('Username: 3–20 letters, numbers, dots or underscores.');
+    const email = (input.email ?? '').trim().toLowerCase();
+    if (email && !EMAIL.test(email)) throw new Error('That email doesn’t look right.');
+    if ((email || input.password) && (input.password ?? '').length < 6) throw new Error('Password needs at least 6 characters (and an email to go with it).');
+    const from = input.keep ? accounts.current : null;
+    const res = await api<{ token: string; user: CloudUser }>('auth', 'wallet.signup', { proof: r.proof, username, email, password: input.password ?? '' });
+    token.set(res.token);
+    const name = (input.name ?? '').trim() || from?.name || username;
+    const account = await adopt(res.user, name, from && !from.cloud ? { ...from, username, name } : null);
+    walletSession.set({ address: r.address, wallet: r.wallet });
+    return account;
+  },
+
+  /** After logging in with email + password at the wallet screen: link the wallet that just proved itself. */
+  async attachWallet(r: WalletResult, password: string, reauth?: string): Promise<LinkResult> {
+    const x = await api<Partial<LinkResult> & { wallets: LinkedWallet[] }>('auth', 'wallet.attach', { proof: r.proof, password, ...(reauth ? { reauth } : {}) });
+    walletSession.set({ address: r.address, wallet: r.wallet });
+    return { wallets: x.wallets, activate: x.activate ?? null, gift: x.gift ?? null };
+  },
+
+  /** Link a wallet to the logged-in account (proves you own it). Re-authenticate with the password, or a linked wallet's proof. */
+  async linkWallet(w: WalletChoice, auth: Reauth): Promise<LinkResult> {
     if (!accounts.current?.cloud) throw new Error('Save your account first — wallets link to a Fuzzies account.');
-    if (!password) throw new Error('Please enter your Fuzzies password first.');
+    if ('password' in auth && !auth.password) throw new Error('Please enter your Fuzzies password first.');
     const { address, chainId } = await connect(w);
-    const { message, nonce } = await api<{ message: string; nonce: string }>('auth', 'wallet.challenge', { purpose: 'link', address, chainId, wallet: w.name, password });
+    const { message, nonce } = await api<{ message: string; nonce: string }>('auth', 'wallet.challenge', { purpose: 'link', address, chainId, wallet: w.name, ...auth });
     const signature = await signMessage(w, address, message);
     const r = await api<Partial<LinkResult> & { wallets: LinkedWallet[] }>('auth', 'wallet.verify', { nonce, signature });
+    walletSession.set({ address: address.toLowerCase(), wallet: w.name });
     return { wallets: r.wallets, activate: r.activate ?? null, gift: r.gift ?? null };
   },
 
+  /** The account's ways in: linked wallets, whether it has a password, its email. */
+  async loginInfo(): Promise<LoginInfo> {
+    return api<LoginInfo>('auth', 'wallet.list');
+  },
   async wallets(): Promise<LinkedWallet[]> {
-    return (await api<{ wallets: LinkedWallet[] }>('auth', 'wallet.list')).wallets;
+    return (await this.loginInfo()).wallets;
   },
 
-  async unlinkWallet(address: string): Promise<LinkedWallet[]> {
-    return (await api<{ wallets: LinkedWallet[] }>('auth', 'wallet.unlink', { address })).wallets;
+  /** Remove a wallet as a way in (re-authenticate first; never the only way in). */
+  async unlinkWallet(address: string, auth: Reauth): Promise<LinkedWallet[]> {
+    const r = await api<{ wallets: LinkedWallet[] }>('auth', 'wallet.unlink', { address, ...auth });
+    if (walletSession.get()?.address === address.toLowerCase()) walletSession.clear();
+    return r.wallets;
+  },
+
+  /** Add (wallet-only accounts) or change the email + password — the way back in if a wallet is ever lost. */
+  async setCredentials(email: string, password: string, auth: { old: string } | { proof: string }): Promise<void> {
+    const e = email.trim().toLowerCase();
+    if (!EMAIL.test(e)) throw new Error('Please enter a valid email — it’s how you log in without your wallet.');
+    if (password.length < 6) throw new Error('Password needs at least 6 characters.');
+    const res = await api<{ token: string; user: CloudUser }>('auth', 'account.credentials', { email: e, password, ...auth });
+    token.set(res.token);
+    accounts.update((a) => { a.email = res.user.email; });
   },
 
   /** Delete the account everywhere (cloud + this device). */

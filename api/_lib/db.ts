@@ -121,6 +121,9 @@ create index if not exists fz_wallet_nonces_ip_idx on fz_wallet_nonces (ip, crea
 alter table fz_wallet_nonces add column if not exists chain_id integer not null default 1;
 -- a wallet can log in once its one-time activation is paid (or straight away when there's no fee)
 alter table fz_wallets add column if not exists active boolean not null default true;
+-- accounts created with a wallet have no email or password until the player adds them (Profile → Account)
+alter table fz_users alter column email drop not null;
+alter table fz_users alter column pass drop not null;
 -- Payments in crypto (Fuzzies packs, wallet activation). Amounts are exact base units (wei, lamports, USDC micro-units),
 -- unique among open payments so each on-chain transfer matches exactly one payment.
 create table if not exists fz_payments (

@@ -9,16 +9,24 @@
  *   forgot   { email }                             → { ok }     (emails a reset link if the account exists)
  *   reset    { token, password }                   → { token, user }  (sets the new password; logs in)
  * Crypto wallets (see _lib/wallet.ts — the wallet only signs a message; nothing touches funds):
- *   wallet.challenge { address, chainId, purpose: 'link' | 'login', wallet, password (link only) } → { message, nonce }
- *                    ('link' needs you to be logged in; the server writes and keeps the exact message)
- *   wallet.verify    { nonce, signature } → link: { wallets } · login: { token, user }
- *   wallet.list      (logged in) → { wallets }
- *   wallet.unlink    { address } (logged in) → { wallets }
+ *   wallet.challenge { address, chainId, purpose: 'link' | 'login', wallet, password | proof (link only) } → { message, nonce }
+ *                    ('link' needs you to be logged in + re-authentication; the server writes and keeps the exact message)
+ *   wallet.verify    { nonce, signature } → link: { wallets, activate }
+ *                    login: { proof, address, wallet, linked: null | { username, same }, token?, user? }
+ *                      token + user only when the wallet is linked, active and you're not logged in to a different account
+ *   wallet.login     { proof } → { token, user }  (sign in to the account a proven wallet is linked to — a deliberate switch)
+ *   wallet.signup    { proof, username, name?, email?, password? } → { token, user }  (a new account for an unlinked wallet)
+ *   wallet.attach    { proof, password } (logged in) → { wallets, activate }  (link a proven wallet to this account)
+ *   wallet.list      (logged in) → { wallets, hasPassword, email }
+ *   wallet.unlink    { address, password | proof } (logged in) → { wallets }  (never the only way in)
+ *   account.credentials { email, password, old | proof } (logged in) → { token, user }  (add or change email + password)
+ * A "proof" is a short-lived server-signed note that a wallet just signed for this browser (_lib/auth.ts makeProof);
+ * re-authentication for sensitive changes = the account password, or a proof from a wallet already linked to it.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { db, q } from './_lib/db.js';
 import { requireMail, sendMail, resetEmail, mailReady, walletLinkedEmail } from './_lib/mail.js';
-import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json, BUILD } from './_lib/auth.js';
+import { handle, hashPassword, checkPassword, makeToken, makeProof, readProof, requireUser, HttpError, errorRef, json, BUILD, type AuthedUser } from './_lib/auth.js';
 import { paymentsEnabled, walletFeeCents, addressHash } from './_lib/pay.js';
 import { normAddress, recoverSigner, siteOf, siweMessage, verifySmartWallet, MAX_SIGNATURE } from './_lib/wallet.js';
 
@@ -42,11 +50,84 @@ function appUrl(req: Request): string {
 }
 
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-const publicUser = (u: { id: string; email: string; username: string }) => ({ id: u.id, email: u.email, username: u.username });
+const publicUser = (u: { id: string; email: string | null; username: string; has_password?: boolean; pass?: string | null }) =>
+  ({ id: u.id, email: u.email ?? '', username: u.username, hasPassword: u.has_password ?? (u.pass !== undefined ? u.pass !== null : true) });
+/** Wrong-password counting is per email; accounts without an email count under their id. */
+const failKey = (u: { id: string; email: string | null }) => u.email || `u:${u.id}`;
+const USER_COLS = 'id, email, username, token_v, (pass is not null) as has_password';
 const walletsOf = async (userId: string) =>
   (await q<{ address: string; wallet: string; created_at: string; last_used_at: string | null; active: boolean }>('select address, wallet, created_at, last_used_at, active from fz_wallets where user_id = $1 order by created_at', [userId])).rows;
 /** The visitor's network address as Vercel reports it (used only to slow down floods of sign-in requests). */
 const clientIp = (req: Request) => (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64);
+
+/** Too many wrong passwords lately? */
+async function assertNotLocked(key: string): Promise<void> {
+  const { rows } = await q("select count(*)::int as n from fz_login_fails where email = $1 and at > now() - interval '15 minutes'", [key]);
+  if (rows[0].n >= MAX_FAILS) throw new HttpError(429, 'Too many tries — please wait 15 minutes and try again.');
+}
+async function countFail(key: string): Promise<void> {
+  await q('insert into fz_login_fails (email) values ($1)', [key]);
+  await q("delete from fz_login_fails where at < now() - interval '1 day'");
+}
+/**
+ * Re-authentication for sensitive changes (linking / removing a wallet, changing email or password): the account
+ * password, or a proof from a wallet that is already linked to this account. A logged-in device alone is never enough.
+ */
+async function reauth(u: AuthedUser, b: Record<string, unknown>, what: string): Promise<void> {
+  if (typeof b.proof === 'string' && b.proof) {
+    const { address } = readProof(b.proof);
+    const { rows } = await q('select 1 from fz_wallets where address = $1 and user_id = $2', [address, u.id]);
+    if (!rows[0]) throw new HttpError(400, 'That wallet isn’t linked to this account — confirm with one of your linked wallets instead.');
+    return;
+  }
+  if (!u.has_password) throw new HttpError(400, `To ${what}, first confirm it’s you with one of your linked wallets.`);
+  const key = failKey(u);
+  await assertNotLocked(key);
+  const { rows: pw } = await q<{ pass: string | null }>('select pass from fz_users where id = $1', [u.id]);
+  if (!(await checkPassword(typeof b.password === 'string' ? b.password : '', pw[0].pass))) {
+    await countFail(key);
+    throw new HttpError(400, typeof b.password === 'string' && b.password ? 'That password isn’t right — please try again.' : `Please enter your password to ${what}.`);
+  }
+}
+/** The logged-in user if the request carries a valid token, else null (never a 401). */
+async function optionalUser(req: Request): Promise<AuthedUser | null> {
+  if (!req.headers.get('authorization')) return null;
+  try { return await requireUser(req); } catch { return null; }
+}
+/**
+ * Link a proven wallet to an account: one account per wallet (409 otherwise), the one-time activation when payments
+ * are on, and an email to the owner so a wallet they didn't add never goes unnoticed.
+ */
+async function linkWalletTo(req: Request, u: AuthedUser, address: string, wallet: string, opts: { activeAnyway?: boolean } = {}) {
+  const { rows: n } = await q('select count(*)::int as n from fz_wallets where user_id = $1 and address <> $2', [u.id, address]);
+  if (n[0].n >= MAX_WALLETS) throw new HttpError(400, `You can link up to ${MAX_WALLETS} wallets — remove one first.`);
+  const { rows: paid } = await q('select 1 from fz_wallet_rewards where address_hash = $1 and fee_paid_at is not null', [addressHash(address)]);
+  const needsFee = !opts.activeAnyway && paymentsEnabled() && walletFeeCents() > 0 && !paid[0];
+  const { rows: ins } = await q<{ user_id: string; added: boolean; active: boolean }>(
+    'insert into fz_wallets (address, user_id, wallet, active) values ($1, $2, $3, $4) on conflict (address) do update set wallet = excluded.wallet where fz_wallets.user_id = excluded.user_id returning user_id, (xmax = 0) as added, active',
+    [address, u.id, wallet, !needsFee]);
+  if (!ins[0]) throw new HttpError(409, 'This wallet is already linked to another Fuzzies account. Log in to that account to use it, or remove it there first.');
+  if (ins[0].added && u.email && mailReady()) {
+    await sendMail(u.email, walletLinkedEmail(u.username, address, wallet, `${appUrl(req)}/#/profile`)).catch((e) => console.error('wallet email failed', e));
+  }
+  return { wallets: await walletsOf(u.id), activate: ins[0].active ? null : { address, feeCents: walletFeeCents() }, gift: null };
+}
+/** New-account flood control (shared by email and wallet sign-ups). */
+async function signupAllowed(req: Request): Promise<void> {
+  const ip = clientIp(req);
+  if (!ip) return;
+  const { rows: n } = await q("select count(*)::int as n from fz_signups where ip = $1 and at > now() - interval '1 hour'", [ip]);
+  if (n[0].n >= 8) throw new HttpError(429, 'Too many new accounts from this network — please try again in an hour.');
+  await q('insert into fz_signups (ip) values ($1)', [ip]);
+  await q("delete from fz_signups where at < now() - interval '1 day'");
+}
+const dup = (e: unknown): never => {
+  if ((e as { code?: string }).code === '23505') {
+    const which = String((e as { constraint?: string }).constraint ?? '');
+    throw new HttpError(409, which.includes('email') ? 'There’s already an account with that email — log in instead.' : which.includes('username') ? 'That username is taken — try another.' : 'That’s already taken.');
+  }
+  throw e;
+};
 
 /** GET /api/auth?check — a health check you can open in a browser: is the database reachable and set up? */
 export async function GET(req: Request): Promise<Response> {
@@ -74,31 +155,19 @@ export function POST(req: Request): Promise<Response> {
         if (!EMAIL.test(email)) throw new HttpError(400, 'Please enter your email — it’s how you log in on other devices.');
         if (!USERNAME.test(username)) throw new HttpError(400, 'Username: 3–20 letters, numbers, dots or underscores.');
         if (password.length < 6 || password.length > 200) throw new HttpError(400, 'Password needs at least 6 characters.');
-        const ip = clientIp(req);
-        if (ip) {
-          const { rows: n } = await q("select count(*)::int as n from fz_signups where ip = $1 and at > now() - interval '1 hour'", [ip]);
-          if (n[0].n >= 8) throw new HttpError(429, 'Too many new accounts from this network — please try again in an hour.');
-          await q('insert into fz_signups (ip) values ($1)', [ip]);
-          await q("delete from fz_signups where at < now() - interval '1 day'");
-        }
+        await signupAllowed(req);
         const pass = await hashPassword(password);
         try {
-          const { rows } = await q('insert into fz_users (email, username, pass) values ($1, $2, $3) returning id, email, username, token_v', [email, username, pass]);
+          const { rows } = await q(`insert into fz_users (email, username, pass) values ($1, $2, $3) returning ${USER_COLS}`, [email, username, pass]);
           return { token: makeToken(rows[0].id, rows[0].token_v), user: publicUser(rows[0]) };
-        } catch (e) {
-          if ((e as { code?: string }).code === '23505') {
-            const which = String((e as { constraint?: string }).constraint ?? '');
-            throw new HttpError(409, which.includes('email') ? 'There’s already an account with that email — log in instead.' : 'That username is taken — try another.');
-          }
-          throw e;
-        }
+        } catch (e) { return dup(e); }
       }
       case 'login': {
         const email = str(b.email).toLowerCase();
         const password = typeof b.password === 'string' ? b.password : '';
         const { rows: fails } = await q("select count(*)::int as n from fz_login_fails where email = $1 and at > now() - interval '15 minutes'", [email]);
         if (fails[0].n >= MAX_FAILS) throw new HttpError(429, 'Too many tries — please wait 15 minutes and try again.');
-        const { rows } = await q('select id, email, username, pass, token_v from fz_users where email = $1', [email]);
+        const { rows } = await q(`select ${USER_COLS}, pass from fz_users where email = $1 and email is not null`, [email]);
         if (!rows[0] || !(await checkPassword(password, rows[0].pass))) {
           await q('insert into fz_login_fails (email) values ($1)', [email]);
           await q("delete from fz_login_fails where at < now() - interval '1 day'");
@@ -136,7 +205,7 @@ export function POST(req: Request): Promise<Response> {
         const { rows } = await q<{ user_id: string }>('update fz_resets set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning user_id', [hashToken(raw)]);
         if (!rows[0]) throw new HttpError(400, 'This reset link has expired or was already used — ask for a new one from the log-in screen.');
         // new password, and every other device is logged out
-        const { rows: u } = await q('update fz_users set pass = $2, token_v = token_v + 1 where id = $1 returning id, email, username, token_v', [rows[0].user_id, await hashPassword(password)]);
+        const { rows: u } = await q(`update fz_users set pass = $2, token_v = token_v + 1 where id = $1 returning ${USER_COLS}`, [rows[0].user_id, await hashPassword(password)]);
         await q('update fz_resets set used_at = now() where user_id = $1 and used_at is null', [rows[0].user_id]); // older links stop working too
         await q('delete from fz_wallets where user_id = $1', [rows[0].user_id]); // wallets must be linked again (with the new password)
         await q('delete from fz_login_fails where email = $1', [u[0].email]);
@@ -150,16 +219,8 @@ export function POST(req: Request): Promise<Response> {
         const wallet = str(b.wallet, 40).replace(/[^\w .()-]/g, '');
         const user = purpose === 'link' ? await requireUser(req) : null;
         const { domain, origin } = siteOf(req);
-        if (user) {
-          // a wallet becomes a way into the account, so linking one needs the password too (not just a logged-in device)
-          const { rows: fails } = await q("select count(*)::int as n from fz_login_fails where email = $1 and at > now() - interval '15 minutes'", [user.email]);
-          if (fails[0].n >= MAX_FAILS) throw new HttpError(429, 'Too many tries — please wait 15 minutes and try again.');
-          const { rows: pw } = await q<{ pass: string }>('select pass from fz_users where id = $1', [user.id]);
-          if (!(await checkPassword(typeof b.password === 'string' ? b.password : '', pw[0].pass))) {
-            await q('insert into fz_login_fails (email) values ($1)', [user.email]);
-            throw new HttpError(400, 'That password isn’t right — please try again.');
-          }
-        }
+        // a wallet becomes a way into the account, so linking one needs re-authentication (not just a logged-in device)
+        if (user) await reauth(user, b, 'link a wallet');
         const ip = clientIp(req);
         await q('delete from fz_wallet_nonces where expires_at < now()');
         const { rows: recent } = await q<{ a: number; i: number }>(
@@ -204,34 +265,91 @@ export function POST(req: Request): Promise<Response> {
         if (c.purpose === 'link') {
           const u = await requireUser(req);
           if (u.id !== c.user_id) throw new HttpError(403, 'This request was made for a different account — please try again.');
-          // a one-time activation fee applies to wallets that never paid it (when payments are switched on)
-          const { rows: paid } = await q('select 1 from fz_wallet_rewards where address_hash = $1 and fee_paid_at is not null', [addressHash(c.address)]);
-          const needsFee = paymentsEnabled() && walletFeeCents() > 0 && !paid[0];
-          const { rows: ins } = await q<{ user_id: string; added: boolean; active: boolean }>(
-            'insert into fz_wallets (address, user_id, wallet, active) values ($1, $2, $3, $4) on conflict (address) do update set wallet = excluded.wallet where fz_wallets.user_id = excluded.user_id returning user_id, (xmax = 0) as added, active',
-            [c.address, u.id, c.wallet, !needsFee]);
-          if (!ins[0]) throw new HttpError(409, 'This wallet is already linked to another Fuzzies account.');
-          // tell the account owner by email, so a wallet they didn't add never goes unnoticed (best effort)
-          if (ins[0].added && mailReady()) {
-            await sendMail(u.email, walletLinkedEmail(u.username, c.address, c.wallet, `${appUrl(req)}/#/profile`)).catch((e) => console.error('wallet email failed', e));
-          }
           // the 100-Fuzzies gift comes with a paid activation only (free gifts could be farmed with throwaway wallets)
-          return { wallets: await walletsOf(u.id), activate: ins[0].active ? null : { address: c.address, feeCents: walletFeeCents() }, gift: null };
+          return linkWalletTo(req, u, c.address, c.wallet);
         }
-        const { rows: owner } = await q<{ id: string; email: string; username: string; token_v: number; active: boolean }>(
-          'select u.id, u.email, u.username, u.token_v, w.active from fz_wallets w join fz_users u on u.id = w.user_id where w.address = $1', [c.address]);
-        if (!owner[0]) throw new HttpError(404, 'This wallet isn’t linked to a Fuzzies account yet. Log in with your email first, then link it in your Profile.');
-        if (!owner[0].active) throw new HttpError(402, 'This wallet isn’t activated yet. Log in with your email, then tap “Activate” next to it in your Profile (one time).');
+        // signed in with a wallet: the browser gets a short-lived proof it holds this wallet, and — only when the wallet is
+        // linked, active, and this device isn't logged in to a *different* account — a login. Never a silent account switch.
+        const proof = makeProof(c.address, c.wallet);
+        const me = await optionalUser(req);
+        const { rows: owner } = await q<{ id: string; email: string | null; username: string; token_v: number; has_password: boolean; active: boolean }>(
+          `select u.id, u.email, u.username, u.token_v, (u.pass is not null) as has_password, w.active from fz_wallets w join fz_users u on u.id = w.user_id where w.address = $1`, [c.address]);
+        if (!owner[0]) return { proof, address: c.address, wallet: c.wallet, linked: null };
+        const same = !!me && me.id === owner[0].id;
+        const linked = { username: owner[0].username, same, active: owner[0].active };
+        // linked to someone else while logged in, or not activated yet (one-time fee unpaid): the proof still serves for
+        // re-authentication and the app explains the next step — but no login
+        if ((me && !same) || !owner[0].active) return { proof, address: c.address, wallet: c.wallet, linked };
         await q('update fz_wallets set last_used_at = now() where address = $1', [c.address]);
+        return { proof, address: c.address, wallet: c.wallet, linked, token: makeToken(owner[0].id, owner[0].token_v), user: publicUser(owner[0]) };
+      }
+      case 'wallet.login': {
+        // a deliberate switch to the account a proven wallet belongs to (the app warns and saves first)
+        const { address } = readProof(b.proof);
+        const { rows: owner } = await q<{ id: string; email: string | null; username: string; token_v: number; has_password: boolean; active: boolean }>(
+          `select u.id, u.email, u.username, u.token_v, (u.pass is not null) as has_password, w.active from fz_wallets w join fz_users u on u.id = w.user_id where w.address = $1`, [address]);
+        if (!owner[0]) throw new HttpError(404, 'This wallet isn’t linked to a Fuzzies account.');
+        if (!owner[0].active) throw new HttpError(402, 'This wallet isn’t activated yet.');
+        await q('update fz_wallets set last_used_at = now() where address = $1', [address]);
         return { token: makeToken(owner[0].id, owner[0].token_v), user: publicUser(owner[0]) };
+      }
+      case 'wallet.signup': {
+        // a brand-new account for a wallet nobody has linked yet: username required; email + password optional (they can
+        // be added later in Profile → Account, and are the way back in if the wallet is ever lost)
+        const { address, wallet } = readProof(b.proof);
+        const username = str(b.username, 40).toLowerCase();
+        const email = str(b.email).toLowerCase();
+        const password = typeof b.password === 'string' ? b.password : '';
+        if (!USERNAME.test(username)) throw new HttpError(400, 'Username: 3–20 letters, numbers, dots or underscores.');
+        if (email && !EMAIL.test(email)) throw new HttpError(400, 'That email doesn’t look right.');
+        if ((email || password) && (password.length < 6 || password.length > 200)) throw new HttpError(400, 'Password needs at least 6 characters (add an email with it).');
+        if (password && !email) throw new HttpError(400, 'Add an email with your password — it’s how you log in without the wallet.');
+        const { rows: taken } = await q('select 1 from fz_wallets where address = $1', [address]);
+        if (taken[0]) throw new HttpError(409, 'This wallet is already linked to a Fuzzies account — log in with it instead.');
+        await signupAllowed(req);
+        let user: AuthedUser;
+        try {
+          const { rows } = await q<AuthedUser>(`insert into fz_users (email, username, pass) values ($1, $2, $3) returning ${USER_COLS}`, [email || null, username, password ? await hashPassword(password) : null]);
+          user = rows[0];
+        } catch (e) { return dup(e); }
+        // the wallet that made the account can always log in to it (the activation / gift stays optional)
+        try { await linkWalletTo(req, user, address, wallet, { activeAnyway: true }); }
+        catch (e) { await q('delete from fz_users where id = $1', [user.id]).catch(() => {}); throw e; }
+        return { token: makeToken(user.id, user.token_v), user: publicUser(user) };
+      }
+      case 'wallet.attach': {
+        // link a wallet that just proved itself (at the log-in screen) to the account you then logged in to
+        const u = await requireUser(req);
+        const { address, wallet } = readProof(b.proof);
+        await reauth(u, { password: b.password, proof: b.reauth }, 'link a wallet');
+        return linkWalletTo(req, u, address, wallet);
+      }
+      case 'account.credentials': {
+        // add (wallet-only accounts) or change the email + password; re-authenticate first
+        const u = await requireUser(req);
+        const email = str(b.email).toLowerCase();
+        const password = typeof b.password === 'string' ? b.password : '';
+        if (!EMAIL.test(email)) throw new HttpError(400, 'Please enter a valid email — it’s how you log in without your wallet.');
+        if (password.length < 6 || password.length > 200) throw new HttpError(400, 'Password needs at least 6 characters.');
+        await reauth(u, { password: b.old, proof: b.proof }, 'change your login details');
+        try {
+          const { rows } = await q<AuthedUser>(`update fz_users set email = $2, pass = $3 where id = $1 returning ${USER_COLS}`, [u.id, email, await hashPassword(password)]);
+          return { token: makeToken(rows[0].id, rows[0].token_v), user: publicUser(rows[0]) };
+        } catch (e) { return dup(e); }
       }
       case 'wallet.list': {
         const u = await requireUser(req);
-        return { wallets: await walletsOf(u.id) };
+        return { wallets: await walletsOf(u.id), hasPassword: u.has_password, email: u.email ?? '' };
       }
       case 'wallet.unlink': {
+        // removing a way in needs re-authentication, and never leaves the account with no way in at all
         const u = await requireUser(req);
-        await q('delete from fz_wallets where user_id = $1 and address = $2', [u.id, normAddress(b.address)]);
+        const address = normAddress(b.address);
+        const wallets = await walletsOf(u.id);
+        if (!wallets.some((w) => w.address === address)) return { wallets };
+        if (!u.has_password && wallets.length <= 1) throw new HttpError(400, 'This wallet is the only way into your account. Add an email and password first (Profile → Account), then remove it.');
+        await reauth(u, b, 'remove a wallet');
+        await q('delete from fz_wallets where user_id = $1 and address = $2', [u.id, address]);
         return { wallets: await walletsOf(u.id) };
       }
       case 'username': {
@@ -245,6 +363,7 @@ export function POST(req: Request): Promise<Response> {
       }
       case 'password': {
         const u = await requireUser(req);
+        if (!u.has_password) throw new HttpError(400, 'This account has no password yet — add an email and password from Profile → Account.');
         const next = typeof b.new === 'string' ? b.new : '';
         if (next.length < 6 || next.length > 200) throw new HttpError(400, 'New password needs at least 6 characters.');
         const { rows } = await q('select pass from fz_users where id = $1', [u.id]);

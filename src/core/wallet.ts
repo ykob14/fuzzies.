@@ -105,3 +105,15 @@ export async function signMessage(w: WalletChoice, address: string, message: str
 }
 
 export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+
+/**
+ * The wallet connected in this browser right now (the one you last signed in or linked with). Only a note for the
+ * Profile ("Connected now · MetaMask 0x12…ab") — never a login by itself. "Disconnect" forgets it; the wallet stays linked.
+ */
+const SESSION_KEY = 'fz.wallet.now';
+export interface WalletSession { address: string; wallet: string; at: number }
+export const walletSession = {
+  get(): WalletSession | null { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') as WalletSession | null; return s && /^0x[0-9a-f]{40}$/.test(s.address) ? s : null; } catch { return null; } },
+  set(s: { address: string; wallet: string }): void { try { localStorage.setItem(SESSION_KEY, JSON.stringify({ address: s.address.toLowerCase(), wallet: safeName(s.wallet), at: Date.now() })); } catch { /* private mode */ } },
+  clear(): void { localStorage.removeItem(SESSION_KEY); },
+};

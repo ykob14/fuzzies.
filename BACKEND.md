@@ -90,9 +90,21 @@ licence from Reown). The required notice is in Settings → About and the licenc
 Optional: `WALLET_RPC_<chainId>` (e.g. `WALLET_RPC_8453`) = one or two comma-separated network URLs of your own (Alchemy,
 Infura…) for checking smart wallets; by default each network uses two free public providers.
 
-- **Profile → Crypto wallets → Connect a wallet** links a wallet to the logged-in account (the password is asked again,
-  and the owner gets an email "A wallet was linked" when email is set up); **Log in → Continue with a wallet** then logs in
-  with it on any device. Up to 5 wallets per account; a wallet belongs to one account.
+- **Profile → Account & login** shows every way into the account — email + password and each linked wallet (with the one
+  connected in this browser marked "Connected now") — with **Connect a wallet**, **Switch wallet**, **Disconnect** (forgets
+  the wallet in this browser only) and **Remove** (unlinks it as a log-in method). Linking asks for the password again (the
+  owner gets an email "A wallet was linked" when email is set up); **Continue with a wallet** on the log-in / sign-up screen
+  then logs in with it on any device. Up to 5 wallets per account; a wallet belongs to one account.
+- **A wallet nobody has linked yet** can **create a new account** (username; email + password optional but recommended,
+  and a guest's progress on that device can come along) or be **linked to an existing account** after logging in to it with
+  email + password. **Wallet-only accounts** (no email/password) can add them later from Profile → Account & login; until
+  then their last wallet can't be removed (it would leave no way in). **Switching accounts** never happens silently: if
+  the wallet belongs to another account than the one this device is signed in to, the app says whose it is and asks; the
+  current account's last changes are uploaded first and the accounts are never merged.
+- **Re-authentication** for sensitive changes (linking or removing a wallet, changing email or password): the password,
+  or — for wallet-only accounts — a fresh signature from a wallet already linked. A logged-in device alone is never enough.
+  The server hands the browser a 10-minute signed "proof" after each wallet signature (`makeProof` in `api/_lib/auth.ts`)
+  so the next step (create / link / confirm) doesn't need a second signature; a proof is never a log-in by itself.
 - Works with every Ethereum wallet that's installed in the browser (they announce themselves through EIP-6963: MetaMask,
   Coinbase Wallet, Trust Wallet, Crypto.com Onchain, OKX, Phantom, Rabby, Rainbow, Brave…). Below that, **popular
   wallets** (`TOP_WALLETS` in `src/core/wallet.ts`: MetaMask, Coinbase, Trust, Crypto.com Onchain, Robinhood Wallet, OKX,
@@ -120,8 +132,10 @@ Infura…) for checking smart wallets; by default each network uses two free pub
   Arbitrum and Polygon. **Two independent providers must both confirm** (and must really be on that network); if one is
   unreachable the sign-in is refused with "try again", never let through.
 - Code: `api/_lib/wallet.ts` (message + signature check, `verifySmartWallet`), `src/core/walletconnect.ts`, `api/auth.ts` (`wallet.challenge` / `wallet.verify` /
-  `wallet.list` / `wallet.unlink`), tables `fz_wallets` + `fz_wallet_nonces`; app: `src/core/wallet.ts`,
-  `src/ui/walletPicker.ts`, Profile card and log-in button.
+  `wallet.login` / `wallet.signup` / `wallet.attach` / `wallet.list` / `wallet.unlink` / `account.credentials`), tables `fz_wallets` +
+  `fz_wallet_nonces` (`fz_users.email` and `pass` may be empty for wallet-only accounts); app: `src/core/wallet.ts` (+ the
+  "connected now" note `fz.wallet.now`), `src/core/cloud.ts`, `src/ui/walletPicker.ts`, `src/ui/walletOnboard.ts`
+  (new wallet → create / link / switch), Profile → Account & login card, the log-in / sign-up button.
 
 ## Crypto payments (buy Fuzzies, $0.50 wallet activation)
 

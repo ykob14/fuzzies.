@@ -8,6 +8,7 @@ import { mascot } from '../mascot';
 import { featureArt, type Feature } from '../featureArt';
 import { pickWallet } from '../walletPicker';
 import { checkGifts } from '../giftBox';
+import { walletOnboard } from '../walletOnboard';
 
 /** Log in: cloud accounts first; accounts that only live on this device (made before sync existed) still work. */
 async function logIn(login: string, password: string): Promise<void> {
@@ -101,12 +102,18 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
     form.querySelectorAll('button.btn-primary').forEach((b) => b.setAttribute('type', 'submit'));
     const guest = h('button', { class: 'link', type: 'button' }, 'Just looking? Continue as a guest');
     guest.addEventListener('click', () => { accounts.guest(); applyTheme(); location.hash = '#/home'; });
-    const wallet = cloud.enabled && tab === 'login'
+    const arrived = (first: boolean) => { applyTheme(); toast(first ? 'Welcome to Fuzzies! 🎉' : 'Welcome back! 👋', 'good'); location.hash = '#/home'; setTimeout(() => void checkGifts(), 900); };
+    const wallet = cloud.enabled
       ? h('div', { class: 'auth-or' }, h('span', null, 'or'), btn('Continue with a wallet', { kind: 'ghost', icon: 'wallet', class: 'btn-block', onClick: () => pickWallet({
-        title: 'Log in with a wallet',
-        intro: 'Works with a wallet you’ve linked in your Profile. Your wallet will ask you to sign a short message — that’s all.',
-        hash: '#/login',
-        run: async (w) => { await cloud.signInWithWallet(w); applyTheme(); toast('Welcome back! 👋', 'good'); location.hash = '#/home'; setTimeout(() => void checkGifts(), 900); },
+        title: tab === 'login' ? 'Log in with a wallet' : 'Continue with a wallet',
+        intro: 'MetaMask, Coinbase Wallet, Trust, Phantom, Rabby and more. Your wallet signs a short message to prove it’s yours — that’s all. New here? You can create your account with it.',
+        hash: tab === 'login' ? '#/login' : '#/signup',
+        run: async (w) => {
+          const r = await cloud.signInWithWallet(w);
+          if (r.account) { arrived(false); return; }
+          // not linked yet (create / link), or linked to another account than this device's (switch on purpose)
+          walletOnboard(r.result, () => arrived(!r.result.linked));
+        },
       }) }))
       : null;
     card.replaceChildren(tabs, form, ...(wallet ? [wallet] : []), h('div', { class: 'auth-alt' }, guest),
