@@ -24,7 +24,9 @@ const EXPRESSIONS: Record<Face, Expression> = {
  * Photograph one furry Fuzzy in a little studio, once per expression, as transparent PNGs. `rim` is the back light's colour
  * (pink for the brand mascot, sky-blue for the assistant).
  */
-async function studio<K extends string>(colors: [string, string], size: number, faces: Record<K, Expression>, rim = 0xffc4f0): Promise<Record<K, string>> {
+interface StudioOpts { rim?: number; r?: number; fur?: number; shells?: number; faceLift?: number; eyeScale?: number; strands?: [number, number] }
+async function studio<K extends string>(colors: [string, string], size: number, faces: Record<K, Expression>, opts: StudioOpts = {}): Promise<Record<K, string>> {
+  const { rim = 0xffc4f0, r = 0.27, fur = 0.12, shells = 32, faceLift = 0.012, eyeScale = 1, strands = [10, 5] } = opts;
   const SS = 2; // supersample, then scale down for silky fur edges
   const canvas = document.createElement('canvas');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -43,20 +45,21 @@ async function studio<K extends string>(colors: [string, string], size: number, 
     scene.environmentIntensity = 0.3;
     const key = new THREE.DirectionalLight(0xfff4ea, 2.1);
     key.position.set(-1.2, 2, 2.2);
-    const back = new THREE.DirectionalLight(rim, 2.2);
+    const back = new THREE.DirectionalLight(rim, opts.strands ? 3.2 : 2.2);
     back.position.set(1.6, 1.2, -1.8);
     const fill = new THREE.HemisphereLight(0xd8e4ff, 0x3a2050, 0.45);
     scene.add(key, back, fill);
 
-    const mats = { fur: furStrands() } as unknown as M.Mats;
-    const fz = M.makeFuzzy(mats, colors, 0.27, 0.12, 32); // a little fluffier than in the game: it's a close-up
+    const mats = { fur: furStrands(strands, opts.strands ? 0.55 : 0.7) } as unknown as M.Mats;
+    const fz = M.makeFuzzy(mats, colors, r, fur, shells); // fluffier than in the game: it's a close-up
     fz.mouth?.position.add(new THREE.Vector3(0, -0.01, 0.022));
-    fz.face.position.z += 0.012; // the face sits on top of the (longer) fur
+    fz.face.position.z += faceLift; // the face sits on top of the (longer) fur
     scene.add(fz.group);
     const pupilHome = fz.pupils.map((p) => p.position.clone());
 
     const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 20);
-    camera.position.set(0, 0.12, 2.0);
+    const fit = (r + fur) / 0.39; // keep the Fuzzy the same size in the picture whatever its fur length
+    camera.position.set(0, 0.12 * fit, 2.0 * fit);
     camera.lookAt(0, 0.0, 0);
 
     const out = document.createElement('canvas');
@@ -70,7 +73,8 @@ async function studio<K extends string>(colors: [string, string], size: number, 
         const happy = x.eyes === 'shut' || (x.eyes === 'wink' && i === 1);
         e.open.visible = !happy;
         e.lid.visible = happy;
-        e.open.scale.setScalar(x.wide ?? 1);
+        e.open.scale.setScalar((x.wide ?? 1) * eyeScale);
+        e.lid.scale.setScalar(eyeScale);
       });
       fz.pupils.forEach((p, i) => p.position.set(pupilHome[i].x + (x.look?.[0] ?? 0), pupilHome[i].y + (x.look?.[1] ?? 0), pupilHome[i].z));
       if (fz.mouth) fz.mouth.scale.set(x.grin[0], x.grin[1], 1.2);
@@ -100,16 +104,17 @@ export function renderMascotFrames(colors: [string, string] = ['#ff86bb', '#b823
 /** The Fuzzy assistant's expressions: the brand mascot's four plus talking, thinking and listening faces. */
 export type AssistFace = Face | 'talkA' | 'talkB' | 'think' | 'listen';
 export type AssistFrames = Record<AssistFace, string>;
-export const ASSIST_COLORS: [string, string] = ['#9ad8ff', '#3b86d6'];
-export function renderAssistantFrames(size = 256): Promise<AssistFrames> {
+export const ASSIST_COLORS: [string, string] = ['#b4e4ff', '#4a8fdc'];
+export function renderAssistantFrames(size = 320): Promise<AssistFrames> {
   const faces: Record<AssistFace, Expression> = {
     ...EXPRESSIONS,
     talkA: { eyes: 'open', grin: [2.1, 2.9], tilt: 0.03 },
     talkB: { eyes: 'open', grin: [1.3, 1.1], tilt: -0.03 },
-    think: { eyes: 'open', grin: [1.1, 0.9], tilt: 0.12, turn: 0.1, look: [0.03, 0.035] },
-    listen: { eyes: 'open', grin: [1.4, 1.2], tilt: -0.1, wide: 1.12, look: [0, 0.01] },
+    think: { eyes: 'open', grin: [1.1, 0.9], tilt: 0.12, turn: 0.1, look: [0.012, 0.016] },
+    listen: { eyes: 'open', grin: [1.4, 1.2], tilt: -0.1, wide: 1.12, look: [0, 0.004] },
   };
-  return studio(ASSIST_COLORS, size, faces, 0xcfe6ff);
+  // extra-long fur in many layers = the big puffball look of the reference picture
+  return studio(ASSIST_COLORS, size, faces, { rim: 0xdff0ff, r: 0.22, fur: 0.32, shells: 64, faceLift: 0.1, eyeScale: 1.35, strands: [6, 3] });
 }
 
 // ---------- 3D pictures for the shop and the gift box (rendered once, on demand) ----------

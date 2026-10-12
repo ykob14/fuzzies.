@@ -388,6 +388,14 @@ export function mountAssistant(): void {
   launcher.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !open) big.do('wink'); });
   label.addEventListener('click', () => api.open());
   setTimeout(() => { if (!assistant.prefs.seen && !assistant.prefs.hidden) { label.hidden = false; big.do('wave'); big.sparkle(); } }, 6000);
+  // alive while waiting: now and then a wink with a sparkle, or a tiny hop (never while the window is open or the tab is hidden)
+  const fidget = () => {
+    if (!open && !document.hidden && !assistant.prefs.hidden && document.documentElement.dataset.motion !== 'reduce') {
+      if (Math.random() < 0.5) { big.do('wink'); big.sparkle(); } else big.do('cheer');
+    }
+    setTimeout(fidget, 22_000 + Math.random() * 25_000);
+  };
+  setTimeout(fidget, 15_000 + Math.random() * 10_000);
 
   assistant.onChange(() => { paintPrefs(); if (open) paintChips(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && open && !document.querySelector('.modal-backdrop, .qf-backdrop, .popmenu')) api.close(); });

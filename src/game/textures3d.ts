@@ -229,14 +229,15 @@ export function waterNormals(): THREE.CanvasTexture {
 }
 
 /** Random strand heights for shell-rendered fur (each texel is one hair). */
-export function furStrands(): THREE.CanvasTexture {
+/** Fur strand mask for shell fur. `repeat` = strands across/around the body: fewer = thicker, longer-looking strands. */
+export function furStrands(repeat: [number, number] = [10, 5], contrast = 0.7): THREE.CanvasTexture {
   const S = 128;
   const [c, x] = canvas(S, S);
   const id = x.createImageData(S, S);
   const r = rng(31);
-  for (let i = 0; i < S * S; i++) { const v = Math.pow(r(), 0.7) * 255; id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
+  for (let i = 0; i < S * S; i++) { const v = Math.pow(r(), contrast) * 255; id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
   x.putImageData(id, 0, 0);
-  const t = tex(c, [10, 5], false, 1);
+  const t = tex(c, repeat, false, 1);
   t.magFilter = THREE.NearestFilter;
   t.minFilter = THREE.NearestFilter;
   t.generateMipmaps = false;

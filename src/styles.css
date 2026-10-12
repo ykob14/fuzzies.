@@ -2179,7 +2179,9 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 .fz-assist { position: fixed; right: 16px; bottom: calc(16px + var(--safe-b, 0px)); z-index: 90; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
 .fz-assist > * { pointer-events: auto; }
 .fz-assist[hidden] { display: none; }
-.fzc-launch { position: relative; width: 72px; height: 72px; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%; -webkit-tap-highlight-color: transparent; }
+.fzc-launch { position: relative; width: 72px; height: 72px; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%; -webkit-tap-highlight-color: transparent; animation: fzcEnter .7s cubic-bezier(.3, 1.4, .5, 1) both; }
+@keyframes fzcEnter { from { opacity: 0; transform: translateY(30px) scale(.4); } 60% { opacity: 1; } }
+.fzc-launch:active .fza-body { transform: scale(1.08, .9); transition: transform .08s; }
 .fzc-launch::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md), 0 0 0 1px var(--border); transition: transform .25s var(--ease); }
 .fzc-launch:hover::before { transform: scale(1.06); }
 .fzc-launch:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -2192,11 +2194,11 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 
 /* the blue Fuzzy: a photo of the 3D model that breathes on a soft shadow; CSS handles the moves */
 .fza { --s: 64px; position: relative; width: var(--s); height: var(--s); flex: none; }
-.fza-body { position: absolute; inset: 0; transform-origin: 50% 92%; animation: fzaBreathe 3.2s ease-in-out infinite; }
+.fza-body { position: absolute; inset: 0; transform-origin: 50% 92%; animation: fzaBreathe 3.4s ease-in-out infinite; will-change: transform; }
 .fza-img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
 .fza.real .fza-img { transform: scale(1.18); }
 .fza-shadow { position: absolute; left: 18%; right: 18%; bottom: -4%; height: 14%; border-radius: 50%; background: radial-gradient(closest-side, rgba(20, 40, 70, .35), rgba(20, 40, 70, 0)); animation: fzaShadow 3.2s ease-in-out infinite; }
-@keyframes fzaBreathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.03, .97) translateY(1.5%); } }
+@keyframes fzaBreathe { 0%, 100% { transform: scale(1, 1) rotate(0); } 30% { transform: scale(1.03, .97) translateY(1.5%) rotate(-1.2deg); } 65% { transform: scale(.985, 1.025) translateY(-2%) rotate(1deg); } }
 @keyframes fzaShadow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 .fza.wave .fza-body { animation: fzaWave 1s ease-in-out 1; }
 @keyframes fzaWave { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-12deg) translateY(-6%); } 45% { transform: rotate(10deg) translateY(-8%); } 70% { transform: rotate(-8deg) translateY(-5%); } }
@@ -2265,6 +2267,8 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 /* where it sits on each screen, so it never covers buttons */
 html[data-screen='land'] .fz-assist { right: auto; left: 14px; align-items: flex-start; }
 html[data-screen='land'] .fzc-panel { transform-origin: 0 100%; }
+/* the 3D town keeps the GPU busy: no fade-ins there, so the window and messages show at once on slow phones */
+html[data-screen='land'] .fzc-panel, html[data-screen='land'] .fzc-msg, html[data-screen='land'] .fzc-hello { animation: none; }
 html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); } /* above the editor's zoom control */
 @media (max-width: 760px) {
   .fz-assist { right: 10px; bottom: calc(76px + var(--safe-b, 0px)); }
@@ -2280,4 +2284,4 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 @media (min-width: 761px) and (max-width: 960px) {
   html[data-screen='edit'] .fz-assist { bottom: calc(70px + var(--safe-b, 0px)); }
 }
-:root[data-motion='reduce'] .fza-body, :root[data-motion='reduce'] .fza-shadow { animation: none; }
+:root[data-motion='reduce'] .fza-body, :root[data-motion='reduce'] .fza-shadow, :root[data-motion='reduce'] .fzc-launch { animation: none; }
