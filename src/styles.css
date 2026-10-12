@@ -1942,52 +1942,96 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 .pay-funds.blocked .pay-funds-msg svg { color: var(--muted); }
 .btn.locked:disabled { opacity: .6; }
 
-/* ---------- Fuzzies Land tutorial: Pip's bubble, the highlight ring and arrow (ui/landTutorial.ts) ---------- */
+/* mascot moves used by the Fuzzies Land tutorial (mascotDo) */
+.mascot.wave .mascot-squash { animation: mWave 1.1s ease-in-out 1; transform-origin: 50% 85%; }
+@keyframes mWave { 15% { transform: rotate(-12deg); } 35% { transform: rotate(10deg); } 55% { transform: rotate(-8deg); } 75% { transform: rotate(5deg); } }
+.mascot.cheer .mascot-jump { animation: mCheer 1s cubic-bezier(.3, .7, .4, 1) 1; }
+@keyframes mCheer { 0% { transform: none; } 25% { transform: translateY(calc(var(--jump) * -1.4)) rotate(-8deg); } 50% { transform: translateY(0) scale(1.08, .92); } 70% { transform: translateY(calc(var(--jump) * -.7)) rotate(6deg); } 100% { transform: none; } }
+
+/* ---------- Fuzzies Land tutorial (ui/landTutorial.ts): Pip's speech bubble, glow ring, tap ripple, welcome scene ---------- */
 .tut-layer { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
-.tut-layer[hidden] { display: none; }
-.tut-ring { position: absolute; left: 0; top: 0; border-radius: 16px; box-shadow: 0 0 0 3px var(--lacc), 0 0 0 7px rgba(214, 51, 108, .22), 0 0 24px 6px rgba(255, 220, 120, .55); transition: left .12s linear, top .12s linear, width .15s ease, height .15s ease; animation: tut-pulse 1.6s ease-in-out infinite; }
+.tut-layer[hidden], .tut-ring[hidden], .tut-tap[hidden], .tut-guide[hidden], .tut-mini[hidden], .tut-hero[hidden], .tut-menu[hidden], .tut-checks[hidden] { display: none; }
+/* the glow around what to tap: warm light, not a hard frame */
+.tut-ring { position: absolute; left: 0; top: 0; border-radius: 16px; box-shadow: 0 0 0 2.5px #fff, 0 0 0 5px rgba(255, 196, 80, .95), 0 0 22px 8px rgba(255, 210, 110, .55); transition: left .16s ease-out, top .16s ease-out, width .2s ease-out, height .2s ease-out; animation: tut-glow 1.8s ease-in-out infinite; }
 .tut-ring.round { border-radius: 50%; }
-.tut-ring[hidden], .tut-arrow[hidden] { display: none; }
-@keyframes tut-pulse { 50% { box-shadow: 0 0 0 4px var(--lacc), 0 0 0 12px rgba(214, 51, 108, .12), 0 0 30px 10px rgba(255, 220, 120, .45); } }
-.tut-arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 1; transition: transform .12s linear; }
-.tut-arrow span { position: absolute; left: -30px; top: -11px; width: 30px; height: 22px; animation: tut-nudge 1s ease-in-out infinite; background: var(--lacc); clip-path: polygon(0 32%, 58% 32%, 58% 0, 100% 50%, 58% 100%, 58% 68%, 0 68%); filter: drop-shadow(0 2px 0 var(--lacc-lip)); }
-@keyframes tut-nudge { 50% { transform: translateX(-7px); } }
-.tut-bubble { position: absolute; left: 0; top: 0; width: min(300px, calc(100% - 20px)); display: grid; gap: 8px; padding: 12px 14px 10px; border-radius: 22px; background: var(--lc); color: var(--link); box-shadow: 0 4px 0 var(--llip), 0 14px 34px rgba(60, 40, 20, .28); pointer-events: auto; transition: transform .18s cubic-bezier(.2, .8, .3, 1); animation: tut-in .35s cubic-bezier(.2, .9, .3, 1.25); }
-.tut-bubble[hidden] { display: none; }
-.tut-bubble.welcome { width: min(340px, calc(100% - 20px)); }
-@keyframes tut-in { from { opacity: 0; scale: .9; } }
-.tut-head { display: flex; align-items: center; gap: 10px; }
-.tut-head > div { flex: 1; min-width: 0; display: grid; }
-.tut-pip { width: 54px; height: 54px; flex: none; display: grid; place-items: center; margin: -4px 0 -4px -4px; }
-.tut-count { color: var(--lmuted); font-size: 11.5px; font-weight: 600; letter-spacing: .02em; }
-.tut-title { font: 700 17px/1.2 var(--brand); }
-.tut-fold { width: 30px; height: 30px; flex: none; border: 0; border-radius: 50%; background: var(--lc2); color: var(--lmuted); font: 700 18px/1 var(--ui); cursor: pointer; }
-.tut-fold:hover { color: var(--link); }
-.tut-text { margin: 0; font-size: 14.5px; line-height: 1.45; }
-.tut-hint { margin: 0; display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 12px; background: var(--accent-soft); color: var(--lacc-lip); font-size: 13.5px; font-weight: 700; }
-.tut-hint-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--lacc); animation: tut-blink 1.2s ease-in-out infinite; }
-@keyframes tut-blink { 50% { opacity: .3; } }
-.tut-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13.5px; }
-.tut-checks li { display: flex; align-items: center; gap: 8px; }
-.tut-checks i { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--lline); font: 700 11px/1 var(--ui); font-style: normal; color: #fff; }
-.tut-checks li.done { color: var(--lgood); }
-.tut-checks li.done i { background: var(--lgood); border-color: var(--lgood); animation: land-bump .4s; }
-.tut-dots { display: flex; gap: 4px; }
-.tut-dots i { flex: 1; height: 4px; border-radius: 4px; background: var(--lline); }
-.tut-dots i.done { background: var(--lgood); }
-.tut-dots i.now { background: var(--lacc); }
-.tut-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.tut-actions .btn { min-height: 38px; border-radius: 12px; font-weight: 700; }
-.tut-foot { display: flex; gap: 12px; justify-content: flex-start; }
-.tut-foot .link { color: var(--lmuted); }
-.tut-mini { position: absolute; right: 12px; bottom: 120px; width: 60px; height: 60px; display: grid; place-items: center; border: 0; padding: 0; border-radius: 50%; background: var(--lc); box-shadow: 0 3px 0 var(--llip), 0 8px 20px rgba(60, 40, 20, .25); pointer-events: auto; cursor: pointer; animation: tut-in .3s; }
-.tut-mini[hidden] { display: none; }
-.tut-mini::after { content: '?'; position: absolute; right: -2px; top: -2px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--lacc); color: #fff; font: 800 12px/1 var(--ui); }
-.tut-cheer { position: absolute; z-index: 7; transform: translate(-50%, -100%); display: grid; justify-items: center; padding: 6px 14px; border-radius: 999px; background: var(--lgood); color: #fff; font-size: 13px; pointer-events: none; animation: tut-cheer 1.6s ease-out forwards; white-space: nowrap; }
-.tut-cheer b { font: 700 15px/1.1 var(--brand); }
-@keyframes tut-cheer { 0% { opacity: 0; margin-top: 10px; } 15% { opacity: 1; margin-top: 0; } 80% { opacity: 1; } 100% { opacity: 0; margin-top: -24px; } }
-@media (pointer: coarse) { .tut-fold { width: 40px; height: 40px; } .tut-actions .btn { min-height: 44px; } .tut-foot .link { padding: 8px 0; } }
-:root[data-motion='reduce'] .tut-ring, :root[data-motion='reduce'] .tut-arrow span, :root[data-motion='reduce'] .tut-hint-dot { animation: none; }
-:root[data-motion='reduce'] .tut-bubble, :root[data-motion='reduce'] .tut-ring, :root[data-motion='reduce'] .tut-arrow { transition: none; }
-/* pinching or dragging on Pip's bubble must never zoom or scroll the page (the map handles gestures) */
-.tut-bubble, .tut-mini { touch-action: none; -webkit-user-select: none; user-select: none; }
+@keyframes tut-glow { 50% { box-shadow: 0 0 0 2.5px #fff, 0 0 0 6px rgba(255, 196, 80, .75), 0 0 34px 14px rgba(255, 210, 110, .4); } }
+/* "tap here": two soft ripples from the centre */
+.tut-tap { position: absolute; left: 0; top: 0; width: 0; height: 0; transition: transform .16s ease-out; }
+.tut-tap i { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .95); box-shadow: 0 0 10px rgba(255, 190, 80, .8); opacity: 0; animation: tut-ripple 1.6s ease-out infinite; }
+.tut-tap i + i { animation-delay: .8s; }
+@keyframes tut-ripple { 0% { transform: scale(.35); opacity: .95; } 100% { transform: scale(1.5); opacity: 0; } }
+/* Pip + speech bubble */
+.tut-guide { position: absolute; left: 0; top: 0; display: flex; align-items: flex-end; gap: 2px; max-width: min(320px, calc(100% - 20px)); pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; transition: transform .22s cubic-bezier(.2, .8, .3, 1); animation: tut-in .4s cubic-bezier(.2, .9, .3, 1.3); }
+@keyframes tut-in { from { opacity: 0; scale: .85; } }
+.tut-pip { flex: none; width: 58px; height: 58px; margin-bottom: -6px; filter: drop-shadow(0 6px 8px rgba(60, 30, 40, .25)); }
+.tut-bubble { position: relative; flex: 1; min-width: 0; padding: 9px 30px 10px 13px; border-radius: 18px 18px 18px 6px; background: #fffdf8; color: var(--link); box-shadow: 0 3px 0 var(--llip), 0 10px 26px rgba(60, 40, 20, .2); border: 1.5px solid #f3e6d2; }
+.tut-bubble::before { content: ''; position: absolute; left: -7px; bottom: 9px; width: 14px; height: 14px; background: #fffdf8; border-left: 1.5px solid #f3e6d2; border-bottom: 1.5px solid #f3e6d2; transform: skewY(-35deg) rotate(10deg); border-radius: 0 0 0 4px; }
+.tut-label { display: block; color: var(--lmuted); font: 700 10.5px/1.2 var(--ui); letter-spacing: .04em; text-transform: uppercase; }
+.tut-say { margin: 2px 0 0; font: 700 15px/1.3 var(--brand); letter-spacing: .005em; color: var(--link); }
+.tut-checks { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.tut-checks span { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 3px; border-radius: 999px; background: var(--lc2); font: 700 12px/1.6 var(--ui); color: var(--lmuted); }
+.tut-checks i { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; background: #fff; border: 1.5px solid var(--lline); font: 800 10px/1 var(--ui); font-style: normal; color: #fff; }
+.tut-checks span.done { color: #2b7a45; background: #e5f6e8; }
+.tut-checks span.done i { background: var(--lgood); border-color: var(--lgood); animation: land-bump .4s; }
+.tut-more { position: absolute; right: 4px; top: 4px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; gap: 2.5px; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.tut-more i { width: 3.5px; height: 3.5px; border-radius: 50%; background: var(--lmuted); }
+.tut-more:hover { background: var(--lc2); }
+.tut-menu { position: absolute; right: 0; top: 32px; z-index: 2; min-width: 168px; display: grid; padding: 5px; border-radius: 14px; background: #fffdf8; box-shadow: 0 3px 0 var(--llip), 0 12px 28px rgba(60, 40, 20, .25); animation: tut-in .18s ease-out; }
+.tut-menu.up { top: auto; bottom: calc(100% + 8px); }
+.tut-menu-i { padding: 9px 12px; border: 0; border-radius: 10px; background: none; text-align: left; font: 600 14px/1.2 var(--ui); color: var(--link); cursor: pointer; }
+.tut-menu-i:hover { background: var(--lc2); }
+.tut-menu-i.quiet { color: var(--lmuted); }
+/* Pip waiting as a little button */
+.tut-mini { position: absolute; width: 56px; height: 56px; display: grid; place-items: center; border: 0; padding: 0; border-radius: 50%; background: #fffdf8; box-shadow: 0 3px 0 var(--llip), 0 8px 20px rgba(60, 40, 20, .25); pointer-events: auto; cursor: pointer; touch-action: none; animation: tut-in .3s; }
+.tut-mini b { position: absolute; right: -3px; top: -3px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: #ffb52e; color: #fff; font: 800 12px/1 var(--ui); box-shadow: 0 2px 0 #d68a0c; }
+/* sparkles where a step was done */
+.tut-pop { position: absolute; z-index: 7; width: 0; height: 0; pointer-events: none; }
+.tut-pop i { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; background: var(--c); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: tut-spark .8s cubic-bezier(.2, .7, .3, 1) forwards; }
+@keyframes tut-spark { 0% { transform: rotate(var(--a)) translateY(0) scale(.4); opacity: 1; } 70% { opacity: 1; } 100% { transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(1.1) rotate(90deg); opacity: 0; } }
+/* welcome & finale scene */
+.tut-hero { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: radial-gradient(ellipse at 50% 55%, rgba(40, 20, 30, 0) 30%, rgba(40, 20, 30, .32) 100%); pointer-events: none; animation: tut-fade .45s ease-out; }
+.tut-hero.out { animation: tut-fade-out .26s ease-in forwards; }
+@keyframes tut-fade { from { opacity: 0; } }
+@keyframes tut-fade-out { to { opacity: 0; } }
+.tut-hero-card { position: relative; width: min(330px, 100%); display: grid; justify-items: center; gap: 6px; padding: 66px 22px 18px; margin-top: 50px; border-radius: 28px; background: #fffdf8; text-align: center; box-shadow: 0 5px 0 var(--llip), 0 22px 50px rgba(60, 30, 30, .35); pointer-events: auto; touch-action: none; animation: tut-card .55s cubic-bezier(.2, .9, .3, 1.3) .1s backwards; }
+@keyframes tut-card { from { opacity: 0; transform: translateY(26px) scale(.92); } }
+.tut-hero-pip { position: absolute; top: -62px; left: 50%; transform: translateX(-50%); filter: drop-shadow(0 12px 14px rgba(60, 20, 40, .3)); animation: tut-pop-in .7s cubic-bezier(.2, 1.4, .4, 1) .25s backwards; }
+@keyframes tut-pop-in { 0% { transform: translateX(-50%) translateY(40px) scale(.2); opacity: 0; } 70% { transform: translateX(-50%) translateY(-6px) scale(1.06); opacity: 1; } }
+.tut-hero-title { margin: 0; font: 700 23px/1.15 var(--brand); color: var(--link); }
+.tut-hero-text { margin: 0 0 8px; color: var(--lmuted); font-size: 15px; line-height: 1.4; }
+.tut-hero-btn .btn { min-width: 190px; min-height: 50px; border-radius: 16px; font: 700 17px/1 var(--brand); box-shadow: 0 4px 0 var(--lacc-lip); }
+.tut-hero-skip { margin-top: 2px; padding: 8px 10px; border: 0; background: none; color: var(--lmuted); font: 600 13px/1 var(--ui); cursor: pointer; }
+@media (pointer: coarse) { .tut-more { width: 34px; height: 34px; right: 0; top: 0; } .tut-menu-i { padding: 12px; } }
+:root[data-motion='reduce'] .tut-ring, :root[data-motion='reduce'] .tut-tap i { animation: none; }
+:root[data-motion='reduce'] .tut-tap i:first-child { opacity: .8; transform: none; }
+:root[data-motion='reduce'] .tut-guide, :root[data-motion='reduce'] .tut-ring, :root[data-motion='reduce'] .tut-tap { transition: none; }
+
+/* ---------- Fuzzies Land: select & move several (edit toolbar, area box) ---------- */
+.land-wrap.editing .land-dock, .land-wrap.editing .land-dock-tab, .land-wrap.editing .land-quick { display: none !important; }
+.land-edit { position: absolute; left: 50%; bottom: calc(14px + var(--safe-b, 0px)); transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 4px; max-width: calc(100% - 16px); padding: 6px; border-radius: 24px; background: var(--lc); color: var(--link); box-shadow: 0 5px 0 var(--llip), 0 12px 30px rgba(60, 40, 20, .22); animation: land-edit-in .25s cubic-bezier(.2, .9, .3, 1.2); }
+.land-edit[hidden] { display: none; }
+@keyframes land-edit-in { from { opacity: 0; transform: translate(-50%, 16px); } }
+.land-edit-count { display: flex; align-items: center; gap: 7px; padding: 0 10px 0 4px; white-space: nowrap; }
+.land-edit-count b { min-width: 30px; height: 30px; padding: 0 8px; display: grid; place-items: center; border-radius: 999px; background: var(--lacc); color: #fff; font: 700 15px/1 var(--brand); box-shadow: 0 2px 0 var(--lacc-lip); }
+.land-edit-count span { font: 700 14px/1 var(--brand); }
+.land-edit-hint { color: var(--lmuted); font-size: 12px; white-space: nowrap; padding-right: 6px; }
+.land-edit-b { height: 42px; min-width: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 0; border-radius: 14px; background: var(--lc2); color: var(--link); font: 700 14px/1 var(--brand); cursor: pointer; transition: transform .12s, background .12s; }
+.land-edit-b:hover:not(:disabled) { background: #f0e0c8; }
+.land-edit-b:active:not(:disabled) { transform: scale(.94); }
+.land-edit-b:disabled { opacity: .35; cursor: default; }
+.land-edit-b.go, .land-edit-b.done { background: var(--lacc); color: #fff; box-shadow: 0 3px 0 var(--lacc-lip); padding: 0 14px; }
+.land-edit-b.done { background: var(--lgood); box-shadow: 0 3px 0 #1f7a43; }
+.land-edit-msg { padding: 0 12px; font: 700 14px/1.2 var(--brand); white-space: nowrap; max-width: 52vw; overflow: hidden; text-overflow: ellipsis; }
+.land-edit-msg.bad { color: #d9480f; }
+.land-edit-msg.ok { color: #2b7a45; }
+.land-box { position: absolute; z-index: 2; border: 2px dashed #fff; border-radius: 10px; background: rgba(255, 255, 255, .18); box-shadow: 0 0 0 1px rgba(0, 0, 0, .12), inset 0 0 0 1px rgba(0, 0, 0, .08); pointer-events: none; }
+.land-select { }
+.land-wrap.editing .land-select { box-shadow: 0 0 0 3px var(--lacc), 0 4px 0 var(--llip); }
+@media (max-width: 560px) {
+  .land-edit { gap: 3px; padding: 5px; bottom: calc(10px + var(--safe-b, 0px)); }
+  .land-edit-hint { display: none; }
+  .land-edit-count { padding: 0 6px 0 2px; }
+  .land-edit-count span { font-size: 13px; }
+  .land-edit-b { height: 44px; min-width: 40px; padding: 0 8px; }
+  .land-edit-b.done span, .land-edit-b.go span { display: none; }
+}

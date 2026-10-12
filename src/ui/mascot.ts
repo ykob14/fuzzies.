@@ -64,6 +64,11 @@ async function saveForSplash(f: Frames): Promise<void> {
   } catch { /* no room: the launch screen uses the drawn Fuzzy */ }
 }
 
+/** Things a mascot can be asked to do from outside (the Fuzzies Land tutorial uses these to make Pip react). */
+export type MascotMove = 'wink' | 'hop' | 'cheer' | 'wave';
+const moves = new WeakMap<HTMLElement, (m: MascotMove) => void>();
+export function mascotDo(el: HTMLElement | null | undefined, m: MascotMove): void { if (el) moves.get(el)?.(m); }
+
 export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean; interactive?: boolean } = {}): HTMLElement {
   const img = h('img', { class: 'mascot-img', src: frames.open, alt: '', draggable: 'false' });
   const state = { img, face: 'open' as Face };
@@ -128,6 +133,15 @@ export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean
     };
     if (fresh) setTimeout(settle, 900);
   };
+
+  const replay = (cls: string, ms: number) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), ms); };
+  moves.set(el, (m) => {
+    if (document.documentElement.dataset.motion === 'reduce') { if (m !== 'hop') wink(false); return; }
+    if (m === 'wink') wink();
+    else if (m === 'hop') { wink(false); replay('hop', 800); }
+    else if (m === 'wave') { setFace('wink'); replay('wave', 1100); setTimeout(() => { if (state.face === 'wink') setFace('open'); }, 900); }
+    else { setFace('giggle'); burst(); replay('cheer', 1000); setTimeout(() => { if (state.face === 'giggle') setFace('open'); }, 1000); }
+  });
 
   // wink at you every few seconds (with the odd blink in between), until the mascot leaves the page
   let tries = 0;

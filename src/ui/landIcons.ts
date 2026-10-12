@@ -5,7 +5,7 @@
 export type LandIcon =
   | 'coin' | 'star' | 'pop' | 'hammer' | 'crate' | 'barn' | 'sparkles' | 'music' | 'musicOff'
   | 'zoomIn' | 'zoomOut' | 'back' | 'house' | 'wheat' | 'workshop' | 'flower' | 'clock' | 'lock'
-  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash';
+  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select';
 
 const O = 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const HL = 'fill="#fff" opacity=".55"';
@@ -79,6 +79,9 @@ const ART: Record<LandIcon, string> = {
     <path d="M3 15L16 4.5 29 15" fill="none" stroke="#fff4e3" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
     <rect x="10" y="16" width="12" height="12" fill="#fff4e3" stroke="#b84f36" stroke-width="1.4"/><path d="M10 16l12 12M22 16L10 28" stroke="#f2785c" stroke-width="2"/>
     <rect x="13.6" y="9" width="4.8" height="4" rx="1" fill="#fff4e3" stroke="#b84f36" stroke-width="1"/><path d="M15 6.5c1-1.2 3-1.2 2 .5" fill="#ffd43b"/>`,
+  select: `<rect x="4.5" y="5.5" width="17" height="15" rx="3.5" fill="#fff4e3" stroke="#c9a77e" stroke-dasharray="3.2 2.6" ${O}/>
+    <rect x="8" y="9" width="5" height="4.5" rx="1.2" fill="#7ad36b" stroke="#58a14a" ${O}/><rect x="14" y="12.5" width="4.5" height="4" rx="1.2" fill="#ff9fc8" stroke="#c8326e" ${O}/>
+    <path d="M18.5 17l9 3.5-4 1.6 3.4 4.2-2.2 1.7-3.4-4.2-2.2 3.7z" fill="#fff" stroke="#3d2f2a" ${O}/>`,
   portal: `<path d="M6 28V14a10 10 0 0 1 20 0v14" fill="none" stroke="#58a14a" stroke-width="5" stroke-linecap="round"/>
     <path d="M6 28V14a10 10 0 0 1 20 0v14" fill="none" stroke="#7ad36b" stroke-width="3" stroke-linecap="round"/>
     <circle cx="9" cy="10" r="1.6" fill="#ff9fc8"/><circle cx="16" cy="5.2" r="1.6" fill="#ffd43b"/><circle cx="23" cy="10" r="1.6" fill="#fff"/>

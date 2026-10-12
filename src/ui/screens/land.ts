@@ -11,7 +11,7 @@ import { rewards } from '../../core/rewards';
 import { sfx } from '../../game/sound';
 import { music } from '../../game/music';
 import { travel } from '../travel';
-import { h, btn, fuzzyMark, toast, confirmDialog } from '../dom';
+import { h, btn, icon, fuzzyMark, toast, confirmDialog } from '../dom';
 import { mascot } from '../mascot';
 import { isTouch } from '../../core/util';
 import { landIcon, type LandIcon } from '../landIcons';
@@ -238,6 +238,7 @@ export function landScreen(): Screen {
   // ---------- panels ----------
   function openPanel(p: Panel): void {
     if (placing) cancelPlacing();
+    if (p && selMode) exitSelect();
     if (p) document.querySelector('.land-away')?.remove(); // one card at a time
     panel = p;
     if (p?.kind === 'shop') tut.emit('shopTab', { tab: p.tab });
@@ -519,6 +520,7 @@ export function landScreen(): Screen {
     if (!b || placing) { quick.hidden = true; return; }
     quick.replaceChildren(
       btn('Move', { kind: 'soft', size: 'sm', icon: 'hand', title: 'Move (or press and hold it)', onClick: () => startPlacing(b.item, b.id) }),
+      btn(null, { kind: 'soft', size: 'sm', icon: 'plus', title: 'Select more (move several together)', onClick: () => enterSelect(b.id) }),
       ...(canTurn(b.item) ? [btn('Turn', { kind: 'soft', size: 'sm', icon: 'rotate', title: 'Turn (R)', onClick: () => turnInPlace(b.id) })] : []));
     quick.hidden = false;
     const follow = () => {
@@ -641,9 +643,189 @@ export function landScreen(): Screen {
     save();
   }
 
+  // ---------- multi-select & group editing ----------
+  // Select mode: tap pieces to add/remove them, double-tap a road or field for its whole connected stretch, drag an empty
+  // spot (mouse) or press-and-hold then drag (touch) for an area; drag any selected piece to move the whole group.
+  // Moves are previewed (green / red per piece) and only happen on "Put here"; every edit can be undone.
+  type EditOp = { kind: 'move'; ids: number[]; dx: number; dz: number } | { kind: 'remove'; pieces: L.Placed[]; refund: number } | { kind: 'turn'; id: number; from: L.Rot; to: L.Rot };
+  let selMode = false;
+  const sel = new Set<number>();
+  let gmove: { dx: number; dz: number; why: string; bad: number[] } | null = null;
+  const undoStack: EditOp[] = [], redoStack: EditOp[] = [];
+  const editBar = h('div', { class: 'land-edit', hidden: true, role: 'toolbar', 'aria-label': 'Edit your town' });
+  const selIds = () => [...sel].filter((id) => s.buildings.some((b) => b.id === id));
+  const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  function enterSelect(first?: number): void {
+    if (placing) cancelPlacing();
+    openPanel(null);
+    selMode = true;
+    if (first !== undefined) sel.add(first);
+    stage.classList.add('editing');
+    paintSel();
+  }
+  function exitSelect(): void {
+    cancelGroup();
+    selMode = false;
+    sel.clear();
+    stage.classList.remove('editing');
+    paintSel();
+  }
+  function toggleSel(id: number): void {
+    if (gmove) return; // finish (or cancel) the move first
+    if (sel.has(id)) sel.delete(id); else sel.add(id);
+    try { sfx.hop(); } catch { /* */ }
+    paintSel();
+  }
+  function paintSel(): void {
+    for (const id of [...sel]) if (!s.buildings.some((b) => b.id === id)) sel.delete(id);
+    view?.select(null);
+    view?.setMulti(selMode ? selIds() : []);
+    paintEdit();
+  }
+  function paintEdit(): void {
+    editBar.hidden = !selMode;
+    if (!selMode) return;
+    const n = sel.size;
+    const ib = (ic: Parameters<typeof icon>[0], title: string, onClick: () => void, opts: { disabled?: boolean; cls?: string; label?: string } = {}) => {
+      const b = h('button', { class: `land-edit-b ${opts.cls ?? ''}`, type: 'button', title, 'aria-label': title }, icon(ic, 20), opts.label ? h('span', null, opts.label) : null);
+      b.disabled = !!opts.disabled;
+      b.addEventListener('click', onClick);
+      return b;
+    };
+    if (gmove) {
+      const ok = !gmove.why && (gmove.dx || gmove.dz);
+      editBar.replaceChildren(
+        h('div', { class: `land-edit-msg ${gmove.why ? 'bad' : 'ok'}` }, gmove.why || (gmove.dx || gmove.dz ? `Moving ${plural(n, 'piece')}` : 'Drag to move')),
+        ib('close', 'Cancel (Esc)', cancelGroup),
+        ib('check', 'Put here (Enter)', confirmGroup, { disabled: !ok, cls: 'go', label: 'Put here' }));
+      return;
+    }
+    const one = n === 1 ? s.buildings.find((b) => b.id === [...sel][0]) : undefined;
+    const removable = selIds().filter((id) => L.item(s.buildings.find((b) => b.id === id)!.item).sellable).length;
+    editBar.replaceChildren(
+      h('div', { class: 'land-edit-count' }, h('b', null, String(n)), h('span', null, n ? 'selected' : isTouch() ? 'Tap to select' : 'Click to select')),
+      h('small', { class: 'land-edit-hint' }, n ? 'Drag to move' : isTouch() ? 'Hold + drag: area' : 'Drag: area'),
+      ib('rotate', 'Turn (R)', () => { if (one) turnRecorded(one.id); }, { disabled: !one || !canTurn(one.item) }),
+      ib('trash', 'Remove (Delete)', () => void removeSel(), { disabled: !removable }),
+      ib('undo', 'Undo (Ctrl+Z)', undo, { disabled: !undoStack.length }),
+      ib('redo', 'Redo (Ctrl+Shift+Z)', redo, { disabled: !redoStack.length }),
+      ib('close', 'Clear selection', () => { sel.clear(); paintSel(); }, { disabled: !n }),
+      ib('check', 'Done (Esc)', exitSelect, { cls: 'done', label: 'Done' }));
+  }
+  /** Drag the group to (dx, dz) from where it stands: preview it, green where it fits and red where it doesn't. */
+  function previewGroup(dx: number, dz: number): void {
+    const ids = selIds();
+    if (!ids.length) return;
+    if (gmove && gmove.dx === dx && gmove.dz === dz) return;
+    const r = L.groupProblem(s, ids, dx, dz);
+    gmove = { dx, dz, why: r.why, bad: r.bad };
+    view?.groupPreview({ ids, dx, dz, bad: r.bad });
+    paintEdit();
+  }
+  function cancelGroup(): void {
+    if (!gmove) return;
+    gmove = null;
+    view?.groupPreview(null);
+    paintEdit();
+  }
+  function record(op: EditOp): void { undoStack.push(op); if (undoStack.length > 50) undoStack.shift(); redoStack.length = 0; }
+  function confirmGroup(): void {
+    if (!gmove || gmove.why || (!gmove.dx && !gmove.dz)) return;
+    const ids = selIds(), { dx, dz } = gmove;
+    view?.groupPreview(null);
+    gmove = null;
+    try { L.moveGroup(s, ids, dx, dz); } catch (e) { toast((e as Error).message, 'info'); paintEdit(); return; }
+    record({ kind: 'move', ids, dx, dz });
+    sfx.hop();
+    save();
+    paintSel();
+    tut.emit('moved');
+  }
+  function turnRecorded(id: number): void {
+    const b = s.buildings.find((o) => o.id === id);
+    if (!b) return;
+    const from = b.rot;
+    turnInPlace(id);
+    if (b.rot !== from) { record({ kind: 'turn', id, from, to: b.rot }); paintSel(); }
+  }
+  async function removeSel(): Promise<void> {
+    const pieces = selIds().map((id) => s.buildings.find((b) => b.id === id)!).filter((b) => L.item(b.item).sellable);
+    if (!pieces.length) return;
+    const refund = pieces.reduce((a, b) => { const it = L.item(b.item); return a + (it.currency === 'coins' ? Math.floor(it.cost / 2) : 0); }, 0);
+    const growing = pieces.some((b) => b.crop);
+    const ok = await confirmDialog(`Remove ${plural(pieces.length, 'piece')}?`, `${refund ? `You get ${refund} coins back. ` : ''}${growing ? 'Crops on these fields will be lost. ' : ''}You can undo this.`, 'Remove');
+    if (!ok) return;
+    const copies = pieces.map((b) => JSON.parse(JSON.stringify(b)) as L.Placed);
+    let back = 0;
+    for (const b of pieces) back += L.sell(s, b.id);
+    for (const b of pieces) sel.delete(b.id);
+    record({ kind: 'remove', pieces: copies, refund: back });
+    sfx.coins();
+    if (back) toast(`+${back} coins`, 'good');
+    save();
+    paintSel();
+  }
+  function applyOp(op: EditOp, forward: boolean): void {
+    if (op.kind === 'move') {
+      const d = forward ? 1 : -1;
+      L.moveGroup(s, op.ids, op.dx * d, op.dz * d);
+      sel.clear(); for (const id of op.ids) sel.add(id);
+    } else if (op.kind === 'turn') {
+      const b = s.buildings.find((o) => o.id === op.id);
+      if (!b) throw new Error('That’s gone.');
+      L.move(s, b.id, b.x, b.z, forward ? op.to : op.from);
+    } else if (forward) {
+      for (const p of op.pieces) L.sell(s, p.id);
+    } else {
+      if (s.coins < op.refund) throw new Error('You need the coins you got back to undo this.');
+      L.restore(s, op.pieces);
+      s.coins -= op.refund;
+      sel.clear(); for (const p of op.pieces) sel.add(p.id);
+    }
+  }
+  function undo(): void {
+    cancelGroup();
+    const op = undoStack.pop();
+    if (!op) return;
+    try { applyOp(op, false); redoStack.push(op); sfx.hop(); save(); }
+    catch (e) { undoStack.push(op); toast(`Can’t undo — ${(e as Error).message.replace(/\.$/, '').toLowerCase()}.`, 'info'); }
+    paintSel();
+  }
+  function redo(): void {
+    cancelGroup();
+    const op = redoStack.pop();
+    if (!op) return;
+    try { applyOp(op, true); undoStack.push(op); sfx.hop(); save(); }
+    catch (e) { redoStack.push(op); toast(`Can’t redo — ${(e as Error).message.replace(/\.$/, '').toLowerCase()}.`, 'info'); }
+    paintSel();
+  }
+  /** Everything whose middle is inside the dragged rectangle (client coordinates). */
+  function selectArea(x0: number, y0: number, x1: number, y1: number, add: boolean): void {
+    if (!view) return;
+    const r = wrap.getBoundingClientRect();
+    const [ax, bx] = [Math.min(x0, x1) - r.left, Math.max(x0, x1) - r.left], [ay, by] = [Math.min(y0, y1) - r.top, Math.max(y0, y1) - r.top];
+    if (!add) sel.clear();
+    let n = 0;
+    for (const b of s.buildings) {
+      const p = view.screenOf(b.id, 0.3);
+      if (p && p.x >= ax && p.x <= bx && p.y >= ay && p.y <= by) { sel.add(b.id); n++; }
+    }
+    if (n) try { sfx.collect(); } catch { /* */ }
+    paintSel();
+  }
+  let boxEl: HTMLElement | null = null;
+  function drawBox(x0: number, y0: number, x1: number, y1: number): void {
+    const r = stage.getBoundingClientRect();
+    if (!boxEl) { boxEl = h('div', { class: 'land-box' }); stage.append(boxEl); }
+    Object.assign(boxEl.style, { left: `${Math.min(x0, x1) - r.left}px`, top: `${Math.min(y0, y1) - r.top}px`, width: `${Math.abs(x1 - x0)}px`, height: `${Math.abs(y1 - y0)}px` });
+  }
+  const clearBox = () => { boxEl?.remove(); boxEl = null; };
+  let selTap = { t: 0, id: -1 };
+
   // ---------- pointer: pan, pinch, tap, drag the ghost ----------
   const pts = new Map<number, { x: number; y: number }>();
-  let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean; picked?: boolean; touch: boolean; off?: { x: number; z: number } } | null = null;
+  let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean; picked?: boolean; touch: boolean; off?: { x: number; z: number };
+    group?: { g0: { x: number; y: number }; dx0: number; dz0: number }; box?: boolean; boxTimer?: number; shift?: boolean } | null = null;
   let pinch = 0;
   let pinchMid: { x: number; y: number } | null = null;
   let lastPtr: { x: number; y: number } | null = null;
@@ -704,6 +886,23 @@ export function landScreen(): Screen {
     }
     lastPtr = { x: e.clientX, y: e.clientY };
     if (onGhost) edgeScroll();
+    // select mode (or Shift-click with a mouse): grab the group, tap to select, or start an area
+    if (!placing && view && pts.size === 1 && (selMode || (e.shiftKey && e.pointerType === 'mouse'))) {
+      drag.shift = e.shiftKey;
+      const p = view.pick(e.clientX, e.clientY, true);
+      if (selMode && p?.kind === 'building' && sel.has(p.id)) {
+        const g = view.ground(e.clientX, e.clientY);
+        if (g) { drag.group = { g0: { x: g.x, y: g.y }, dx0: gmove?.dx ?? 0, dz0: gmove?.dz ?? 0 }; view.hover(null); }
+      } else if (selMode && !gmove) { // anywhere that isn't the selection (ground, or a piece you haven't picked)
+        if (e.pointerType === 'mouse') drag.box = true; // drag an empty spot: select an area (the map still pans with the keys / wheel)
+        else {
+          // touch: press and hold an empty spot, then drag, to select an area (a quick drag still moves the map)
+          const d = drag;
+          d.boxTimer = window.setTimeout(() => { if (drag === d && !d.moved && pts.size === 1) { d.box = true; drawBox(d.sx, d.sy, d.sx + 1, d.sy + 1); try { navigator.vibrate?.(10); } catch { /* */ } } }, 380);
+        }
+      }
+      return;
+    }
     // touch screens: press and hold something you've built to pick it up and move it (Move Mode).
     // With a mouse, dragging always moves the map — moving a building is the Move button (no accidental moves).
     if (!placing && view && pts.size === 1 && e.pointerType !== 'mouse') {
@@ -765,8 +964,14 @@ export function landScreen(): Screen {
     if (!drag) return;
     lastPtr = { x: e.clientX, y: e.clientY };
     // a small wobble isn't a drag (fingers move a little when tapping)
-    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > (drag.touch ? 10 : 6)) { drag.moved = true; cancelHold(); if (!drag.ghost) wrap.classList.add('panning'); }
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > (drag.touch ? 10 : 6)) { drag.moved = true; cancelHold(); clearTimeout(drag.boxTimer); if (!drag.ghost && !drag.group && !drag.box) wrap.classList.add('panning'); }
     if (!drag.moved) return;
+    if (drag.group) {
+      const g = view.ground(e.clientX, e.clientY);
+      if (g) previewGroup(drag.group.dx0 + Math.round(g.x - drag.group.g0.x), drag.group.dz0 + Math.round(g.y - drag.group.g0.y));
+      return;
+    }
+    if (drag.box) { drawBox(drag.sx, drag.sy, e.clientX, e.clientY); return; }
     if (drag.ghost && placing) ghostTo(e.clientX, e.clientY, drag.touch);
     else { view.pan(e.clientX - prev.x, e.clientY - prev.y); if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 60) tut.emit('pan'); }
   }
@@ -779,9 +984,23 @@ export function landScreen(): Screen {
     cancelAnimationFrame(edgeRaf);
     wrap.classList.remove('panning');
     cancelHold();
+    if (d) clearTimeout(d.boxTimer);
+    if (d?.box) { clearBox(); if (d.moved) { selectArea(d.sx, d.sy, e.clientX, e.clientY, true); return; } }
+    if (d?.group && d.moved) return; // the group waits where you dropped it: "Put here" or Cancel
     if (d?.moved && !d.ghost) view?.release();
     if (!d || d.moved || d.picked || !view) return;
     if (placing) { ghostTo(e.clientX, e.clientY, false); return; }
+    if (selMode || (d.shift && e.pointerType === 'mouse')) {
+      const p = view.pick(e.clientX, e.clientY, true);
+      if (p?.kind !== 'building') return;
+      if (!selMode) enterSelect();
+      const now = performance.now();
+      // double-tap a road, path or field: its whole connected stretch
+      if (selTap.id === p.id && now - selTap.t < 500) { for (const id of L.connected(s, p.id)) sel.add(id); selTap = { t: 0, id: -1 }; try { sfx.collect(); } catch { /* */ } paintSel(); return; }
+      selTap = { t: now, id: p.id };
+      toggleSel(p.id);
+      return;
+    }
     const p: Pick = view.pick(e.clientX, e.clientY);
     // double-tap the ground to zoom in there
     const now = performance.now();
@@ -816,8 +1035,20 @@ export function landScreen(): Screen {
     if (x || y) tut.emit('pan');
   };
   function onKeyDown(e: KeyboardEvent): void {
-    if (typing(e.target) || document.querySelector('.modal-backdrop, .gift-overlay') || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (typing(e.target) || document.querySelector('.modal-backdrop, .gift-overlay')) return;
     const k = e.key.toLowerCase();
+    // editing shortcuts (select mode)
+    if (selMode && (e.metaKey || e.ctrlKey) && !e.altKey) {
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+      if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); return; }
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (selMode) {
+      if (k === 'escape') { e.preventDefault(); if (boxEl) clearBox(); else if (gmove) cancelGroup(); else if (sel.size) { sel.clear(); paintSel(); } else exitSelect(); return; }
+      if (k === 'enter' && gmove) { e.preventDefault(); confirmGroup(); return; }
+      if ((k === 'delete' || k === 'backspace') && sel.size && !gmove) { e.preventDefault(); void removeSel(); return; }
+      if (k === 'r' && sel.size === 1) { turnRecorded([...sel][0]); return; }
+    }
     if (k === 'escape') {
       if (hold) cancelHold();
       else if (placing) cancelPlacing();
@@ -853,11 +1084,16 @@ export function landScreen(): Screen {
 
   // ---------- first-time tutorial (land/tutorial.ts = the steps; ui/landTutorial.ts = Pip's bubble) ----------
   function tutGrant(r: Reward): void {
-    const hall = s.buildings.find((b) => b.item === 'hall')?.id ?? 0;
     if (r.coins) s.coins += r.coins;
     const ups = r.xp ? L.addXp(s, r.xp) : [];
     if (r.fuzzies) rewards.earn(r.fuzzies, 'Fuzzies Land tutorial');
-    gain({ coins: r.coins, xp: r.xp, levelUps: ups }, hall);
+    for (const lv of ups) levelUp(lv);
+  }
+  /** Coins and stars fly from where the step was done to the counters. */
+  function tutCelebrate(at: { x: number; y: number } | null, r?: Reward): void {
+    if (!r || !at) return;
+    if (r.coins) burst('coin', at, Math.ceil(r.coins / 6));
+    if (r.xp) setTimeout(() => burst('star', at, Math.ceil(r.xp! / 3)), 180);
   }
   const tut = new TutorialManager(s, tutGrant, () => save());
   /** If a step needs a few coins you don't have, Pip covers them — the tutorial can never get stuck. */
@@ -876,7 +1112,8 @@ export function landScreen(): Screen {
   function startTutorial(): void {
     if (tutUi) { tutUi.refresh(); return; }
     tutCoins();
-    tutUi = mountTutorial({ stage, tut, target: tutTarget, keepClear: () => [prefs.dock ? bar : dockTab, placeBar, sheet, quick, stage.querySelector('.land-levelup'), stage.querySelector('.land-away')], keepSoft: () => [hud, prefs.side ? side : null], reduceMotion: !!a.settings.reduceMotion, sound: () => accounts.current?.settings.sound !== false });
+    tutUi = mountTutorial({ stage, tut, target: tutTarget, onCelebrate: tutCelebrate, busy: () => !sheet.hidden || !!placing || selMode || !!stage.querySelector('.land-levelup, .land-away'),
+      onWelcomeDone: () => { const hall = s.buildings.find((b) => b.item === 'hall'); const c = hall && view?.centerOf(hall.id); if (c && view) view.flyTo(c.x + 1.5, c.z + 3, Math.min(view.dist, 19), 1.4); }, keepClear: () => [prefs.dock ? bar : dockTab, placeBar, sheet, quick, stage.querySelector('.land-levelup'), stage.querySelector('.land-away')], keepSoft: () => [hud, prefs.side ? side : null], reduceMotion: !!a.settings.reduceMotion, sound: () => accounts.current?.settings.sound !== false });
   }
   let tutFly = { id: -1, at: 0 };
   /** What to point at right now, from the live game (never fixed coordinates) — and always something you can actually tap. */
@@ -983,7 +1220,7 @@ export function landScreen(): Screen {
   }
 
   // ---------- setup ----------
-  const stage = h('div', { class: 'land-wrap' }, wrap, overlay, quick, hud, side, bar, dockTab, placeBar, sheet);
+  const stage = h('div', { class: 'land-wrap' }, wrap, overlay, quick, hud, side, bar, dockTab, placeBar, editBar, sheet);
   const round = (ic: Node, title: string, onClick: () => void, cls = '') => {
     const b = h('button', { class: `land-round ${cls}`, type: 'button', title, 'aria-label': title }, ic);
     b.addEventListener('click', onClick);
@@ -1005,6 +1242,7 @@ export function landScreen(): Screen {
   const sideToggle = h('button', { class: 'land-side-toggle', type: 'button' }, landIcon('chevRight', 18));
   const sideBody = h('div', { class: 'land-side-body' }, ...[
     musicBtn,
+    round(landIcon('select', 30), 'Select & move several', () => (selMode ? exitSelect() : enterSelect()), 'land-select'),
     round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
       round(landIcon('zoomIn', 20), 'Zoom in', () => { view?.zoom(0.8); tut.emit('zoom'); }),
@@ -1037,7 +1275,7 @@ export function landScreen(): Screen {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
       } catch { /* first visit */ }
-      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh() }; // for tests
+      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
       setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in

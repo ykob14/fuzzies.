@@ -683,10 +683,11 @@ export class LandView {
     return this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p) ? new THREE.Vector2(p.x, p.z) : null;
   }
 
-  pick(cx: number, cy: number): Pick {
+  /** What's under this screen point. `piecesOnly` skips the walking Fuzzies (select mode: you're picking buildings). */
+  pick(cx: number, cy: number, piecesOnly = false): Pick {
     // residents first (they're small: pick by screen distance)
     const r = this.canvas.getBoundingClientRect();
-    let best = -1, bd = 26;
+    let best = -1, bd = piecesOnly ? -1 : 26;
     this.residents.forEach((res, i) => {
       const v = res.model.group.position.clone().project(this.camera);
       const d = Math.hypot((v.x + 1) / 2 * r.width + r.left - cx, (1 - v.y) / 2 * r.height + r.top - cy);
@@ -783,6 +784,88 @@ export class LandView {
     b.node.userData.boing = 0;
   }
   selectedId: number | null = null;
+
+  // ---------- multi-select & group moves ----------
+  private multi: THREE.Mesh[] = [];
+  private multiIds: number[] = [];
+  private multiMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
+  private groupOff = { x: 0, z: 0 };
+  private groupBase = new Map<number, THREE.Vector3>();
+  private groupPads: THREE.Mesh[] = [];
+  private padOk = new THREE.MeshBasicMaterial({ color: 0x40c057, transparent: true, opacity: 0.42, depthWrite: false, depthTest: false });
+  private padBad = new THREE.MeshBasicMaterial({ color: 0xfa5252, transparent: true, opacity: 0.5, depthWrite: false, depthTest: false });
+  private groupKey = '';
+  /** Soft outlines under every selected piece (they follow a group while it's being moved). */
+  setMulti(ids: number[]): void {
+    this.multiIds = ids;
+    if (ids.length) this.selected.visible = false;
+    while (this.multi.length < ids.length) {
+      const m = new THREE.Mesh(new THREE.BufferGeometry(), this.multiMat);
+      m.renderOrder = 3;
+      this.scene.add(m);
+      this.multi.push(m);
+    }
+    this.multi.forEach((m, i) => {
+      const b = i < ids.length ? this.built.get(ids[i]) : undefined;
+      m.visible = !!b;
+      if (!b) return;
+      const f = footprint(item(b.placed.item), b.placed.rot);
+      const key = `${f.w}x${f.d}`;
+      if (m.userData.key !== key) { m.geometry.dispose(); m.geometry = this.outline(f.w, f.d); m.userData.key = key; }
+      m.position.set(b.placed.x + f.w / 2 + this.groupOff.x, 0.09, b.placed.z + f.d / 2 + this.groupOff.z);
+    });
+  }
+  /**
+   * Show a group being carried: the pieces lift and move by (dx, dz) together, roads and fences redraw where they'd
+   * be, and a green (fits) or red (doesn't) marker sits under each piece. `null` puts everything back.
+   */
+  groupPreview(p: { ids: number[]; dx: number; dz: number; bad: number[] } | null): void {
+    if (!p) {
+      for (const [id, pos] of this.groupBase) { const b = this.built.get(id); if (b) b.node.position.copy(pos); }
+      this.groupBase.clear();
+      this.groupOff = { x: 0, z: 0 };
+      this.groupKey = '';
+      for (const m of this.groupPads) m.visible = false;
+      this.grid.visible = false;
+      if (this.state) { this.buildRoads(this.state); this.buildFences(this.state); }
+      this.setMulti(this.multiIds);
+      return;
+    }
+    this.grid.visible = true;
+    const set = new Set(p.ids), bad = new Set(p.bad);
+    for (const id of p.ids) {
+      const b = this.built.get(id);
+      if (!b) continue;
+      if (!this.groupBase.has(id)) this.groupBase.set(id, b.node.position.clone());
+      const base = this.groupBase.get(id)!;
+      b.node.position.set(base.x + p.dx, base.y + 0.18, base.z + p.dz);
+    }
+    while (this.groupPads.length < p.ids.length) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.padOk);
+      m.renderOrder = 10;
+      this.scene.add(m);
+      this.groupPads.push(m);
+    }
+    this.groupPads.forEach((m, i) => {
+      const b = i < p.ids.length ? this.built.get(p.ids[i]) : undefined;
+      m.visible = !!b;
+      if (!b) return;
+      const f = footprint(item(b.placed.item), b.placed.rot);
+      m.material = bad.has(b.placed.id) ? this.padBad : this.padOk;
+      m.scale.set(f.w + 0.06, 1, f.d + 0.06);
+      m.position.set(b.placed.x + p.dx + f.w / 2, 0.035, b.placed.z + p.dz + f.d / 2);
+    });
+    // roads and fences are drawn as a whole: redraw them as they'd look (only when the offset changes)
+    const key = `${p.dx},${p.dz}`;
+    if (this.state && key !== this.groupKey) {
+      this.groupKey = key;
+      const moved = { ...this.state, buildings: this.state.buildings.map((b) => (set.has(b.id) ? { ...b, x: b.x + p.dx, z: b.z + p.dz } : b)) };
+      if (this.state.buildings.some((b) => set.has(b.id) && b.item === 'road')) this.buildRoads(moved);
+      if (this.state.buildings.some((b) => set.has(b.id) && b.item === 'field')) this.buildFences(moved);
+    }
+    this.groupOff = { x: p.dx, z: p.dz };
+    this.setMulti(this.multiIds);
+  }
 
   /** Mouse hover (computers): a fainter outline under what the pointer is over. */
   private hoverMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | null = null;
@@ -1031,6 +1114,9 @@ export class LandView {
       } else if (b.bubble) { b.bubble.remove(); b.bubble = undefined; }
     }
     this.selected.material.opacity = 0.7 + Math.sin(T * 4) * 0.25;
+    if (this.multiIds.length) this.multiMat.opacity = 0.72 + Math.sin(T * 4) * 0.22;
+    // a carried group floats a little
+    for (const [id, base] of this.groupBase) { const b = this.built.get(id); if (b) b.node.position.y = base.y + 0.16 + Math.sin(T * 5) * 0.035; }
     if (this.ghost) this.ghost.node.position.y = 0.16 + Math.sin(T * 5) * 0.035; // the carried building floats a little
     for (const r of this.residents) this.live(r, dt, T);
     for (const f of this.butterflies) {

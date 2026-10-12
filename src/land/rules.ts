@@ -294,6 +294,62 @@ export function sell(s: LandState, id: number): number {
   return back;
 }
 
+// ---------- group editing (multi-select) ----------
+/**
+ * Can these pieces all move by (dx, dz) together, keeping their layout? Every piece is checked against everything that
+ * isn't moving (and the pieces against each other in their new spots). `bad` = the pieces that don't fit.
+ */
+export function groupProblem(s: LandState, ids: number[], dx: number, dz: number): { why: string; bad: number[] } {
+  const set = new Set(ids);
+  const temp: LandState = { ...s, buildings: s.buildings.filter((b) => !set.has(b.id)) };
+  const bad: number[] = [];
+  let why = '';
+  for (const b of s.buildings) {
+    if (!set.has(b.id)) continue;
+    const p = placeProblem(temp, b.item, b.x + dx, b.z + dz, b.rot);
+    if (p) { bad.push(b.id); why ||= p; }
+    temp.buildings.push({ ...b, x: b.x + dx, z: b.z + dz });
+  }
+  return { why, bad };
+}
+
+/** Move pieces together (crops, workshop queues and timers go with them). Throws with a friendly reason if they don't fit. */
+export function moveGroup(s: LandState, ids: number[], dx: number, dz: number): void {
+  const { why } = groupProblem(s, ids, dx, dz);
+  if (why) throw new Error(why);
+  const set = new Set(ids);
+  for (const b of s.buildings) if (set.has(b.id)) { b.x += dx; b.z += dz; }
+}
+
+/** The whole connected stretch of road / path / fields that this piece belongs to (side by side, not corners). */
+export function connected(s: LandState, id: number): number[] {
+  const start = s.buildings.find((b) => b.id === id);
+  if (!start) return [];
+  const kind = start.item;
+  if (kind !== 'road' && kind !== 'path' && kind !== 'field') return [id];
+  const at = new Map(s.buildings.filter((b) => b.item === kind).map((b) => [`${b.x},${b.z}`, b]));
+  const out = new Set<number>([id]);
+  const todo = [start];
+  while (todo.length) {
+    const b = todo.pop()!;
+    for (const [ddx, ddz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const n = at.get(`${b.x + ddx},${b.z + ddz}`);
+      if (n && !out.has(n.id)) { out.add(n.id); todo.push(n); }
+    }
+  }
+  return [...out];
+}
+
+/** Put removed pieces back exactly as they were (undo). Throws if a spot has been taken meanwhile. */
+export function restore(s: LandState, pieces: Placed[]): void {
+  for (const p of pieces) {
+    if (s.buildings.some((b) => b.id === p.id)) throw new Error('That’s already back.');
+    const why = placeProblem(s, p.item, p.x, p.z, p.rot);
+    if (why) throw new Error(why);
+  }
+  for (const p of pieces) s.buildings.push(JSON.parse(JSON.stringify(p)));
+}
+
 // ---------- fields ----------
 export const cropProgress = (p: Placed, now = Date.now()): number => (p.crop ? Math.min(1, (now - p.crop.at) / (good(p.crop.good).time * 1000)) : 0);
 
