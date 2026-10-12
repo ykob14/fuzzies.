@@ -6,6 +6,7 @@
 import { h, btn, fuzzyMark, toast } from './dom';
 import { mascot } from './mascot';
 import { getArt } from './art3d';
+import { celebrateFuzzies } from './celebrate';
 import { sfx } from '../game/sound';
 import { cloud } from '../core/cloud';
 import { accounts } from '../core/account';
@@ -68,11 +69,12 @@ export function showGift(g: Gift): void {
   async function open(): Promise<void> {
     opening = true;
     later.remove();
+    // 1. the lid pops off …
     box.classList.add('opening');
     sfx.boing();
     let amount = g.amount;
     try {
-      amount = await pay.openGift(g.id);
+      [amount] = await Promise.all([pay.openGift(g.id), new Promise((r) => setTimeout(r, reduce ? 0 : 550))]);
     } catch (e) {
       opening = false;
       box.classList.remove('opening');
@@ -80,6 +82,7 @@ export function showGift(g: Gift): void {
       if ((e as { status?: number }).status === 404) setTimeout(close, 1800);
       return;
     }
+    // 2. … the present disappears, and the Fuzzy pops out where it was
     overlay.classList.add('opened');
     for (let i = 0; i < (reduce ? 0 : 18); i++) {
       const s = h('span', { class: 'gift-spark', style: `--a:${(i / 18) * 360}deg;--d:${70 + (i % 3) * 30}px;--t:${0.5 + (i % 4) * 0.1}s` });
@@ -94,6 +97,6 @@ export function showGift(g: Gift): void {
     const t0 = performance.now();
     const count = (t: number) => { const k = Math.min(1, (t - t0) / 900); n.textContent = String(Math.round(amount * k)); if (k < 1) requestAnimationFrame(count); };
     requestAnimationFrame(count);
-    actions.replaceChildren(btn('Yay! 🎉', { kind: 'primary', size: 'lg', onClick: () => { close(); toast(`+${amount} Fuzzies · gift`, 'fuzzy'); setTimeout(() => void checkGifts(), 400); } }));
+    actions.replaceChildren(btn('Yay! 🎉', { kind: 'primary', size: 'lg', onClick: () => { close(); void celebrateFuzzies(amount, { spendCard: false }).then(() => { toast(`+${amount} Fuzzies · gift`, 'fuzzy'); setTimeout(() => void checkGifts(), 400); }); } }));
   }
 }

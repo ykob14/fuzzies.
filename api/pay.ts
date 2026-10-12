@@ -10,7 +10,7 @@
  */
 import { db, q } from './_lib/db.js';
 import { handle, requireUser, HttpError } from './_lib/auth.js';
-import { payConfig, createQuote, publicPayment, verifyOnChain, fulfil, applyCredits, isSmartWallet, type PaymentRow } from './_lib/pay.js';
+import { payConfig, createQuote, publicPayment, verifyOnChain, fulfil, applyCredits, isSmartWallet, isEvm, NETS, type PaymentRow } from './_lib/pay.js';
 
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const clientIp = (req: Request) => (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64);
@@ -24,8 +24,8 @@ export function POST(req: Request): Promise<Response> {
       case 'pay.quote': {
         const u = await requireUser(req);
         const kind = b.kind === 'wallet' ? 'wallet' : b.kind === 'pack' ? 'pack' : null;
-        const network = ['base', 'ethereum', 'solana'].includes(b.network as string) ? (b.network as 'base') : null;
-        const asset = ['ETH', 'USDC', 'SOL'].includes(b.asset as string) ? (b.asset as 'ETH') : null;
+        const network = (NETS as string[]).includes(b.network as string) ? (b.network as 'base') : null;
+        const asset = ['ETH', 'USDC', 'USDT', 'SOL', 'BTC'].includes(b.asset as string) ? (b.asset as 'ETH') : null;
         if (!kind || !network || !asset) throw new HttpError(400, 'Unknown payment.');
         return { payment: publicPayment(await createQuote(u.id, kind, str(b.item, 64), network, asset, clientIp(req))) };
       }
@@ -39,8 +39,8 @@ export function POST(req: Request): Promise<Response> {
         // the blockchain is asked at most once every 4 seconds per payment (protects the providers and the server)
         const { rows: gate } = await q("update fz_payments set checked_at = now() where id = $1 and (checked_at is null or checked_at < now() - interval '4 seconds') returning id", [p.id]);
         if (!gate[0]) return { payment: publicPayment(p), state: 'pending', wait: true };
-        if (p.network !== 'solana') {
-          if (!tx && p.asset !== 'USDC') return { payment: publicPayment(p), state: new Date(p.expires_at).getTime() + 60 * 60_000 < Date.now() ? 'expired' : 'pending' };
+        if (isEvm(p.network)) {
+          if (!tx && p.asset !== 'USDC' && p.asset !== 'USDT') return { payment: publicPayment(p), state: new Date(p.expires_at).getTime() + 60 * 60_000 < Date.now() ? 'expired' : 'pending' };
           if (tx) {
           if (!/^0x[0-9a-fA-F]{64}$/.test(tx)) throw new HttpError(400, 'That transaction id doesn’t look right.');
           const { rows: used } = await q('select 1 from fz_payments where tx = $1 and id <> $2', [tx.toLowerCase(), p.id]);
@@ -53,7 +53,7 @@ export function POST(req: Request): Promise<Response> {
           return { payment: publicPayment(p), state: expired ? 'expired' : v.why === 'wrong' ? 'pending' : v.why, detail: v.why === 'wrong' ? v.detail : undefined, confirmations: v.confirmations };
         }
         try {
-          const { rows: done } = await q<PaymentRow>("update fz_payments set status = 'paid', tx = $2, payer = $3, paid_at = now() where id = $1 and status <> 'paid' returning *", [p.id, p.network === 'solana' ? v.tx : (v.tx ?? '').toLowerCase(), v.payer]);
+          const { rows: done } = await q<PaymentRow>("update fz_payments set status = 'paid', tx = $2, payer = $3, paid_at = now() where id = $1 and status <> 'paid' returning *", [p.id, isEvm(p.network) ? (v.tx ?? '').toLowerCase() : v.tx, v.payer]);
           if (done[0]) p = done[0];
           else p = (await q<PaymentRow>('select * from fz_payments where id = $1', [p.id])).rows[0];
         } catch (e) {
@@ -68,7 +68,7 @@ export function POST(req: Request): Promise<Response> {
         if (!rows[0]) throw new HttpError(404, 'Payment not found.');
         const from = str(b.from, 42);
         if (!/^0x[0-9a-fA-F]{40}$/.test(from)) throw new HttpError(400, 'That wallet address doesn’t look right.');
-        if (rows[0].asset === 'ETH' && rows[0].network !== 'solana' && (await isSmartWallet(rows[0], from)))
+        if (rows[0].asset === 'ETH' && isEvm(rows[0].network) && (await isSmartWallet(rows[0], from)))
           throw new HttpError(400, 'This is a smart wallet — please go back and choose USDC (ETH from smart wallets can’t be matched to your order).');
         return { ok: true };
       }

@@ -125,12 +125,21 @@ Infura…) for checking smart wallets; by default each network uses two free pub
 
 ## Crypto payments (buy Fuzzies, $0.50 wallet activation)
 
-Off until you add your own receiving addresses. Money goes **straight from the buyer's wallet to yours** — Fuzzies never
-holds funds or keys. In Vercel → project **fuzzies.** → Settings → Environment Variables (Production *and* Preview), then Redeploy:
+**On by default, paying the owner's wallets** (built into `api/_lib/pay.ts` → `OWNER`, all checked: EVM `0x3418…0278` has a valid
+EIP-55 checksum, the Solana address is a real ed25519 key, the Bitcoin `bc1q…6tgr` address has a valid bech32 checksum).
+Money goes **straight from the buyer's wallet to those addresses** — Fuzzies never holds funds or keys.
+
+Networks and coins: **Base** (USDC, ETH), **Solana** (SOL, USDC — Solana Pay), **BNB Chain** (USDT, USDC — stablecoins only, no
+BNB price feed needed), **Robinhood Chain** (ETH; chain id 4663, public RPC `rpc.mainnet.chain.robinhood.com`, one provider —
+add a second with `WALLET_RPC_4663`), **Ethereum** (USDC, ETH), **Bitcoin** (BTC to the owner's bc1q address; matched by exact
+amount in satoshis through mempool.space + blockstream.info, 1 confirmation, 6-hour window; ~10–30 min).
+To change an address later, set these in Vercel → project **fuzzies.** → Settings → Environment Variables (Production *and* Preview), then Redeploy:
 
 | Setting | What it is |
 |---|---|
 | `PAY_EVM_ADDRESS` | Your Ethereum address (0x…, from MetaMask / Coinbase Wallet…). Receives ETH and USDC on **Base** and **Ethereum**. |
+| `PAY_BTC_ADDRESS` | Optional. A Bitcoin `bc1…` address (receives BTC). |
+| `PAY_BNB_ADDRESS`, `PAY_ROBINHOOD_ADDRESS`, `PAY_BASE_ADDRESS`, `PAY_ETHEREUM_ADDRESS` | Optional. A different 0x address for one EVM network. |
 | `PAY_SOL_ADDRESS` | Your Solana address (from Phantom / Solflare…). Receives SOL and USDC on Solana. Make sure it has a USDC account (receive any USDC once). |
 | `WALLET_FEE_USD` | Optional. The one-time wallet activation fee, default `0.50`. `0` turns it off (wallets are then free and get the gift straight away). |
 | `WALLET_RPC_8453`, `WALLET_RPC_1`, `SOLANA_RPC` | Optional. Your own network providers (e.g. Alchemy/Helius URLs, two comma-separated) instead of the free public ones. |

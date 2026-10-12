@@ -14,8 +14,9 @@ import { sync } from './sync';
 import { walletError, type WalletChoice } from './wallet';
 import { accounts } from './account';
 
-export type Network = 'base' | 'ethereum' | 'solana';
-export type Asset = 'ETH' | 'USDC' | 'SOL';
+export type Network = 'base' | 'ethereum' | 'solana' | 'bnb' | 'robinhood' | 'bitcoin';
+export type Asset = 'ETH' | 'USDC' | 'USDT' | 'SOL' | 'BTC';
+export const isEvmNet = (n: Network) => n === 'base' || n === 'ethereum' || n === 'bnb' || n === 'robinhood';
 export interface Pack { id: string; fuzzies: number; cents: number }
 export interface PayConfig {
   enabled: boolean;
@@ -27,7 +28,7 @@ export interface PayConfig {
 export interface Payment {
   id: string; kind: 'pack' | 'wallet'; item: string; usdCents: number; fuzzies: number;
   network: Network; networkName: string; chainId?: number; asset: Asset; token: string | null; decimals: number;
-  amount: string; display: string; payTo: string; solanaPay?: string; status: string; tx: string | null; txUrl?: string;
+  amount: string; display: string; payTo: string; solanaPay?: string; bitcoinPay?: string; status: string; tx: string | null; txUrl?: string;
   expiresAt: string; confirmations: number;
 }
 export interface Gift { id: string; amount: number; reason: string }
@@ -89,20 +90,28 @@ export const pay = {
  * Double-check what the server sent before showing it or handing it to a wallet (defence in depth): known networks and
  * coins only, real addresses, a whole positive amount, and the shown amount rebuilt here from the exact one.
  */
-const TOKENS: Record<string, string> = { base: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', ethereum: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' };
+const TOKENS: Record<string, string> = {
+  'base:USDC': '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', 'ethereum:USDC': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+  'solana:USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  'bnb:USDT': '0x55d398326f99059ff775485246999027b3197955', 'bnb:USDC': '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+};
+const CHAIN_OF: Record<string, number> = { base: 8453, ethereum: 1, bnb: 56, robinhood: 4663 };
 const DEV_TOKENS = import.meta.env.DEV; // a test coin is allowed only while developing
 function checked(p: Payment): Payment {
   const bad = (why: string) => { throw new Error(`This payment request looks wrong (${why}) — please try again.`); };
-  if (!['base', 'ethereum', 'solana'].includes(p.network)) bad('network');
+  if (!['base', 'ethereum', 'solana', 'bnb', 'robinhood', 'bitcoin'].includes(p.network)) bad('network');
   if (!/^\d{1,40}$/.test(p.amount) || BigInt(p.amount) <= 0n) bad('amount');
-  const dec = { ETH: 18, USDC: 6, SOL: 9 }[p.asset];
+  const stable = p.asset === 'USDC' || p.asset === 'USDT';
+  const dec = p.network === 'bnb' && stable ? 18 : { ETH: 18, USDC: 6, USDT: 6, SOL: 9, BTC: 8 }[p.asset];
   if (!dec || dec !== p.decimals) bad('coin');
   if (p.network === 'solana') {
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(p.payTo) || !p.solanaPay?.startsWith(`solana:${p.payTo}?`)) bad('address');
-    if (p.asset === 'USDC' && p.token !== TOKENS.solana) bad('token');
+    if (stable && p.token !== TOKENS[`solana:${p.asset}`]) bad('token');
+  } else if (p.network === 'bitcoin') {
+    if (p.asset !== 'BTC' || !/^bc1[02-9ac-hj-np-z]{25,62}$/.test(p.payTo) || !p.bitcoinPay?.startsWith(`bitcoin:${p.payTo}?`)) bad('address');
   } else {
-    if (!/^0x[0-9a-fA-F]{40}$/.test(p.payTo) || ![1, 8453].includes(p.chainId ?? 0) || (p.network === 'base') !== (p.chainId === 8453)) bad('address');
-    if (p.asset === 'USDC' && !DEV_TOKENS && p.token?.toLowerCase() !== TOKENS[p.network]) bad('token');
+    if (!/^0x[0-9a-fA-F]{40}$/.test(p.payTo) || p.chainId !== CHAIN_OF[p.network]) bad('address');
+    if (stable && !DEV_TOKENS && p.token?.toLowerCase() !== TOKENS[`${p.network}:${p.asset}`]) bad('token');
     if (p.asset === 'ETH' && p.token) bad('token');
   }
   const s = p.amount.padStart(dec + 1, '0');
@@ -112,7 +121,13 @@ function checked(p: Payment): Payment {
 
 // ---------- sending on Ethereum / Base ----------
 const hex = (n: bigint | number) => '0x' + BigInt(n).toString(16);
-const BASE_PARAMS = { chainId: '0x2105', chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] };
+/** Network details for wallets that don't know a network yet (official endpoints). */
+const ADD_PARAMS: Record<number, object> = {
+  8453: { chainId: '0x2105', chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] },
+  56: { chainId: '0x38', chainName: 'BNB Smart Chain', nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 }, rpcUrls: ['https://bsc-dataseed.bnbchain.org'], blockExplorerUrls: ['https://bscscan.com'] },
+  4663: { chainId: '0x1237', chainName: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.mainnet.chain.robinhood.com'], blockExplorerUrls: ['https://robinhoodchain.blockscout.com'] },
+};
+const NET_NAME: Record<number, string> = { 1: 'Ethereum', 8453: 'Base', 56: 'BNB Chain', 4663: 'Robinhood Chain' };
 
 /** Make sure the wallet is on the payment's network (asks the wallet; it shows its own "switch network" window). */
 async function onNetwork(w: WalletChoice, chainId: number): Promise<void> {
@@ -121,12 +136,12 @@ async function onNetwork(w: WalletChoice, chainId: number): Promise<void> {
   try {
     await w.provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex(chainId) }] });
   } catch (e) {
-    if ((e as { code?: number }).code === 4902 && chainId === 8453) {
-      await w.provider.request({ method: 'wallet_addEthereumChain', params: [BASE_PARAMS] });
+    if ((e as { code?: number }).code === 4902 && ADD_PARAMS[chainId]) {
+      await w.provider.request({ method: 'wallet_addEthereumChain', params: [ADD_PARAMS[chainId]] });
     } else throw e;
   }
   const after = parseInt(String(await w.provider.request({ method: 'eth_chainId' })), 16);
-  if (after !== chainId) throw new Error(`Please switch your wallet to ${chainId === 8453 ? 'Base' : 'Ethereum'} and try again.`);
+  if (after !== chainId) throw new Error(`Please switch your wallet to ${NET_NAME[chainId] ?? 'the right network'} and try again.`);
 }
 
 /** Ask the wallet to send exactly this payment. Returns the transaction id. */

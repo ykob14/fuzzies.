@@ -16,7 +16,7 @@ import { mascot } from '../mascot';
 import { isTouch } from '../../core/util';
 import { landIcon, type LandIcon } from '../landIcons';
 
-type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' };
+type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' };
 
 const fmt = (ms: number) => {
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -264,26 +264,57 @@ export function landScreen(): Screen {
     return url ? h('img', { class: 'land-thumb', src: url, alt: '', draggable: 'false' }) : h('span', { class: 'land-thumb land-thumb-emoji' }, emoji);
   }
 
-  function shopBody(tab: L.Kind | 'farm'): HTMLElement {
-    const tabs: [L.Kind | 'farm', LandIcon, string][] = [['house', 'house', 'Houses'], ['farm', 'wheat', 'Farming'], ['factory', 'workshop', 'Workshops'], ['decor', 'flower', 'Decor']];
+  /** Coin chests: turn Fuzzies into Fuzzies Land coins (the bigger the chest, the better the deal). */
+  const CHESTS = [{ fz: 20, coins: 600 }, { fz: 60, coins: 2000 }, { fz: 150, coins: 5500 }];
+  function fuzziesBody(): HTMLElement[] {
+    const bal = rewards.balance();
+    const chest = (c: { fz: number; coins: number }, i: number) => {
+      const card = h('button', { class: `land-card land-chest ${bal < c.fz ? 'off' : ''}`, type: 'button', title: `${c.coins} coins for ${c.fz} Fuzzies` },
+        h('span', { class: 'land-card-art land-chest-art' }, ...Array.from({ length: i + 1 }, () => landIcon('coin', 34 + i * 4))),
+        h('b', null, ['Coin pouch', 'Coin chest', 'Treasure chest'][i]),
+        h('small', null, `${c.coins.toLocaleString()} coins for your town`),
+        h('span', { class: 'land-price' }, fuzzyMark(16), String(c.fz)));
+      card.addEventListener('click', () => {
+        if (rewards.balance() < c.fz) { toast(`You need ${c.fz} Fuzzies`, 'info'); void openShop(); return; }
+        spendFuzzies(c.fz);
+        s.coins += c.coins;
+        sfx.coins();
+        toast(`+${c.coins.toLocaleString()} coins for Fuzzies Land 🪙`, 'good');
+        save(); renderHud(); renderPanel();
+      });
+      return card;
+    };
+    const premium = L.ITEMS.filter((i) => i.currency === 'fuzzies');
+    return [
+      h('p', { class: 'land-fz-lead' }, 'Spend your Fuzzies here: coin chests, special decorations — and “Finish now” on anything that’s building.'),
+      h('div', { class: 'land-shop' }, ...CHESTS.map(chest), ...premium.map((it) => itemCard(it))),
+      h('div', { class: 'land-fz-more' }, btn(h('span', { class: 'row' }, fuzzyMark(18), 'Get more Fuzzies'), { kind: 'primary', size: 'sm', onClick: () => void openShop() })),
+    ];
+  }
+
+  function itemCard(it: L.ItemDef): HTMLElement {
+    const why = L.cantBuy(s, it.id, rewards.balance());
+    const locked = s.level < it.level;
+    const card = h('button', { class: `land-card ${why ? 'off' : ''} ${locked ? 'locked' : ''}`, type: 'button', title: why || it.blurb },
+      h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), locked ? h('span', { class: 'land-card-lock' }, landIcon('lock', 26), h('small', null, `Level ${it.level}`)) : null),
+      h('b', null, it.name),
+      h('small', null, locked ? `Unlocks at level ${it.level}` : it.blurb),
+      h('span', { class: 'land-price' }, it.currency === 'fuzzies' ? fuzzyMark(16) : landIcon('coin', 16), it.cost ? String(it.cost) : 'Free'),
+      it.max && !locked ? h('i', { class: 'land-max' }, `${L.count(s, it.id)}/${it.max(s.level)}`) : null);
+    card.addEventListener('click', () => {
+      if (why) { toast(why, 'info'); if (it.currency === 'fuzzies' && rewards.balance() < it.cost) void openShop(); return; }
+      startPlacing(it.id);
+    });
+    return card;
+  }
+
+  function shopBody(tab: L.Kind | 'farm' | 'fuzzies'): HTMLElement {
+    const tabs: [L.Kind | 'farm' | 'fuzzies', LandIcon, string][] = [['house', 'house', 'Houses'], ['farm', 'wheat', 'Farming'], ['factory', 'workshop', 'Workshops'], ['decor', 'flower', 'Decor'], ['fuzzies', 'star', 'Fuzzies']];
     const list = L.ITEMS.filter((i) => (tab === 'farm' ? i.kind === 'field' : i.kind === tab));
     return h('div', null,
       h('div', { class: 'land-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) => h('button', { class: `land-tab ${k === tab ? 'on' : ''}`, type: 'button', role: 'tab', 'aria-selected': String(k === tab), onclick: () => openPanel({ kind: 'shop', tab: k }) }, landIcon(ic, 22), h('span', null, label)))),
-      h('div', { class: 'land-shop' }, ...list.map((it) => {
-        const why = L.cantBuy(s, it.id, rewards.balance());
-        const locked = s.level < it.level;
-        const card = h('button', { class: `land-card ${why ? 'off' : ''} ${locked ? 'locked' : ''}`, type: 'button', title: why || it.blurb },
-          h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), locked ? h('span', { class: 'land-card-lock' }, landIcon('lock', 26), h('small', null, `Level ${it.level}`)) : null),
-          h('b', null, it.name),
-          h('small', null, locked ? `Unlocks at level ${it.level}` : it.blurb),
-          h('span', { class: 'land-price' }, it.currency === 'fuzzies' ? fuzzyMark(16) : landIcon('coin', 16), it.cost ? String(it.cost) : 'Free'),
-          it.max && !locked ? h('i', { class: 'land-max' }, `${L.count(s, it.id)}/${it.max(s.level)}`) : null);
-        card.addEventListener('click', () => {
-          if (why) { toast(why, 'info'); return; }
-          startPlacing(it.id);
-        });
-        return card;
-      })));
+      ...(tab === 'fuzzies' ? fuzziesBody() : [
+      h('div', { class: 'land-shop' }, ...list.map((it) => itemCard(it)))]));
   }
 
   function ordersBody(): HTMLElement {
@@ -328,7 +359,7 @@ export function landScreen(): Screen {
     const cost = L.rushCost(b);
     if (!cost) return null;
     return btn(h('span', { class: 'row' }, 'Finish now · ', fuzzyMark(14), String(cost)), { kind: 'ghost', size: 'sm', onClick: () => {
-      if (rewards.balance() < cost) { toast(`You need ${cost} Fuzzies — play Fuzzy Crossing to earn more!`, 'info'); return; }
+      if (rewards.balance() < cost) { toast(`You need ${cost} Fuzzies — play Fuzzy Crossing or get more`, 'info'); void openShop(); return; }
       spendFuzzies(cost);
       L.rush(b);
       sfx.wink();

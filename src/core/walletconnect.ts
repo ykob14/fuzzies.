@@ -21,7 +21,7 @@ export const walletConnectReady = /^[0-9a-f]{32}$/i.test(PROJECT_ID);
 /** Networks offered to the wallet (smart wallets are checked on these by the server). */
 const CHAINS = [1, 8453, 10, 42161, 137];
 const ONLY_SIGN = ['personal_sign'];
-/** Paying (only when someone buys or activates a wallet): send one payment, on Base or Ethereum. Nothing else. */
+/** Paying (only when someone buys or activates a wallet): send one payment, on Base, Ethereum, BNB Chain or Robinhood Chain. Nothing else. */
 const PAY_METHODS = ['eth_sendTransaction', 'wallet_switchEthereumChain', 'wallet_addEthereumChain'];
 
 interface WcProvider extends Eip1193 {
@@ -50,7 +50,7 @@ export async function connectRemote(mode: 'sign' | 'pay' = 'sign', chainId = 845
   const css = getComputedStyle(document.documentElement);
   const provider = (await mod.EthereumProvider.init({
     projectId: PROJECT_ID,
-    optionalChains: (mode === 'pay' ? [chainId, ...[8453, 1].filter((c) => c !== chainId)] : CHAINS) as [number, ...number[]],
+    optionalChains: (mode === 'pay' ? [chainId, ...[8453, 1, 56, 4663].filter((c) => c !== chainId)] : CHAINS) as [number, ...number[]],
     methods: mode === 'pay' ? PAY_METHODS : ONLY_SIGN,
     optionalMethods: mode === 'pay' ? PAY_METHODS : ONLY_SIGN,
     events: ['accountsChanged', 'chainChanged'],

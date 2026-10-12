@@ -5,10 +5,11 @@
 import { h, btn, icon, modal, toast, fuzzyMark } from './dom';
 import { logoUrl } from './logos';
 import { pickWallet } from './walletPicker';
-import { pay, money, sendEvmPayment, type Asset, type CheckResult, type Network, type Payment } from '../core/pay';
+import { pay, money, sendEvmPayment, isEvmNet, type Asset, type CheckResult, type Network, type Payment } from '../core/pay';
 import { isPhone, shortAddress } from '../core/wallet';
 import { connectRemote } from '../core/walletconnect';
 import { qrMatrix } from '../editor/qr';
+import { celebrateFuzzies } from './celebrate';
 
 export interface PayOptions {
   kind: 'pack' | 'wallet';
@@ -21,10 +22,10 @@ export interface PayOptions {
   onPaid?: (r: CheckResult) => void;
 }
 
-const COIN_NAME: Record<Asset, string> = { ETH: 'ETH', USDC: 'USDC', SOL: 'SOL' };
+const COIN_NAME: Record<Asset, string> = { ETH: 'ETH', USDC: 'USDC', USDT: 'USDT', SOL: 'SOL', BTC: 'Bitcoin (BTC)' };
 const coinLogo = (asset: Asset, network: Network) => h('span', { class: 'coin' },
   h('img', { src: logoUrl(asset.toLowerCase()), alt: '', width: '34', height: '34' }),
-  asset === 'SOL' && network === 'solana' ? null : h('img', { class: 'coin-net', src: logoUrl(`net-${network}`), alt: '', width: '16', height: '16' }));
+  (asset === 'SOL' && network === 'solana') || network === 'bitcoin' ? null : h('img', { class: 'coin-net', src: logoUrl(`net-${network}`), alt: '', width: '16', height: '16' }));
 
 function qrCanvas(text: string, px = 220): HTMLCanvasElement {
   const m = qrMatrix(text);
@@ -62,8 +63,8 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
     stop();
     const opts: { network: Network; asset: Asset; label: string; fee: string; tag?: string }[] = [];
     for (const n of cfg.networks) for (const a of n.assets) {
-      const label = n.id === 'solana' ? (a === 'SOL' ? 'SOL' : 'USDC on Solana') : `${COIN_NAME[a]} on ${n.name}`;
-      opts.push({ network: n.id, asset: a, label, fee: `Network fee ${n.fee}`, tag: n.id === 'base' && a === 'USDC' ? 'Lowest fee' : undefined });
+      const label = n.id === 'solana' ? (a === 'SOL' ? 'SOL' : 'USDC on Solana') : n.id === 'bitcoin' ? COIN_NAME.BTC : `${COIN_NAME[a]} on ${n.name}`;
+      opts.push({ network: n.id, asset: a, label, fee: `Network fee ${n.fee}${n.id === 'bitcoin' ? ' · takes ~10–30 min' : ''}`, tag: n.id === 'base' && a === 'USDC' ? 'Lowest fee' : undefined });
     }
     const err = h('p', { class: 'form-err', role: 'alert' });
     body.replaceChildren(summary(), h('p', { class: 'wallet-head' }, 'Pay with'),
@@ -94,7 +95,7 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
     };
     tick(); timer = window.setInterval(tick, 1000);
     // Ethereum/Base are paid from the wallet button (no copy & paste, so the amount and network can't go wrong)
-    const sol = p.network === 'solana';
+    const sol = !isEvmNet(p.network); // Solana & Bitcoin: QR code / wallet link, matched by reference or exact amount
     const amount = h('div', { class: 'pay-amount' }, coinLogo(p.asset, p.network),
       h('div', null, h('small', null, sol ? 'Send exactly' : 'You pay'), h('b', null, `${p.display} ${p.asset}`), h('small', null, `${money(p.usdCents)} · on ${p.networkName}`)),
       sol ? btn(null, { icon: 'copy', kind: 'plain', size: 'sm', title: 'Copy amount', onClick: () => void copy(p.display, 'Amount') }) : null);
@@ -103,12 +104,15 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
     const back = h('button', { type: 'button', class: 'link small' }, '← Choose another coin');
     back.addEventListener('click', choose);
 
-    if (p.network === 'solana') {
-      const link = h('a', { class: 'btn btn-primary btn-md btn-block', href: p.solanaPay!, rel: 'noopener' }, h('img', { src: logoUrl('net-solana'), alt: '', width: '18', height: '18' }), h('span', null, 'Open in my Solana wallet'));
+    if (sol) {
+      const btcNet = p.network === 'bitcoin';
+      const uri = (btcNet ? p.bitcoinPay : p.solanaPay)!;
+      const link = h('a', { class: 'btn btn-primary btn-md btn-block', href: uri, rel: 'noopener' }, h('img', { src: logoUrl(`net-${p.network}`), alt: '', width: '18', height: '18' }), h('span', null, btcNet ? 'Open in my Bitcoin wallet' : 'Open in my Solana wallet'));
       body.replaceChildren(summary(), amount, to,
-        h('div', { class: 'pay-qr-box' }, qrCanvas(p.solanaPay!), h('small', null, isPhone() ? 'Or scan this from another device' : 'Scan with Phantom, Solflare, Backpack or any Solana Pay wallet')),
+        h('div', { class: 'pay-qr-box' }, qrCanvas(uri), h('small', null, isPhone() ? 'Or scan this from another device' : btcNet ? 'Scan with any Bitcoin wallet' : 'Scan with Phantom, Solflare, Backpack or any Solana Pay wallet')),
         ...(isPhone() ? [link] : []),
-        h('div', { class: 'pay-row' }, btn('Copy payment link', { kind: 'ghost', size: 'sm', icon: 'copy', onClick: () => void copy(p.solanaPay!, 'Payment link') }), back),
+        ...(btcNet ? [h('p', { class: 'pay-fine' }, 'Send exactly this amount — if your wallet takes the network fee out of the amount, the payment won’t match. Bitcoin takes about 10–30 minutes to confirm; you can close this window, your Fuzzies arrive automatically.')] : []),
+        h('div', { class: 'pay-row' }, btn('Copy payment link', { kind: 'ghost', size: 'sm', icon: 'copy', onClick: () => void copy(uri, 'Payment link') }), back),
         status, left, fine());
       waitFor(p, undefined, status);
       return;
@@ -169,7 +173,7 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
         if (st === 409 || st === 400) { say((e as Error).message, 'bad'); return; }
         say('Still checking with the network…', 'wait'); // a hiccup: keep going
       }
-      poll = window.setTimeout(once, quiet && !tx ? 8000 : p.network === 'solana' ? 4500 : 5000);
+      poll = window.setTimeout(once, quiet && !tx ? 8000 : p.network === 'bitcoin' ? 20000 : p.network === 'solana' ? 4500 : 5000);
     };
     poll = window.setTimeout(once, tx ? 1500 : quiet ? 8000 : 4500);
   }
@@ -183,7 +187,11 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
       h('p', { class: 'muted' }, p.kind === 'pack' ? 'Thank you for supporting Fuzzies 💖 They’re in your account on every device.' : 'You can log in with this wallet now. A little gift is waiting for you…'),
       p.txUrl ? h('a', { class: 'link small', href: p.txUrl, target: '_blank', rel: 'noopener noreferrer' }, 'View the payment on the blockchain ↗') : null,
       btn(p.kind === 'pack' ? 'Done' : 'Open my gift 🎁', { kind: 'primary', size: 'lg', onClick: () => { m.close(); o.onPaid?.(r); } })));
-    if (p.kind === 'pack') o.onPaid?.(r);
+    if (p.kind === 'pack') {
+      o.onPaid?.(r);
+      // the fun part: close the window and let the Fuzzies fly into the counter
+      setTimeout(() => { m.close(); void celebrateFuzzies(p.fuzzies); }, 900);
+    }
   }
 
   choose();
