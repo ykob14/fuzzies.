@@ -7,6 +7,7 @@ import { h, btn, QUOTE, toast } from '../dom';
 import { mascot } from '../mascot';
 import { featureArt, type Feature } from '../featureArt';
 import { pickWallet } from '../walletPicker';
+import { checkGifts } from '../giftBox';
 
 /** Log in: cloud accounts first; accounts that only live on this device (made before sync existed) still work. */
 async function logIn(login: string, password: string): Promise<void> {
@@ -92,6 +93,7 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
           await logIn(user.value, pw.value);
           applyTheme();
           location.hash = '#/home';
+          setTimeout(() => void checkGifts(), 900);
         } catch (x) { err.textContent = (x as Error).message; } finally { busy(form, false); }
       });
     }
@@ -104,7 +106,7 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
         title: 'Log in with a wallet',
         intro: 'Works with a wallet you’ve linked in your Profile. Your wallet will ask you to sign a short message — that’s all.',
         hash: '#/login',
-        run: async (w) => { await cloud.signInWithWallet(w); applyTheme(); toast('Welcome back! 👋', 'good'); location.hash = '#/home'; },
+        run: async (w) => { await cloud.signInWithWallet(w); applyTheme(); toast('Welcome back! 👋', 'good'); location.hash = '#/home'; setTimeout(() => void checkGifts(), 900); },
       }) }))
       : null;
     card.replaceChildren(tabs, form, ...(wallet ? [wallet] : []), h('div', { class: 'auth-alt' }, guest),

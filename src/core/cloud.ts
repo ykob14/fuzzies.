@@ -13,7 +13,8 @@ import { connect, signMessage, type WalletChoice } from './wallet';
 export { cloudEnabled };
 
 interface CloudUser { id: string; email: string; username: string }
-export interface LinkedWallet { address: string; wallet: string; created_at: string; last_used_at: string | null }
+export interface LinkedWallet { address: string; wallet: string; created_at: string; last_used_at: string | null; active: boolean }
+export interface LinkResult { wallets: LinkedWallet[]; activate: { address: string; feeCents: number } | null; gift: { id: string; amount: number; reason?: string } | null }
 interface SignUpInput { name: string; username: string; email: string; password: string }
 
 const USERNAME = /^[a-z0-9_.]{3,20}$/;
@@ -156,13 +157,14 @@ export const cloud = {
   },
 
   /** Link a wallet to the logged-in account (proves you own it). Needs the account password too. */
-  async linkWallet(w: WalletChoice, password: string): Promise<LinkedWallet[]> {
+  async linkWallet(w: WalletChoice, password: string): Promise<LinkResult> {
     if (!accounts.current?.cloud) throw new Error('Save your account first — wallets link to a Fuzzies account.');
     if (!password) throw new Error('Please enter your Fuzzies password first.');
     const { address, chainId } = await connect(w);
     const { message, nonce } = await api<{ message: string; nonce: string }>('auth', 'wallet.challenge', { purpose: 'link', address, chainId, wallet: w.name, password });
     const signature = await signMessage(w, address, message);
-    return (await api<{ wallets: LinkedWallet[] }>('auth', 'wallet.verify', { nonce, signature })).wallets;
+    const r = await api<Partial<LinkResult> & { wallets: LinkedWallet[] }>('auth', 'wallet.verify', { nonce, signature });
+    return { wallets: r.wallets, activate: r.activate ?? null, gift: r.gift ?? null };
   },
 
   async wallets(): Promise<LinkedWallet[]> {

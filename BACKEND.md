@@ -123,6 +123,38 @@ Infura…) for checking smart wallets; by default each network uses two free pub
   `wallet.list` / `wallet.unlink`), tables `fz_wallets` + `fz_wallet_nonces`; app: `src/core/wallet.ts`,
   `src/ui/walletPicker.ts`, Profile card and log-in button.
 
+## Crypto payments (buy Fuzzies, $0.50 wallet activation)
+
+Off until you add your own receiving addresses. Money goes **straight from the buyer's wallet to yours** — Fuzzies never
+holds funds or keys. In Vercel → project **fuzzies.** → Settings → Environment Variables (Production *and* Preview), then Redeploy:
+
+| Setting | What it is |
+|---|---|
+| `PAY_EVM_ADDRESS` | Your Ethereum address (0x…, from MetaMask / Coinbase Wallet…). Receives ETH and USDC on **Base** and **Ethereum**. |
+| `PAY_SOL_ADDRESS` | Your Solana address (from Phantom / Solflare…). Receives SOL and USDC on Solana. Make sure it has a USDC account (receive any USDC once). |
+| `WALLET_FEE_USD` | Optional. The one-time wallet activation fee, default `0.50`. `0` turns it off (wallets are then free and get the gift straight away). |
+| `WALLET_RPC_8453`, `WALLET_RPC_1`, `SOLANA_RPC` | Optional. Your own network providers (e.g. Alchemy/Helius URLs, two comma-separated) instead of the free public ones. |
+
+Only the **public** address is needed — never put a recovery phrase or private key anywhere. Each network turns on when its
+address is set (e.g. only `PAY_EVM_ADDRESS` = Base + Ethereum only).
+
+- **Packs** (in `api/_lib/pay.ts` → `PACKS`): 100 Fuzzies $0.99 · 550 $4.99 · 1,200 $9.99 · 3,000 $19.99. Shown in Rewards → *Get
+  more Fuzzies* and from the Fuzzies counter in Fuzzies Land.
+- **Wallet activation:** a newly linked wallet pays the fee once (ever, per wallet); then it can log in, and a **gift box**
+  with 100 Fuzzies appears (double-click / double-tap to open). Unlinking and relinking doesn't charge or gift again.
+- **How a payment is checked:** the server sets the price (USD → coin; ETH/SOL prices from Coinbase + Kraken, which must agree
+  within 3%; USDC 1:1) with a unique sub-cent "fingerprint", valid 30 minutes; then it reads the blockchain itself through two
+  providers: right coin, right amount to the cent, to your address, after the quote, confirmed (Base 5 blocks, Ethereum 3,
+  Solana finalized). Each transaction pays one payment only. Solana uses Solana Pay (a one-time reference in the payment).
+  Bought Fuzzies are added on the server (`fz_credits`) and sync to every device.
+- **The fine print you should know:** crypto payments are final (no chargebacks — refunds are manual, from your wallet).
+  Selling a game currency is income: keep records (Rewards → payments are in `fz_payments`) and check tax/consumer rules
+  where you live. The app says Fuzzies have no cash value. App stores (if Fuzzies is ever shipped as an iPhone/Android app)
+  have their own rules for in-app purchases.
+- Tables: `fz_payments`, `fz_credits`, `fz_gifts`, `fz_wallet_rewards` (only a hash of each wallet address); `fz_wallets.active`.
+  Code: `api/_lib/pay.ts`, `api/_lib/credits.ts`, `api/pay.ts`; app: `src/core/pay.ts`, `src/ui/paySheet.ts`, `src/ui/shop.ts`,
+  `src/ui/giftBox.ts`. Logos: `src/ui/logos.ts` (web3icons, MIT).
+
 ## Template library extras (all optional)
 
 The gallery works without any of these. Each one is a Vercel → **Settings → Environment Variables** entry, then **Redeploy**.

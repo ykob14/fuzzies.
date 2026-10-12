@@ -3,6 +3,7 @@
  * panels for building, planting, workshops, orders and the barn. Rules: land/rules.ts. Drawing: land/view3d.ts.
  */
 import type { Screen } from '../app';
+import { openShop } from '../shop';
 import * as L from '../../land/rules';
 import type { LandView, Pick } from '../../land/view3d';
 import { accounts } from '../../core/account';
@@ -31,6 +32,8 @@ export function landScreen(): Screen {
   const wrap = h('div', { class: 'land-stage' });
   const overlay = h('div', { class: 'land-overlay', 'aria-hidden': 'true' });
   const hud = h('div', { class: 'land-hud' });
+  // the Fuzzies counter opens the shop right here (or Rewards when paying isn't on)
+  hud.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-k="fz"]')) { e.preventDefault(); void openShop(); } });
   const side = h('div', { class: 'land-side' });
   // the toolbar and the side buttons can be tucked away (remembered on this device)
   const UI_KEY = 'fz.land.ui';
@@ -173,7 +176,7 @@ export function landScreen(): Screen {
       h('div', { class: 'land-hud-r' },
         cap(landIcon('coin', 30), 'coins', s.coins, 'Coins'),
         cap(landIcon('pop', 30), 'pop', pop, 'Fuzzies living here'),
-        cap(fuzzyMark(30), 'fz', rewards.balance(), 'Your Fuzzies — tap to spend them', '#/rewards'),
+        cap(fuzzyMark(30), 'fz', rewards.balance(), 'Your Fuzzies — tap to get more', '#/rewards'),
         savedEl));
     const tool = (key: string, ic: LandIcon, label: string, onClick: () => void, badge = 0, extra: Node | null = null) => {
       const prev = badges.get(key) ?? 0;

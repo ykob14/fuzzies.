@@ -4,6 +4,8 @@ import { rewards } from '../core/rewards';
 import { applyTheme, resolveTheme } from '../core/themes';
 import { h, icon, logo, fuzzyMark, avatarEl, popMenu, toast, type IconName } from './dom';
 import { NAV_GROUPS, openQuickFind, bindQuickFind } from './quickfind';
+import { pay } from '../core/pay';
+import { checkGifts } from './giftBox';
 import { cloud } from '../core/cloud';
 import { watchAppIcon } from '../core/appicon';
 import { sync } from '../core/sync';
@@ -177,6 +179,8 @@ export function startApp(): void {
   route();
   if (cloud.enabled) {
     cloud.init((why) => { toast(why, 'info', 3500); location.hash = '#/login'; route(); });
+    // payments sent earlier that still need confirming, then any gift waiting to be opened
+    setTimeout(() => { if (accounts.current?.cloud) void pay.resume().finally(() => void checkGifts()); }, 2500);
     // designs or the profile changed on another device: refresh lists (never mid-game or mid-edit)
     sync.onRemoteChange(() => {
       applyTheme();

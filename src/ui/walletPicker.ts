@@ -10,11 +10,21 @@
  */
 import { h, icon, modal, toast } from './dom';
 import { findWallets, isPhone, isTablet, pageUrl, TOP_WALLETS, type TopWallet, type WalletChoice } from '../core/wallet';
-import { connectRemote, walletConnectReady } from '../core/walletconnect';
+import { connectRemote, walletConnectReady, type RemoteWallet } from '../core/walletconnect';
+import { logoUrl } from './logos';
 
-export function walletBadge(w: { name: string; icon?: string }): HTMLElement {
-  if (w.icon) return h('img', { class: 'wallet-logo', src: w.icon, alt: '', width: '32', height: '32' });
+export function walletBadge(w: { name: string; icon?: string; id?: string }): HTMLElement {
+  const src = w.icon || (w.id ? logoUrl(w.id) : '') || logoUrl(logoIdFor(w.name));
+  if (src) return h('img', { class: 'wallet-logo', src, alt: '', width: '32', height: '32' });
   return h('span', { class: 'wallet-logo letter', 'aria-hidden': 'true' }, w.name.slice(0, 1).toUpperCase());
+}
+
+/** Our logo for a wallet by its name (installed wallets bring their own; this covers the rest). */
+export function logoIdFor(name: string): string {
+  const n = name.toLowerCase();
+  const map: [RegExp, string][] = [[/metamask/, 'metamask'], [/coinbase/, 'coinbase'], [/trust/, 'trust'], [/okx|okex/, 'okx'], [/phantom/, 'phantom'], [/rabby/, 'rabby'],
+    [/rainbow/, 'rainbow'], [/ledger/, 'ledger'], [/safe/, 'safe'], [/zerion/, 'zerion'], [/crypto\.com|onchain|defi wallet/, 'cryptocom'], [/robinhood/, 'robinhood'], [/walletconnect/, 'walletconnect']];
+  return map.find(([re]) => re.test(n))?.[1] ?? '';
 }
 
 /** The safety promise shown wherever wallets come up. */
@@ -22,7 +32,7 @@ export function walletSafetyNote(): HTMLElement {
   return h('div', { class: 'wallet-safe' }, icon('lock', 16),
     h('div', null,
       h('b', null, 'Safe & free'),
-      h('small', null, 'Your wallet only signs a short message to prove it’s yours. Fuzzies never sends transactions, never asks for payments and can’t touch your funds. We will never ask for your recovery phrase — anyone who does is a scammer.'),
+      h('small', null, 'Signing in is free: your wallet only signs a short message to prove it’s yours, and can’t move any funds. Fuzzies only asks for a payment when you choose to buy something — your wallet always shows the exact amount first. We will never ask for your recovery phrase — anyone who does is a scammer.'),
       h('small', null, 'Before you sign, check that your wallet shows ', h('b', null, location.host), '. If it shows anything else, cancel.')));
 }
 
@@ -69,7 +79,7 @@ function helpFor(t: TopWallet, url: string, phone: boolean, qr: (() => void) | n
     h('div', { class: 'btn-row' }, official, copy));
 }
 
-export function pickWallet(opts: { title: string; intro: string; run: (w: WalletChoice, password: string) => Promise<void>; hash?: string; password?: boolean }): void {
+export function pickWallet(opts: { title: string; intro: string; run: (w: WalletChoice, password: string) => Promise<void>; hash?: string; password?: boolean; remote?: () => Promise<RemoteWallet>; safety?: HTMLElement }): void {
   const list = h('div', { class: 'wallet-list', 'aria-busy': 'true' }, h('p', { class: 'muted wallet-looking' }, 'Looking for wallets…'));
   const more = h('div', { class: 'wallet-list' });
   const msg = h('p', { class: 'form-err', role: 'alert' });
@@ -77,7 +87,7 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
   const pwField = opts.password
     ? h('label', { class: 'field wallet-pw' }, h('span', null, 'First, confirm it’s you'), pw, h('small', { class: 'muted' }, 'A linked wallet can log in to your account, so we ask for your password.'))
     : null;
-  const m = modal(opts.title, h('div', { class: 'wallet-pick' }, h('p', { class: 'muted' }, opts.intro), ...(pwField ? [pwField] : []), list, msg, more, walletSafetyNote()));
+  const m = modal(opts.title, h('div', { class: 'wallet-pick' }, h('p', { class: 'muted' }, opts.intro), ...(pwField ? [pwField] : []), list, msg, more, opts.safety ?? walletSafetyNote()));
   const url = pageUrl(opts.hash);
   const phone = isPhone();
   if (pwField) setTimeout(() => pw.focus(), 60);
@@ -94,7 +104,7 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
     const say = (t: string) => { if (status) status.textContent = t; };
     say('Opening…');
     try {
-      const remote = await connectRemote();
+      const remote = await (opts.remote ?? (() => connectRemote()))();
       say('Approve in your wallet app…');
       try { await opts.run(remote, pw.value); m.close(); }
       finally { void remote.done(); }
@@ -126,7 +136,7 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
       const tablet = isTablet();
       const status = h('small', { class: 'wallet-status' }, idle);
       const b = h('button', { type: 'button', class: 'wallet-opt wallet-qr' },
-        h('span', { class: 'wallet-logo qr', 'aria-hidden': 'true' }, icon(phone && !tablet ? 'phone' : 'grid', 18)),
+        h('img', { class: 'wallet-logo', src: logoUrl('walletconnect'), alt: '', width: '32', height: '32' }),
         h('span', { class: 'wallet-qr-text' }, h('b', null, tablet ? 'Scan QR code or use a wallet app' : phone ? 'Use a wallet app' : 'Scan QR code with your phone'),
           h('small', null, phone ? 'Robinhood, Crypto.com, Rainbow, Ledger and 500+ more' : 'Robinhood, Crypto.com, MetaMask, Trust and 500+ phone wallets')),
         status);

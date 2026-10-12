@@ -9,6 +9,7 @@
  *   rows.put    { kind, row: { id, data, deleted, updated_at } } → { ok }
  *   kind = 'designs' | 'uploads'
  */
+import { applyCredits } from './_lib/credits.js';
 import { db, q } from './_lib/db.js';
 import { handle, requireUser, HttpError } from './_lib/auth.js';
 
@@ -30,6 +31,7 @@ export function POST(req: Request): Promise<Response> {
     await db(); // connects and makes sure the tables exist
     switch (b.action) {
       case 'profile.get': {
+        await applyCredits(u.id); // Fuzzies bought or gifted while this account's profile wasn't saved yet
         const { rows } = await q('select data, updated_at::float8 as updated_at from fz_profiles where user_id = $1', [u.id]);
         return { profile: rows[0] ? { username: u.username, data: rows[0].data, updated_at: rows[0].updated_at } : null };
       }

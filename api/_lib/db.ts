@@ -119,6 +119,55 @@ create index if not exists fz_wallet_nonces_addr_idx on fz_wallet_nonces (addres
 create index if not exists fz_wallet_nonces_ip_idx on fz_wallet_nonces (ip, created_at);
 -- the network the message was signed for (smart wallets are checked on that network)
 alter table fz_wallet_nonces add column if not exists chain_id integer not null default 1;
+-- a wallet can log in once its one-time activation is paid (or straight away when there's no fee)
+alter table fz_wallets add column if not exists active boolean not null default true;
+-- Payments in crypto (Fuzzies packs, wallet activation). Amounts are exact base units (wei, lamports, USDC micro-units),
+-- unique among open payments so each on-chain transfer matches exactly one payment.
+create table if not exists fz_payments (
+  id text primary key,
+  user_id uuid not null references fz_users (id) on delete cascade,
+  kind text not null,
+  item text not null,
+  usd_cents integer not null,
+  fuzzies integer not null default 0,
+  network text not null,
+  asset text not null,
+  amount text not null,
+  pay_to text not null,
+  reference text,
+  status text not null default 'pending',
+  tx text unique,
+  payer text,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  paid_at timestamptz
+);
+create index if not exists fz_payments_user_idx on fz_payments (user_id, created_at);
+create unique index if not exists fz_payments_open_amount on fz_payments (network, asset, amount) where status = 'pending';
+-- Fuzzies the server adds to an account (paid packs, opened gifts); applied to the profile once, then marked.
+create table if not exists fz_credits (
+  id text primary key,
+  user_id uuid not null references fz_users (id) on delete cascade,
+  amount integer not null,
+  reason text not null,
+  created_at timestamptz not null default now(),
+  applied_at timestamptz
+);
+-- Gift boxes waiting to be opened (e.g. 100 Fuzzies for a newly activated wallet).
+create table if not exists fz_gifts (
+  id text primary key,
+  user_id uuid not null references fz_users (id) on delete cascade,
+  amount integer not null,
+  reason text not null,
+  created_at timestamptz not null default now(),
+  opened_at timestamptz
+);
+-- Once-per-wallet bookkeeping, kept even if the wallet is removed (only a hash of the address is stored).
+create table if not exists fz_wallet_rewards (
+  address_hash text primary key,
+  fee_paid_at timestamptz,
+  gift_at timestamptz
+);
 `;
 
 /** Errors that mean "the connection dropped" (Neon puts idle databases to sleep): safe to retry once. */

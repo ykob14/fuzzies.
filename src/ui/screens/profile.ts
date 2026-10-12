@@ -4,13 +4,16 @@ import { accounts } from '../../core/account';
 import { db } from '../../core/db';
 import { h, btn, avatarEl, fuzzyMark, toast, pickFile, confirmDialog, icon } from '../dom';
 import { fileToImageData, timeAgo } from '../../core/util';
-import { cloud } from '../../core/cloud';
+import { cloud, type LinkedWallet } from '../../core/cloud';
 import { sync } from '../../core/sync';
 import { signOut } from '../app';
 import { achievementsGrid } from '../missions';
 import { ACHIEVEMENTS } from '../../core/missions';
 import { shortAddress } from '../../core/wallet';
-import { pickWallet, walletSafetyNote } from '../walletPicker';
+import { pickWallet, walletSafetyNote, walletBadge } from '../walletPicker';
+import { openPaySheet } from '../paySheet';
+import { checkGifts } from '../giftBox';
+import { pay, money } from '../../core/pay';
 
 const EMOJIS = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐥', '🐙', '🦋', '🐯', '🐨', '🐶', '🐱', '🌈', '⭐', '🍕', '🎨', '🚀', '🌸', '👾', '😎'];
 const COLORS = ['#d6336c', '#b0245a', '#ff8fb4', '#ffd6e4', '#18171c', '#5c5864', '#a09ca7', '#efede9', '#e8590c', '#2b9a66'];
@@ -123,26 +126,44 @@ export function profileScreen(): Screen {
     const a = accounts.current!;
     if (!a.cloud) return null;
     const list = h('div', { class: 'wallet-linked' }, h('p', { class: 'muted' }, 'Loading…'));
-    const show = (ws: { address: string; wallet: string; created_at: string; last_used_at: string | null }[]) => {
-      list.replaceChildren(...(ws.length ? ws.map((w) => h('div', { class: 'wallet-row' },
-        h('span', { class: 'wallet-logo letter', 'aria-hidden': 'true' }, (w.wallet || 'W').slice(0, 1).toUpperCase()),
-        h('div', null, h('b', { title: w.address }, shortAddress(w.address)), h('small', null, `${w.wallet || 'Wallet'} · linked ${timeAgo(new Date(w.created_at).getTime())}${w.last_used_at ? ` · last log-in ${timeAgo(new Date(w.last_used_at).getTime())}` : ''}`)),
-        btn('Remove', { kind: 'ghost', size: 'sm', onClick: async () => {
+    let feeCents = 0, gift = 0;
+    void pay.config().then((c) => { feeCents = c.walletFeeCents; gift = c.walletGift; });
+    /** The one-time activation: pay $0.50, then the gift box pops up. */
+    const activate = (address: string, cents: number) => openPaySheet({
+      kind: 'wallet', item: address, title: 'Activate your wallet', cents,
+      what: `Activate ${shortAddress(address)}`, note: `One time only · includes a gift of ${gift || 100} Fuzzies 🎁`,
+      onPaid: () => { void cloud.wallets().then(show); void checkGifts(); },
+    });
+    const show = (ws: LinkedWallet[]) => {
+      list.replaceChildren(...(ws.length ? ws.map((w) => h('div', { class: `wallet-row ${w.active ? '' : 'inactive'}` },
+        walletBadge({ name: w.wallet }),
+        h('div', null,
+          h('b', { title: w.address }, shortAddress(w.address), w.active ? null : h('span', { class: 'wallet-pill' }, 'Not active yet')),
+          h('small', null, `${w.wallet || 'Wallet'} · linked ${timeAgo(new Date(w.created_at).getTime())}${w.last_used_at ? ` · last log-in ${timeAgo(new Date(w.last_used_at).getTime())}` : ''}`)),
+        w.active ? null : btn(`Activate · ${money(feeCents || 50)}`, { kind: 'primary', size: 'sm', onClick: () => void activate(w.address, feeCents || 50) }),
+        btn(null, { icon: 'trash', kind: 'plain', size: 'sm', title: 'Remove wallet', onClick: async () => {
           if (!(await confirmDialog('Remove this wallet?', `${shortAddress(w.address)} won’t be able to sign in to your account any more. Nothing happens to the wallet itself or its funds.`, 'Remove'))) return;
           try { show(await cloud.unlinkWallet(w.address)); toast('Wallet removed', 'good'); } catch (e) { toast((e as Error).message, 'bad'); }
         } })))
         : [h('p', { class: 'muted' }, 'No wallet linked yet.')]));
     };
     cloud.wallets().then(show).catch((e) => list.replaceChildren(h('p', { class: 'form-err' }, (e as Error).message)));
+    const lead = h('p', { class: 'muted' }, 'Link MetaMask, Coinbase Wallet, Trust Wallet, Crypto.com Onchain, Robinhood Wallet or another wallet, then use it to log in to Fuzzies on any device. We email you whenever a wallet is linked.');
+    void pay.config().then((c) => { if (c.walletFeeCents) lead.append(` Each new wallet is activated once for ${money(c.walletFeeCents)} — and comes with a gift of ${c.walletGift} Fuzzies 🎁`); });
     return h('section', { class: 'card' }, h('h3', null, icon('wallet', 18), ' Crypto wallets'),
-      h('p', { class: 'muted' }, 'Link MetaMask, Coinbase Wallet, Trust Wallet, Crypto.com Onchain, Robinhood Wallet or another Ethereum wallet, then use it to log in to Fuzzies on any device. We email you whenever a wallet is linked.'),
+      lead,
       list,
       btn('Connect a wallet', { kind: 'soft', icon: 'plus', onClick: () => pickWallet({
         title: 'Connect a wallet',
-        intro: 'Choose your wallet. It will ask you to sign a short message that proves the wallet is yours.',
+        intro: 'Choose your wallet. It will ask you to sign a short message that proves the wallet is yours (free).',
         hash: '#/profile',
         password: true,
-        run: async (w, password) => { show(await cloud.linkWallet(w, password)); toast('Wallet linked — you can log in with it now 🎉', 'good', 3500); },
+        run: async (w, password) => {
+          const r = await cloud.linkWallet(w, password);
+          show(r.wallets);
+          if (r.activate) { toast('Wallet linked — one last step: activate it', 'good', 3000); setTimeout(() => void activate(r.activate!.address, r.activate!.feeCents), 350); }
+          else { toast('Wallet linked — you can log in with it now 🎉', 'good', 3500); if (r.gift) setTimeout(() => void checkGifts(), 400); }
+        },
       }) }),
       walletSafetyNote());
   }

@@ -19,6 +19,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { db, q } from './_lib/db.js';
 import { requireMail, sendMail, resetEmail, mailReady, walletLinkedEmail } from './_lib/mail.js';
 import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json, BUILD } from './_lib/auth.js';
+import { paymentsEnabled, walletFeeCents, giftForWallet, addressHash } from './_lib/pay.js';
 import { normAddress, recoverSigner, siteOf, siweMessage, verifySmartWallet, MAX_SIGNATURE } from './_lib/wallet.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -43,7 +44,7 @@ function appUrl(req: Request): string {
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const publicUser = (u: { id: string; email: string; username: string }) => ({ id: u.id, email: u.email, username: u.username });
 const walletsOf = async (userId: string) =>
-  (await q<{ address: string; wallet: string; created_at: string; last_used_at: string | null }>('select address, wallet, created_at, last_used_at from fz_wallets where user_id = $1 order by created_at', [userId])).rows;
+  (await q<{ address: string; wallet: string; created_at: string; last_used_at: string | null; active: boolean }>('select address, wallet, created_at, last_used_at, active from fz_wallets where user_id = $1 order by created_at', [userId])).rows;
 /** The visitor's network address as Vercel reports it (used only to slow down floods of sign-in requests). */
 const clientIp = (req: Request) => (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64);
 
@@ -195,19 +196,25 @@ export function POST(req: Request): Promise<Response> {
         if (c.purpose === 'link') {
           const u = await requireUser(req);
           if (u.id !== c.user_id) throw new HttpError(403, 'This request was made for a different account — please try again.');
-          const { rows: ins } = await q<{ user_id: string; added: boolean }>(
-            'insert into fz_wallets (address, user_id, wallet) values ($1, $2, $3) on conflict (address) do update set wallet = excluded.wallet where fz_wallets.user_id = excluded.user_id returning user_id, (xmax = 0) as added',
-            [c.address, u.id, c.wallet]);
+          // a one-time activation fee applies to wallets that never paid it (when payments are switched on)
+          const { rows: paid } = await q('select 1 from fz_wallet_rewards where address_hash = $1 and fee_paid_at is not null', [addressHash(c.address)]);
+          const needsFee = paymentsEnabled() && walletFeeCents() > 0 && !paid[0];
+          const { rows: ins } = await q<{ user_id: string; added: boolean; active: boolean }>(
+            'insert into fz_wallets (address, user_id, wallet, active) values ($1, $2, $3, $4) on conflict (address) do update set wallet = excluded.wallet where fz_wallets.user_id = excluded.user_id returning user_id, (xmax = 0) as added, active',
+            [c.address, u.id, c.wallet, !needsFee]);
           if (!ins[0]) throw new HttpError(409, 'This wallet is already linked to another Fuzzies account.');
           // tell the account owner by email, so a wallet they didn't add never goes unnoticed (best effort)
           if (ins[0].added && mailReady()) {
             await sendMail(u.email, walletLinkedEmail(u.username, c.address, c.wallet, `${appUrl(req)}/#/profile`)).catch((e) => console.error('wallet email failed', e));
           }
-          return { wallets: await walletsOf(u.id) };
+          // no fee to pay: the welcome gift comes straight away (once per wallet, ever)
+          const gift = ins[0].active ? await giftForWallet(u.id, c.address) : null;
+          return { wallets: await walletsOf(u.id), activate: ins[0].active ? null : { address: c.address, feeCents: walletFeeCents() }, gift };
         }
-        const { rows: owner } = await q<{ id: string; email: string; username: string; token_v: number }>(
-          'select u.id, u.email, u.username, u.token_v from fz_wallets w join fz_users u on u.id = w.user_id where w.address = $1', [c.address]);
+        const { rows: owner } = await q<{ id: string; email: string; username: string; token_v: number; active: boolean }>(
+          'select u.id, u.email, u.username, u.token_v, w.active from fz_wallets w join fz_users u on u.id = w.user_id where w.address = $1', [c.address]);
         if (!owner[0]) throw new HttpError(404, 'This wallet isn’t linked to a Fuzzies account yet. Log in with your email first, then link it in your Profile.');
+        if (!owner[0].active) throw new HttpError(402, 'This wallet isn’t activated yet. Log in with your email, then tap “Activate” next to it in your Profile (one time).');
         await q('update fz_wallets set last_used_at = now() where address = $1', [c.address]);
         return { token: makeToken(owner[0].id, owner[0].token_v), user: publicUser(owner[0]) };
       }

@@ -1,5 +1,6 @@
 /** Rewards shop: everything you can unlock with Fuzzies, plus how to earn them. */
 import type { Screen } from '../app';
+import { packCards } from '../shop';
 import { rewards, TIME_BONUS, minutesToTimeBonus, PLAY_BONUS, minutesToPlayBonus } from '../../core/rewards';
 import { accounts } from '../../core/account';
 import { THEMES, applyTheme } from '../../core/themes';
@@ -51,6 +52,13 @@ export function rewardsScreen(): Screen {
     return h('div', { class: `rw-card ${owned ? 'owned' : ''}` }, preview, owned ? h('span', { class: 'rw-owned-badge', title: 'Yours forever' }, icon('check', 14)) : null, h('div', { class: 'rw-meta' }, h('b', null, it.name), h('small', null, it.kind)), action);
   }
 
+  // "Get Fuzzies" (crypto packs) — only when the site takes payments
+  const shopSlot = h('section', { class: 'sec shop-sec', hidden: true });
+  void packCards().then((cards) => {
+    if (!cards) return;
+    shopSlot.hidden = false;
+    shopSlot.replaceChildren(h('div', { class: 'sec-head' }, h('h2', null, 'Get more Fuzzies'), h('span', { class: 'muted' }, 'Pay with crypto · supports Fuzzies 💖')), cards);
+  });
   function render(): void {
     const daily = rewards.dailyStatus();
     const gs = groups();
@@ -66,6 +74,7 @@ export function rewardsScreen(): Screen {
         h('div', { class: 'rw-actions' },
           btn('Play to earn', { kind: 'primary', icon: 'gamepad', onClick: () => (location.hash = '#/play') }),
           daily.available ? btn(`Claim daily +${daily.amount}`, { kind: 'soft', icon: 'gift', onClick: () => { rewards.claimDaily(); render(); } }) : h('span', { class: 'owned-tag' }, icon('check', 16), `Daily bonus claimed · ${daily.streak}-day streak`))),
+      shopSlot,
       missionsCard(),
       h('section', { class: 'earn-grid' }, ...[
         ['🎮', 'Fuzzy Crossing', '+1 per Fuzzy, +5 golden, +2 per nest, +5 per level'],

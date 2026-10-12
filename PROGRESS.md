@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-13 · by Claude Code · branch `claude/fuzzies-design-app-jwv4tu` is ahead of `main` by **crypto wallet sign-in** (awaiting the owner's OK to go live)_
+_Last updated: 2026-10-13 · by Claude Code · branch `claude/fuzzies-design-app-jwv4tu` is ahead of `main` by **crypto wallets + crypto payments** (awaiting the owner's OK to go live)_
 
 ---
 
@@ -23,7 +23,7 @@ keeps people coming back (the mascot, the game, missions).
 
 | | |
 |---|---|
-| **Current state** | All features below are built, type-check, build cleanly and were browser-tested. **Crypto wallets** (link MetaMask/Coinbase/Trust/Crypto.com/Robinhood/OKX/Phantom/any Ethereum wallet in Profile, log in with it) are on the branch only — ask the owner before merging to `main`. WalletConnect QR + smart wallets are built; the QR option appears once the owner adds `VITE_WALLETCONNECT_PROJECT_ID` (BACKEND.md). |
+| **Current state** | All features below are built, type-check, build cleanly and were browser-tested. **Crypto wallets** (link MetaMask/Coinbase/Trust/Crypto.com/Robinhood/OKX/Phantom/any Ethereum wallet in Profile, log in with it) are on the branch only — ask the owner before merging to `main`. WalletConnect QR + smart wallets are built (owner created the Reown project; `VITE_WALLETCONNECT_PROJECT_ID` must be in Vercel for Production + Preview). **Crypto payments** (Fuzzies packs, $0.50 one-time wallet activation, 100-Fuzzies gift box) are built and switch on when the owner sets `PAY_EVM_ADDRESS` / `PAY_SOL_ADDRESS` (BACKEND.md → Crypto payments). |
 | **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
 | **Branches** | `main` = `1965633` (live); the branch adds crypto wallets on top. Earlier: the owner said to test again and put it live ("Done another test and post and add to GitHub … save everything everyplace") on 2026-10-13. Live now: Christmas, Hanukkah & Passover (60 templates), text effects & curved text, multicultural collections (9 art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search). **Rollback points:** `ae74508` (Halloween, previous live), `28b65cc`. Keep working on the branch and ask before the next merge. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
@@ -112,7 +112,8 @@ src/
     api.ts             cloud on/off (`cloudEnabled`), fetch to /api with the login token, ApiError
     cloud.ts           sign up / log in / claim guest-or-local account / sign out / change password / delete; link / list / unlink wallets, wallet log-in
     wallet.ts          browser wallets: EIP-6963 discovery (+ window.ethereum fallback), phone deep links, connect, personal_sign
-    walletconnect.ts   WalletConnect (lazy SDK): QR on computers/tablets, wallet apps on phones; personal_sign-only session, disconnect after
+    walletconnect.ts   WalletConnect (lazy SDK): QR on computers/tablets, wallet apps on phones; personal_sign-only session (pay mode: eth_sendTransaction + chain switch only), disconnect after
+    pay.ts             crypto payments app side: config/quote/check, sendEvmPayment (switch to Base/Ethereum, exact transfer), pending-payment resume, gifts
     appicon.ts         app icon colours; draws icon PNGs into a cache that public/sw.js serves
     sync.ts            offline queue + pull/push of profile, designs, uploads; status for the Profile "Sync" card
     merge.ts           three-way merge of two account copies (counters add, bests max, lists union)
@@ -177,6 +178,10 @@ src/
     landIcons.ts       Fuzzies Land's own "sticker" icon set (coin, star, hammer, crate, barn, music, gate…)
     libthumbs.ts       lazy template previews (IntersectionObserver, one per frame, waits for fonts, cached)
     templateManager.ts "Manage templates" window (list, publish/unpublish, edit, delete, Draft with AI)
+    paySheet.ts        payment window: choose coin → exact amount + address (+ Solana Pay QR) → wallet → confirming → done
+    shop.ts            Fuzzies packs (Rewards "Get more Fuzzies", Fuzzies Land counter → openShop)
+    giftBox.ts         gift box overlay (double-click/tap → Fuzzy pops out, sounds, +Fuzzies via gift.open); checkGifts()
+    logos.ts           wallet/coin/network logos (web3icons, MIT, generated)
     walletPicker.ts    "Connect a wallet" window: password (when linking), installed wallets, popular wallets (TOP_WALLETS) with official
                        open-in-app links or in-app-browser steps + Copy address, official download pages; safety note
     travel.ts          the circle-wipe transition between Fuzzy Crossing and Fuzzies Land (waits for 'fz:scene-ready')
@@ -190,6 +195,9 @@ api/                   Vercel serverless functions (the backend)
   assets.ts            licensed photo search (Pexels if PEXELS_API_KEY, else Openverse CC0/PD/CC BY) + allowlisted image fetcher
   _lib/db.ts           pg pool from DATABASE_URL + auto-created tables
   _lib/auth.ts         scrypt passwords, HMAC login tokens, JSON/error helpers
+  pay.ts               pay.config/quote/check/history, gift.list/open
+  _lib/pay.ts          prices (Coinbase+Kraken), quotes with unique amounts, on-chain checks (viem ×2 RPCs; Solana Pay ×2 RPCs), fulfil, gifts
+  _lib/credits.ts      applyCredits(): adds server-side Fuzzies to fz_profiles in one statement (sync merges them)
   _lib/wallet.ts       Sign-In with Ethereum: server-written message, signature recovery (@noble/curves + @noble/hashes), EIP-55, Origin check
 ```
 
@@ -205,7 +213,9 @@ IndexedDB database `fuzzies` with stores `designs` and `uploads` (both indexed b
 `data` JSON, `deleted` tombstone, `updated_at`), `fz_login_fails` (10 wrong passwords / 15 min / email),
 `fz_templates` (published/draft templates: searchable metadata + `search` tsvector, `doc` JSON kept apart, `thumb`, `revision`),
 `fz_template_uses` (one row per person per template per day → Trending/Popular), `fz_admins` (template managers set in the database; RLS on),
-`fz_wallets` (lower-case address PK → user, cascade delete), `fz_wallet_nonces` (server-written sign-in messages, single use, 10 min). Every query is
+`fz_wallets` (lower-case address PK → user, cascade delete, `active`), `fz_wallet_nonces` (server-written sign-in messages, single use, 10 min),
+`fz_payments` (quotes/payments, exact base-unit amounts unique among open ones, `tx` unique), `fz_credits` (server-added Fuzzies, applied once),
+`fz_gifts` (gift boxes), `fz_wallet_rewards` (sha256 of address → fee paid / gift given, kept after unlink). Every query is
 scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 ## 6. Rules of the codebase (gotchas)
@@ -305,6 +315,11 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   only — fake wallet downloads are the top crypto scam. `vercel.json` sends security headers (frame-ancestors 'none' etc.). Wallet icons are only
   accepted as `data:image/…` and names are sanitised. Crypto test: compare `recoverSigner` with ethers' `signMessage` and
   parse the message with the `siwe` package (both in a scratch folder — not project dependencies).
+- **Crypto payments:** never trust the browser — `pay.check` re-reads the chain through two providers; amounts are exact base
+  units (bigint strings), unique among open payments (partial unique index), and only reusable after the 1-hour grace. Fuzzies
+  are credited only server-side (`fz_credits` → `applyCredits`, also run on `profile.get`/`gift.list`); `fulfil()` is idempotent.
+  Test-only overrides (`PAY_TEST_USDC_*`, `PRICE_TEST_*`) are ignored when NODE_ENV=production. Test rig: hardhat node with
+  chainId 8453 + MockUSDC, a Solana RPC stand-in (`solmock.cjs`), `pay-test.mjs` (48 checks) and `pay-browser.cjs` (scratchpad).
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
 - **Scrolling (computers):** inside the app shell the `.main` panel scrolls, not the window (≥961 px); phones/tablets still scroll the window.
@@ -366,12 +381,19 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 | _(wallets 3)_ | **QR codes on every device + smart wallets** (owner: "QR code scans … phones and computer and tablets, as do smart wallets … professional … safe"). **WalletConnect** (official Reown SDK, lazy-loaded): computers show "Scan QR code with your phone", tablets "Scan QR code or use a wallet app", phones "Use a wallet app" (Robinhood, Crypto.com, Rainbow, Ledger… 500+); popular-wallet rows offer it too; brand-coloured window with swaps/buy/send/email/social/analytics off; session limited to `personal_sign` (verified), fresh each time, disconnected after; window can't be closed by accident while waiting; licence notice in Settings + `/licenses/walletconnect.md`. **Smart wallets** (Coinbase Smart Wallet, Safe, Argent…): ERC-1271 + ERC-6492 checked on Ethereum/Base/Optimism/Arbitrum/Polygon with viem, two independent providers must agree and be on the right network, unreachable = refused. Dependencies pinned to versions ≥ 3 weeks old (supply-chain safety), `npm audit` clean. Tested: local blockchains with a sample smart wallet (deployed + not deployed, thief, wrong factory, edited message, providers disagreeing, provider down, unsupported network, junk/oversized signatures: 22 checks), earlier 48 API + 1,040 signature checks re-run, namespace check (only `personal_sign`), browser: smart wallet link + log-in, QR window opens and closes cleanly on computer, tablet and phone layouts, Vercel build + built function. Live QR scanning needs the Project ID (container can't reach WalletConnect). Branch only. |
 
+| _(payments)_ | **Crypto payments + gift box + wallet logos** (owner: logos for each wallet, $0.50 fee — chose *once per wallet* —, buy Fuzzies with SOL/ETH/ETH on Base/other safe coins, 100 Fuzzies gift box on wallet log-in, professional, no errors). **Buy Fuzzies** with ETH or USDC on Base/Ethereum, SOL or USDC on Solana (packs 100/$0.99 · 550/$4.99 · 1,200/$9.99 · 3,000/$19.99) from Rewards → *Get more Fuzzies* and the Fuzzies counter in Fuzzies Land. **Wallet activation** $0.50 once per wallet (after linking), then a **gift box** pops up: double-click/tap → lid flies off, the Fuzzy pops out with sparkles, giggle and coins, +100 Fuzzies (once per wallet, ever). Payment window: coin choice with fees, exact amount + address + countdown, wallet payment (installed or WalletConnect pay session limited to sending + network switch), Solana Pay QR / open-in-wallet, live confirmation, explorer link; sent payments resume if the app closes. Server: dual price sources, unique amounts, two-provider on-chain checks, one tx = one payment, idempotent crediting into the synced profile, rate limits. **Real logos** (web3icons, MIT) for wallets, coins and networks. Fixed: Rewards page overflowing on phones (old bug). Tested: 48 payment attack checks (ETH/USDC on a local Base chain, SOL/USDC via a Solana stand-in: wrong amount/recipient/token, reverted, replayed/hijacked tx, other users, expiry, providers disagreeing, fee+gift once per wallet, limits), earlier suites (48 API, 1,040 signature, 16 smart-wallet, 6 provider), browser: link → activate → gift → buy with ETH → buy with SOL → wallet log-in (balances verified), phone shop/pay/gift, Fuzzies Land shop, full smoke test computer+phone: no errors. Not tried with real money (no internet here). Branch only. |
+
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
 ## 8. Known limitations / not verified
 
+- **Crypto payments:** tested on local test chains and a Solana stand-in only — do one small real purchase on each network after
+  setting the addresses. Price sources (Coinbase, Kraken) and public providers couldn't be reached from the container. Refunds are
+  manual. Purchased Fuzzies count towards the "Earn N Fuzzies" badges. Sent-but-unconfirmed payments are remembered per device
+  (another device won't know the transaction id; Solana payments don't need it). Fuzzies balances are still written by the app,
+  so a technical user could edit their own balance (server-side balance checks would fix it).
 - **Crypto wallets:** tested with a simulated wallet only (no real MetaMask/Trust/Coinbase in the container) — try it on the
   live site with a real wallet on a computer and a phone. Smart-contract wallets (Coinbase Smart Wallet, Safe) aren't
   QR/WalletConnect could not be tried end-to-end here (no internet to WalletConnect's servers) — test with a real phone

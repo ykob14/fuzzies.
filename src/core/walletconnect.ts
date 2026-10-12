@@ -4,7 +4,8 @@
  * Safe and 500+ more). Uses the official WalletConnect / Reown SDK, loaded only when someone taps it.
  *
  * Safety:
- * - The session may ONLY use `personal_sign` (no transactions, approvals or network switches can even be asked for).
+ * - A sign-in session may ONLY use `personal_sign` (no transactions, approvals or network switches can even be asked for).
+ *   A payment session (only when someone buys) may only send a payment and pick Base/Ethereum — never approvals.
  * - A fresh session every time; it is disconnected as soon as the sign-in is done (or fails), so nothing stays connected.
  * - The wallet sees Fuzzies' real address (WalletConnect Verify checks it against the domains listed for the project).
  * - Swaps, buying, sending, email/social log-ins and analytics in the WalletConnect window are switched off.
@@ -20,6 +21,8 @@ export const walletConnectReady = /^[0-9a-f]{32}$/i.test(PROJECT_ID);
 /** Networks offered to the wallet (smart wallets are checked on these by the server). */
 const CHAINS = [1, 8453, 10, 42161, 137];
 const ONLY_SIGN = ['personal_sign'];
+/** Paying (only when someone buys or activates a wallet): send one payment, on Base or Ethereum. Nothing else. */
+const PAY_METHODS = ['eth_sendTransaction', 'wallet_switchEthereumChain', 'wallet_addEthereumChain'];
 
 interface WcProvider extends Eip1193 {
   connect(): Promise<void>;
@@ -35,8 +38,11 @@ interface WcProvider extends Eip1193 {
 
 export interface RemoteWallet extends WalletChoice { done(): Promise<void> }
 
-/** Show the WalletConnect window and wait until a wallet connects. Call `done()` afterwards (always). */
-export async function connectRemote(): Promise<RemoteWallet> {
+/**
+ * Show the WalletConnect window and wait until a wallet connects. Call `done()` afterwards (always).
+ * `mode: 'pay'` asks for a payment session on `chainId` (Base or Ethereum); the default only allows signing.
+ */
+export async function connectRemote(mode: 'sign' | 'pay' = 'sign', chainId = 8453): Promise<RemoteWallet> {
   if (!walletConnectReady) throw new Error('Scanning with a phone wallet isn’t switched on for this site yet.');
   let mod: typeof import('@walletconnect/ethereum-provider');
   try { mod = await import('@walletconnect/ethereum-provider'); }
@@ -44,9 +50,9 @@ export async function connectRemote(): Promise<RemoteWallet> {
   const css = getComputedStyle(document.documentElement);
   const provider = (await mod.EthereumProvider.init({
     projectId: PROJECT_ID,
-    optionalChains: CHAINS as [number, ...number[]],
-    methods: ONLY_SIGN,
-    optionalMethods: ONLY_SIGN,
+    optionalChains: (mode === 'pay' ? [chainId, ...[8453, 1].filter((c) => c !== chainId)] : CHAINS) as [number, ...number[]],
+    methods: mode === 'pay' ? PAY_METHODS : ONLY_SIGN,
+    optionalMethods: mode === 'pay' ? PAY_METHODS : ONLY_SIGN,
     events: ['accountsChanged', 'chainChanged'],
     optionalEvents: ['accountsChanged', 'chainChanged', 'disconnect'],
     showQrModal: true,
