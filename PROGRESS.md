@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-13 · by Claude Code · branch `claude/fuzzies-design-app-jwv4tu` is ahead of `main` by **crypto wallets + crypto payments** (awaiting the owner's OK to go live)_
+_Last updated: 2026-10-13 · by Claude Code · branch `claude/fuzzies-design-app-jwv4tu` is ahead of `main` by **crypto wallets + crypto payments + Fuzzies Land Phase 1 controls** (awaiting the owner's OK to go live)_
 
 ---
 
@@ -24,7 +24,7 @@ keeps people coming back (the mascot, the game, missions).
 | | |
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested. **Crypto wallets** (link MetaMask/Coinbase/Trust/Crypto.com/Robinhood/OKX/Phantom/any Ethereum wallet in Profile, log in with it) are on the branch only — ask the owner before merging to `main`. WalletConnect QR + smart wallets are built (owner created the Reown project; `VITE_WALLETCONNECT_PROJECT_ID` must be in Vercel for Production + Preview). **Crypto payments** (Fuzzies packs, $0.50 one-time wallet activation, 100-Fuzzies gift box) are built and switch on when the owner sets `PAY_EVM_ADDRESS` / `PAY_SOL_ADDRESS` (BACKEND.md → Crypto payments). |
-| **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
+| **In progress** | **Fuzzies Land upgrade (owner's 4-phase spec): Phase 1 (essential controls) is done and tested; Phase 2 is next** — the owner asked to verify each phase before starting the next, so check in with them first. Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
 | **Branches** | `main` = `1965633` (live); the branch adds crypto wallets on top. Earlier: the owner said to test again and put it live ("Done another test and post and add to GitHub … save everything everyplace") on 2026-10-13. Live now: Christmas, Hanukkah & Passover (60 templates), text effects & curved text, multicultural collections (9 art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search). **Rollback points:** `ae74508` (Halloween, previous live), `28b65cc`. Keep working on the branch and ask before the next merge. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
@@ -263,8 +263,15 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   `route()` is Dijkstra preferring walkways (`blocked` 1 = solid, 2 = walkway); doors are `doorleaf` groups swung via
   `userData.doorOpen`; chimneys via `userData.chimney`. Land UI prefs (toolbar/side tucked) live in `localStorage` `fz.land.ui`;
   the app sidebar fold in `fz.sidebar`.
-  **Move Mode:** tap a building → "Move or turn", or press and hold it (450 ms, `startHold` in `ui/screens/land.ts`) — both use
-  `startPlacing(item, id)`; `view.setGhost({…, moving})` hides the original; `L.move()` is free.
+  **Move Mode:** tap a building → the floating quick menu (`.land-quick`, Move / Turn, follows `view.screenOf(id)`) or the panel's
+  "Move or turn"; on **touch only** press and hold it (450 ms, `startHold` in `ui/screens/land.ts`) — with a mouse a drag always pans.
+  All use `startPlacing(item, id)`, which shows the ghost at once (`updateGhost()`); `view.setGhost({…, moving})` hides the original;
+  `L.move()` is free. Grabbing the ghost = its ground square, its visible model (`view.hitGhost`), or on touch just below it; mouse
+  drags keep the grab offset (`drag.off`), touch lifts the building `FINGER_LIFT` px above the finger. `ghostTo()` clamps to the map;
+  `edgeScroll()` pans while carrying near the edge. **Controls (Phase 1):** keys — WASD/arrows pan (`view.setKeyPan`), +/− zoom,
+  R turns (placing or the selected building, `turnInPlace`), Enter confirms, Escape cancels hold → placing → panel; handlers are
+  removed in `destroy`. Mouse hover outlines buildings (`view.hover`) and shows a pointer. `view.nudge()` pans without glide
+  (pinch midpoint, edge scroll), `view.stopGlide()` stops inertia. Phase 1 test: `land-p1.cjs` in the scratchpad pattern (26 checks).
 - **Template library:** new categories/topics = edit `content/library/taxonomy.json` only (each topic gets 4–5 templates built
   from different archetypes/formats/palettes; `generate: false` = menu only). New layouts = an `Archetype` in `layouts.ts`
   (`kinds` it suits, `also` topic ids, `fits(ev)` to refuse texts it can't show). Library template ids are `${topic}--${arch}`
@@ -389,6 +396,8 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 | _(payments 3)_ | **Owner's wallets + more networks + celebrations** (owner gave addresses: EVM `0x3418…0278` for Ethereum/Base/BNB/Robinhood Chain, Solana `HyogAU…K2nA`, Bitcoin `bc1q7k…6tgr`; all verified by checksum/curve before use; built in as defaults, env overrides). New networks: **BNB Chain** (USDT/USDC, 18 decimals, finalized blocks), **Robinhood Chain** (ETH, chain 4663, `safe` blocks), **Bitcoin** (exact-sats matching via two Esplora explorers, BIP21 QR/link). **Gift**: lid flies off → the box vanishes → the Fuzzy takes its place; Yay sends the 100 Fuzzies flying into the counter. **Purchases**: Fuzzies burst all over the screen, wiggle, hop into the counter one by one (`ui/celebrate.ts`), then a "Here's what you can do with them" card (Fuzzies Land / Rewards). **Fuzzies are useful in Fuzzies Land**: new *Fuzzies* tab in Build — coin chests (20→600, 60→2,000, 150→5,500 coins), Fuzzies-only decor, Get more; "Finish now" offers the shop when short. Tested: 17 new-network checks (BNB USDT by amount, wrong amount, Robinhood ETH, BTC mempool→confirming→paid only when both explorers agree, reuse), 57 payment checks, animation snapshots. Branch only. |
 
+| _(land phase 1)_ | **Fuzzies Land — Phase 1: essential controls** (owner's spec: audit first, no rewrite, phases in order). Audit: camera, zoom and Move Mode existed; gaps were press-and-hold firing during slow mouse drags, the carried building only appearing after the first drag, no keyboard, no quick actions, no hover feedback, carried buildings jumping under the cursor, no way to carry past the screen edge. Added: mouse drag always pans (hold-to-move is touch only), wheel zoom handles line/page scrolling, WASD/arrow keys pan, +/− zoom, R turns, Enter confirms, Escape cancels; hover outline + pointer; selection outline + **quick menu** (Move / Turn) next to the building; **Turn in place** (refused with the reason when it doesn't fit); the carried building shows at once, is see-through and floats, green/red marker + grid + reason, keeps the grab point (mouse) or floats above the finger (touch), can be grabbed by its model, stays on the map, and the view scrolls when you carry it to the edge; pinch zooms around the fingers' midpoint and pans with them; no text selection / long-press menu / browser zoom over the map; 46 px touch buttons. Tested (26 checks, `land-p1.cjs`): computer — drag pans, wheel zoom, keys, hover, click select + quick menu, R turn, Move → Escape restores, drag to a free spot + Enter, red over Town Hall + Enter refused, off-map clamp, edge scroll, saved across reload; phone (real touch events) — one-finger pan, no accidental select, pinch zoom, press-and-hold pick-up, cancel, tap → quick menu, ≥44 px buttons; full smoke test computer + phone: no errors. Branch only. |
+
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
@@ -455,6 +464,8 @@ and chose a single consistent brand colour instead (see §3).
   quality switch (lower shadows/MSAA/foliage on slow phones) before launch.
 - Fuzzies Land decorations (bench, lamp post, fountain, statue, rainbow arch), crops and the construction site still use the
   older, simpler style. No first-time tutorial. Prices/timers untuned. No day/night cycle yet.
+- **Fuzzies Land Phase 1 controls** were tested with emulated mouse/touch in software WebGL (~1 fps), not on a real phone or
+  trackpad; trackpad pinch (ctrl+wheel) zooms like the wheel. Phases 2–4 of the owner's spec are not started.
 - Residents don't avoid each other (they can pass through one another) and the Popcorn Stand has no door to visit.
 - Adaptive quality was only exercised in code review; it has not been seen stepping down on a real slow phone.
 - The top-scores list on the game-over card was not seen end-to-end in a browser (logic is simple; unit-checked by reading).
@@ -463,7 +474,10 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Crypto wallets are on the branch** (browser wallets, top-wallet guidance, WalletConnect QR, smart wallets) — owner adds
+0. **Fuzzies Land upgrade, Phase 2** (owner's spec, after they check Phase 1): ask the owner to re-share the spec if it isn't in the
+   conversation (sections: camera, selection/movement, placement engine, Town Edit Mode, roads, interaction model, mobile, desktop,
+   UI, animation, performance, save/restore, QA). Don't start Phase 3/4 before Phase 2 is verified.
+   **Crypto wallets are on the branch** (browser wallets, top-wallet guidance, WalletConnect QR, smart wallets) — owner adds
    `VITE_WALLETCONNECT_PROJECT_ID`, tests with a real wallet, then ask to merge to `main`. Possible next: sign up with a wallet only.
    **Christmas/Hanukkah/Passover, text effects and the multicultural collections are live** — collect the owner's feedback. Then: native-speaker review of greetings; more templates per topic (the system makes it data);
    frames/tables/rich-text runs in the editor (Workstream A); seasonal ordering of the collections row.

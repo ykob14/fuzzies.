@@ -608,6 +608,24 @@ export class LandView {
     this.clampTarget(false);
   }
 
+  /** Move the view without any glide afterwards (two-finger drag, edge scrolling, keyboard). */
+  nudge(dx: number, dy: number): void {
+    this.fly = null;
+    const k = this.unitsPerPx();
+    const right = new THREE.Vector3(Math.cos(YAW), 0, -Math.sin(YAW));
+    const fwd = new THREE.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
+    this.target.addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k / Math.sin(PITCH));
+    this.vel.set(0, 0);
+    this.clampTarget(false);
+  }
+
+  /** Keyboard movement: a direction in screen terms (x right, y down), applied smoothly every frame until set to 0. */
+  private keyDir = new THREE.Vector2();
+  setKeyPan(x: number, y: number): void { this.keyDir.set(x, y); if (x || y) this.fly = null; }
+
+  /** Stop any glide (e.g. when a gesture turns into something else). */
+  stopGlide(): void { this.vel.set(0, 0); }
+
   /** The finger/mouse let go: glide on a little if it was moving. */
   release(): void {
     if (performance.now() - this.lastPan > 90) this.vel.set(0, 0);
@@ -702,13 +720,27 @@ export class LandView {
     if (this.hiddenNode && this.hiddenNode !== hide) this.hiddenNode.visible = true;
     if (hide) hide.visible = false;
     this.hiddenNode = hide;
-    if (!g) { if (this.ghost) { this.ghost.node.removeFromParent(); this.ghost.pad.removeFromParent(); this.ghost = null; } return; }
+    if (!g) {
+      if (this.ghost) {
+        this.ghost.node.removeFromParent(); this.ghost.pad.removeFromParent();
+        this.ghost.node.traverse((o) => { const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => x.dispose()); });
+        this.ghost = null;
+      }
+      return;
+    }
     const key = `${g.item}:${g.rot}:${g.moving ?? ''}`;
     if (!this.ghost || this.ghost.key !== key) {
       if (this.ghost) { this.ghost.node.removeFromParent(); this.ghost.pad.removeFromParent(); this.ghost = null; }
       // the one you're carrying looks exactly like the real thing (same colours)
       const node = LM.modelFor(g.item, g.moving ?? 1);
       node.rotation.y = -(g.rot & 3) * Math.PI / 2;
+      // a see-through preview (its own copies of the materials, so the real buildings stay solid)
+      node.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+        if (!m) return;
+        const see = (x: THREE.Material) => { const c = x.clone(); c.transparent = true; c.opacity = Math.min(c.opacity, 0.78); c.depthWrite = true; return c; };
+        (o as THREE.Mesh).material = Array.isArray(m) ? m.map(see) : see(m);
+      });
       // the green/red marker is drawn on top of everything, so it shows even over another building
       const pad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.42, depthWrite: false, depthTest: false }));
       pad.renderOrder = 10;
@@ -716,26 +748,59 @@ export class LandView {
       this.ghost = { node, pad, key };
     }
     const f = footprint(item(g.item), g.rot);
-    this.ghost.node.position.set(g.x + f.w / 2, 0.12, g.z + f.d / 2);
+    this.ghost.node.position.set(g.x + f.w / 2, 0.16, g.z + f.d / 2);
     this.ghost.pad.scale.set(f.w + 0.1, 1, f.d + 0.1);
     this.ghost.pad.position.set(g.x + f.w / 2, 0.03, g.z + f.d / 2);
     (this.ghost.pad.material as THREE.MeshBasicMaterial).color.set(g.ok ? 0x40c057 : 0xfa5252);
   }
 
+  /** Is this screen point on the building being carried (its visible model, not only its ground square)? */
+  hitGhost(cx: number, cy: number): boolean {
+    if (!this.ghost) return false;
+    this.ray.setFromCamera(this.ndc(cx, cy), this.camera);
+    return this.ray.intersectObject(this.ghost.node, true).length > 0;
+  }
+
+  /** A soft rounded outline around a footprint (selection and hover). */
+  private outline(w: number, d: number): THREE.ShapeGeometry {
+    const rr = (sh: THREE.Path, w: number, d: number, r: number) => { sh.moveTo(-w / 2 + r, -d / 2); sh.lineTo(w / 2 - r, -d / 2); sh.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r); sh.lineTo(w / 2, d / 2 - r); sh.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2); sh.lineTo(-w / 2 + r, d / 2); sh.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r); sh.lineTo(-w / 2, -d / 2 + r); sh.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2); return sh; };
+    const outer = rr(new THREE.Shape(), w + 0.24, d + 0.24, 0.26) as THREE.Shape;
+    outer.holes.push(rr(new THREE.Path(), w + 0.08, d + 0.08, 0.2));
+    return new THREE.ShapeGeometry(outer, 6).rotateX(Math.PI / 2);
+  }
+
   select(id: number | null): void {
     const b = id === null ? undefined : this.built.get(id);
     this.selected.visible = !!b;
+    this.selectedId = b ? id : null;
     if (!b) return;
+    if (this.hoverId === id) this.hover(null);
     const f = footprint(item(b.placed.item), b.placed.rot);
-    // a soft rounded outline around the footprint
-    const rr = (sh: THREE.Path, w: number, d: number, r: number) => { sh.moveTo(-w / 2 + r, -d / 2); sh.lineTo(w / 2 - r, -d / 2); sh.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r); sh.lineTo(w / 2, d / 2 - r); sh.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2); sh.lineTo(-w / 2 + r, d / 2); sh.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r); sh.lineTo(-w / 2, -d / 2 + r); sh.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2); return sh; };
-    const outer = rr(new THREE.Shape(), f.w + 0.24, f.d + 0.24, 0.26) as THREE.Shape;
-    outer.holes.push(rr(new THREE.Path(), f.w + 0.08, f.d + 0.08, 0.2));
     this.selected.geometry.dispose();
-    this.selected.geometry = new THREE.ShapeGeometry(outer, 6).rotateX(Math.PI / 2);
+    this.selected.geometry = this.outline(f.w, f.d);
     this.selected.scale.set(1, 1, 1);
     this.selected.position.set(b.placed.x + f.w / 2, 0.09, b.placed.z + f.d / 2);
     b.node.userData.boing = 0;
+  }
+  selectedId: number | null = null;
+
+  /** Mouse hover (computers): a fainter outline under what the pointer is over. */
+  private hoverMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | null = null;
+  private hoverId: number | null = null;
+  hover(id: number | null): void {
+    if (id === this.hoverId) return;
+    this.hoverId = id;
+    const b = id === null || id === this.selectedId ? undefined : this.built.get(id);
+    if (!this.hoverMesh) {
+      this.hoverMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }));
+      this.scene.add(this.hoverMesh);
+    }
+    this.hoverMesh.visible = !!b;
+    if (!b) return;
+    const f = footprint(item(b.placed.item), b.placed.rot);
+    this.hoverMesh.geometry.dispose();
+    this.hoverMesh.geometry = this.outline(f.w, f.d);
+    this.hoverMesh.position.set(b.placed.x + f.w / 2, 0.085, b.placed.z + f.d / 2);
   }
 
   /** Screen position of a building's top (for panels and pop-ups). */
@@ -866,6 +931,11 @@ export class LandView {
       // keep the point under the cursor in place while zooming
       if (this.zoomAnchor && d0 > 0) this.target.lerp(this.zoomAnchor, 1 - this.dist / d0);
       if (Math.abs(this.zoomGoal - this.dist) < 0.01) this.zoomAnchor = null;
+      if (this.keyDir.lengthSq() > 0) {
+        // about 0.9 screen-heights per second, whatever the zoom
+        const px = (this.canvas.clientHeight || 600) * 0.9 * dt;
+        this.nudge(-this.keyDir.x * px, -this.keyDir.y * px);
+      }
       if (performance.now() - this.lastPan > 40 && this.vel.lengthSq() > 1e-4) {
         this.target.x += this.vel.x * dt; this.target.z += this.vel.y * dt;
         this.vel.multiplyScalar(Math.pow(0.04, dt));
@@ -960,7 +1030,7 @@ export class LandView {
       } else if (b.bubble) { b.bubble.remove(); b.bubble = undefined; }
     }
     this.selected.material.opacity = 0.7 + Math.sin(T * 4) * 0.25;
-    if (this.ghost) this.ghost.node.position.y = 0.12 + Math.sin(T * 5) * 0.05;
+    if (this.ghost) this.ghost.node.position.y = 0.16 + Math.sin(T * 5) * 0.035; // the carried building floats a little
     for (const r of this.residents) this.live(r, dt, T);
     for (const f of this.butterflies) {
       const t = T * f.sp + f.ph;

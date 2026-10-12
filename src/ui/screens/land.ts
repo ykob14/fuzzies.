@@ -238,6 +238,7 @@ export function landScreen(): Screen {
     panel = p;
     view?.select(p?.kind === 'building' ? p.id : null);
     renderPanel();
+    showQuick();
   }
 
   function renderPanel(): void {
@@ -497,6 +498,41 @@ export function landScreen(): Screen {
     } else travel('#/play', 'Hopping to Fuzzy Crossing…');
   }
 
+  // ---------- quick actions next to the selected building (Move / Turn) ----------
+  const quick = h('div', { class: 'land-quick', hidden: true });
+  let quickRaf = 0;
+  const canTurn = (itemId: string) => !L.walkway(itemId) && itemId !== 'field';
+  function showQuick(): void {
+    cancelAnimationFrame(quickRaf);
+    const id = panel?.kind === 'building' ? panel.id : null;
+    const b = id === null ? undefined : s.buildings.find((o) => o.id === id);
+    if (!b || placing) { quick.hidden = true; return; }
+    quick.replaceChildren(
+      btn('Move', { kind: 'soft', size: 'sm', icon: 'hand', title: 'Move (or press and hold it)', onClick: () => startPlacing(b.item, b.id) }),
+      ...(canTurn(b.item) ? [btn('Turn', { kind: 'soft', size: 'sm', icon: 'rotate', title: 'Turn (R)', onClick: () => turnInPlace(b.id) })] : []));
+    quick.hidden = false;
+    const follow = () => {
+      const p = view?.screenOf(b.id);
+      if (!p || quick.hidden) return;
+      quick.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, calc(-100% - 14px))`;
+      quickRaf = requestAnimationFrame(follow);
+    };
+    follow();
+  }
+  /** Turn a building where it stands (if it fits that way round), saved straight away. */
+  function turnInPlace(id: number): void {
+    const b = s.buildings.find((o) => o.id === id);
+    if (!b || !canTurn(b.item)) return;
+    const rot = ((b.rot + 1) % 4) as L.Rot;
+    const why = L.placeProblem(s, b.item, b.x, b.z, rot, b.id);
+    if (why) { toast(`${why} — use Move to find it a new spot`, 'info'); return; }
+    L.move(s, b.id, b.x, b.z, rot);
+    sfx.hop();
+    save();
+    view?.select(b.id);
+    showQuick();
+  }
+
   // ---------- placing & moving ----------
   function startPlacing(itemId: string, moving?: number): void {
     const existing = moving !== undefined ? s.buildings.find((b) => b.id === moving) : undefined;
@@ -513,14 +549,23 @@ export function landScreen(): Screen {
       }
     }
     placing = { item: itemId, x, z, rot: existing?.rot ?? 0, moving };
+    quick.hidden = true;
     const it = L.item(itemId);
     placeHint = h('small', null, hintFor(itemId, moving));
     placeBar.hidden = false;
     placeBar.replaceChildren(...[
       h('div', { class: 'land-place-info' }, h('b', null, it.name), placeHint),
-      !L.walkway(itemId) && itemId !== 'field' ? btn(null, { icon: 'rotate', kind: 'soft', title: 'Turn it', onClick: () => { placing!.rot = ((placing!.rot + 1) % 4) as L.Rot; sfx.hop(); updateGhost(); } }) : null,
-      btn(null, { icon: 'close', kind: 'soft', title: 'Cancel', onClick: cancelPlacing }),
-      btn(moving !== undefined ? 'Put here' : 'Build here', { kind: 'primary', icon: 'check', onClick: confirmPlacing })].filter((x) => x !== null) as HTMLElement[]);
+      canTurn(itemId) ? btn(null, { icon: 'rotate', kind: 'soft', title: 'Turn it (R)', onClick: rotatePlacing }) : null,
+      btn(null, { icon: 'close', kind: 'soft', title: 'Cancel (Esc)', onClick: cancelPlacing }),
+      btn(moving !== undefined ? 'Put here' : 'Build here', { kind: 'primary', icon: 'check', title: 'Enter', onClick: confirmPlacing })].filter((x) => x !== null) as HTMLElement[]);
+    updateGhost(); // show what you're carrying straight away (green or red)
+  }
+
+  function rotatePlacing(): void {
+    if (!placing || !canTurn(placing.item)) return;
+    placing.rot = ((placing.rot + 1) % 4) as L.Rot;
+    sfx.hop();
+    updateGhost();
   }
 
   let placeHint: HTMLElement | null = null;
@@ -551,7 +596,8 @@ export function landScreen(): Screen {
   function cancelPlacing(): void {
     placing = null;
     placeBar.hidden = true;
-    view?.setGhost(null);
+    view?.setGhost(null); // the original (if moving) shows again exactly where it was
+    showQuick();
   }
 
   function confirmPlacing(): void {
@@ -585,22 +631,70 @@ export function landScreen(): Screen {
 
   // ---------- pointer: pan, pinch, tap, drag the ghost ----------
   const pts = new Map<number, { x: number; y: number }>();
-  let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean; picked?: boolean } | null = null;
+  let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean; picked?: boolean; touch: boolean; off?: { x: number; z: number } } | null = null;
   let pinch = 0;
+  let pinchMid: { x: number; y: number } | null = null;
+  let lastPtr: { x: number; y: number } | null = null;
+  const FINGER_LIFT = 64; // on touch screens the carried building sits above the finger, not under it
+
+  /** Move the carried building to the grid square under the pointer (kept on the map). */
+  function ghostTo(cx: number, cy: number, touch: boolean): void {
+    if (!placing || !view) return;
+    const g = view.ground(cx, cy - (touch ? FINGER_LIFT : 0));
+    if (!g) return;
+    const f = L.footprint(L.item(placing.item), placing.rot);
+    // with a mouse the building keeps the spot where you grabbed it (no jump); on touch it floats above the finger
+    const off = drag?.off ?? { x: 0, z: 0 };
+    const nx = Math.max(0, Math.min(L.MAP - f.w, Math.round(g.x + off.x - f.w / 2)));
+    const nz = Math.max(0, Math.min(L.MAP - f.d, Math.round(g.y + off.z - f.d / 2)));
+    if (nx === placing.x && nz === placing.z) return;
+    // roads and paths: drawing a line lays every tile you pass over (the first one too)
+    if (L.walkway(placing.item) && placing.moving === undefined && drag) { if (!drag.painted) { paintTile(placing.x, placing.z); drag.painted = true; } paintTile(nx, nz); }
+    placing.x = nx; placing.z = nz; updateGhost();
+  }
+
+  /** While carrying something near the screen edge, the view scrolls along (big moves without letting go). */
+  let edgeRaf = 0;
+  function edgeScroll(): void {
+    cancelAnimationFrame(edgeRaf);
+    const tick = () => {
+      if (!drag?.ghost || !placing || !lastPtr || !view) return;
+      const r = wrap.getBoundingClientRect(), m = Math.min(64, r.width * 0.12);
+      const vx = lastPtr.x < r.left + m ? -(1 - (lastPtr.x - r.left) / m) : lastPtr.x > r.right - m ? 1 - (r.right - lastPtr.x) / m : 0;
+      const vy = lastPtr.y < r.top + m ? -(1 - (lastPtr.y - r.top) / m) : lastPtr.y > r.bottom - m ? 1 - (r.bottom - lastPtr.y) / m : 0;
+      if (vx || vy) { view.nudge(-vx * 9, -vy * 9); ghostTo(lastPtr.x, lastPtr.y, drag.touch); }
+      edgeRaf = requestAnimationFrame(tick);
+    };
+    edgeRaf = requestAnimationFrame(tick);
+  }
   const lastTap = { t: 0, x: 0, y: 0 };
   function onDown(e: PointerEvent): void {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 2) { const [p1, p2] = [...pts.values()]; pinch = Math.hypot(p1.x - p2.x, p1.y - p2.y); drag = null; return; }
+    if (pts.size === 2) {
+      const [p1, p2] = [...pts.values()];
+      pinch = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      pinchMid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      drag = null; cancelHold(); view?.stopGlide();
+      return;
+    }
     let onGhost = false;
     if (placing && view) {
-      const g = view.ground(e.clientX, e.clientY);
       const f = L.footprint(L.item(placing.item), placing.rot);
-      onGhost = !!g && g.x >= placing.x - 0.3 && g.x <= placing.x + f.w + 0.3 && g.y >= placing.z - 0.3 && g.y <= placing.z + f.d + 0.3;
+      // touch: the building floats above the finger, so a press just below it grabs it too
+      const near = (gy: number) => { const g = view!.ground(e.clientX, gy); return !!g && g.x >= placing!.x - 0.3 && g.x <= placing!.x + f.w + 0.3 && g.y >= placing!.z - 0.3 && g.y <= placing!.z + f.d + 0.3; };
+      onGhost = near(e.clientY) || view.hitGhost(e.clientX, e.clientY) || (e.pointerType !== 'mouse' && near(e.clientY - FINGER_LIFT));
     }
-    drag = { moved: false, sx: e.clientX, sy: e.clientY, ghost: onGhost };
-    // press and hold something you've built to pick it up and move it (Move Mode)
-    if (!placing && view && pts.size === 1) {
+    drag = { moved: false, sx: e.clientX, sy: e.clientY, ghost: onGhost, touch: e.pointerType !== 'mouse' };
+    if (onGhost && placing && view && e.pointerType === 'mouse') {
+      const g = view.ground(e.clientX, e.clientY), f = L.footprint(L.item(placing.item), placing.rot);
+      if (g) drag.off = { x: placing.x + f.w / 2 - g.x, z: placing.z + f.d / 2 - g.y };
+    }
+    lastPtr = { x: e.clientX, y: e.clientY };
+    if (onGhost) edgeScroll();
+    // touch screens: press and hold something you've built to pick it up and move it (Move Mode).
+    // With a mouse, dragging always moves the map — moving a building is the Move button (no accidental moves).
+    if (!placing && view && pts.size === 1 && e.pointerType !== 'mouse') {
       const p = view.pick(e.clientX, e.clientY);
       if (p?.kind === 'building') startHold(p.id, e.clientX, e.clientY);
     }
@@ -631,46 +725,51 @@ export function landScreen(): Screen {
     hold.ring.remove();
     hold = null;
   }
+  let hoverAt = 0;
   function onMove(e: PointerEvent): void {
     const prev = pts.get(e.pointerId);
-    if (!prev || !view) return;
+    if (!view) return;
+    if (!prev) {
+      // computers: show what's under the mouse (a soft outline + pointer cursor)
+      if (e.pointerType === 'mouse' && !placing && performance.now() - hoverAt > 60) {
+        hoverAt = performance.now();
+        const p = view.pick(e.clientX, e.clientY);
+        view.hover(p?.kind === 'building' ? p.id : null);
+        wrap.style.cursor = p && p.kind !== 'ground' ? 'pointer' : '';
+      }
+      return;
+    }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 2) {
+      // two fingers: pinch to zoom and move together to pan, at the same time
       const [p1, p2] = [...pts.values()];
       const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-      if (pinch) view.zoom(pinch / d, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
-      pinch = d;
+      const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      if (pinchMid) view.nudge(mid.x - pinchMid.x, mid.y - pinchMid.y);
+      if (pinch && d > 0) view.zoom(pinch / d, mid.x, mid.y);
+      pinch = d; pinchMid = mid;
       return;
     }
     if (!drag) return;
-    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 7) { drag.moved = true; cancelHold(); }
+    lastPtr = { x: e.clientX, y: e.clientY };
+    // a small wobble isn't a drag (fingers move a little when tapping)
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > (drag.touch ? 10 : 6)) { drag.moved = true; cancelHold(); if (!drag.ghost) wrap.classList.add('panning'); }
     if (!drag.moved) return;
-    if (drag.ghost && placing) {
-      const g = view.ground(e.clientX, e.clientY);
-      const f = L.footprint(L.item(placing.item), placing.rot);
-      if (g) {
-        const nx = Math.round(g.x - f.w / 2), nz = Math.round(g.y - f.d / 2);
-        if (nx !== placing.x || nz !== placing.z) {
-          // roads and paths: drawing a line lays every tile you pass over (the first one too)
-          if (L.walkway(placing.item) && placing.moving === undefined) { if (!drag.painted) { paintTile(placing.x, placing.z); drag.painted = true; } paintTile(nx, nz); }
-          placing.x = nx; placing.z = nz; updateGhost();
-        }
-      }
-    } else view.pan(e.clientX - prev.x, e.clientY - prev.y);
+    if (drag.ghost && placing) ghostTo(e.clientX, e.clientY, drag.touch);
+    else view.pan(e.clientX - prev.x, e.clientY - prev.y);
   }
   function onUp(e: PointerEvent): void {
     pts.delete(e.pointerId);
-    if (pts.size < 2) pinch = 0;
+    if (pts.size < 2) { pinch = 0; pinchMid = null; }
     const d = drag;
     drag = null;
+    lastPtr = null;
+    cancelAnimationFrame(edgeRaf);
+    wrap.classList.remove('panning');
     cancelHold();
     if (d?.moved && !d.ghost) view?.release();
     if (!d || d.moved || d.picked || !view) return;
-    if (placing) {
-      const g = view.ground(e.clientX, e.clientY);
-      if (g) { const f = L.footprint(L.item(placing.item), placing.rot); placing.x = Math.round(g.x - f.w / 2); placing.z = Math.round(g.y - f.d / 2); updateGhost(); }
-      return;
-    }
+    if (placing) { ghostTo(e.clientX, e.clientY, false); return; }
     const p: Pick = view.pick(e.clientX, e.clientY);
     // double-tap the ground to zoom in there
     const now = performance.now();
@@ -683,8 +782,46 @@ export function landScreen(): Screen {
   wrap.addEventListener('pointerdown', onDown);
   wrap.addEventListener('pointermove', onMove);
   wrap.addEventListener('pointerup', onUp);
-  wrap.addEventListener('pointercancel', (e) => { pts.delete(e.pointerId); drag = null; pinch = 0; cancelHold(); });
-  wrap.addEventListener('wheel', (e) => { e.preventDefault(); view?.zoom(Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
+  wrap.addEventListener('pointercancel', (e) => { pts.delete(e.pointerId); drag = null; pinch = 0; pinchMid = null; lastPtr = null; cancelAnimationFrame(edgeRaf); wrap.classList.remove('panning'); cancelHold(); });
+  wrap.addEventListener('pointerleave', () => { if (!pts.size) { view?.hover(null); wrap.style.cursor = ''; } });
+  wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY; // lines / pages → pixels
+    view?.zoom(Math.exp(Math.max(-200, Math.min(200, dy)) * 0.0015), e.clientX, e.clientY);
+  }, { passive: false });
+  // no browser zoom, text selection or long-press menu over the map
+  wrap.addEventListener('contextmenu', (e) => e.preventDefault());
+  for (const ev of ['gesturestart', 'gesturechange']) wrap.addEventListener(ev, (e) => e.preventDefault());
+
+  // ---------- keyboard (computers) ----------
+  const keys = new Set<string>();
+  const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName));
+  const applyKeys = () => {
+    const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+    const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
+    view?.setKeyPan(x, y);
+  };
+  function onKeyDown(e: KeyboardEvent): void {
+    if (typing(e.target) || document.querySelector('.modal-backdrop, .gift-overlay') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'escape') {
+      if (hold) cancelHold();
+      else if (placing) cancelPlacing();
+      else if (panel) openPanel(null);
+      else return;
+      e.preventDefault(); return;
+    }
+    if (k === 'enter' && placing) { e.preventDefault(); confirmPlacing(); return; }
+    if (k === 'r') { if (placing) rotatePlacing(); else if (panel?.kind === 'building') turnInPlace(panel.id); return; }
+    if (k === '+' || k === '=') { view?.zoom(0.8); return; }
+    if (k === '-' || k === '_') { view?.zoom(1.25); return; }
+    if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { e.preventDefault(); keys.add(k); applyKeys(); }
+  }
+  function onKeyUp(e: KeyboardEvent): void { if (keys.delete(e.key.toLowerCase())) applyKeys(); }
+  const onBlur = () => { keys.clear(); applyKeys(); };
+  addEventListener('keydown', onKeyDown);
+  addEventListener('keyup', onKeyUp);
+  addEventListener('blur', onBlur);
 
   // ---------- what the Fuzzies say ----------
   function phrase(seed: number): string {
@@ -701,7 +838,7 @@ export function landScreen(): Screen {
   }
 
   // ---------- setup ----------
-  const stage = h('div', { class: 'land-wrap' }, wrap, overlay, hud, side, bar, dockTab, placeBar, sheet);
+  const stage = h('div', { class: 'land-wrap' }, wrap, overlay, quick, hud, side, bar, dockTab, placeBar, sheet);
   const round = (ic: Node, title: string, onClick: () => void, cls = '') => {
     const b = h('button', { class: `land-round ${cls}`, type: 'button', title, 'aria-label': title }, ic);
     b.addEventListener('click', onClick);
@@ -798,6 +935,6 @@ export function landScreen(): Screen {
 
   return {
     el: h('div', { class: 'page land' }, stage),
-    destroy: () => { music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
+    destroy: () => { removeEventListener('keydown', onKeyDown); removeEventListener('keyup', onKeyUp); removeEventListener('blur', onBlur); cancelAnimationFrame(quickRaf); cancelAnimationFrame(edgeRaf); music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
   };
 }
