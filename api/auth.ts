@@ -8,16 +8,26 @@
  *   username { username }                          → { available }
  *   forgot   { email }                             → { ok }     (emails a reset link if the account exists)
  *   reset    { token, password }                   → { token, user }  (sets the new password; logs in)
+ * Crypto wallets (see _lib/wallet.ts — the wallet only signs a message; nothing touches funds):
+ *   wallet.challenge { address, chainId, purpose: 'link' | 'login', wallet } → { message, nonce }
+ *                    ('link' needs you to be logged in; the server writes and keeps the exact message)
+ *   wallet.verify    { nonce, signature } → link: { wallets } · login: { token, user }
+ *   wallet.list      (logged in) → { wallets }
+ *   wallet.unlink    { address } (logged in) → { wallets }
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { db, q } from './_lib/db.js';
 import { requireMail, sendMail, resetEmail } from './_lib/mail.js';
 import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json, BUILD } from './_lib/auth.js';
+import { normAddress, recoverSigner, siteOf, siweMessage } from './_lib/wallet.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME = /^[a-z0-9_.]{3,20}$/;
 const MAX_FAILS = 10; // wrong passwords per email per 15 minutes
 const MAX_RESETS = 3; // reset emails per account per hour
+const MAX_WALLETS = 5; // wallets per account
+const WALLET_MINUTES = 10; // how long a wallet sign-in message stays valid
+const MAX_CHALLENGES = 10; // wallet sign-in messages per wallet (and 40 per network address) per 10 minutes
 
 /** Only a hash of each reset link is stored, so a database leak can't be used to reset passwords. */
 const hashToken = (raw: string) => createHash('sha256').update(raw).digest('hex');
@@ -32,6 +42,10 @@ function appUrl(req: Request): string {
 
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const publicUser = (u: { id: string; email: string; username: string }) => ({ id: u.id, email: u.email, username: u.username });
+const walletsOf = async (userId: string) =>
+  (await q<{ address: string; wallet: string; created_at: string; last_used_at: string | null }>('select address, wallet, created_at, last_used_at from fz_wallets where user_id = $1 order by created_at', [userId])).rows;
+/** The visitor's network address as Vercel reports it (used only to slow down floods of sign-in requests). */
+const clientIp = (req: Request) => (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64);
 
 /** GET /api/auth?check — a health check you can open in a browser: is the database reachable and set up? */
 export async function GET(req: Request): Promise<Response> {
@@ -118,6 +132,66 @@ export function POST(req: Request): Promise<Response> {
         await q('update fz_resets set used_at = now() where user_id = $1 and used_at is null', [rows[0].user_id]); // older links stop working too
         await q('delete from fz_login_fails where email = $1', [u[0].email]);
         return { token: makeToken(u[0].id, u[0].token_v), user: publicUser(u[0]) };
+      }
+      case 'wallet.challenge': {
+        const purpose = b.purpose === 'link' ? 'link' : b.purpose === 'login' ? 'login' : '';
+        if (!purpose) throw new HttpError(400, 'Unknown wallet request.');
+        const address = normAddress(b.address);
+        const chainId = Number.isSafeInteger(b.chainId) && (b.chainId as number) > 0 ? (b.chainId as number) : 1;
+        const wallet = str(b.wallet, 40).replace(/[^\w .()-]/g, '');
+        const user = purpose === 'link' ? await requireUser(req) : null;
+        const { domain, origin } = siteOf(req);
+        const ip = clientIp(req);
+        await q('delete from fz_wallet_nonces where expires_at < now()');
+        const { rows: recent } = await q<{ a: number; i: number }>(
+          "select count(*) filter (where address = $1)::int as a, count(*) filter (where ip = $2 and $2 <> '')::int as i from fz_wallet_nonces where created_at > now() - interval '10 minutes'", [address, ip]);
+        if (recent[0].a >= MAX_CHALLENGES || recent[0].i >= MAX_CHALLENGES * 4) throw new HttpError(429, 'Too many wallet requests — please wait a few minutes and try again.');
+        if (user) {
+          const { rows: n } = await q('select count(*)::int as n from fz_wallets where user_id = $1', [user.id]);
+          if (n[0].n >= MAX_WALLETS) throw new HttpError(400, `You can link up to ${MAX_WALLETS} wallets — remove one first.`);
+        }
+        const nonce = randomBytes(16).toString('hex');
+        const issuedAt = new Date();
+        const expiresAt = new Date(issuedAt.getTime() + WALLET_MINUTES * 60_000);
+        const statement = user
+          ? `Link this wallet to the Fuzzies account @${user.username}. Signing is free: it doesn't send a transaction or give access to your funds.`
+          : `Sign in to Fuzzies with this wallet. Signing is free: it doesn't send a transaction or give access to your funds.`;
+        const message = siweMessage({ domain, uri: origin, address, statement, chainId, nonce, issuedAt, expiresAt });
+        await q('insert into fz_wallet_nonces (nonce, address, purpose, user_id, message, wallet, ip, expires_at) values ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [nonce, address, purpose, user?.id ?? null, message, wallet, ip, expiresAt]);
+        return { message, nonce };
+      }
+      case 'wallet.verify': {
+        const nonce = str(b.nonce, 64);
+        // a message works once: it is removed as it is checked, whatever the outcome
+        const { rows } = await q<{ address: string; purpose: string; user_id: string | null; message: string; wallet: string }>(
+          'delete from fz_wallet_nonces where nonce = $1 and expires_at > now() returning address, purpose, user_id, message, wallet', [nonce]);
+        const c = rows[0];
+        if (!c) throw new HttpError(400, 'This sign-in request has expired — please try again.');
+        if (recoverSigner(c.message, b.signature) !== c.address) throw new HttpError(400, 'The signature didn’t match this wallet — please try again.');
+        if (c.purpose === 'link') {
+          const u = await requireUser(req);
+          if (u.id !== c.user_id) throw new HttpError(403, 'This request was made for a different account — please try again.');
+          const { rows: ins } = await q<{ user_id: string }>(
+            'insert into fz_wallets (address, user_id, wallet) values ($1, $2, $3) on conflict (address) do update set wallet = excluded.wallet where fz_wallets.user_id = excluded.user_id returning user_id',
+            [c.address, u.id, c.wallet]);
+          if (!ins[0]) throw new HttpError(409, 'This wallet is already linked to another Fuzzies account.');
+          return { wallets: await walletsOf(u.id) };
+        }
+        const { rows: owner } = await q<{ id: string; email: string; username: string; token_v: number }>(
+          'select u.id, u.email, u.username, u.token_v from fz_wallets w join fz_users u on u.id = w.user_id where w.address = $1', [c.address]);
+        if (!owner[0]) throw new HttpError(404, 'This wallet isn’t linked to a Fuzzies account yet. Log in with your email first, then link it in your Profile.');
+        await q('update fz_wallets set last_used_at = now() where address = $1', [c.address]);
+        return { token: makeToken(owner[0].id, owner[0].token_v), user: publicUser(owner[0]) };
+      }
+      case 'wallet.list': {
+        const u = await requireUser(req);
+        return { wallets: await walletsOf(u.id) };
+      }
+      case 'wallet.unlink': {
+        const u = await requireUser(req);
+        await q('delete from fz_wallets where user_id = $1 and address = $2', [u.id, normAddress(b.address)]);
+        return { wallets: await walletsOf(u.id) };
       }
       case 'username': {
         const username = str(b.username, 40).toLowerCase();

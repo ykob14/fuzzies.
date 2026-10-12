@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-13 · by Claude Code · `main` = `claude/fuzzies-design-app-jwv4tu` (Christmas/Hanukkah/Passover, text effects and the multicultural collections are live)_
+_Last updated: 2026-10-13 · by Claude Code · branch `claude/fuzzies-design-app-jwv4tu` is ahead of `main` by **crypto wallet sign-in** (awaiting the owner's OK to go live)_
 
 ---
 
@@ -23,9 +23,9 @@ keeps people coming back (the mascot, the game, missions).
 
 | | |
 |---|---|
-| **Current state** | All features below are built, type-check, build cleanly and were browser-tested. |
+| **Current state** | All features below are built, type-check, build cleanly and were browser-tested. **Crypto wallets** (link MetaMask/Coinbase/Trust/any Ethereum wallet in Profile, log in with it) are on the branch only — ask the owner before merging to `main`. |
 | **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
-| **Branches** | `main` = `claude/fuzzies-design-app-jwv4tu` (live): the owner said to test again and put it live ("Done another test and post and add to GitHub … save everything everyplace") on 2026-10-13. Live now: Christmas, Hanukkah & Passover (60 templates), text effects & curved text, multicultural collections (9 art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search). **Rollback points:** `ae74508` (Halloween, previous live), `28b65cc`. Keep working on the branch and ask before the next merge. |
+| **Branches** | `main` = `1965633` (live); the branch adds crypto wallets on top. Earlier: the owner said to test again and put it live ("Done another test and post and add to GitHub … save everything everyplace") on 2026-10-13. Live now: Christmas, Hanukkah & Passover (60 templates), text effects & curved text, multicultural collections (9 art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search). **Rollback points:** `ae74508` (Halloween, previous live), `28b65cc`. Keep working on the branch and ask before the next merge. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
 ## 3. Owner preferences (learned — respect these)
@@ -110,7 +110,8 @@ src/
     account.ts         accounts (local ones: PBKDF2-hashed passwords; `cloud: true` ones: the backend), profile, stats, missions, brand kit, settings
     db.ts              IndexedDB: designs + uploads; `onWrite` hook (sync listens); `quiet` writes = came from the cloud
     api.ts             cloud on/off (`cloudEnabled`), fetch to /api with the login token, ApiError
-    cloud.ts           sign up / log in / claim guest-or-local account / sign out / change password / delete
+    cloud.ts           sign up / log in / claim guest-or-local account / sign out / change password / delete; link / list / unlink wallets, wallet log-in
+    wallet.ts          browser wallets: EIP-6963 discovery (+ window.ethereum fallback), phone deep links, connect, personal_sign
     appicon.ts         app icon colours; draws icon PNGs into a cache that public/sw.js serves
     sync.ts            offline queue + pull/push of profile, designs, uploads; status for the Profile "Sync" card
     merge.ts           three-way merge of two account copies (counters add, bests max, lists union)
@@ -175,17 +176,19 @@ src/
     landIcons.ts       Fuzzies Land's own "sticker" icon set (coin, star, hammer, crate, barn, music, gate…)
     libthumbs.ts       lazy template previews (IntersectionObserver, one per frame, waits for fonts, cached)
     templateManager.ts "Manage templates" window (list, publish/unpublish, edit, delete, Draft with AI)
+    walletPicker.ts    "Connect a wallet" window (installed wallets / open-in-wallet-app links / install links) + safety note
     travel.ts          the circle-wipe transition between Fuzzy Crossing and Fuzzies Land (waits for 'fz:scene-ready')
     missions.ts        missions card + badge grid
     screens/           auth, home, templates (lazy wrapper → library.ts gallery), projects, editor, play, land, rewards, profile, settings, shared
 api/                   Vercel serverless functions (the backend)
-  auth.ts              signup / login / me / password / delete / username
+  auth.ts              signup / login / me / password / delete / username / forgot / reset / wallet.challenge|verify|list|unlink
   data.ts              profile get/put (version-checked), designs & uploads list/get/put
   templates.ts         published template catalog (list/search/doc/thumb, public + CDN-cached), usage stats,
                        template-manager actions (ADMIN_EMAILS), AI wording (ANTHROPIC_API_KEY + ANTHROPIC_MODEL)
   assets.ts            licensed photo search (Pexels if PEXELS_API_KEY, else Openverse CC0/PD/CC BY) + allowlisted image fetcher
   _lib/db.ts           pg pool from DATABASE_URL + auto-created tables
   _lib/auth.ts         scrypt passwords, HMAC login tokens, JSON/error helpers
+  _lib/wallet.ts       Sign-In with Ethereum: server-written message, signature recovery (@noble/curves + @noble/hashes), EIP-55, Origin check
 ```
 
 **Storage keys:** `localStorage` `fz.accounts`, `fz.session`, `fz.sync.<userId>` (pending uploads queue),
@@ -199,7 +202,8 @@ IndexedDB database `fuzzies` with stores `designs` and `uploads` (both indexed b
 `fz_profiles` (account JSON minus device-only fields + `updated_at` version), `fz_designs` / `fz_uploads` (PK `(owner, id)`,
 `data` JSON, `deleted` tombstone, `updated_at`), `fz_login_fails` (10 wrong passwords / 15 min / email),
 `fz_templates` (published/draft templates: searchable metadata + `search` tsvector, `doc` JSON kept apart, `thumb`, `revision`),
-`fz_template_uses` (one row per person per template per day → Trending/Popular), `fz_admins` (template managers set in the database; RLS on). Every query is
+`fz_template_uses` (one row per person per template per day → Trending/Popular), `fz_admins` (template managers set in the database; RLS on),
+`fz_wallets` (lower-case address PK → user, cascade delete), `fz_wallet_nonces` (server-written sign-in messages, single use, 10 min). Every query is
 scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 ## 6. Rules of the codebase (gotchas)
@@ -285,6 +289,13 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   **Search** keeps Indic vowel signs inside words, drops Arabic harakat and folds Arabic letter variants; multilingual
   spellings live in topic keywords + `SYNONYMS`. Gallery previews are also cached in Cache Storage (`fz-template-previews-v1`,
   keyed by a hash of the page, pruned to 900).
+- **Crypto wallets:** the app may only call `eth_requestAccounts`, `eth_chainId` and `personal_sign` — never transactions,
+  approvals or chain switches. The server writes the whole message and checks the signature against its stored copy
+  (`wallet.verify` deletes the nonce first, so it works once). Wallet log-in only works for wallets linked while logged in
+  (purpose `link` is bound to that user). A signature mismatch is a 400, not 401 (a 401 makes the app log the user out).
+  `siteOf()` uses Host/X-Forwarded-Host for the message domain and refuses a different Origin. Wallet icons are only
+  accepted as `data:image/…` and names are sanitised. Crypto test: compare `recoverSigner` with ethers' `signMessage` and
+  parse the message with the `siwe` package (both in a scratch folder — not project dependencies).
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
   Earn toasts for reason `'Fuzzy Crossing'` are suppressed (the game shows its own pop-ups).
 - **Scrolling (computers):** inside the app shell the `.main` panel scrolls, not the window (≥961 px); phones/tablets still scroll the window.
@@ -340,11 +351,18 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | _(holidays)_ | **Christmas, Hanukkah & Passover collections** (owner: same quality as Halloween; accurate Jewish symbolism; Hebrew; holiday search incl. Chanukah/Hanukah/חנוכה and Pesach/פסח; sub-filters Greetings/Invitations/Parties/Social/Flyers/Posters; nothing removed). Shared drawing kit + composition kit (Halloween moved onto it unchanged). Art: Christmas 29 illustrations + 6 backgrounds, Hanukkah 18 + 5 (hanukkiyot 8 + shamash in gold/silver/oil, window scene, dreidels with נ ג ה ש, gelt, Stars of David, sufganiyot, latkes, oil jug…), Passover 17 + 5 (seder plate with its six items, matzah, Kiddush cup, Cup of Elijah, Haggadot, flowers, almond blossom, wheat, candlesticks, seder table, frog, pomegranate…). **60 hand-composed templates** (20 each) with Hebrew greetings (חג חנוכה שמח, חג אורים שמח, נס גדול היה שם, חג פסח שמח, חג כשר ושמח, ליל סדר, לשנה הבאה בירושלים). Free font packs Festive & Elegant + Hebrew (all checked on Google Fonts). Gallery: Holiday collections row, type chips with counts (URL `use=`), collection templates rank first; Passover topic added; existing typographic Christmas/Hanukkah templates kept. Editor: Replace artwork for graphics (toolbar + inspector, keeps size, undoable). Tested: contact sheets reviewed and layouts fixed, Hebrew read RTL correctly, 17 holiday searches, chips, open → layers → reload in My Designs, Elements search (menorah/seder/reindeer), Replace + undo, phone, production smoke (every screen): no errors. Merged to `main` (live) with the multicultural release. |
 | _(multicultural)_ | **Multicultural collections** (owner: Islamic, Jewish, Christian, global festivals, baby and milestone categories; accurate symbolism; Arabic/Hebrew RTL; alternative spellings and multilingual search; reusable system; 5 benchmark templates first; LidoJS evaluated). LidoJS has no licence (no code reused; ideas only — see PLATFORM-PLAN.md). **Text effects & curved text** in the editor (`04b10d4`). **Themed template system** (`collections/themed.ts`: looks + words + 8 reusable layouts, vertical balancing, photo slots, panel-aware colours). **9 new art collections** (176 original illustrations + 47 scene backgrounds in 4 shapes): Ramadan & Eid, Jewish holidays, Easter & Christian, Diwali/Holi/Indian festivals, Baby, Lunar New Year & Asian festivals, Nowruz/Kwanzaa/Día de Muertos, weddings & milestones, parties & community events. **175 themed templates in 71 topics** (benchmark: Ramadan Kareem, Shana Tova, He Is Risen, Diwali Night, Oh Baby) with greetings in Arabic, Hebrew, Hindi, Malayalam, Punjabi, Chinese and Persian (new free font packs: Arabic & Persian, Indian scripts, Chinese, Soft & Sweet). Taxonomy: 6 new categories, 50+ new topics with spellings/other-language keywords; gallery "Illustrated collections" row with category chips; persistent preview cache. Tested: every template rendered on contact sheets and fixed (overlaps, invisible text, crowded skylines), 40+ multilingual searches, open → edit native greeting via Layers + Enter → reload → PNG export for Arabic, Hebrew, Hindi, Chinese, Persian and a photo card, phone flow, production smoke (computer + phone): no errors. Re-tested on the production build before going live (smoke test, editing/export in 7 scripts, 80 earlier holiday templates re-rendered). **Merged to `main` (live).** |
 
+| _(wallets)_ | **Crypto wallet sign-in** (owner: connect Trust Wallet, MetaMask, Coinbase Wallet and others, "super safe"). Profile → **Crypto wallets** card (link up to 5, remove with confirm) and Log in → **Continue with a wallet**. Picker finds every installed Ethereum wallet (EIP-6963) with its own icon; phones without one get official "Open in MetaMask / Trust Wallet / Coinbase Wallet" links; computers without one get the official download pages. Sign-In with Ethereum (EIP-4361): the server writes a one-time, 10-minute message naming the site, wallet and account; signature checked with audited `@noble/curves`/`@noble/hashes` (new dependencies — never hand-rolled crypto); Origin check; rate limits; one account per wallet; safety note on every screen ("we never ask for your recovery phrase"). No payments, transactions or funds. Tested: 1,040 crypto checks against ethers + the reference `siwe` parser/verifier, 40 API attack checks on real Postgres (replay, wrong signer, edited message, expired, other account's link, wallet owned elsewhere, foreign Origin, bad input, unlink scope, 5-wallet cap, cascade delete, rate limit), browser flow with a fake EIP-6963 wallet (link, cancel, log in, remove, unlinked wallet) on computer and phone, the Vercel-built function. Branch only. |
+
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
 ## 8. Known limitations / not verified
+
+- **Crypto wallets:** tested with a simulated wallet only (no real MetaMask/Trust/Coinbase in the container) — try it on the
+  live site with a real wallet on a computer and a phone. Smart-contract wallets (Coinbase Smart Wallet, Safe) aren't
+  supported (friendly message). No WalletConnect QR (desktop → phone wallet) yet. You can't create an account with only a
+  wallet — log in with email first, then link. Ethereum-style wallets only (no Solana/Bitcoin sign-in). No payments.
 
 - **Multicultural collections:** native-script greetings were checked against reference spellings and visually (RTL order,
   Arabic joining, Devanagari/Gurmukhi/Malayalam shaping) in Chromium only — a native speaker review is still worth doing,
@@ -398,7 +416,9 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Christmas/Hanukkah/Passover, text effects and the multicultural collections are live** — collect the owner's feedback. Then: native-speaker review of greetings; more templates per topic (the system makes it data);
+0. **Crypto wallets are on the branch** — owner tests, then ask to merge to `main`. Possible next: WalletConnect QR (needs a free
+   project ID from the owner), sign up with a wallet only, smart-contract wallets (ERC-1271/6492 check via an RPC).
+   **Christmas/Hanukkah/Passover, text effects and the multicultural collections are live** — collect the owner's feedback. Then: native-speaker review of greetings; more templates per topic (the system makes it data);
    frames/tables/rich-text runs in the editor (Workstream A); seasonal ordering of the collections row.
    **Halloween collection is live** — next per PLATFORM-PLAN.md: quality checks + review stage for publishing, a seasonal
    "Halloween" row in October, more collections (Christmas, Diwali, Lunar New Year…) with the same asset system.

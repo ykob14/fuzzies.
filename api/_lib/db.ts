@@ -94,6 +94,29 @@ create table if not exists fz_resets (
   used_at timestamptz
 );
 create index if not exists fz_resets_user_idx on fz_resets (user_id, created_at);
+-- Crypto wallets linked to an account (proved by signing a one-time message; one account per wallet).
+create table if not exists fz_wallets (
+  address text primary key,
+  user_id uuid not null references fz_users (id) on delete cascade,
+  wallet text not null default '',
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz
+);
+create index if not exists fz_wallets_user_idx on fz_wallets (user_id);
+-- One-time wallet sign-in messages written by the server (10 minutes, single use).
+create table if not exists fz_wallet_nonces (
+  nonce text primary key,
+  address text not null,
+  purpose text not null,
+  user_id uuid references fz_users (id) on delete cascade,
+  message text not null,
+  wallet text not null default '',
+  ip text not null default '',
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+create index if not exists fz_wallet_nonces_addr_idx on fz_wallet_nonces (address, created_at);
+create index if not exists fz_wallet_nonces_ip_idx on fz_wallet_nonces (ip, created_at);
 `;
 
 /** Errors that mean "the connection dropped" (Neon puts idle databases to sleep): safe to retry once. */

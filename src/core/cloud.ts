@@ -8,10 +8,12 @@ import { db } from './db';
 import { api, token, onLoggedOut, cloudEnabled } from './api';
 import { sync, accountFromRow, profileData, writeBase, type ProfileRow } from './sync';
 import { merge3 } from './merge';
+import { connect, signMessage, type WalletChoice } from './wallet';
 
 export { cloudEnabled };
 
 interface CloudUser { id: string; email: string; username: string }
+export interface LinkedWallet { address: string; wallet: string; created_at: string; last_used_at: string | null }
 interface SignUpInput { name: string; username: string; email: string; password: string }
 
 const USERNAME = /^[a-z0-9_.]{3,20}$/;
@@ -140,6 +142,34 @@ export const cloud = {
     if (newPw.length < 6) throw new Error('New password needs at least 6 characters.');
     const res = await api<{ token: string }>('auth', 'password', { old: oldPw, new: newPw });
     token.set(res.token); // other devices are logged out; this one stays in
+  },
+
+  // ---------- crypto wallets (the wallet only signs a free message written by the server) ----------
+  /** Sign in with a wallet that's already linked to an account. */
+  async signInWithWallet(w: WalletChoice): Promise<Account> {
+    const { address, chainId } = await connect(w);
+    const { message, nonce } = await api<{ message: string; nonce: string }>('auth', 'wallet.challenge', { purpose: 'login', address, chainId, wallet: w.name });
+    const signature = await signMessage(w, address, message);
+    const res = await api<{ token: string; user: CloudUser }>('auth', 'wallet.verify', { nonce, signature });
+    token.set(res.token);
+    return adopt(res.user);
+  },
+
+  /** Link a wallet to the logged-in account (proves you own it). */
+  async linkWallet(w: WalletChoice): Promise<LinkedWallet[]> {
+    if (!accounts.current?.cloud) throw new Error('Save your account first — wallets link to a Fuzzies account.');
+    const { address, chainId } = await connect(w);
+    const { message, nonce } = await api<{ message: string; nonce: string }>('auth', 'wallet.challenge', { purpose: 'link', address, chainId, wallet: w.name });
+    const signature = await signMessage(w, address, message);
+    return (await api<{ wallets: LinkedWallet[] }>('auth', 'wallet.verify', { nonce, signature })).wallets;
+  },
+
+  async wallets(): Promise<LinkedWallet[]> {
+    return (await api<{ wallets: LinkedWallet[] }>('auth', 'wallet.list')).wallets;
+  },
+
+  async unlinkWallet(address: string): Promise<LinkedWallet[]> {
+    return (await api<{ wallets: LinkedWallet[] }>('auth', 'wallet.unlink', { address })).wallets;
   },
 
   /** Delete the account everywhere (cloud + this device). */
