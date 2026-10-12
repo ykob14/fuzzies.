@@ -127,6 +127,7 @@ export function settingsScreen(): Screen {
         toggle('Snap to guides', 'Elements snap to the page centre, edges and each other while you drag.', a.settings.snap, (v) => set((s) => (s.snap = v))),
         toggle('Game sounds', 'Blips and bloops in Fuzzy Crossing.', a.settings.sound, (v) => set((s) => (s.sound = v))),
         toggle('Music in Fuzzies Land', 'Soft background music while you build your town.', a.settings.music !== false, (v) => set((s) => (s.music = v))),
+        toggle('Deluxe 3D Fuzzies', 'Your own furry 3D Fuzzy model for the town, the game and the adventures (off = the drawn Fuzzies that blink).', a.settings.fuzzyLook !== 'classic', (v) => set((s) => (s.fuzzyLook = v ? 'deluxe' : 'classic'))),
         toggle('Seasonal effects in Fuzzies Land', 'Falling leaves, snow, lanterns and a warm glow during holidays.', a.settings.seasonFx !== false, (v) => set((s) => (s.seasonFx = v))),
         toggle('Reduce motion', 'Fewer animations across the app.', a.settings.reduceMotion, (v) => set((s) => (s.reduceMotion = v)))),
       appIconCard(),

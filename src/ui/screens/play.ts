@@ -77,7 +77,10 @@ export function playScreen(): Screen {
       wrap.classList.add('loading');
       try {
         const { View3D } = await (load3D ?? import('../../game/view3d'));
-        view = new View3D(canvas, isTouch());
+        // the owner's 3D Fuzzy as the hero (Settings → Deluxe 3D Fuzzies); a slow download never holds the game up
+        const deluxe = a.settings.fuzzyLook !== 'classic';
+        const glb = deluxe ? await Promise.race([import('../../game/fuzzyGlb').then((m) => m.loadFuzzyGlb()), new Promise<null>((r) => setTimeout(() => r(null), 6000))]) : null;
+        view = new View3D(canvas, isTouch(), !!glb);
       } catch (e) {
         console.error(e);
         viewMode = 'classic';

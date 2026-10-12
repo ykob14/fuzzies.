@@ -16,6 +16,7 @@ import * as ENV from './environment';
 import * as M from '../game/models3d';
 import * as GT from '../game/textures3d';
 import * as LM from './models';
+import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { MAP, NAMES, bounds, cropProgress, finished, item, footprint, good, population, walkway, type LandState, type Placed } from './rules';
 
 const PITCH = THREE.MathUtils.degToRad(50);
@@ -379,13 +380,30 @@ export class LandView {
     this.syncResidents(population(s));
   }
 
+  /** Use the owner's 3D model for the Fuzzies (when it has loaded); rebuilds the residents in place. */
+  private deluxe = false;
+  useDeluxe(on: boolean): void {
+    const next = on && glbReady();
+    if (next === this.deluxe) return;
+    this.deluxe = next;
+    const keep = this.residents.map((r) => ({ pos: r.pos.clone(), facing: r.facing }));
+    while (this.residents.length) { const r = this.residents.pop()!; r.model.group.removeFromParent(); r.shadow.removeFromParent(); r.bubble?.remove(); }
+    this.thumbs.forEach((_, k) => { if (k.startsWith('fuzzy:')) this.thumbs.delete(k); });
+    if (this.state) this.syncResidents(population(this.state));
+    this.residents.forEach((r, i) => { if (keep[i]) { r.pos.copy(keep[i].pos); r.facing = r.targetFacing = keep[i].facing; } });
+    if (this.focus !== null && !this.residents[this.focus]) this.focus = null;
+  }
+  private makeResident(skin: [string, string]): M.FuzzyModel {
+    return this.deluxe && glbReady() ? glbFuzzy(skin, 0.21, { shadow: !this.mobile, size: this.mobile ? 512 : 768 }) : M.makeFuzzy(this.mats, skin, 0.2, 0.06, this.mobile ? 7 : 9);
+  }
+
   private syncResidents(pop: number): void {
     const want = Math.max(2, Math.min(14, Math.round(pop / 3)));
     while (this.residents.length > want) { const r = this.residents.pop()!; r.model.group.removeFromParent(); r.shadow.removeFromParent(); r.bubble?.remove(); }
     while (this.residents.length < want) {
       const i = this.residents.length;
       const skin = i % SKINS.length;
-      const model = M.makeFuzzy(this.mats, SKINS[skin], 0.2, 0.06, this.mobile ? 7 : 9);
+      const model = this.makeResident(SKINS[skin]);
       const start = this.freeTile(i * 97 + 3);
       model.group.position.set(start.x, 0.26, start.y);
       // little feet that step when walking, an outfit, and a soft shadow on the ground

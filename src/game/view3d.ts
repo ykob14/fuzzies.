@@ -9,6 +9,7 @@ import { COLS, GOAL, HOMES, MEDIAN, START, type Crossing, type Fx, type Lane, ty
 import * as T from './textures3d';
 import * as M from './models3d';
 import { sfx } from './sound';
+import { glbFuzzy, glbReady } from './fuzzyGlb';
 
 const WORLD_X0 = -40, WORLD_X1 = 51;
 const CAM_H = 7.4, CAM_BACK = 5.8;
@@ -67,7 +68,8 @@ export class View3D implements View {
   private ringGeo = new THREE.RingGeometry(0.85, 1, 40).rotateX(-Math.PI / 2);
   private disposed = false;
 
-  constructor(private canvas: HTMLCanvasElement, mobile: boolean) {
+  /** `deluxe` = the hero is the owner's 3D Fuzzy model (when it has loaded; it can't wink, so the intro just smiles). */
+  constructor(private canvas: HTMLCanvasElement, mobile: boolean, private deluxe = false) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.75 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -281,7 +283,7 @@ export class View3D implements View {
   private ensurePlayer(g: Crossing): void {
     if (this.playerSkin === g.skin.id) return;
     if (this.player) this.scene.remove(this.player.group);
-    this.player = M.makeFuzzy(this.mats, g.skin.colors, 0.27, 0.095, 20);
+    this.player = glbReady() && this.deluxe ? glbFuzzy(g.skin.colors, 0.3, { shadow: true }) : M.makeFuzzy(this.mats, g.skin.colors, 0.27, 0.095, 20);
     this.player.body.children[0].castShadow = true;
     this.scene.add(this.player.group);
     this.playerSkin = g.skin.id;

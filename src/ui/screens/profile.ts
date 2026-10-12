@@ -3,6 +3,7 @@ import type { Screen } from '../app';
 import { accounts } from '../../core/account';
 import { db } from '../../core/db';
 import { h, btn, avatarEl, fuzzyMark, toast, pickFile, confirmDialog, icon } from '../dom';
+import { FRIENDS, friendUrl } from '../../content/friends';
 import { fileToImageData, timeAgo } from '../../core/util';
 import { cloud, type LinkResult, type LoginInfo, type Reauth } from '../../core/cloud';
 import { sync } from '../../core/sync';
@@ -30,6 +31,7 @@ export function profileScreen(): Screen {
     const avatarPick = h('div', { class: 'avatar-edit' },
       avatarEl(a, 96),
       h('div', { class: 'avatar-opts' },
+        h('div', { class: 'friend-row' }, ...FRIENDS.map((f) => h('button', { type: 'button', class: `emo friend ${a.avatar.image === friendUrl(f.id) ? 'on' : ''}`, title: f.name, 'aria-label': f.name, onclick: () => { accounts.update((x) => { x.avatar.image = friendUrl(f.id); }); render(); } }, h('img', { src: friendUrl(f.id), alt: '', loading: 'lazy' })))),
         h('div', { class: 'emoji-row' }, ...EMOJIS.map((e) => h('button', { type: 'button', class: `emo ${!a.avatar.image && a.avatar.emoji === e ? 'on' : ''}`, onclick: () => { accounts.update((x) => { x.avatar.emoji = e; delete x.avatar.image; }); render(); } }, e))),
         h('div', { class: 'swatches' }, ...COLORS.map((c) => h('button', { type: 'button', class: `swatch ${a.avatar.color === c ? 'on' : ''}`, style: `background:${c}`, 'aria-label': c, onclick: () => { accounts.update((x) => (x.avatar.color = c)); render(); } }))),
         h('div', { class: 'row' },

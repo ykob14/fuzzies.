@@ -9,6 +9,7 @@ import { colorButton, GRADIENTS, PALETTE } from './colors';
 import { ART_PACKS, ARTS, artDataUrl } from '../content/art';
 import { COLLECTIONS, assetsIn, isLoaded, loadCollection, searchAssets, type AssetDef } from '../content/assets';
 import { STICKER_PACKS } from '../content/stickers';
+import { FRIENDS, friendUrl, friendData } from '../content/friends';
 import { TEXT_STYLES, FX_PACK } from '../content/textstyles';
 import { unlockDialog } from '../ui/unlock';
 import { rewards } from '../core/rewards';
@@ -27,7 +28,7 @@ export interface Panels {
   dropPayload(p: DropPayload, at: { x: number; y: number }): void;
 }
 
-type DropPayload = { kind: 'shape'; shape: ShapeKind } | { kind: 'art'; art: string } | { kind: 'emoji'; char: string }
+type DropPayload = { kind: 'shape'; shape: ShapeKind } | { kind: 'art'; art: string } | { kind: 'emoji'; char: string } | { kind: 'friend'; id: string }
   | { kind: 'text'; text: 'heading' | 'subheading' | 'body' } | { kind: 'upload'; id: string } | { kind: 'photo'; id: string };
 
 const TABS: { id: string; label: string; icon: IconName }[] = [
@@ -450,6 +451,15 @@ export function buildPanels(ed: Editor): Panels {
   // ---------- stickers ----------
   function stickersPanel(): HTMLElement {
     const wrap = h('div');
+    // the owner's own Fuzzy Friends first (free): pictures, added as images so they export like any photo
+    wrap.append(h('section', { class: 'pnl-sec' },
+      h('div', { class: 'pnl-label' }, 'Fuzzy Friends'),
+      h('div', { class: 'friend-grid' }, ...FRIENDS.map((f) => {
+        const b = h('button', { class: 'friend-item', type: 'button', title: f.name, 'aria-label': `Sticker ${f.name}` }, h('img', { src: friendUrl(f.id), alt: '', loading: 'lazy', draggable: 'false' }));
+        b.addEventListener('click', () => { void addFriend(f.id); });
+        draggable(b, { kind: 'friend', id: f.id });
+        return b;
+      }))));
     for (const pack of STICKER_PACKS) {
       const locked = !rewards.isUnlocked(pack.id, pack.cost);
       wrap.append(h('section', { class: 'pnl-sec' },
@@ -465,6 +475,15 @@ export function buildPanels(ed: Editor): Panels {
         }))));
     }
     return wrap;
+  }
+
+  async function addFriend(id: string, at?: { x: number; y: number }): Promise<void> {
+    try {
+      const src = await friendData(id);
+      ed.addImage(`friend-${id}`, src, 256, 256, at);
+      track('sticker');
+      afterAdd();
+    } catch { toast('Couldn’t load that sticker — check your connection.', 'bad'); }
   }
 
   // ---------- draw ----------
@@ -583,6 +602,7 @@ export function buildPanels(ed: Editor): Panels {
     if (p.kind === 'emoji') { ed.addEmoji(p.char); moveLast(at); }
     if (p.kind === 'text') { ed.addText(p.text); moveLast(at); }
     if (p.kind === 'upload') { const u = uploadsById.get(p.id); if (u) { ed.addImage(u.id, u.src, u.w, u.h, at); track('photo'); } }
+    if (p.kind === 'friend') void addFriend(p.id, at);
     if (p.kind === 'photo') { const ph = photosById.get(p.id); if (ph) void addPhoto(ph, null, at); }
   }
 

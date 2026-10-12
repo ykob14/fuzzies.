@@ -11,12 +11,15 @@ import { race as snd, engine as makeEngine } from '../game/sound';
 import { RaceSim, LAPS, ISLAND_R, OUTER_R, GATE_W, type Boat } from './race';
 import { PAL, std, add } from './models';
 import { buildSky } from './environment';
+import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 
 export interface RaceSetup {
   you: { name: string; skin: [string, string] };
   rivals: { name: string; skin: [string, string]; skill: number }[];
   mobile: boolean;
   sound: boolean;
+  /** use the owner's 3D Fuzzy model for the riders (when it has loaded) */
+  deluxe?: boolean;
   /** which boat is a resident (index into the town's Fuzzies) — rivals keep their town index, the player is -1 */
   portrait: (index: number) => string;
 }
@@ -34,7 +37,7 @@ const ROPE = std('#e8d9bf', 0.95), WHITE = std('#fffaf0', 0.5), DARK = std('#3a3
 const GLASS = new THREE.MeshPhysicalMaterial({ color: '#cfeeff', transmission: 0.7, roughness: 0.05, thickness: 0.2, transparent: true, opacity: 0.75 });
 
 /** A racing boat in the Fuzzies style: a rounded speedboat hull, cockpit, windscreen, engine, number flag — and its Fuzzy at the wheel. */
-function boatModel(mats: M.Mats, skin: [string, string], hullColor: string, num: number, mobile: boolean): { g: THREE.Group; fuzzy: M.FuzzyModel; wheel: THREE.Mesh; flag: THREE.Mesh } {
+function boatModel(mats: M.Mats, skin: [string, string], hullColor: string, num: number, mobile: boolean, deluxe: boolean): { g: THREE.Group; fuzzy: M.FuzzyModel; wheel: THREE.Mesh; flag: THREE.Mesh } {
   const g = new THREE.Group();
   // hull: a plan-view shape (pointy bow, flat stern) extruded and bevelled, then smoothed by the clearcoat
   const shape = new THREE.Shape();
@@ -67,8 +70,8 @@ function boatModel(mats: M.Mats, skin: [string, string], hullColor: string, num:
   flag.rotation.y = -Math.PI / 2;
   g.add(flag);
   // the Fuzzy at the wheel (a little smaller than in town, sat in the well, facing forward)
-  const fuzzy = M.makeFuzzy(mats, skin, 0.24, 0.075, mobile ? 6 : 9);
-  fuzzy.group.position.set(0, 0.5, -0.2);
+  const fuzzy = deluxe && glbReady() ? glbFuzzy(skin, 0.3, { shadow: !mobile, size: mobile ? 512 : 768 }) : M.makeFuzzy(mats, skin, 0.24, 0.075, mobile ? 6 : 9);
+  fuzzy.group.position.set(0, deluxe && glbReady() ? 0.56 : 0.5, -0.2);
   g.add(fuzzy.group);
   // paws on the wheel
   for (const sx of [-1, 1]) add(g, new THREE.SphereGeometry(0.05, 10, 8), std(skin[1], 0.8), sx * 0.1, 0.44, 0.12, false);
@@ -333,7 +336,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   // boats
   const mats = { fur: T.furStrands() } as unknown as M.Mats;
   const hullColors = ['#ff5a8a', '#36b0ff', '#ffc23d', '#58d68d', '#b48cff', '#ff8c42'];
-  const boats = sim.boats.map((b, i) => { const m = boatModel(mats, b.you ? setup.you.skin : setup.rivals[i - 1].skin, hullColors[i % hullColors.length], i + 1, mobile); scene.add(m.g); return m; });
+  const boats = sim.boats.map((b, i) => { const m = boatModel(mats, b.you ? setup.you.skin : setup.rivals[i - 1].skin, hullColors[i % hullColors.length], i + 1, mobile, !!setup.deluxe); scene.add(m.g); return m; });
   // wake + splash sprites
   const puffTex = T.glow('rgba(255,255,255,0.95)', 'rgba(255,255,255,0)');
   const puffMat = new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0.5 });

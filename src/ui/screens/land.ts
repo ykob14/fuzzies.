@@ -1424,12 +1424,14 @@ export function landScreen(): Screen {
     const sound = accounts.current?.settings.sound !== false;
     const fail = (e: unknown) => { console.error(e); playing = false; view?.start(); toast('The adventure couldn’t load — please try again.', 'bad'); };
     const pause = () => { view?.stop(); music.stop(); };
+    const deluxe = accounts.current?.settings.fuzzyLook !== 'classic';
+    const model = deluxe ? Promise.race([import('../../game/fuzzyGlb').then((m) => m.loadFuzzyGlb()), new Promise<null>((r) => setTimeout(() => r(null), 6000))]) : Promise.resolve(null);
     if (adv.id === 'boatrace') {
       const racers = Array.from({ length: Math.min(view.residentCount, 3) }, (_, i) => view!.residentInfo(i)!).filter(Boolean);
       const you = { name: accounts.current?.name?.split(' ')[0] || 'You', skin: ['#ff86bb', '#b8235f'] as [string, string] };
-      void import('../../land/raceView').then(({ runRace }) => {
+      void Promise.all([import('../../land/raceView'), model]).then(([{ runRace }]) => {
         pause();
-        runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
+        runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound, deluxe, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
           onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, race: res.order }),
           onQuit: () => backToTown(),
         });
@@ -1437,9 +1439,9 @@ export function landScreen(): Screen {
     } else if (adv.id === 'forest') {
       const hi = hostIndex();
       const info = view.residentInfo(hi);
-      void import('../../land/forestView').then(({ runForest }) => {
+      void Promise.all([import('../../land/forestView'), model]).then(([{ runForest }]) => {
         pause();
-        runForest(stage, { mobile: isTouch(), sound, host: { name: info?.name ?? A.character(hi).name, skin: info?.skin ?? ['#b8f28a', '#4f9e2f'] } }, {
+        runForest(stage, { mobile: isTouch(), sound, deluxe, host: { name: info?.name ?? A.character(hi).name, skin: info?.skin ?? ['#b8f28a', '#4f9e2f'] } }, {
           onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, forest: { ...res, hostPortrait: safePortrait(hi) } }),
           onQuit: () => backToTown(),
         });
@@ -1765,6 +1767,8 @@ export function landScreen(): Screen {
       applySeason();
       paintDaily();
       retryPending();
+      // the owner's 3D Fuzzy model: swapped in once it has loaded (off in Settings → Deluxe 3D Fuzzies)
+      if (accounts.current?.settings.fuzzyLook !== 'classic') void import('../../game/fuzzyGlb').then((m) => m.loadFuzzyGlb()).then((g) => { if (g && alive && view) view.useDeluxe(true); });
       try {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }

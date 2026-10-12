@@ -10,8 +10,9 @@ import { race as snd, sfx } from '../game/sound';
 import { ForestSim, LIMIT, SWEET, type Tree } from './forestGame';
 import { PAL, std, add } from './models';
 import { buildSky, treeModel } from './environment';
+import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 
-export interface ForestSetup { mobile: boolean; sound: boolean; host: { name: string; skin: [string, string] } }
+export interface ForestSetup { mobile: boolean; sound: boolean; deluxe?: boolean; host: { name: string; skin: [string, string] } }
 export interface ForestResult { place: number; timeMs: number; wood: number; cleared: number; total: number; perfect: number }
 export interface ForestHooks { onFinish: (r: ForestResult) => void; onQuit: () => void }
 
@@ -128,7 +129,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   });
   // the host Fuzzy watching from the path
   const mats = { fur: T.furStrands() } as unknown as M.Mats;
-  const host = M.makeFuzzy(mats, setup.host.skin, 0.26, 0.08, mobile ? 6 : 9);
+  const host = setup.deluxe && glbReady() ? glbFuzzy(setup.host.skin, 0.3, { shadow: !mobile }) : M.makeFuzzy(mats, setup.host.skin, 0.26, 0.08, mobile ? 6 : 9);
   host.group.position.set(-9, 0.3, 8.5); host.group.rotation.y = 1.2;
   scene.add(host.group);
   const hostShadow = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: T.glow('rgba(0,0,0,0.45)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false }));

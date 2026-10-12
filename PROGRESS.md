@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-13 · by Claude Code · `main` = `95b5b89` (Fuzzy AI assistant live); branch `claude/fuzzies-design-app-jwv4tu` adds **Fuzzies Adventures** (talk to the Fuzzies, daily missions, the Boat Race and the Forest Expansion mini-games) — not live yet, ask the owner_
+_Last updated: 2026-10-13 · by Claude Code · `main` = `95b5b89` (Fuzzy AI assistant live); branch `claude/fuzzies-design-app-jwv4tu` adds **Fuzzies Adventures** (talk to the Fuzzies, daily missions, the Boat Race and the Forest Expansion mini-games) and the **owner's own art** (the 3D Fuzzy model as the "Deluxe 3D Fuzzies" look + 40 Fuzzy Friends stickers/avatars) — not live yet, ask the owner_
 
 ---
 
@@ -24,7 +24,7 @@ keeps people coming back (the mascot, the game, missions).
 | | |
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested, and are **live**: crypto wallets (link MetaMask/Coinbase/Trust/Crypto.com/Robinhood/OKX/Phantom/any Ethereum wallet, log in with it; WalletConnect QR + smart wallets — `VITE_WALLETCONNECT_PROJECT_ID` must be in Vercel for Production + Preview), crypto payments to the owner's built-in addresses (packs, $0.50 one-time wallet activation, 100-Fuzzies gift box), card / Apple Pay through the buyer's wallet app, Fuzzies Land Phase 1 controls. First real purchase on each network still to be done by the owner. |
-| **In progress** | **Fuzzies Adventures (owner spec, 6 phases) are on the branch:** Phase 1 interactive Fuzzies + mission dialogue, Phase 2 daily mission manager (server-confirmed rewards for cloud accounts), Phase 3 the three-lap Boat Race with computer racers, Phase 4 polish/sounds/tests, Phase 5 the Forest Expansion mini-game, Phase 6 the adventure registry (5 more listed as coming soon). Ask the owner before `main`. **Fuzzy AI assistant — Phase 1 is live** (blue Fuzzy in the corner of every screen, real Claude chat on the server with the site guide + the person's own account facts, built-in guide when AI is off, voice, minimize/mute/hide, Settings toggles). The owner says `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are now in Vercel (same keys as Draft with AI; optional `ASSIST_MODEL`) — Claude can't see Vercel (403), so the first real check is the owner's: the line under Fuzzy's name must say "Here to help", not "Built-in guide · AI is off here". Phase 2 ideas below. **Fuzzies Land tutorial/help/economy spec (5 phases): Phase 1 (tutorial + Pip guidance, polished v2), multi-select group editing and **Town Edit Mode with temporary Storage** (Township-style) are done and live; Phase 2 (Help Center + contextual tips) is next** — the owner asked for phases in order, so check in first. The earlier controls spec: Phase 1 done, its Phase 2 not started. Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
+| **In progress** | **The owner's art is on the branch:** their 3D Fuzzy model (`public/models/fuzzy.glb`, Tripo export) is the **Deluxe 3D Fuzzies** look — town residents, Boat Race riders, the forest host, the Fuzzy Crossing hero and conversation portraits (Settings → Deluxe 3D Fuzzies, on by default; off = the drawn Fuzzies); their sheet of 40 illustrated Fuzzies = **Fuzzy Friends** (editor Stickers panel, first section, drag-and-drop) + 40 profile avatar choices. **Fuzzies Adventures (owner spec, 6 phases) are on the branch:** Phase 1 interactive Fuzzies + mission dialogue, Phase 2 daily mission manager (server-confirmed rewards for cloud accounts), Phase 3 the three-lap Boat Race with computer racers, Phase 4 polish/sounds/tests, Phase 5 the Forest Expansion mini-game, Phase 6 the adventure registry (5 more listed as coming soon). Ask the owner before `main`. **Fuzzy AI assistant — Phase 1 is live** (blue Fuzzy in the corner of every screen, real Claude chat on the server with the site guide + the person's own account facts, built-in guide when AI is off, voice, minimize/mute/hide, Settings toggles). The owner says `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are now in Vercel (same keys as Draft with AI; optional `ASSIST_MODEL`) — Claude can't see Vercel (403), so the first real check is the owner's: the line under Fuzzy's name must say "Here to help", not "Built-in guide · AI is off here". Phase 2 ideas below. **Fuzzies Land tutorial/help/economy spec (5 phases): Phase 1 (tutorial + Pip guidance, polished v2), multi-select group editing and **Town Edit Mode with temporary Storage** (Township-style) are done and live; Phase 2 (Help Center + contextual tips) is next** — the owner asked for phases in order, so check in first. The earlier controls spec: Phase 1 done, its Phase 2 not started. Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
 | **Branches** | `main` = the branch (live; tutorial v2 + multi-select went live 2026-10-13, owner: "Yes u can put it live"; rollback point `c0493c6`) since the owner said "Put everything we worked on live … check for safety and fix any issues" (2026-10-13). **Rollback point:** `1965633` (before wallets/payments). Previously live: `1965633`. Earlier: the owner said to test again and put it live ("Done another test and post and add to GitHub … save everything everyplace") on 2026-10-13. Live now: Christmas, Hanukkah & Passover (60 templates), text effects & curved text, multicultural collections (9 art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search). **Rollback points:** `ae74508` (Halloween, previous live), `28b65cc`. Keep working on the branch and ask before the next merge. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
@@ -138,6 +138,7 @@ src/
     export.ts / share.ts  PNG/JPG/PDF/.fuzzies export, share sheet, share links
     shapes.ts, qr.ts   shape paths; QR encoder (byte mode, level M, v1–10)
   content/             classic templates (28), art packs, sticker packs, fonts (Google Fonts), text styles
+    friends.ts         the 40 Fuzzy Friends (owner's artwork, public/art/friends/f01–f40.webp): ids, names, tags, friendUrl()/friendData()
     help.ts            THE SITE GUIDE for the Fuzzy assistant (topics per screen, keywords, example questions) + searchHelp(); the server reads it too
     library/           the template library (lazy chunk):
       taxonomy.json    DATA: categories › topics (keywords, palettes, starter texts). Add topics here — no code.
@@ -165,6 +166,7 @@ src/
     view3d.ts          realistic Three.js view (sky, shadows, water, fur, intro cinematic)
     view2d.ts          classic 2D canvas view (also the no-WebGL fallback)
     models3d.ts, textures3d.ts  procedural models/textures (no image assets)
+    fuzzyGlb.ts        the owner's 3D Fuzzy (public/models/fuzzy.glb): lazy GLTFLoader, hue-tinted fur per skin, glbFuzzy() in FuzzyModel shape
     mascot3d.ts        renders the website mascot frames (open / wink / blink / giggle) from the game model
     sound.ts           Web Audio synth (hops, chimes, wink, boing, whoosh, giggle, build, plant, coins)
   land/                Fuzzies Land (Township-style town)
@@ -197,6 +199,7 @@ src/
     travel.ts          the circle-wipe transition between Fuzzy Crossing and Fuzzies Land (waits for 'fz:scene-ready')
     missions.ts        missions card + badge grid
     screens/           auth, home, templates (lazy wrapper → library.ts gallery), projects, editor, play, land, rewards, profile, settings, shared
+public/                static files; models/fuzzy.glb + art/friends/*.webp are the OWNER'S OWN ART (the one exception to "no image assets")
 api/                   Vercel serverless functions (the backend)
   auth.ts              signup / login / me / password / delete / username / forgot / reset / wallet.challenge|verify|list|unlink
   data.ts              profile get/put (version-checked), designs & uploads list/get/put
@@ -340,6 +343,16 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   R turns (placing or the selected building, `turnInPlace`), Enter confirms, Escape cancels hold → placing → panel; handlers are
   removed in `destroy`. Mouse hover outlines buildings (`view.hover`) and shows a pointer. `view.nudge()` pans without glide
   (pinch midpoint, edge scroll), `view.stopGlide()` stops inertia. Phase 1 test: `land-p1.cjs` in the scratchpad pattern (26 checks).
+- **Owner-provided art (the exception to "no image assets"):** `public/models/fuzzy.glb` (≈1.5 MB, texture repacked to 1024 px JPEG)
+  and `public/art/friends/f01–f40.webp` (256 px cut-outs of the owner's sheet) are the owner's own work and may be used anywhere.
+  `game/fuzzyGlb.ts`: `loadFuzzyGlb()` loads once (lazy, cached, `glbReady()`), `furTexture(skin)` re-tints the pink fur per skin colour
+  (hue/saturation/lightness shift from the model's base pink), `glbFuzzy(skin, r, {shadow, size})` returns the same shape as
+  `makeFuzzy()` (`group/body/face/radius`, empty eyes/pupils/shells) so every caller can swap models. Callers wait at most 6 s for the
+  file (`Promise.race`) and fall back to the drawn Fuzzy; the town swaps residents when it arrives (`view.useDeluxe(on)`). The GLB face
+  is baked (no blink/wink/mouth), so the **brand mascot, the Fuzzy helper and the splash stay procedural** — don't swap those.
+  `settings.fuzzyLook` (`'deluxe'` default | `'classic'`). **Fuzzy Friends** (`content/friends.ts`): stickers are ordinary `image` elements
+  (`addImage('friend-<id>', dataUrl, 256, 256)` in `editor/panels.ts`, drag payload `{kind:'friend'}`), avatars set `avatar.image = friendUrl(id)`.
+  Test: `upload/assets-check.cjs` (12) in the scratchpad.
 - **Fuzzies Adventures:** `land/adventures.ts` is DOM-free and imported by `rules.ts` (migration) and by `api/data.ts` (reward
   amounts) — keep it free of browser code. Every town Fuzzy is a character by index (`character(i)`: name from `NAMES`, personality
   from `ROLES`); tap one → `talkTo(i)` in `land.ts`: `view.focusResident(i, hello)` glides the camera in and puts the resident in
@@ -531,8 +544,17 @@ Design exploration (not code): a Claude Design canvas with three palette mockups
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
+| _(owner art)_ | **The owner's 3D Fuzzy + 40 Fuzzy Friends** (owner: "Use this in my game and all these too" — a `fuzzy-3d.zip` with one GLB of their pink furry Fuzzy and a sheet of 40 illustrated Fuzzies). **Deluxe 3D Fuzzies:** the GLB (texture repacked from 2048 to 1024 px, 1.5 MB, lazy-loaded with a 6 s cap and a fallback to the drawn Fuzzy) is now every town resident (fur re-tinted to each Fuzzy's own colour), the Boat Race riders, the Forest host, the Fuzzy Crossing hero and the conversation portraits; Settings → *Deluxe 3D Fuzzies* (default on) switches back to the drawn ones live. The mascot/helper keep the drawn Fuzzy because the model's face can't blink or wink. **Fuzzy Friends:** the sheet was cut into 40 transparent 256 px WebP stickers (named + tagged: wizard, pirate, chef, unicorn…) → first section of the editor's Stickers panel (tap or drag) and 40 new avatar choices in Profile. Tested: `assets-check.cjs` 12/12 (deluxe residents, portrait, race riders, game load, friends grid, sticker added, 40 avatars, avatar saved, setting default, classic restores drawn Fuzzies, no errors), the adventure flows re-run with the model (32/32 computer, 32/32 phone, forest 16/16), screenshots reviewed. Branch only — ask the owner before `main`. |
+
 ## 8. Known limitations / not verified
 
+- **Owner's 3D Fuzzy / Fuzzy Friends:** the model is one baked mesh (29k triangles, one texture) — it can't blink, wink, talk or
+  move its eyes, so the brand mascot and the Fuzzy helper still use the drawn Fuzzy, and deluxe residents express themselves with
+  body motion only. Fur colours per Fuzzy come from a hue shift of the pink texture (a very dark or grey skin looks muted). The
+  1.5 MB file loads once per visit (not pre-cached by the service worker); on a slow connection the first town/game/race may show
+  the drawn Fuzzies until it arrives. Phone frame rate with 8+ model residents hasn't been measured on a real device (the
+  Settings switch is the fallback). The friends were cut out by flood-fill from the sheet: a few edges keep a thin light halo
+  on dark backgrounds.
 - **Fuzzies Adventures:** played in a software-rendered test browser (~1 fps) and the rules in Node — the real feel of steering,
   the 60 fps target and phone performance need a real device (the race drops pixel density/shadows by itself when slow). Art is
   procedural (no image assets): boats, island, palms, buoys and trees are original 3D models in the Fuzzies style; a professional
@@ -636,7 +658,9 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Fuzzies Adventures — next:** owner tries the race and the forest on a real phone; then spend wood (expansion discount),
+0. **Owner art — next:** owner checks the deluxe Fuzzies on their phone (frame rate) and says whether the game's hero should
+   stay the model; possible: a blink overlay for the model's eyes, pre-cache the GLB in the service worker, more sticker sheets.
+   **Fuzzies Adventures — next:** owner tries the race and the forest on a real phone; then spend wood (expansion discount),
    more adventures from the registry (fishing, treasure hunt, harvest rush, delivery, garden contest), seasonal variants (snow
    race), a per-character daily greeting when the mission is done, a real axe-chop animation for the Fuzzy, boat skins.
    **Fuzzy assistant — Phase 2 ideas:** richer context hints from screens (selected element in the editor, open panel in Land),
