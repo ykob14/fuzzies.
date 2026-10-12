@@ -144,6 +144,7 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
         ...(btcNet ? [h('p', { class: 'pay-fine' }, 'Send exactly this amount — if your wallet takes the network fee out of the amount, the payment won’t match. Bitcoin takes about 10–30 minutes to confirm; you can close this window, your Fuzzies arrive automatically.')] : []),
         h('div', { class: 'pay-row' }, btn('Copy payment link', { kind: 'ghost', size: 'sm', icon: 'copy', onClick: () => void copy(uri, 'Payment link') }), back),
         status, left, fine());
+      pay.remember(p.id, ''); // checked again the next time the app opens, even if this window is closed
       waitFor(p, undefined, status);
       return;
     }

@@ -96,27 +96,47 @@ const TOKENS: Record<string, string> = {
   'bnb:USDT': '0x55d398326f99059ff775485246999027b3197955', 'bnb:USDC': '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
 };
 const CHAIN_OF: Record<string, number> = { base: 8453, ethereum: 1, bnb: 56, robinhood: 4663 };
-const DEV_TOKENS = import.meta.env.DEV; // a test coin is allowed only while developing
+const DEV_TOKENS = import.meta.env.DEV; // a test coin (and test addresses) are allowed only while developing
+/** Where Fuzzies' money goes — pinned here too, so even a broken or hijacked server can't send a payment elsewhere. */
+const env = import.meta.env as Record<string, string | undefined>;
+const OWNER = {
+  evm: (env.VITE_PAY_EVM_ADDRESS || '0x341889850a71af6ef1918E6f6e42412A52B50278').trim().toLowerCase(),
+  sol: (env.VITE_PAY_SOL_ADDRESS || 'HyogAUPxstjVZo61mKnnwpWzAfL9CZiMGWXwgUiYK2nA').trim(),
+  btc: (env.VITE_PAY_BTC_ADDRESS || 'bc1q7kt6nfeapf9zefcxqphgac8adfsdql2x5d6tgr').trim().toLowerCase(),
+};
+/** The only network + coin pairs Fuzzies takes. */
+const PAIRS = new Set(['base:ETH', 'base:USDC', 'ethereum:ETH', 'ethereum:USDC', 'solana:SOL', 'solana:USDC', 'bnb:USDT', 'bnb:USDC', 'robinhood:ETH', 'bitcoin:BTC']);
+const EXPLORER: Record<Network, string> = { base: 'https://basescan.org/tx/', ethereum: 'https://etherscan.io/tx/', bnb: 'https://bscscan.com/tx/', robinhood: 'https://robinhoodchain.blockscout.com/tx/', bitcoin: 'https://mempool.space/tx/', solana: 'https://solscan.io/tx/' };
+const B58 = '[1-9A-HJ-NP-Za-km-z]';
 function checked(p: Payment): Payment {
   const bad = (why: string) => { throw new Error(`This payment request looks wrong (${why}) — please try again.`); };
-  if (!['base', 'ethereum', 'solana', 'bnb', 'robinhood', 'bitcoin'].includes(p.network)) bad('network');
+  if (!PAIRS.has(`${p.network}:${p.asset}`)) bad('network');
   if (!/^\d{1,40}$/.test(p.amount) || BigInt(p.amount) <= 0n) bad('amount');
   const stable = p.asset === 'USDC' || p.asset === 'USDT';
   const dec = p.network === 'bnb' && stable ? 18 : { ETH: 18, USDC: 6, USDT: 6, SOL: 9, BTC: 8 }[p.asset];
   if (!dec || dec !== p.decimals) bad('coin');
-  if (p.network === 'solana') {
-    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(p.payTo) || !p.solanaPay?.startsWith(`solana:${p.payTo}?`)) bad('address');
-    if (stable && p.token !== TOKENS[`solana:${p.asset}`]) bad('token');
-  } else if (p.network === 'bitcoin') {
-    if (p.asset !== 'BTC' || !/^bc1[02-9ac-hj-np-z]{25,62}$/.test(p.payTo) || !p.bitcoinPay?.startsWith(`bitcoin:${p.payTo}?`)) bad('address');
-  } else {
-    if (!/^0x[0-9a-fA-F]{40}$/.test(p.payTo) || p.chainId !== CHAIN_OF[p.network]) bad('address');
-    if (stable && !DEV_TOKENS && p.token?.toLowerCase() !== TOKENS[`${p.network}:${p.asset}`]) bad('token');
-    if (p.asset === 'ETH' && p.token) bad('token');
-  }
   const s = p.amount.padStart(dec + 1, '0');
   const frac = s.slice(-dec).replace(/0+$/, '');
-  return { ...p, display: frac ? `${s.slice(0, -dec)}.${frac}` : s.slice(0, -dec) };
+  const display = frac ? `${s.slice(0, -dec)}.${frac}` : s.slice(0, -dec);
+  // the wallet links and QR codes are built here from the checked values — never taken from the server as they are
+  let solanaPay: string | undefined, bitcoinPay: string | undefined;
+  if (p.network === 'solana') {
+    if (!new RegExp(`^${B58}{32,44}$`).test(p.payTo) || (!DEV_TOKENS && p.payTo !== OWNER.sol)) bad('address');
+    if (stable ? p.token !== TOKENS[`solana:${p.asset}`] : p.token) bad('token');
+    const ref = new RegExp(`[?&]reference=(${B58}{32,44})(?:&|$)`).exec(p.solanaPay ?? '')?.[1];
+    if (!ref) bad('reference');
+    solanaPay = `solana:${p.payTo}?amount=${display}${stable ? `&spl-token=${p.token}` : ''}&reference=${ref}&label=Fuzzies`;
+  } else if (p.network === 'bitcoin') {
+    if (!/^bc1[02-9ac-hj-np-z]{25,62}$/.test(p.payTo) || (!DEV_TOKENS && p.payTo !== OWNER.btc) || p.token) bad('address');
+    bitcoinPay = `bitcoin:${p.payTo}?amount=${display}&label=Fuzzies`;
+  } else {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(p.payTo) || (!DEV_TOKENS && p.payTo.toLowerCase() !== OWNER.evm) || p.chainId !== CHAIN_OF[p.network]) bad('address');
+    if (stable && (!p.token || !/^0x[0-9a-fA-F]{40}$/.test(p.token) || (!DEV_TOKENS && p.token.toLowerCase() !== TOKENS[`${p.network}:${p.asset}`]))) bad('token');
+    if (p.asset === 'ETH' && p.token) bad('token');
+  }
+  // the explorer link points only at the known explorer for that network
+  const txOk = p.tx && (p.network === 'solana' ? new RegExp(`^${B58}{64,90}$`).test(p.tx) : p.network === 'bitcoin' ? /^[0-9a-f]{64}$/.test(p.tx) : /^0x[0-9a-fA-F]{64}$/.test(p.tx));
+  return { ...p, display, solanaPay, bitcoinPay, txUrl: txOk ? EXPLORER[p.network] + p.tx : undefined };
 }
 
 // ---------- sending on Ethereum / Base ----------

@@ -609,8 +609,8 @@ export function landScreen(): Screen {
         const it = L.item(p.item);
         const why = L.cantBuy(s, p.item, rewards.balance());
         if (why) throw new Error(why);
+        const g = L.place(s, p.item, p.x, p.z, p.rot); // throws (nothing spent) if the spot is taken
         if (it.currency === 'fuzzies') spendFuzzies(it.cost);
-        const g = L.place(s, p.item, p.x, p.z, p.rot);
         sfx.build();
         save();
         const placed = s.buildings[s.buildings.length - 1];

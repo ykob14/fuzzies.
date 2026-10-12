@@ -67,7 +67,7 @@ function netInfo(id: Net): NetInfo {
   switch (id) {
     case 'base': return { id, name: 'Base', chainId: 8453, chain: base, assets: ['USDC', 'ETH'], finality: 'safe', blockSecs: 2, rpcs: rpcList('WALLET_RPC_8453', [base.rpcUrls.default.http[0], 'https://base-rpc.publicnode.com']), explorer: 'https://basescan.org/tx/', fee: 'under 1¢', graceMin: 60 };
     case 'ethereum': return { id, name: 'Ethereum', chainId: 1, chain: mainnet, assets: ['USDC', 'ETH'], finality: 5, blockSecs: 12, rpcs: rpcList('WALLET_RPC_1', [mainnet.rpcUrls.default.http[0], 'https://ethereum-rpc.publicnode.com']), explorer: 'https://etherscan.io/tx/', fee: 'about $0.20–$3', graceMin: 60 };
-    case 'bnb': return { id, name: 'BNB Chain', chainId: 56, chain: bsc, assets: ['USDT', 'USDC'], finality: 'finalized', blockSecs: 1, rpcs: rpcList('WALLET_RPC_56', ['https://bsc-dataseed.bnbchain.org', 'https://bsc-rpc.publicnode.com']), explorer: 'https://bscscan.com/tx/', fee: 'about 1¢', graceMin: 60 };
+    case 'bnb': return { id, name: 'BNB Chain', chainId: 56, chain: bsc, assets: ['USDT', 'USDC'], finality: 'finalized', blockSecs: 0.45, rpcs: rpcList('WALLET_RPC_56', ['https://bsc-dataseed.bnbchain.org', 'https://bsc-rpc.publicnode.com']), explorer: 'https://bscscan.com/tx/', fee: 'about 1¢', graceMin: 60 };
     // Robinhood Chain (Arbitrum Orbit L2, gas in ETH): one public provider today — add a second with WALLET_RPC_4663
     case 'robinhood': return { id, name: 'Robinhood Chain', chainId: 4663, chain: robinhood, assets: ['ETH'], finality: 'safe', blockSecs: 1, rpcs: rpcList('WALLET_RPC_4663', ['https://rpc.mainnet.chain.robinhood.com']), explorer: 'https://robinhoodchain.blockscout.com/tx/', fee: 'under 1¢', graceMin: 60 };
     case 'bitcoin': return { id, name: 'Bitcoin', assets: ['BTC'], finality: 1, blockSecs: 600, rpcs: rpcList('BITCOIN_API', ['https://mempool.space/api', 'https://blockstream.info/api']), explorer: 'https://mempool.space/tx/', fee: 'varies (often $0.30–$3)', graceMin: 360 };
@@ -147,7 +147,7 @@ async function amountFor(cents: number, net: Net, asset: Asset): Promise<bigint>
   const d = BigInt(decimalsOf(net, asset));
   if (asset === 'USDC' || asset === 'USDT') return BigInt(cents) * 10n ** (d - 2n) + BigInt(randomInt(1, 4_999)) * 10n ** (d - 6n); // fingerprint < half a cent
   const price = await usdPrice(asset as 'ETH' | 'SOL' | 'BTC');
-  if (asset === 'BTC') return BigInt(Math.ceil((cents / 100 / price) * 1e8)) + BigInt(randomInt(1, 99)); // sats; fingerprint ≤ 99 sats (about 10¢)
+  if (asset === 'BTC') return BigInt(Math.ceil((cents / 100 / price) * 1e8)) + BigInt(randomInt(1, 299)); // sats; fingerprint ≤ 299 sats (a few cents)
   const step = asset === 'ETH' ? 10n ** 12n : 1_000n; // round up to 0.000001 ETH / 0.000001 SOL
   const raw = BigInt(Math.ceil((cents / 100 / price) * 1e9)) * 10n ** (d - 9n);
   const rounded = ((raw + step - 1n) / step) * step;
@@ -164,8 +164,11 @@ export function formatUnits(v: bigint, decimals: number): string {
 export interface PaymentRow {
   id: string; user_id: string; kind: string; item: string; usd_cents: number; fuzzies: number; network: Net; asset: Asset;
   amount: string; pay_to: string; reference: string | null; status: string; tx: string | null; payer: string | null;
-  created_at: Date; expires_at: Date; paid_at: Date | null;
+  created_at: Date; expires_at: Date; paid_at: Date | null; seen_tx?: string | null;
 }
+
+/** Bitcoin payments are stored as "txid:output" (one transaction can pay several orders); people see the transaction id. */
+const txId = (tx: string | null) => (tx ? tx.split(':')[0] : null);
 
 /** What the app shows for a payment (and how wallets are asked to pay it). */
 export function publicPayment(p: PaymentRow) {
@@ -180,8 +183,8 @@ export function publicPayment(p: PaymentRow) {
   return {
     id: p.id, kind: p.kind, item: p.item, usdCents: p.usd_cents, fuzzies: p.fuzzies,
     network: p.network, networkName: info.name, chainId: info.chainId, asset: p.asset, token, decimals: decimalsOf(p.network, p.asset),
-    amount: p.amount, display, payTo: p.pay_to, solanaPay, bitcoinPay, status: p.status, tx: p.tx,
-    txUrl: p.tx ? info.explorer + p.tx : undefined, expiresAt: new Date(p.expires_at).toISOString(), confirmations: typeof info.finality === 'number' ? info.finality : 0,
+    amount: p.amount, display, payTo: p.pay_to, solanaPay, bitcoinPay, status: p.status, tx: txId(p.tx),
+    txUrl: p.tx ? info.explorer + txId(p.tx) : undefined, expiresAt: new Date(p.expires_at).toISOString(), confirmations: typeof info.finality === 'number' ? info.finality : 0,
   };
 }
 
@@ -203,13 +206,19 @@ export async function createQuote(userId: string, kind: 'pack' | 'wallet', item:
     item = normAddress(item);
   }
   // no floods: a few open payments and a limited number per hour
-  // an amount stays reserved until its payment's grace time is over (Bitcoin: 6 hours, others: 1 hour)
-  await q("update fz_payments set status = 'expired' where status = 'pending' and expires_at < now() - case when network = 'bitcoin' then interval '6 hours' else interval '1 hour' end");
-  const { rows: n } = await q("select count(*) filter (where created_at > now() - interval '1 hour')::int as hour, count(*) filter (where status = 'pending' and expires_at > now())::int as open from fz_payments where user_id = $1", [userId]);
+  // an amount stays reserved until its payment's grace time is over (Bitcoin: 24 hours — blocks can be slow —, others: 1 hour).
+  // A Bitcoin payment already seen on the network keeps its amount for good (it can only ever be matched to its own order).
+  await q("update fz_payments set status = 'expired' where status = 'pending' and seen_tx is null and expires_at < now() - case when network = 'bitcoin' then interval '24 hours' else interval '1 hour' end");
+  const { rows: n } = await q(`select count(*) filter (where created_at > now() - interval '1 hour')::int as hour,
+      count(*) filter (where status = 'pending' and expires_at > now())::int as open,
+      count(*) filter (where status = 'pending' and network = 'bitcoin' and seen_tx is null)::int as btc
+    from fz_payments where user_id = $1`, [userId]);
   if (n[0].hour >= 30 || n[0].open >= 6) throw new HttpError(429, 'Too many payment requests — please finish or wait for the open ones first.');
+  // Bitcoin amounts stay reserved for a day, so unpaid Bitcoin requests are limited separately (nobody can use up the amounts)
+  if (net === 'bitcoin' && n[0].btc >= 8) throw new HttpError(429, 'You have several unpaid Bitcoin payment requests — pay one of them or try again tomorrow.');
   if (ip) {
-    const { rows: byIp } = await q("select count(*)::int as n from fz_payments where ip = $1 and created_at > now() - interval '1 hour'", [ip]);
-    if (byIp[0].n >= 60) throw new HttpError(429, 'Too many payment requests from this network — please try again later.');
+    const { rows: byIp } = await q("select count(*) filter (where created_at > now() - interval '1 hour')::int as n, count(*) filter (where network = 'bitcoin' and status = 'pending' and seen_tx is null)::int as btc from fz_payments where ip = $1 and created_at > now() - interval '1 day'", [ip]);
+    if (byIp[0].n >= 60 || (net === 'bitcoin' && byIp[0].btc >= 16)) throw new HttpError(429, 'Too many payment requests from this network — please try again later.');
   }
   for (let attempt = 0; attempt < 12; attempt++) {
     const amount = await amountFor(cents, net, asset);
@@ -284,7 +293,10 @@ interface TokBal { accountIndex: number; mint: string; owner?: string; uiTokenAm
 /** Solana Pay: find a finalized transfer carrying this payment's reference, with exactly the right amount to the owner. */
 async function checkSolana(p: PaymentRow, rpc: string): Promise<Verdict & { tx?: string }> {
   const info = netInfo('solana');
-  const sigs = (await solRpc(rpc, 'getSignaturesForAddress', [p.reference, { limit: 3, commitment: 'finalized' }])) as { signature: string; err: unknown }[];
+  // the payment is the first transaction carrying its reference: read oldest first, so later junk transactions that mention
+  // the same reference can't push it out of view
+  const all = (await solRpc(rpc, 'getSignaturesForAddress', [p.reference, { limit: 50, commitment: 'finalized' }])) as { signature: string; err: unknown }[];
+  const sigs = (all ?? []).filter((x) => !x.err).reverse().slice(0, 6);
   const amount = BigInt(p.amount);
   const mint = tokenOf('solana', p.asset);
   let wrong: string | undefined;
@@ -347,18 +359,75 @@ export async function isSmartWallet(p: PaymentRow, address: string): Promise<boo
  * block explorers (mempool.space, blockstream.info). 1 confirmation is enough for these small amounts.
  */
 interface EsploraTx { txid: string; status: { confirmed: boolean; block_time?: number }; vout: { scriptpubkey_address?: string; value: number }[] }
-async function checkBitcoin(p: PaymentRow, apiBase: string): Promise<Verdict & { tx?: string }> {
-  const info = netInfo('bitcoin');
-  const r = await fetch(`${apiBase}/address/${p.pay_to}/txs`, { signal: AbortSignal.timeout(8000), headers: { accept: 'application/json' } });
-  if (!r.ok) throw new Error(`bitcoin api ${r.status}`);
-  const txs = (await r.json()) as EsploraTx[];
+type BtcHit = { confirmed: boolean; time: number };
+const btcCache = new Map<string, { at: number; txs: EsploraTx[] }>();
+/** The owner address's recent transactions from one explorer (cached ~10 s per server; pages back to the quote's time). */
+async function btcTxs(apiBase: string, address: string, since: number): Promise<EsploraTx[]> {
+  const key = `${apiBase}|${address}`;
+  const c = btcCache.get(key);
+  if (c && Date.now() - c.at < 10_000 && (c.txs.at(-1)?.status.block_time ?? 0) * 1000 <= since) return c.txs;
+  const get = async (path: string) => {
+    const r = await fetch(`${apiBase}/address/${address}/${path}`, { signal: AbortSignal.timeout(8000), headers: { accept: 'application/json' } });
+    if (!r.ok) throw new Error(`bitcoin api ${r.status}`);
+    return (await r.json()) as EsploraTx[];
+  };
+  const txs = await get('txs'); // waiting ones + the newest confirmed ones
+  // older confirmed ones, a page at a time, until we're before the quote (at most 4 more pages)
+  for (let page = 0; page < 4; page++) {
+    const last = txs.filter((t) => t.status.confirmed).at(-1);
+    if (!last || (last.status.block_time ?? 0) * 1000 < since || txs.length < 25) break;
+    const more = await get(`txs/chain/${last.txid}`);
+    if (!more.length) break;
+    txs.push(...more);
+  }
+  btcCache.set(key, { at: Date.now(), txs });
+  if (btcCache.size > 50) btcCache.delete(btcCache.keys().next().value!);
+  return txs;
+}
+/** Every output paying exactly this amount to the owner, as "txid:output" → state (from one explorer). */
+async function btcHits(p: PaymentRow, apiBase: string): Promise<Map<string, BtcHit>> {
+  const since = new Date(p.created_at).getTime() - 2 * 3600_000; // block times can run up to ~2 hours behind
   const amount = Number(p.amount);
-  const hit = txs.find((t) => t.vout.some((o) => o.scriptpubkey_address === p.pay_to && o.value === amount));
-  if (!hit) return { ok: false, why: 'pending' };
-  if (!hit.status.confirmed) return { ok: false, why: 'confirming', tx: hit.txid };
-  const when = (hit.status.block_time ?? 0) * 1000;
-  if (when < new Date(p.created_at).getTime() - 120_000 || when > new Date(p.expires_at).getTime() + info.graceMin * 60_000) return { ok: false, why: 'wrong', detail: 'That payment was sent outside its time window.' };
-  return { ok: true, payer: '', tx: hit.txid };
+  const out = new Map<string, BtcHit>();
+  for (const t of await btcTxs(apiBase, p.pay_to, since)) {
+    const time = (t.status.block_time ?? 0) * 1000;
+    if (t.status.confirmed && time < since) continue; // from before this order existed
+    t.vout.forEach((o, i) => { if (o.scriptpubkey_address === p.pay_to && o.value === amount) out.set(`${t.txid}:${i}`, { confirmed: t.status.confirmed, time }); });
+  }
+  return out;
+}
+/**
+ * Bitcoin: find an output paying exactly this amount (in satoshis) to the owner's address, through two independent block
+ * explorers (mempool.space, blockstream.info). The first time a matching output is seen — even still waiting for a block —
+ * it is claimed for this order (`seen_tx`, unique), so it can never be credited to anyone else, however long it takes.
+ * 1 confirmation on both explorers is enough for these small amounts.
+ */
+async function verifyBitcoin(p: PaymentRow): Promise<Verdict & { tx?: string }> {
+  const lists = await Promise.all(netInfo('bitcoin').rpcs.map((api) => btcHits(p, api)));
+  if (!lists.length) throw new Error('no bitcoin explorers');
+  let key = p.seen_tx ?? null;
+  if (!key) {
+    const keys = [...new Set(lists.flatMap((m) => [...m.keys()]))];
+    if (!keys.length) return { ok: false, why: 'pending' };
+    const { rows } = await q<{ tx: string | null; seen_tx: string | null }>('select tx, seen_tx from fz_payments where id <> $1 and (tx = any($2) or seen_tx = any($2))', [p.id, keys]);
+    const used = new Set(rows.flatMap((r) => [r.tx, r.seen_tx]));
+    for (const k of keys.filter((x) => !used.has(x))) {
+      try {
+        const { rows: got } = await q<{ seen_tx: string }>('update fz_payments set seen_tx = coalesce(seen_tx, $2) where id = $1 returning seen_tx', [p.id, k]);
+        key = got[0]?.seen_tx ?? null;
+        break;
+      } catch (e) {
+        if ((e as { code?: string }).code === '23505') continue; // another order claimed it a moment ago
+        throw e;
+      }
+    }
+    if (!key) return { ok: false, why: 'pending' };
+  }
+  const states = lists.map((m) => m.get(key!));
+  if (states.every((x) => x?.confirmed)) return { ok: true, payer: '', tx: key };
+  // gone from every explorer (dropped or replaced by a fee bump before it confirmed): let go, look again next time
+  if (states.every((x) => !x)) { await q('update fz_payments set seen_tx = null where id = $1 and seen_tx = $2', [p.id, key]); return { ok: false, why: 'pending' }; }
+  return { ok: false, why: 'confirming', tx: key };
 }
 
 /** Ask both providers; every one must confirm the same thing. */
@@ -372,9 +441,8 @@ export async function verifyOnChain(p: PaymentRow, hash?: string): Promise<Verdi
       if (!found[0] || found.some((f) => f !== found[0])) return { ok: false, why: 'pending' };
       hash = found[0];
     }
-    verdicts = await Promise.all(info.rpcs.map((rpc) => (p.network === 'solana' ? checkSolana(p, rpc)
-      : p.network === 'bitcoin' ? checkBitcoin(p, rpc)
-        : checkEvm(p, hash!, rpc).then((v) => ({ ...v, tx: hash })))));
+    verdicts = p.network === 'bitcoin' ? [await verifyBitcoin(p)]
+      : await Promise.all(info.rpcs.map((rpc) => (p.network === 'solana' ? checkSolana(p, rpc) : checkEvm(p, hash!, rpc).then((v) => ({ ...v, tx: hash })))));
   } catch (e) {
     console.error('payment check failed', e);
     throw new HttpError(503, 'We couldn’t reach the network to check your payment — it’s safe, we’ll keep checking. Try again in a minute.');

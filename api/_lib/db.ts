@@ -172,6 +172,8 @@ create table if not exists fz_earn (
 alter table fz_payments add column if not exists checked_at timestamptz;
 alter table fz_payments add column if not exists ip text not null default '';
 create index if not exists fz_payments_ip_idx on fz_payments (ip, created_at);
+alter table fz_payments add column if not exists seen_tx text;
+create unique index if not exists fz_payments_seen_tx on fz_payments (seen_tx) where seen_tx is not null;
 -- sign-ups per network address (flood guard)
 create table if not exists fz_signups (ip text not null, at timestamptz not null default now());
 create index if not exists fz_signups_idx on fz_signups (ip, at);

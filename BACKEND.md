@@ -132,7 +132,8 @@ Money goes **straight from the buyer's wallet to those addresses** — Fuzzies n
 Networks and coins: **Base** (USDC, ETH), **Solana** (SOL, USDC — Solana Pay), **BNB Chain** (USDT, USDC — stablecoins only, no
 BNB price feed needed), **Robinhood Chain** (ETH; chain id 4663, public RPC `rpc.mainnet.chain.robinhood.com`, one provider —
 add a second with `WALLET_RPC_4663`), **Ethereum** (USDC, ETH), **Bitcoin** (BTC to the owner's bc1q address; matched by exact
-amount in satoshis through mempool.space + blockstream.info, 1 confirmation, 6-hour window; ~10–30 min).
+amount in satoshis through mempool.space + blockstream.info, 1 confirmation; ~10–30 min; a payment is claimed for its order the
+first time it's seen, even before it confirms, so a slow one can never be credited to someone else).
 To change an address later, set these in Vercel → project **fuzzies.** → Settings → Environment Variables (Production *and* Preview), then Redeploy:
 
 | Setting | What it is |
@@ -143,6 +144,11 @@ To change an address later, set these in Vercel → project **fuzzies.** → Set
 | `PAY_SOL_ADDRESS` | Your Solana address (from Phantom / Solflare…). Receives SOL and USDC on Solana. Make sure it has a USDC account (receive any USDC once). |
 | `WALLET_FEE_USD` | Optional. The one-time wallet activation fee, default `0.50`. `0` turns it off (wallets are then free and get the gift straight away). |
 | `WALLET_RPC_8453`, `WALLET_RPC_1`, `SOLANA_RPC` | Optional. Your own network providers (e.g. Alchemy/Helius URLs, two comma-separated) instead of the free public ones. |
+
+**The app checks the address too** (a second lock in case the server were ever hacked): it only shows payments to the built-in
+addresses. If you change an address above, also add the same value as `VITE_PAY_EVM_ADDRESS` / `VITE_PAY_SOL_ADDRESS` /
+`VITE_PAY_BTC_ADDRESS` (all 0x networks share one EVM address in the app — per-network EVM addresses aren't supported by the
+app check), then Redeploy. Otherwise the app refuses the payment with "This payment request looks wrong (address)".
 
 Only the **public** address is needed — never put a recovery phrase or private key anywhere. Each network turns on when its
 address is set (e.g. only `PAY_EVM_ADDRESS` = Base + Ethereum only).

@@ -49,7 +49,7 @@ export function POST(req: Request): Promise<Response> {
         }
         const v = await verifyOnChain(p, tx ? tx.toLowerCase() : undefined);
         if (!v.ok) {
-          const expired = v.why === 'pending' && new Date(p.expires_at) < new Date();
+          const expired = v.why === 'pending' && new Date(p.expires_at).getTime() + (p.network === 'bitcoin' ? 60 * 60_000 : 0) < Date.now(); // Bitcoin: explorers can be slow to show a new payment
           return { payment: publicPayment(p), state: expired ? 'expired' : v.why === 'wrong' ? 'pending' : v.why, detail: v.why === 'wrong' ? v.detail : undefined, confirmations: v.confirmations };
         }
         try {
