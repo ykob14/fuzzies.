@@ -19,7 +19,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { db, q } from './_lib/db.js';
 import { requireMail, sendMail, resetEmail, mailReady, walletLinkedEmail } from './_lib/mail.js';
 import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json, BUILD } from './_lib/auth.js';
-import { normAddress, recoverSigner, siteOf, siweMessage } from './_lib/wallet.js';
+import { normAddress, recoverSigner, siteOf, siweMessage, verifySmartWallet, MAX_SIGNATURE } from './_lib/wallet.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME = /^[a-z0-9_.]{3,20}$/;
@@ -167,18 +167,31 @@ export function POST(req: Request): Promise<Response> {
           ? `Link this wallet to the Fuzzies account @${user.username}. Signing is free: it doesn't send a transaction or give access to your funds.`
           : `Sign in to Fuzzies with this wallet. Signing is free: it doesn't send a transaction or give access to your funds.`;
         const message = siweMessage({ domain, uri: origin, address, statement, chainId, nonce, issuedAt, expiresAt });
-        await q('insert into fz_wallet_nonces (nonce, address, purpose, user_id, message, wallet, ip, expires_at) values ($1, $2, $3, $4, $5, $6, $7, $8)',
-          [nonce, address, purpose, user?.id ?? null, message, wallet, ip, expiresAt]);
+        await q('insert into fz_wallet_nonces (nonce, address, purpose, user_id, message, wallet, ip, expires_at, chain_id) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          [nonce, address, purpose, user?.id ?? null, message, wallet, ip, expiresAt, chainId]);
         return { message, nonce };
       }
       case 'wallet.verify': {
         const nonce = str(b.nonce, 64);
         // a message works once: it is removed as it is checked, whatever the outcome
-        const { rows } = await q<{ address: string; purpose: string; user_id: string | null; message: string; wallet: string }>(
-          'delete from fz_wallet_nonces where nonce = $1 and expires_at > now() returning address, purpose, user_id, message, wallet', [nonce]);
+        const { rows } = await q<{ address: string; purpose: string; user_id: string | null; message: string; wallet: string; chain_id: number }>(
+          'delete from fz_wallet_nonces where nonce = $1 and expires_at > now() returning address, purpose, user_id, message, wallet, chain_id', [nonce]);
         const c = rows[0];
         if (!c) throw new HttpError(400, 'This sign-in request has expired — please try again.');
-        if (recoverSigner(c.message, b.signature) !== c.address) throw new HttpError(400, 'The signature didn’t match this wallet — please try again.');
+        const signature = typeof b.signature === 'string' ? b.signature : '';
+        if (!/^0x[0-9a-fA-F]+$/.test(signature) || signature.length > MAX_SIGNATURE) throw new HttpError(400, 'That signature doesn’t look right.');
+        // a regular wallet's signature is checked right here; anything else is a smart wallet, checked with the network
+        let valid = false;
+        if (signature.length === 132) { try { valid = recoverSigner(c.message, signature) === c.address; } catch { valid = false; } }
+        if (!valid) {
+          try { valid = await verifySmartWallet(c.address, c.message, signature, c.chain_id); }
+          catch (e) {
+            // a plain wrong signature on a network we can't check smart wallets on
+            if (signature.length === 132 && (e as HttpError).status === 400) throw new HttpError(400, 'The signature didn’t match this wallet — please try again. Using a smart wallet? Switch it to Ethereum, Base, Optimism, Arbitrum or Polygon first.');
+            throw e;
+          }
+        }
+        if (!valid) throw new HttpError(400, 'The signature didn’t match this wallet — please try again.');
         if (c.purpose === 'link') {
           const u = await requireUser(req);
           if (u.id !== c.user_id) throw new HttpError(403, 'This request was made for a different account — please try again.');

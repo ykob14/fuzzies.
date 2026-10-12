@@ -117,6 +117,8 @@ create table if not exists fz_wallet_nonces (
 );
 create index if not exists fz_wallet_nonces_addr_idx on fz_wallet_nonces (address, created_at);
 create index if not exists fz_wallet_nonces_ip_idx on fz_wallet_nonces (ip, created_at);
+-- the network the message was signed for (smart wallets are checked on that network)
+alter table fz_wallet_nonces add column if not exists chain_id integer not null default 1;
 `;
 
 /** Errors that mean "the connection dropped" (Neon puts idle databases to sleep): safe to retry once. */

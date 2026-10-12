@@ -76,7 +76,19 @@ production address.
 
 ## Crypto wallets (MetaMask, Coinbase Wallet, Trust Wallet…)
 
-**Nothing to set up** — it works as soon as the database is connected (the two new tables create themselves).
+Browser wallets and smart wallets work as soon as the database is connected (the tables create themselves).
+**QR codes / phone wallets (WalletConnect) need one free setting:**
+
+1. Go to **dashboard.reown.com** (WalletConnect's company), sign up free, **Create project** → type *AppKit*, name *Fuzzies*.
+2. Copy the **Project ID** (32 letters/numbers — it's public, not a password).
+3. In the project → **Domain** (allowlist), add `fuzzies-nine.vercel.app` (and any other address you use, e.g. your own domain).
+   This lets wallets show people a green "verified" Fuzzies address and stops copycat sites from using your ID.
+4. Vercel → project **fuzzies.** → Settings → Environment Variables: `VITE_WALLETCONNECT_PROJECT_ID` = the Project ID → **Redeploy**.
+
+Licence: WalletConnect's SDK is under the *WalletConnect Community License* (free up to 500 wallets a month, then a paid
+licence from Reown). The required notice is in Settings → About and the licence is served at `/licenses/walletconnect.md`.
+Optional: `WALLET_RPC_<chainId>` (e.g. `WALLET_RPC_8453`) = one or two comma-separated network URLs of your own (Alchemy,
+Infura…) for checking smart wallets; by default each network uses two free public providers.
 
 - **Profile → Crypto wallets → Connect a wallet** links a wallet to the logged-in account (the password is asked again,
   and the owner gets an email "A wallet was linked" when email is set up); **Log in → Continue with a wallet** then logs in
@@ -98,12 +110,16 @@ production address.
   lock as log-in). Every new link is emailed to the owner. Deleting the account removes its wallets. The site also sends
   security headers (`vercel.json`): no framing by other sites (stops "click-jacking" tricks), nosniff, a strict referrer
   policy and no camera/microphone/payment access.
-- Not supported yet: smart-contract wallets (e.g. Coinbase *Smart* Wallet — they sign differently; the app says so) and
-  the WalletConnect QR code (scan with a phone wallet from a computer). WalletConnect's SDK (`@walletconnect/ethereum-provider`
-  2.x, Reown) is **not open source any more**: the "WalletConnect Community License" (Aug 2025) is free only up to
-  500 monthly active wallets / 2.5M requests, then needs a paid licence, and requires a Reown project ID and attribution.
-  It's the owner's call; if added, limit the session to `personal_sign` only.
-- Code: `api/_lib/wallet.ts` (message + signature check), `api/auth.ts` (`wallet.challenge` / `wallet.verify` /
+- **QR codes / wallet apps (WalletConnect):** "Scan QR code with your phone" on computers, "Scan QR code or use a wallet
+  app" on tablets, "Use a wallet app" on phones (Robinhood Wallet, Crypto.com Onchain, Rainbow, Ledger Live, Uniswap,
+  Zerion, Safe and 500+ more). The session may only use `personal_sign` (checked: nothing else is even requested), it is
+  new every time and disconnected straight after; swaps/buy/send/email/social/analytics in its window are off. The SDK
+  loads only when someone taps it (not part of the main app download).
+- **Smart wallets** (Coinbase Smart Wallet, Safe, Argent, Ambire…): signatures are checked on the network (ERC-1271, and
+  ERC-6492 for wallets not deployed yet) with viem — read-only, no transaction, no fee — on Ethereum, Base, Optimism,
+  Arbitrum and Polygon. **Two independent providers must both confirm** (and must really be on that network); if one is
+  unreachable the sign-in is refused with "try again", never let through.
+- Code: `api/_lib/wallet.ts` (message + signature check, `verifySmartWallet`), `src/core/walletconnect.ts`, `api/auth.ts` (`wallet.challenge` / `wallet.verify` /
   `wallet.list` / `wallet.unlink`), tables `fz_wallets` + `fz_wallet_nonces`; app: `src/core/wallet.ts`,
   `src/ui/walletPicker.ts`, Profile card and log-in button.
 

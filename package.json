@@ -20,7 +20,9 @@
   "dependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
+    "@walletconnect/ethereum-provider": "2.25.0",
     "pg": "^8.23.1",
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "viem": "2.56.9"
   }
 }

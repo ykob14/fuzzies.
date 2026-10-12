@@ -178,13 +178,14 @@ export function modal(title: string, body: Node, opts: { actions?: HTMLElement[]
     setTimeout(() => backdrop.remove(), 200);
     opts.onClose?.();
   };
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+  // a window marked busy (e.g. waiting for a wallet) doesn't close on Escape / outside taps
+  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && box.dataset.busy !== 'true') close(); };
   const box = h('div', { class: `modal ${opts.wide ? 'modal-wide' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('div', { class: 'modal-head' }, h('h3', null, title), btn(null, { icon: 'close', kind: 'plain', title: 'Close', onClick: close })),
     h('div', { class: 'modal-body' }, body),
     opts.actions?.length ? h('div', { class: 'modal-actions' }, ...opts.actions) : null);
   backdrop.append(box);
-  backdrop.addEventListener('pointerdown', (e) => { if (e.target === backdrop) close(); });
+  backdrop.addEventListener('pointerdown', (e) => { if (e.target === backdrop && box.dataset.busy !== 'true') close(); });
   addEventListener('keydown', onKey);
   document.body.append(backdrop);
   requestAnimationFrame(() => backdrop.classList.add('in'));

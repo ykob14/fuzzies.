@@ -10,9 +10,14 @@
  * - Each message works once, for 10 minutes, and only for the purpose and account it was made for.
  * - Signatures are checked with @noble/curves + @noble/hashes (audited, dependency-free cryptography used by
  *   ethers and viem): recover the signer from the Ethereum "personal message" hash and compare addresses.
+ * - Smart wallets (Coinbase Smart Wallet, Safe, Argent, Ambire…) sign with their contract instead of a key. They are
+ *   checked the standard way (ERC-1271, and ERC-6492 for wallets that aren't deployed yet) with viem, by asking the
+ *   network itself — read-only, no transaction, no fee. Two independent network providers must BOTH confirm it.
  */
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
+import { createPublicClient, http, type Chain } from 'viem';
+import { mainnet, base, optimism, arbitrum, polygon } from 'viem/chains';
 import { HttpError } from './auth.js';
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
@@ -50,9 +55,12 @@ export function personalHash(message: string): Uint8Array {
   return keccak_256(all);
 }
 
+/** The longest signature we accept (smart wallets that aren't deployed yet send their set-up code along: a few KB). */
+export const MAX_SIGNATURE = 20_000;
+
 /** The address that signed `message` (personal_sign), lower-case; throws a friendly error for malformed signatures. */
 export function recoverSigner(message: string, signature: unknown): string {
-  if (typeof signature !== 'string' || signature.length > 200) throw new HttpError(400, 'That signature doesn’t look right.');
+  if (typeof signature !== 'string' || signature.length > MAX_SIGNATURE) throw new HttpError(400, 'That signature doesn’t look right.');
   const sig = unhex(signature);
   if (sig.length !== 65) throw new HttpError(400, 'That signature doesn’t look right.');
   let v = sig[64];
@@ -68,6 +76,44 @@ export function recoverSigner(message: string, signature: unknown): string {
   } catch {
     throw new HttpError(400, 'That signature doesn’t look right.');
   }
+}
+
+/** Networks where smart-wallet signatures can be checked, each with two independent public providers. */
+const NETWORKS: Record<number, { chain: Chain; rpcs: string[] }> = {
+  1: { chain: mainnet, rpcs: [mainnet.rpcUrls.default.http[0], 'https://ethereum-rpc.publicnode.com'] },
+  8453: { chain: base, rpcs: [base.rpcUrls.default.http[0], 'https://base-rpc.publicnode.com'] },
+  10: { chain: optimism, rpcs: [optimism.rpcUrls.default.http[0], 'https://optimism-rpc.publicnode.com'] },
+  42161: { chain: arbitrum, rpcs: [arbitrum.rpcUrls.default.http[0], 'https://arbitrum-one-rpc.publicnode.com'] },
+  137: { chain: polygon, rpcs: [polygon.rpcUrls.default.http[0], 'https://polygon-bor-rpc.publicnode.com'] },
+};
+
+/** The providers to ask for a network: WALLET_RPC_<chainId> (comma-separated, e.g. your own Alchemy/Infura URLs) or the defaults. */
+function providersFor(chainId: number): { chain?: Chain; rpcs: string[] } {
+  const set = (process.env[`WALLET_RPC_${chainId}`] ?? '').split(',').map((u) => u.trim()).filter((u) => /^https?:\/\/[^\s]+$/.test(u));
+  if (set.length) return { chain: NETWORKS[chainId]?.chain, rpcs: set.slice(0, 2) };
+  return NETWORKS[chainId] ?? { rpcs: [] };
+}
+
+/**
+ * Did the smart wallet at `address` sign `message`? Asks the network (read-only `eth_call`, ERC-1271 / ERC-6492) through
+ * two independent providers; both must say yes, so one wrong or hacked provider can't let a forged signature in.
+ */
+export async function verifySmartWallet(address: string, message: string, signature: string, chainId: number): Promise<boolean> {
+  const { chain, rpcs } = providersFor(chainId);
+  if (!rpcs.length) throw new HttpError(400, 'Smart wallets work on Ethereum, Base, Optimism, Arbitrum and Polygon — switch your wallet to one of them and try again.');
+  let answers: boolean[];
+  try {
+    answers = await Promise.all(rpcs.map(async (url) => {
+      const client = createPublicClient({ chain, transport: http(url, { timeout: 8000, retryCount: 1 }) });
+      // the provider must be reachable and really on this network (else "no" could just mean "couldn't ask")
+      if ((await client.getChainId()) !== chainId) throw new Error(`provider ${new URL(url).host} is on another network`);
+      return client.verifyMessage({ address: checksumAddress(address) as `0x${string}`, message, signature: signature as `0x${string}` });
+    }));
+  } catch (e) {
+    console.error('smart wallet check failed', e);
+    throw new HttpError(503, 'We couldn’t check your smart wallet with the network right now — please try again in a minute.');
+  }
+  return answers.length > 0 && answers.every((a) => a === true);
 }
 
 /** The EIP-4361 message, written by the server. `statement` must be one line. */

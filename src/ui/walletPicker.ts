@@ -2,12 +2,15 @@
  * "Connect a wallet" window.
  * 1. Wallets installed in this browser (every Ethereum wallet announces itself: MetaMask, Coinbase Wallet, Trust Wallet,
  *    Crypto.com Onchain, OKX, Phantom, Rabby, Rainbow, Brave…) — tap to connect.
- * 2. Popular wallets that aren't here — tap for the safe way in: open Fuzzies inside the wallet app (official link
+ * 2. "Scan with your phone wallet" (WalletConnect): a QR code on computers & tablets, a wallet-app list on phones —
+ *    works with Robinhood Wallet, Crypto.com Onchain and 500+ others. Shown when the site has a WalletConnect project ID.
+ * 3. Popular wallets that aren't here — tap for the safe way in: open Fuzzies inside the wallet app (official link
  *    where the wallet has one, otherwise step-by-step with a "Copy address" button) or get it from its official site.
  * The chosen wallet is handed to `run`; the window stays open with a friendly message if that fails.
  */
 import { h, icon, modal, toast } from './dom';
-import { findWallets, isPhone, pageUrl, TOP_WALLETS, type TopWallet, type WalletChoice } from '../core/wallet';
+import { findWallets, isPhone, isTablet, pageUrl, TOP_WALLETS, type TopWallet, type WalletChoice } from '../core/wallet';
+import { connectRemote, walletConnectReady } from '../core/walletconnect';
 
 export function walletBadge(w: { name: string; icon?: string }): HTMLElement {
   if (w.icon) return h('img', { class: 'wallet-logo', src: w.icon, alt: '', width: '32', height: '32' });
@@ -29,11 +32,23 @@ async function copyAddress(url: string): Promise<void> {
 }
 
 /** What to do for a popular wallet that isn't in this browser. */
-function helpFor(t: TopWallet, url: string, phone: boolean): HTMLElement {
+function helpFor(t: TopWallet, url: string, phone: boolean, qr: (() => void) | null): HTMLElement {
   const official = h('a', { class: 'btn btn-ghost btn-sm', href: t.site, target: '_blank', rel: 'noopener noreferrer' }, icon('download', 16), h('span', null, phone || !t.desktop ? 'Get the app' : 'Get it (official site)'));
   const copy = h('button', { type: 'button', class: 'btn btn-soft btn-sm' }, icon('copy', 16), h('span', null, 'Copy address'));
   copy.addEventListener('click', () => void copyAddress(url));
   const host = () => h('b', { class: 'wallet-host' }, location.host);
+  const qrBtn = () => {
+    const b = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, icon('phone', 16), h('span', null, phone ? `Connect ${t.name}` : 'Scan QR code'));
+    b.addEventListener('click', () => qr?.());
+    return b;
+  };
+  if (qr && !(phone && t.open)) {
+    return h('div', { class: 'wallet-help' },
+      h('p', null, phone
+        ? `Tap below and choose ${t.name} in the list — it opens the app to approve.`
+        : `Tap “Scan QR code”, then scan it with ${t.name} on your phone or tablet (its scan button). ${t.desktop ? 'Or add its browser extension from the official site and reload this page.' : ''}`),
+      h('div', { class: 'btn-row' }, qrBtn(), official));
+  }
   if (phone && t.open) {
     return h('div', { class: 'wallet-help' },
       h('p', null, `Opens Fuzzies inside the ${t.name} app, where you can connect safely.`),
@@ -67,28 +82,64 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
   const phone = isPhone();
   if (pwField) setTimeout(() => pw.focus(), 60);
 
+  let busy = false;
+  const idle = isTablet() ? 'Open' : phone ? 'Choose' : 'Show QR';
+  const setBusy = (on: boolean) => { busy = on; m.el.dataset.busy = String(on); m.el.querySelectorAll<HTMLButtonElement>('.wallet-opt, .wallet-help button').forEach((x) => (x.disabled = on)); };
+  /** Scan with a phone wallet (WalletConnect): connect on the other device, sign there, then disconnect. */
+  const viaQr = walletConnectReady ? async (status?: HTMLElement) => {
+    if (busy) return;
+    msg.textContent = '';
+    if (opts.password && !pw.value) { msg.textContent = 'Please enter your Fuzzies password first.'; pw.focus(); return; }
+    setBusy(true);
+    const say = (t: string) => { if (status) status.textContent = t; };
+    say('Opening…');
+    try {
+      const remote = await connectRemote();
+      say('Approve in your wallet app…');
+      try { await opts.run(remote, pw.value); m.close(); }
+      finally { void remote.done(); }
+    } catch (e) { msg.textContent = (e as Error).message; }
+    finally { say(idle); setBusy(false); }
+  } : null;
+
   void findWallets().then((found) => {
     list.removeAttribute('aria-busy');
     const buttons = found.map((w) => {
       const status = h('small', { class: 'wallet-status' }, 'Connect');
       const b = h('button', { type: 'button', class: 'wallet-opt' }, walletBadge(w), h('b', null, w.name), status);
       b.addEventListener('click', async () => {
+        if (busy) return;
         msg.textContent = '';
         if (opts.password && !pw.value) { msg.textContent = 'Please enter your Fuzzies password first.'; pw.focus(); return; }
-        list.querySelectorAll('button').forEach((x) => (x.disabled = true));
+        setBusy(true);
         b.classList.add('busy');
         status.textContent = 'Check your wallet…';
         try { await opts.run(w, pw.value); m.close(); }
         catch (e) { msg.textContent = (e as Error).message; status.textContent = 'Connect'; }
-        finally { b.classList.remove('busy'); list.querySelectorAll('button').forEach((x) => (x.disabled = false)); }
+        finally { b.classList.remove('busy'); setBusy(false); }
       });
       return b;
     });
+    // the QR / phone-wallet option
+    let qrRow: HTMLElement | null = null;
+    if (viaQr) {
+      const tablet = isTablet();
+      const status = h('small', { class: 'wallet-status' }, idle);
+      const b = h('button', { type: 'button', class: 'wallet-opt wallet-qr' },
+        h('span', { class: 'wallet-logo qr', 'aria-hidden': 'true' }, icon(phone && !tablet ? 'phone' : 'grid', 18)),
+        h('span', { class: 'wallet-qr-text' }, h('b', null, tablet ? 'Scan QR code or use a wallet app' : phone ? 'Use a wallet app' : 'Scan QR code with your phone'),
+          h('small', null, phone ? 'Robinhood, Crypto.com, Rainbow, Ledger and 500+ more' : 'Robinhood, Crypto.com, MetaMask, Trust and 500+ phone wallets')),
+        status);
+      b.addEventListener('click', () => void viaQr(status));
+      qrRow = b;
+    }
     list.replaceChildren(...(buttons.length
-      ? [h('p', { class: 'wallet-head' }, phone ? 'In this app' : 'In this browser'), ...buttons]
-      : [h('p', { class: 'wallet-hint' }, phone
-        ? 'No wallet in this browser. Pick your wallet below to open Fuzzies inside its app:'
-        : 'No wallet found in this browser. Pick yours below to see how to connect it:')]));
+      ? [h('p', { class: 'wallet-head' }, phone ? 'In this app' : 'In this browser'), ...buttons, ...(qrRow ? [h('p', { class: 'wallet-head' }, 'Wallet on another device'), qrRow] : [])]
+      : qrRow
+        ? [h('p', { class: 'wallet-head' }, isTablet() ? 'Wallet app or another device' : phone ? 'Your wallet app' : 'Wallet on your phone or tablet'), qrRow]
+        : [h('p', { class: 'wallet-hint' }, phone
+          ? 'No wallet in this browser. Pick your wallet below to open Fuzzies inside its app:'
+          : 'No wallet found in this browser. Pick yours below to see how to connect it:')]));
 
     // popular wallets that aren't installed here
     const rest = TOP_WALLETS.filter((t) => !found.some((w) => t.match.test(w.name)));
@@ -98,10 +149,10 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
       b.addEventListener('click', () => {
         const open = row.classList.toggle('open');
         b.setAttribute('aria-expanded', String(open));
-        if (open && !row.querySelector('.wallet-help')) row.append(helpFor(t, url, phone));
+        if (open && !row.querySelector('.wallet-help')) row.append(helpFor(t, url, phone, viaQr ? () => void viaQr(qrRow?.querySelector('.wallet-status') as HTMLElement | undefined) : null));
       });
       row.append(b);
       return row;
-    }), h('p', { class: 'fine' }, 'Any other Ethereum wallet works too once it’s installed in this browser.'));
+    }), h('p', { class: 'fine' }, viaQr ? 'Smart wallets (Coinbase Smart Wallet, Safe, Argent…) work too.' : 'Any other Ethereum wallet works too once it’s installed in this browser. Smart wallets (Coinbase Smart Wallet, Safe…) work too.'));
   });
 }

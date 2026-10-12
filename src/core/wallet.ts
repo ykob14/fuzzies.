@@ -5,8 +5,9 @@
  *   each announces itself with its name and icon), falling back to the classic `window.ethereum`.
  * - For popular wallets that aren't installed (Crypto.com Onchain, Robinhood Wallet, OKX, Phantom…) it explains how to
  *   open Fuzzies inside the wallet app's own browser — through the wallet's official link where one exists.
- * - Only two wallet requests are ever made: `eth_requestAccounts` (which address?) and `personal_sign` (sign this
- *   text). Never transactions, approvals, network switches or anything that can move funds.
+ * - Only three wallet requests are ever made: `eth_requestAccounts` (which address?), `eth_chainId` (which network?) and
+ *   `personal_sign` (sign this text). Never transactions, approvals, network switches or anything that can move funds.
+ * - Wallets on another device (scan a QR code) go through WalletConnect — see core/walletconnect.ts.
  * The server writes the message and checks the signature (api/_lib/wallet.ts).
  */
 
@@ -16,7 +17,7 @@ export interface WalletApp { id: string; name: string; link: string }
 
 /** A wallet's icon, accepted only as an embedded picture (never a script or a remote address). */
 const safeIcon = (s: unknown) => (typeof s === 'string' && /^data:image\/(svg\+xml|png|jpeg|webp|gif)[;,]/i.test(s) && s.length < 200_000 ? s : '');
-const safeName = (s: unknown) => (typeof s === 'string' ? s.replace(/[^\p{L}\p{N} .()&'-]/gu, '').trim().slice(0, 40) : '') || 'Wallet';
+export const safeName = (s: unknown) => (typeof s === 'string' ? s.replace(/[^\p{L}\p{N} .()&'-]/gu, '').trim().slice(0, 40) : '') || 'Wallet';
 
 /** Every wallet installed in this browser (waits a moment for wallets to announce themselves). */
 export async function findWallets(waitMs = 400): Promise<WalletChoice[]> {
@@ -40,6 +41,8 @@ export async function findWallets(waitMs = 400): Promise<WalletChoice[]> {
 }
 
 export const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+/** A tablet: a touch device with a big screen (can show a QR code for a phone, or use a wallet app on itself). */
+export const isTablet = () => isPhone() && Math.min(screen.width, screen.height) >= 600;
 
 /**
  * The most popular wallets, for people who don't have one in this browser yet. Every address here is the wallet
@@ -95,8 +98,8 @@ const utf8Hex = (s: string) => '0x' + Array.from(new TextEncoder().encode(s), (b
 export async function signMessage(w: WalletChoice, address: string, message: string): Promise<string> {
   try {
     const sig = await w.provider.request({ method: 'personal_sign', params: [utf8Hex(message), address] });
-    if (typeof sig === 'string' && /^0x[0-9a-fA-F]{131,}$/.test(sig)) throw new Error('Smart-contract wallets (like Coinbase Smart Wallet) aren’t supported yet — please use a regular wallet account.');
-    if (typeof sig !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(sig)) throw new Error('Your wallet returned an unexpected signature.');
+    // regular wallets give 65 bytes; smart wallets (Coinbase Smart Wallet, Safe…) give longer ones the server checks on-chain
+    if (typeof sig !== 'string' || !/^0x[0-9a-fA-F]{130,19998}$/.test(sig)) throw new Error('Your wallet returned an unexpected signature.');
     return sig;
   } catch (e) { throw walletError(e); }
 }

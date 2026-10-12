@@ -1737,3 +1737,11 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 .wallet-pw { margin: 0; }
 .wallet-pw small { display: block; margin-top: 4px; font-size: 12px; }
 .wallet-safe small + small { margin-top: 6px; }
+.wallet-qr { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.wallet-qr .wallet-logo.qr { display: grid; place-items: center; background: var(--accent); color: var(--on-accent); border: 0; }
+.wallet-qr-text { flex: 1; display: grid; min-width: 0; }
+.wallet-qr-text small { color: var(--muted); font-size: 12px; }
+.wallet-qr-text + .wallet-status { color: var(--accent); font-weight: 600; }
+.about-legal { display: block; margin-top: 6px; font-size: 11px; color: var(--muted); }
+w3m-modal, wcm-modal { --w3m-z-index: 1000; }
+.wallet-safe small b { display: inline; font-size: inherit; color: var(--text); }
