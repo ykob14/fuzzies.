@@ -185,7 +185,7 @@ create table if not exists fz_assist (key text not null, at timestamptz not null
 create index if not exists fz_assist_idx on fz_assist (key, at);
 -- Fuzzies Adventures: one reward per adventure per (local) day per account, decided here so a refresh can't claim twice
 create table if not exists fz_adventures (
-  user_id text not null references fz_users(id) on delete cascade,
+  user_id uuid not null references fz_users (id) on delete cascade,
   day text not null,
   adventure text not null,
   place int not null,

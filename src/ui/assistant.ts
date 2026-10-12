@@ -12,6 +12,9 @@ import { accounts } from '../core/account';
 import { sfx } from '../game/sound';
 import type { AssistFace, AssistFrames } from '../game/mascot3d';
 
+/** Screens where the helper never shows (the owner's choice: website only, not the play areas). */
+const PLAY_SCREENS = new Set(['play', 'land']);
+
 const BLUE: [string, string] = ['#9ad8ff', '#3b86d6'];
 const flat = (face: 'open' | 'wink' | 'blink' | 'giggle') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fuzzySvg(BLUE, face, 'fa' + face));
 let frames: AssistFrames = {
@@ -188,9 +191,13 @@ export function mountAssistant(): void {
   document.body.append(root);
 
   let open = false, busy = false, talkingTimer = 0, listening = false, rec: Rec | null = null;
+  /** The owner wants Fuzzy on the website only — never in the play areas (Fuzzy Crossing, Fuzzies Land). */
+  const inPlayArea = () => PLAY_SCREENS.has(assistant.screen);
   const paintPrefs = () => {
     const p = assistant.prefs;
-    root.hidden = p.hidden;
+    const away = inPlayArea();
+    root.hidden = p.hidden || away;
+    if (away && open) api.close();
     voiceBtn.replaceChildren(icon(p.voice ? 'sound' : 'mute', 18));
     voiceBtn.classList.toggle('on', p.voice);
     voiceBtn.title = p.voice ? 'Voice replies on — tap to mute' : 'Voice replies off — tap to hear Fuzzy';
@@ -387,10 +394,10 @@ export function mountAssistant(): void {
   launcher.addEventListener('click', () => api.toggle());
   launcher.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !open) big.do('wink'); });
   label.addEventListener('click', () => api.open());
-  setTimeout(() => { if (!assistant.prefs.seen && !assistant.prefs.hidden) { label.hidden = false; big.do('wave'); big.sparkle(); } }, 6000);
+  setTimeout(() => { if (!assistant.prefs.seen && !assistant.prefs.hidden && !inPlayArea()) { label.hidden = false; big.do('wave'); big.sparkle(); } }, 6000);
   // alive while waiting: now and then a wink with a sparkle, or a tiny hop (never while the window is open or the tab is hidden)
   const fidget = () => {
-    if (!open && !document.hidden && !assistant.prefs.hidden && document.documentElement.dataset.motion !== 'reduce') {
+    if (!open && !document.hidden && !assistant.prefs.hidden && !inPlayArea() && document.documentElement.dataset.motion !== 'reduce') {
       if (Math.random() < 0.5) { big.do('wink'); big.sparkle(); } else big.do('cheer');
     }
     setTimeout(fidget, 22_000 + Math.random() * 25_000);

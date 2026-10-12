@@ -203,7 +203,7 @@ and body fonts and a logo, shown first in the editor's pickers and under Uploads
     id: 'settings', title: 'Settings', screens: ['settings'],
     keywords: ['settings', 'sound', 'music', 'reduce motion', 'snap', 'seasonal effects', 'help', 'tutorial', 'assistant', 'fuzzy helper', 'licences'],
     body: `Settings has Appearance, App icon, Brand kit, Editing (snap to guides), Sound & motion (game sounds, music in Fuzzies Land, seasonal effects,
-reduce motion), Fuzzy helper (show or hide this assistant and its voice), Help (replay the Fuzzies Land tutorial) and licences.`,
+reduce motion), Fuzzy helper (show or hide this assistant and its voice; it never shows inside Fuzzy Crossing or Fuzzies Land), Help (replay the Fuzzies Land tutorial) and licences.`,
   },
   {
     id: 'profile', title: 'Profile', screens: ['profile'],

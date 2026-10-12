@@ -2265,6 +2265,7 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 .fzc-foot small { color: var(--muted); font-size: 11px; }
 
 /* where it sits on each screen, so it never covers buttons */
+html[data-screen='play'] .fz-assist, html[data-screen='land'] .fz-assist { display: none !important; } /* website only — never in the play areas (owner) */
 html[data-screen='land'] .fz-assist { right: auto; left: 14px; align-items: flex-start; }
 html:has(.race, .forest, .adv-results, .land-talk) .fz-assist { display: none; } /* out of the way during a mini-game or a conversation */
 html[data-screen='land'] .fzc-panel { transform-origin: 0 100%; }

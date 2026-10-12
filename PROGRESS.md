@@ -373,8 +373,10 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   during a race/conversation (`html:has(.race, .adv-results, .land-talk)`). Node checks need copies of `rules.ts` + `adventures.ts`
   side by side (they import each other).
 - **Fuzzy assistant:** mounted once in `startApp()` (`ui/assistant.ts` → `mountAssistant()`), placed per screen with CSS on
-  `html[data-screen=…]` (set by `assistant.setScreen()` in the router: bottom-left in Land, above the tab bar / zoom control on phones
-  and in the editor). **It only knows `src/content/help.ts`** — when a feature changes, change its topic there (the server sends the
+  `html[data-screen=…]` (set by `assistant.setScreen()` in the router: above the tab bar / zoom control on phones and in the editor).
+  **Owner's rule (2026-10-13): website only — never in the play areas.** `PLAY_SCREENS` (`play`, `land`) in `ui/assistant.ts` hides the
+  whole thing (`root.hidden`, an open chat closes) and CSS `html[data-screen='play'|'land'] .fz-assist { display: none !important }` backs it up;
+  it comes back on the next website screen (Rewards, Settings…). The guide still has the game/Land topics so people can ask from the website. **It only knows `src/content/help.ts`** — when a feature changes, change its topic there (the server sends the
   topics for the current screen first; the client uses the same file for the no-AI "Quick help"). Server `api/assist.ts`: visitors
   allowed (15 messages/hour/IP), accounts 40/hour, 12 turns × 1,200 chars, `max_tokens` 450, 25 s timeout, links in answers filtered to
   `#/home|templates|…`, account facts read from `fz_profiles` (never from the browser; no email/password), 501 when
@@ -544,6 +546,7 @@ Design exploration (not code): a Claude Design canvas with three palette mockups
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
+| _(helper off in play)_ | **Fuzzy helper only on the website** (owner: "Get rid of the AI agent and not have it in the Fuzzies Land. Only in the website not in the play area tab"). The blue helper is now hidden on Fuzzy Crossing and Fuzzies Land (any open chat closes on the way in) and shows again on every other screen; Settings and the guide say so. **Bug fixed on the way:** `fz_adventures.user_id` was `text` while `fz_users.id` is `uuid`, so the table could not be created — on the live database every API call would have failed with `ref: setup 42804` after the merge. Now `uuid`; verified on real Postgres with a new `adv/claim-test.mjs` (9 checks: first claim pays, same day refused, other adventure pays, unknown id/old day/bad place → 400, no token → 401, other account independent). Assistant browser suite re-run: 56/56. |
 | _(owner art)_ | **The owner's 3D Fuzzy + 40 Fuzzy Friends** (owner: "Use this in my game and all these too" — a `fuzzy-3d.zip` with one GLB of their pink furry Fuzzy and a sheet of 40 illustrated Fuzzies). **Deluxe 3D Fuzzies:** the GLB (texture repacked from 2048 to 1024 px, 1.5 MB, lazy-loaded with a 6 s cap and a fallback to the drawn Fuzzy) is now every town resident (fur re-tinted to each Fuzzy's own colour), the Boat Race riders, the Forest host, the Fuzzy Crossing hero and the conversation portraits; Settings → *Deluxe 3D Fuzzies* (default on) switches back to the drawn ones live. The mascot/helper keep the drawn Fuzzy because the model's face can't blink or wink. **Fuzzy Friends:** the sheet was cut into 40 transparent 256 px WebP stickers (named + tagged: wizard, pirate, chef, unicorn…) → first section of the editor's Stickers panel (tap or drag) and 40 new avatar choices in Profile. Tested: `assets-check.cjs` 12/12 (deluxe residents, portrait, race riders, game load, friends grid, sticker added, 40 avatars, avatar saved, setting default, classic restores drawn Fuzzies, no errors), the adventure flows re-run with the model (32/32 computer, 32/32 phone, forest 16/16), screenshots reviewed. Branch only — ask the owner before `main`. |
 
 ## 8. Known limitations / not verified
