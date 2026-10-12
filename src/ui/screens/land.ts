@@ -912,6 +912,7 @@ export function landScreen(): Screen {
     save();
     view?.settle(r.placed.map((p) => p.id));
     sel.clear(); for (const p of r.placed) sel.add(p.id);
+    if (!bag().length) drawer.hidden = true; // everything is back on the map: show the town
     paintSel();
     toast(r.left.length ? `Placed ${r.placed.length} · ${plural(r.left.length, 'piece')} didn’t fit — still safe in Storage` : `Placed ${plural(r.placed.length, 'piece')} back ✓`, 'good', 3200);
   }
@@ -930,7 +931,7 @@ export function landScreen(): Screen {
     const inTab = drawerTab === 'all' ? items : items.filter((b) => L.storeCat(b.item) === drawerTab);
     const groups = new Map<string, L.Placed[]>();
     for (const b of inTab) groups.set(b.item, [...(groups.get(b.item) ?? []), b]);
-    const tabs = [{ id: 'all' as const, name: 'All', n: items.length }, ...L.STORE_CATS.map((c) => ({ id: c.id, name: c.name, n: items.filter((b) => L.storeCat(b.item) === c.id).length }))].filter((t) => t.id === 'all' || t.n > 0);
+    const tabs = [{ id: 'all' as const, name: 'All', n: items.length }, ...L.STORE_CATS.map((c) => ({ id: c.id, name: c.short, n: items.filter((b) => L.storeCat(b.item) === c.id).length }))].filter((t) => t.id === 'all' || t.n > 0);
     if (drawerTab !== 'all' && !tabs.some((t) => t.id === drawerTab)) { drawerTab = 'all'; paintDrawer(); return; }
     const note = (ps: L.Placed[]) => { const now = Date.now(); const g = ps.filter((p) => p.crop).length, q = ps.filter((p) => p.queue?.length).length, c = ps.filter((p) => p.doneAt && p.doneAt > now).length; return [g ? `🌱 ${g} growing` : '', q ? `⚙️ ${q} busy` : '', c ? `🔨 ${c} building` : ''].filter(Boolean).join(' · '); };
     drawer.replaceChildren(

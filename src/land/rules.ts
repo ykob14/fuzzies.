@@ -359,8 +359,8 @@ export function restore(s: LandState, pieces: Placed[]): void {
  * sells, resets or duplicates anything. Only the Town Hall and the Crossing Gate stay where they are.
  */
 export type StoreCat = 'house' | 'factory' | 'field' | 'road' | 'decor';
-export const STORE_CATS: { id: StoreCat; name: string }[] = [
-  { id: 'house', name: 'Houses' }, { id: 'factory', name: 'Workshops' }, { id: 'field', name: 'Fields' }, { id: 'decor', name: 'Decor' }, { id: 'road', name: 'Roads & paths' },
+export const STORE_CATS: { id: StoreCat; name: string; short: string }[] = [
+  { id: 'house', name: 'Houses', short: 'Houses' }, { id: 'factory', name: 'Workshops', short: 'Shops' }, { id: 'field', name: 'Fields', short: 'Fields' }, { id: 'decor', name: 'Decor', short: 'Decor' }, { id: 'road', name: 'Roads & paths', short: 'Roads' },
 ];
 export const storeCat = (itemId: string): StoreCat => {
   const it = item(itemId);
