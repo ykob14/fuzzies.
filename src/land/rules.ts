@@ -54,6 +54,8 @@ export interface LandState {
   savedAt: number;
   /** Starter-town layout version (2 = the compact streets). Older towns are tidied up once by migrateLand(). */
   layout?: number;
+  /** First-time tutorial progress (land/tutorial.ts); missing = decide from whether the town was played. */
+  tutorial?: { status: 'active' | 'done' | 'skipped' | 'off'; step: number; got: string[]; paid: string[] };
 }
 
 export const MAP = 30; // the whole island is MAP × MAP tiles; the buildable square grows with expansions

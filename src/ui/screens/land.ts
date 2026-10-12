@@ -15,6 +15,8 @@ import { h, btn, fuzzyMark, toast, confirmDialog } from '../dom';
 import { mascot } from '../mascot';
 import { isTouch } from '../../core/util';
 import { landIcon, type LandIcon } from '../landIcons';
+import { TutorialManager, type Reward } from '../../land/tutorial';
+import { mountTutorial, type TutTarget } from '../landTutorial';
 
 type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' };
 
@@ -210,6 +212,8 @@ export function landScreen(): Screen {
     for (const it of r.built) toast(`${L.item(it).emoji} ${L.item(it).name} is ready!`, 'good');
     if (r.full) toast('Your barn is full — a few things are still waiting.', 'info');
     save();
+    if (Object.keys(r.got).some((k) => L.good(k).at === 'field')) tut.emit('harvest');
+    tut.emit('collect');
     document.querySelector('.land-away')?.remove();
   }
 
@@ -236,6 +240,7 @@ export function landScreen(): Screen {
     if (placing) cancelPlacing();
     if (p) document.querySelector('.land-away')?.remove(); // one card at a time
     panel = p;
+    if (p?.kind === 'shop') tut.emit('shopTab', { tab: p.tab });
     view?.select(p?.kind === 'building' ? p.id : null);
     renderPanel();
     showQuick();
@@ -296,7 +301,7 @@ export function landScreen(): Screen {
   function itemCard(it: L.ItemDef): HTMLElement {
     const why = L.cantBuy(s, it.id, rewards.balance());
     const locked = s.level < it.level;
-    const card = h('button', { class: `land-card ${why ? 'off' : ''} ${locked ? 'locked' : ''}`, type: 'button', title: why || it.blurb },
+    const card = h('button', { class: `land-card ${why ? 'off' : ''} ${locked ? 'locked' : ''}`, type: 'button', title: why || it.blurb, 'data-item': it.id },
       h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), locked ? h('span', { class: 'land-card-lock' }, landIcon('lock', 26), h('small', null, `Level ${it.level}`)) : null),
       h('b', null, it.name),
       h('small', null, locked ? `Unlocks at level ${it.level}` : it.blurb),
@@ -313,7 +318,7 @@ export function landScreen(): Screen {
     const tabs: [L.Kind | 'farm' | 'fuzzies', LandIcon, string][] = [['house', 'house', 'Houses'], ['farm', 'wheat', 'Farming'], ['factory', 'workshop', 'Workshops'], ['decor', 'flower', 'Decor'], ['fuzzies', 'star', 'Fuzzies']];
     const list = L.ITEMS.filter((i) => (tab === 'farm' ? i.kind === 'field' : i.kind === tab));
     return h('div', null,
-      h('div', { class: 'land-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) => h('button', { class: `land-tab ${k === tab ? 'on' : ''}`, type: 'button', role: 'tab', 'aria-selected': String(k === tab), onclick: () => openPanel({ kind: 'shop', tab: k }) }, landIcon(ic, 22), h('span', null, label)))),
+      h('div', { class: 'land-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) => h('button', { class: `land-tab ${k === tab ? 'on' : ''}`, type: 'button', role: 'tab', 'data-tab': k, 'aria-selected': String(k === tab), onclick: () => openPanel({ kind: 'shop', tab: k }) }, landIcon(ic, 22), h('span', null, label)))),
       ...(tab === 'fuzzies' ? fuzziesBody() : [
       h('div', { class: 'land-shop' }, ...list.map((it) => itemCard(it)))]));
   }
@@ -342,6 +347,7 @@ export function landScreen(): Screen {
               gain({ ...g, coins: 0, xp: 0, levelUps: g.levelUps }, hall?.id ?? 0, `+${g.coins} 🪙`);
               if (g.xp) setTimeout(() => view?.float(`+${g.xp} XP`, hall?.id ?? 0, 'xp'), 250);
               save(); renderPanel();
+              tut.emit('order');
             } catch (e) { toast((e as Error).message, 'info'); }
           } }),
           btn(null, { icon: 'trash', kind: 'plain', size: 'sm', title: 'Skip this order', onClick: () => { L.skip(s, o.id); save(); renderPanel(); } })));
@@ -353,7 +359,7 @@ export function landScreen(): Screen {
     if (!items.length) return h('p', { class: 'muted' }, 'Your barn is empty. Plant some crops on your fields!');
     return h('div', { class: 'land-barn' }, ...items.map((g) => h('div', { class: 'land-good' },
       h('span', { class: 'land-good-ic' }, g.emoji), h('b', null, g.name), h('small', null, `× ${s.barn[g.id]}`),
-      btn(`Sell 1 · 🪙${g.sell}`, { kind: 'ghost', size: 'sm', onClick: () => { L.sellGood(s, g.id, 1); sfx.coins(); save(); renderPanel(); } }))));
+      btn(`Sell 1 · 🪙${g.sell}`, { kind: 'ghost', size: 'sm', onClick: () => { L.sellGood(s, g.id, 1); sfx.coins(); save(); renderPanel(); tut.emit('sell'); } }))));
   }
 
   function rushBtn(b: L.Placed): HTMLElement | null {
@@ -392,6 +398,7 @@ export function landScreen(): Screen {
           sfx.plant();
           view?.float(`${g.emoji}`, b.id);
           save(); openPanel(null);
+          tut.emit('plant');
         }))));
       }
     } else if (it.kind === 'factory') {
@@ -443,7 +450,7 @@ export function landScreen(): Screen {
     const inputs = Object.entries(g.inputs ?? {});
     const missing = inputs.some(([k, n]) => (s.barn[k] ?? 0) < n);
     const cost = g.seed ? `🪙${g.seed}` : '';
-    const card = h('button', { class: `land-recipe ${locked || missing ? 'off' : ''}`, type: 'button' },
+    const card = h('button', { class: `land-recipe ${locked || missing ? 'off' : ''}`, type: 'button', 'data-good': g.id },
       h('span', { class: 'land-card-ic' }, locked ? '🔒' : g.emoji),
       h('b', null, g.name),
       h('small', null, locked ? `Level ${g.level}` : inputs.length ? inputs.map(([k, n]) => `${L.good(k).emoji}${s.barn[k] ?? 0}/${n}`).join(' ') : `${cost} · ${fmt(g.time * 1000)}`),
@@ -466,6 +473,7 @@ export function landScreen(): Screen {
         gain(g, id, `${it.emoji} Ready!`);
         save();
         if (panel?.kind === 'building' && panel.id === id) openPanel(null);
+        tut.emit('collect');
         return;
       }
       if (it.kind === 'field' && b.crop && L.cropProgress(b) >= 1) {
@@ -474,6 +482,7 @@ export function landScreen(): Screen {
         gain(g, id, `+${g.n} ${L.good(g.good).emoji}`);
         save();
         if (panel?.kind === 'building' && panel.id === id) openPanel(null);
+        tut.emit('harvest');
         return;
       }
       if (it.kind === 'factory' && L.finished(b).length) {
@@ -482,6 +491,7 @@ export function landScreen(): Screen {
         gain(g, id, g.goods.map((x) => L.good(x).emoji).join(' '));
         save();
         if (panel?.kind === 'building') renderPanel();
+        tut.emit('collect');
         return;
       }
     } catch (e) { toast((e as Error).message, 'info'); return; }
@@ -589,6 +599,7 @@ export function landScreen(): Screen {
     if (L.cantBuy(s, placing.item, rewards.balance()) || !L.canPlace(s, placing.item, x, z, 0)) return;
     L.place(s, placing.item, x, z, 0);
     if (it.currency === 'fuzzies') spendFuzzies(it.cost);
+    tut.emit('placed', { item: placing.item });
     sfx.plant();
     save();
   }
@@ -604,7 +615,7 @@ export function landScreen(): Screen {
     if (!placing) return;
     const p = placing;
     try {
-      if (p.moving !== undefined) { L.move(s, p.moving, p.x, p.z, p.rot); sfx.hop(); }
+      if (p.moving !== undefined) { L.move(s, p.moving, p.x, p.z, p.rot); sfx.hop(); tut.emit('moved'); }
       else {
         const it = L.item(p.item);
         const why = L.cantBuy(s, p.item, rewards.balance());
@@ -613,6 +624,7 @@ export function landScreen(): Screen {
         if (it.currency === 'fuzzies') spendFuzzies(it.cost);
         sfx.build();
         save();
+        tut.emit('placed', { item: p.item });
         const placed = s.buildings[s.buildings.length - 1];
         if (it.build) toast(`🔨 Building your ${it.name} — ready in ${fmt(it.build * 1000)}. It keeps going while you’re away.`, 'info', 3200);
         else gain(g, placed.id, it.kind === 'house' ? `+${it.pop} 🏡` : undefined);
@@ -746,7 +758,7 @@ export function landScreen(): Screen {
       const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
       const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
       if (pinchMid) view.nudge(mid.x - pinchMid.x, mid.y - pinchMid.y);
-      if (pinch && d > 0) view.zoom(pinch / d, mid.x, mid.y);
+      if (pinch && d > 0) { view.zoom(pinch / d, mid.x, mid.y); if (Math.abs(pinch - d) > 2) tut.emit('zoom'); }
       pinch = d; pinchMid = mid;
       return;
     }
@@ -756,7 +768,7 @@ export function landScreen(): Screen {
     if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > (drag.touch ? 10 : 6)) { drag.moved = true; cancelHold(); if (!drag.ghost) wrap.classList.add('panning'); }
     if (!drag.moved) return;
     if (drag.ghost && placing) ghostTo(e.clientX, e.clientY, drag.touch);
-    else view.pan(e.clientX - prev.x, e.clientY - prev.y);
+    else { view.pan(e.clientX - prev.x, e.clientY - prev.y); if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 60) tut.emit('pan'); }
   }
   function onUp(e: PointerEvent): void {
     pts.delete(e.pointerId);
@@ -773,7 +785,7 @@ export function landScreen(): Screen {
     const p: Pick = view.pick(e.clientX, e.clientY);
     // double-tap the ground to zoom in there
     const now = performance.now();
-    if ((!p || p.kind === 'ground') && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) { view.zoom(0.65, e.clientX, e.clientY); lastTap.t = 0; return; }
+    if ((!p || p.kind === 'ground') && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) { view.zoom(0.65, e.clientX, e.clientY); lastTap.t = 0; tut.emit('zoom'); return; }
     lastTap.t = now; lastTap.x = e.clientX; lastTap.y = e.clientY;
     if (!p || p.kind === 'ground') { openPanel(null); return; }
     if (p.kind === 'resident') { view.poke(p.index); try { sfx.giggle(); } catch { /* */ } return; }
@@ -788,6 +800,7 @@ export function landScreen(): Screen {
     e.preventDefault();
     const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY; // lines / pages → pixels
     view?.zoom(Math.exp(Math.max(-200, Math.min(200, dy)) * 0.0015), e.clientX, e.clientY);
+    tut.emit('zoom');
   }, { passive: false });
   // no browser zoom, text selection or long-press menu over the map
   wrap.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -800,6 +813,7 @@ export function landScreen(): Screen {
     const x = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
     const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
     view?.setKeyPan(x, y);
+    if (x || y) tut.emit('pan');
   };
   function onKeyDown(e: KeyboardEvent): void {
     if (typing(e.target) || document.querySelector('.modal-backdrop, .gift-overlay') || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -813,8 +827,8 @@ export function landScreen(): Screen {
     }
     if (k === 'enter' && placing) { e.preventDefault(); confirmPlacing(); return; }
     if (k === 'r') { if (placing) rotatePlacing(); else if (panel?.kind === 'building') turnInPlace(panel.id); return; }
-    if (k === '+' || k === '=') { view?.zoom(0.8); return; }
-    if (k === '-' || k === '_') { view?.zoom(1.25); return; }
+    if (k === '+' || k === '=') { view?.zoom(0.8); tut.emit('zoom'); return; }
+    if (k === '-' || k === '_') { view?.zoom(1.25); tut.emit('zoom'); return; }
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { e.preventDefault(); keys.add(k); applyKeys(); }
   }
   function onKeyUp(e: KeyboardEvent): void { if (keys.delete(e.key.toLowerCase())) applyKeys(); }
@@ -835,6 +849,137 @@ export function landScreen(): Screen {
     const general = ['This town is so fluffy!', 'I love my cottage 🏠', 'Hehe, hi there! 👋', 'Best. Day. Ever.', 'Have you played Fuzzy Crossing? 🎮', 'Mmm, smells like fresh bread 🍞', '*happy wiggle*', 'Nice weather today ☀️', 'I made a new friend!', 'Let’s grow more Sunwheat 🌾', 'Can I have a hug? 🤗', 'Tickles! Hehe!'];
     const pool = ctx.length && r < 0.6 ? ctx : general;
     return pool[Math.floor(r * 997) % pool.length];
+  }
+
+  // ---------- first-time tutorial (land/tutorial.ts = the steps; ui/landTutorial.ts = Pip's bubble) ----------
+  function tutGrant(r: Reward): void {
+    const hall = s.buildings.find((b) => b.item === 'hall')?.id ?? 0;
+    if (r.coins) s.coins += r.coins;
+    const ups = r.xp ? L.addXp(s, r.xp) : [];
+    if (r.fuzzies) rewards.earn(r.fuzzies, 'Fuzzies Land tutorial');
+    gain({ coins: r.coins, xp: r.xp, levelUps: ups }, hall);
+  }
+  const tut = new TutorialManager(s, tutGrant, () => save());
+  /** If a step needs a few coins you don't have, Pip covers them — the tutorial can never get stuck. */
+  function tutCoins(): void {
+    const short = tut.coinsShort(s.coins);
+    if (!short) return;
+    s.coins += short;
+    toast(`Pip gave you ${short} coins for this step 🪙`, 'good');
+    save();
+  }
+  tut.on((ev) => {
+    if (ev.type === 'step') tutCoins();
+    if (ev.type === 'finished' && tut.state.status === 'done') { sfx.level(); toast('Tutorial complete — enjoy your town! 🎉', 'good'); }
+  });
+  let tutUi: { refresh(): void; destroy(): void } | null = null;
+  function startTutorial(): void {
+    if (tutUi) { tutUi.refresh(); return; }
+    tutCoins();
+    tutUi = mountTutorial({ stage, tut, target: tutTarget, keepClear: () => [prefs.dock ? bar : dockTab, placeBar, sheet, quick, stage.querySelector('.land-levelup'), stage.querySelector('.land-away')], keepSoft: () => [hud, prefs.side ? side : null], reduceMotion: !!a.settings.reduceMotion, sound: () => accounts.current?.settings.sound !== false });
+  }
+  let tutFly = { id: -1, at: 0 };
+  /** What to point at right now, from the live game (never fixed coordinates) — and always something you can actually tap. */
+  function tutTarget(): TutTarget | null {
+    const t = tutTargetRaw();
+    const el = t?.el as HTMLElement | null | undefined;
+    if (el?.isConnected && !sheet.hidden && !sheet.contains(el)) {
+      // the control is under an open panel: close the panel first
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (top && !el.contains(top) && sheet.contains(top)) return { el: sheet.querySelector('.land-sheet-head .btn'), hint: 'Close this panel first (✕)' };
+    }
+    return t;
+  }
+  function tutTargetRaw(): TutTarget | null {
+    if (!tut.active) return null;
+    const touch = isTouch();
+    const q = (sel: string, root: ParentNode = stage) => root.querySelector(sel);
+    const dockBtn = (k: string) => (prefs.dock ? q(`.land-dock-btn.is-${k}`) : dockTab);
+    const at = (id: number, y = 1.2) => {
+      const p = view?.screenOf(id, y);
+      if (!p || !view) return null;
+      // off screen (or hidden under the bars)? glide the camera over to it — gently, and not again for a few seconds
+      const w = stage.clientWidth, hh = stage.clientHeight;
+      if ((p.x < 40 || p.y < 90 || p.x > w - 40 || p.y > hh - 120) && (tutFly.id !== id || Date.now() - tutFly.at > 4000)) {
+        const c = view.centerOf(id);
+        if (c) { tutFly = { id, at: Date.now() }; view.flyTo(c.x, c.z + 0.5, Math.min(view.dist, 20), 0.9); }
+      }
+      return { x: p.x, y: p.y };
+    };
+    const now = Date.now();
+    const placeBtn = () => placeBar.querySelector('.btn-primary');
+    const viaShop = (tab: string, itemId: string, tabName: string): TutTarget => {
+      if (panel?.kind !== 'shop') return { el: dockBtn('build'), hint: prefs.dock ? 'Tap Build' : 'Tap Menu, then Build' };
+      if (panel.tab !== tab) return { el: q(`.land-tab[data-tab="${tab}"]`, sheet), hint: `Open the ${tabName} tab` };
+      return { el: q(`.land-card[data-item="${itemId}"]`, sheet), hint: `Tap the ${L.item(itemId).name}` };
+    };
+    // still placing something from an earlier step (roads and fields keep going in a row)? finish that first
+    if (placing && !['home', 'move', 'road', 'decor'].includes(tut.step.id)) return { el: placeBar.querySelector('button[title^="Cancel"]'), hint: 'Done placing? Tap ✕ to stop' };
+    const fields = s.buildings.filter((b) => b.item === 'field');
+    const ready = fields.find((b) => b.crop && L.cropProgress(b) >= 1);
+    const empty = fields.find((b) => !b.crop);
+    const growing = fields.find((b) => b.crop);
+    const secsLeft = (b: L.Placed) => Math.max(1, Math.ceil((L.good(b.crop!.good).time * 1000 - (now - b.crop!.at)) / 1000));
+    /** Need goods first: lead the player to harvest (or plant, or wait for) a field. */
+    const farm = (why: string): TutTarget => {
+      if (ready) return { point: at(ready.id, 0.3), r: 30, hint: `${why} Tap the golden field to harvest it` };
+      if (panel?.kind === 'building' && s.buildings.find((b) => b.id === (panel as { id: number }).id && b.item === 'field' && !b.crop)) return { el: q('.land-recipe[data-good="wheat"]', sheet), hint: 'Tap Sunwheat to plant it' };
+      if (growing) return { point: at(growing.id, 0.3), r: 30, hint: `${why} This field is growing — about ${secsLeft(growing)}s left` };
+      if (empty) return { point: at(empty.id, 0.3), r: 30, hint: `${why} Tap this empty field to plant` };
+      return { hint: why };
+    };
+    switch (tut.step.id) {
+      case 'camera': return { hint: !tut.has('pan') ? (touch ? 'Drag one finger across the map' : 'Drag the map with your mouse (or use the arrow keys)') : (touch ? 'Pinch with two fingers to zoom' : 'Scroll, or use the + and − buttons, to zoom') };
+      case 'home':
+        if (placing && L.item(placing.item).kind === 'house' && placing.moving === undefined) return { el: placeBtn(), hint: 'Drag it to a green spot, then tap “Build here”' };
+        return viaShop('house', 'cottage', 'Houses');
+      case 'move': {
+        if (placing?.moving !== undefined) return { el: placeBtn(), hint: 'Drag it to a new spot, then tap “Put here”' };
+        if (panel?.kind === 'building' && !quick.hidden) return { el: quick.querySelector('button'), hint: 'Tap Move' };
+        const house = s.buildings.find((b) => L.item(b.item).kind === 'house' && !b.doneAt) ?? s.buildings.find((b) => L.item(b.item).kind === 'house');
+        return house ? { point: at(house.id), hint: touch ? 'Tap this house (or press and hold it)' : 'Click this house' } : null;
+      }
+      case 'road':
+        if (placing && L.walkway(placing.item)) return { el: placeBtn(), hint: 'Drag across the grass to lay the road' };
+        return viaShop('decor', 'road', 'Decor');
+      case 'crops':
+        if (!tut.has('harvest') && ready) return { point: at(ready.id, 0.3), r: 30, hint: 'Tap the golden field to harvest it' };
+        if (!tut.has('plant')) {
+          if (panel?.kind === 'building' && s.buildings.find((b) => b.id === (panel as { id: number }).id && b.item === 'field' && !b.crop)) return { el: q('.land-recipe[data-good="wheat"]', sheet), hint: 'Tap Sunwheat to plant it' };
+          if (empty) return { point: at(empty.id, 0.3), r: 30, hint: 'Tap this empty field' };
+          return { el: dockBtn('build'), hint: 'All fields are busy — harvest one, or build a new Field (Build → Farming)' };
+        }
+        return growing ? { point: at(growing.id, 0.3), r: 30, hint: `It’s growing — about ${secsLeft(growing)}s left, then tap it` } : null;
+      case 'collect': {
+        const c = prefs.dock ? q('.land-dock-btn.is-collect') : null;
+        if (c) return { el: c, hint: 'Tap Collect' };
+        const done = s.buildings.find((b) => b.doneAt && b.doneAt <= now);
+        if (done) return { point: at(done.id), hint: `Tap your ${L.item(done.item).name} — it’s ready!` };
+        if (ready) return { point: at(ready.id, 0.3), r: 30, hint: 'Tap the golden field' };
+        const busy = s.buildings.find((b) => b.doneAt);
+        if (busy) return { point: at(busy.id), hint: `Your ${L.item(busy.item).name} is almost built — ${Math.max(1, Math.ceil((busy.doneAt! - now) / 1000))}s` };
+        return { hint: 'Wait a moment — something will be ready soon' };
+      }
+      case 'order':
+        if (panel?.kind === 'orders') {
+          const ok = q('.land-order.ready .btn-primary', sheet);
+          if (ok) return { el: ok, hint: 'Tap Deliver' };
+          return farm('Not enough goods yet.');
+        }
+        return { el: dockBtn('orders'), hint: 'Tap Orders' };
+      case 'coins':
+        if (L.barnUsed(s) === 0) return farm('Your barn is empty.');
+        if (panel?.kind === 'barn') { const sell = q('.land-good button', sheet); return sell ? { el: sell, hint: 'Tap Sell' } : null; }
+        return { el: dockBtn('barn'), hint: 'Tap Barn' };
+      case 'shop':
+        if (panel?.kind !== 'shop') return { el: dockBtn('build'), hint: 'Tap Build' };
+        return { el: q('.land-tab:not(.on)', sheet), hint: 'Now try another tab' };
+      case 'decor':
+        if (placing && L.item(placing.item).kind === 'decor' && !L.walkway(placing.item)) return { el: placeBtn(), hint: 'Drag it somewhere pretty, then tap “Build here”' };
+        return viaShop('decor', 'tree', 'Decor');
+      default: return null;
+    }
   }
 
   // ---------- setup ----------
@@ -862,8 +1007,8 @@ export function landScreen(): Screen {
     musicBtn,
     round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
-      round(landIcon('zoomIn', 20), 'Zoom in', () => view?.zoom(0.8)),
-      round(landIcon('zoomOut', 20), 'Zoom out', () => view?.zoom(1.25)))].filter((x) => x !== null) as HTMLElement[]);
+      round(landIcon('zoomIn', 20), 'Zoom in', () => { view?.zoom(0.8); tut.emit('zoom'); }),
+      round(landIcon('zoomOut', 20), 'Zoom out', () => { view?.zoom(1.25); tut.emit('zoom'); }))].filter((x) => x !== null) as HTMLElement[]);
   const paintSide = () => {
     side.classList.toggle('tucked', !prefs.side);
     sideToggle.replaceChildren(landIcon(prefs.side ? 'chevRight' : 'chevLeft', 18));
@@ -892,9 +1037,11 @@ export function landScreen(): Screen {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
       } catch { /* first visit */ }
-      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s }; // for tests
+      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh() }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
-      setTimeout(() => { if (alive) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
+      setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
+      // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
+      setTimeout(() => { if (alive) startTutorial(); }, a.settings.reduceMotion ? 300 : 2200);
       view.start();
       music.start();
       wrap.classList.remove('loading');
@@ -935,6 +1082,6 @@ export function landScreen(): Screen {
 
   return {
     el: h('div', { class: 'page land' }, stage),
-    destroy: () => { removeEventListener('keydown', onKeyDown); removeEventListener('keyup', onKeyUp); removeEventListener('blur', onBlur); cancelAnimationFrame(quickRaf); cancelAnimationFrame(edgeRaf); music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
+    destroy: () => { tutUi?.destroy(); removeEventListener('keydown', onKeyDown); removeEventListener('keyup', onKeyUp); removeEventListener('blur', onBlur); cancelAnimationFrame(quickRaf); cancelAnimationFrame(edgeRaf); music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
   };
 }

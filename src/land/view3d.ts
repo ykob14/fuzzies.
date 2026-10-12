@@ -804,10 +804,11 @@ export class LandView {
   }
 
   /** Screen position of a building's top (for panels and pop-ups). */
-  screenOf(id: number): { x: number; y: number } | null {
+  /** Where a building is on screen (canvas pixels), `y` metres above the ground (1.2 ≈ its roof, 0.3 ≈ a field). */
+  screenOf(id: number, y = 1.2): { x: number; y: number } | null {
     const b = this.built.get(id);
     if (!b) return null;
-    const v = new THREE.Vector3(b.node.position.x, 1.2, b.node.position.z).project(this.camera);
+    const v = new THREE.Vector3(b.node.position.x, y, b.node.position.z).project(this.camera);
     return { x: (v.x + 1) / 2 * this.canvas.clientWidth, y: (1 - v.y) / 2 * this.canvas.clientHeight };
   }
 

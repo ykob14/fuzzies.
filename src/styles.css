@@ -1941,3 +1941,53 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 .pay-funds.short { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
 .pay-funds.blocked .pay-funds-msg svg { color: var(--muted); }
 .btn.locked:disabled { opacity: .6; }
+
+/* ---------- Fuzzies Land tutorial: Pip's bubble, the highlight ring and arrow (ui/landTutorial.ts) ---------- */
+.tut-layer { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+.tut-layer[hidden] { display: none; }
+.tut-ring { position: absolute; left: 0; top: 0; border-radius: 16px; box-shadow: 0 0 0 3px var(--lacc), 0 0 0 7px rgba(214, 51, 108, .22), 0 0 24px 6px rgba(255, 220, 120, .55); transition: left .12s linear, top .12s linear, width .15s ease, height .15s ease; animation: tut-pulse 1.6s ease-in-out infinite; }
+.tut-ring.round { border-radius: 50%; }
+.tut-ring[hidden], .tut-arrow[hidden] { display: none; }
+@keyframes tut-pulse { 50% { box-shadow: 0 0 0 4px var(--lacc), 0 0 0 12px rgba(214, 51, 108, .12), 0 0 30px 10px rgba(255, 220, 120, .45); } }
+.tut-arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 1; transition: transform .12s linear; }
+.tut-arrow span { position: absolute; left: -30px; top: -11px; width: 30px; height: 22px; animation: tut-nudge 1s ease-in-out infinite; background: var(--lacc); clip-path: polygon(0 32%, 58% 32%, 58% 0, 100% 50%, 58% 100%, 58% 68%, 0 68%); filter: drop-shadow(0 2px 0 var(--lacc-lip)); }
+@keyframes tut-nudge { 50% { transform: translateX(-7px); } }
+.tut-bubble { position: absolute; left: 0; top: 0; width: min(300px, calc(100% - 20px)); display: grid; gap: 8px; padding: 12px 14px 10px; border-radius: 22px; background: var(--lc); color: var(--link); box-shadow: 0 4px 0 var(--llip), 0 14px 34px rgba(60, 40, 20, .28); pointer-events: auto; transition: transform .18s cubic-bezier(.2, .8, .3, 1); animation: tut-in .35s cubic-bezier(.2, .9, .3, 1.25); }
+.tut-bubble[hidden] { display: none; }
+.tut-bubble.welcome { width: min(340px, calc(100% - 20px)); }
+@keyframes tut-in { from { opacity: 0; scale: .9; } }
+.tut-head { display: flex; align-items: center; gap: 10px; }
+.tut-head > div { flex: 1; min-width: 0; display: grid; }
+.tut-pip { width: 54px; height: 54px; flex: none; display: grid; place-items: center; margin: -4px 0 -4px -4px; }
+.tut-count { color: var(--lmuted); font-size: 11.5px; font-weight: 600; letter-spacing: .02em; }
+.tut-title { font: 700 17px/1.2 var(--brand); }
+.tut-fold { width: 30px; height: 30px; flex: none; border: 0; border-radius: 50%; background: var(--lc2); color: var(--lmuted); font: 700 18px/1 var(--ui); cursor: pointer; }
+.tut-fold:hover { color: var(--link); }
+.tut-text { margin: 0; font-size: 14.5px; line-height: 1.45; }
+.tut-hint { margin: 0; display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 12px; background: var(--accent-soft); color: var(--lacc-lip); font-size: 13.5px; font-weight: 700; }
+.tut-hint-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--lacc); animation: tut-blink 1.2s ease-in-out infinite; }
+@keyframes tut-blink { 50% { opacity: .3; } }
+.tut-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13.5px; }
+.tut-checks li { display: flex; align-items: center; gap: 8px; }
+.tut-checks i { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--lline); font: 700 11px/1 var(--ui); font-style: normal; color: #fff; }
+.tut-checks li.done { color: var(--lgood); }
+.tut-checks li.done i { background: var(--lgood); border-color: var(--lgood); animation: land-bump .4s; }
+.tut-dots { display: flex; gap: 4px; }
+.tut-dots i { flex: 1; height: 4px; border-radius: 4px; background: var(--lline); }
+.tut-dots i.done { background: var(--lgood); }
+.tut-dots i.now { background: var(--lacc); }
+.tut-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.tut-actions .btn { min-height: 38px; border-radius: 12px; font-weight: 700; }
+.tut-foot { display: flex; gap: 12px; justify-content: flex-start; }
+.tut-foot .link { color: var(--lmuted); }
+.tut-mini { position: absolute; right: 12px; bottom: 120px; width: 60px; height: 60px; display: grid; place-items: center; border: 0; padding: 0; border-radius: 50%; background: var(--lc); box-shadow: 0 3px 0 var(--llip), 0 8px 20px rgba(60, 40, 20, .25); pointer-events: auto; cursor: pointer; animation: tut-in .3s; }
+.tut-mini[hidden] { display: none; }
+.tut-mini::after { content: '?'; position: absolute; right: -2px; top: -2px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--lacc); color: #fff; font: 800 12px/1 var(--ui); }
+.tut-cheer { position: absolute; z-index: 7; transform: translate(-50%, -100%); display: grid; justify-items: center; padding: 6px 14px; border-radius: 999px; background: var(--lgood); color: #fff; font-size: 13px; pointer-events: none; animation: tut-cheer 1.6s ease-out forwards; white-space: nowrap; }
+.tut-cheer b { font: 700 15px/1.1 var(--brand); }
+@keyframes tut-cheer { 0% { opacity: 0; margin-top: 10px; } 15% { opacity: 1; margin-top: 0; } 80% { opacity: 1; } 100% { opacity: 0; margin-top: -24px; } }
+@media (pointer: coarse) { .tut-fold { width: 40px; height: 40px; } .tut-actions .btn { min-height: 44px; } .tut-foot .link { padding: 8px 0; } }
+:root[data-motion='reduce'] .tut-ring, :root[data-motion='reduce'] .tut-arrow span, :root[data-motion='reduce'] .tut-hint-dot { animation: none; }
+:root[data-motion='reduce'] .tut-bubble, :root[data-motion='reduce'] .tut-ring, :root[data-motion='reduce'] .tut-arrow { transition: none; }
+/* pinching or dragging on Pip's bubble must never zoom or scroll the page (the map handles gestures) */
+.tut-bubble, .tut-mini { touch-action: none; -webkit-user-select: none; user-select: none; }

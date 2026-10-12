@@ -127,6 +127,13 @@ export function settingsScreen(): Screen {
         toggle('Music in Fuzzies Land', 'Soft background music while you build your town.', a.settings.music !== false, (v) => set((s) => (s.music = v))),
         toggle('Reduce motion', 'Fewer animations across the app.', a.settings.reduceMotion, (v) => set((s) => (s.reduceMotion = v)))),
       appIconCard(),
+      h('section', { class: 'card', id: 'help' }, h('h3', null, 'Help'),
+        h('p', { class: 'muted' }, 'New to Fuzzies Land, or want a refresher? Pip will walk you through it again, step by step.'),
+        h('div', { class: 'btn-row' }, btn(a.land?.tutorial?.status === 'active' ? 'Continue the Fuzzies Land tutorial' : 'Replay the Fuzzies Land tutorial', { kind: 'soft', icon: 'play', onClick: () => {
+          // replay from step 1 (rewards already earned aren't paid twice) or carry on where you were; progress is part of your town, so it syncs
+          if (accounts.current?.land?.tutorial?.status !== 'active') accounts.update((x) => { const paid = x.land.tutorial?.paid ?? []; x.land.tutorial = { status: 'active', step: 0, got: [], paid }; });
+          location.hash = '#/land';
+        } }))),
       h('section', { class: 'card' }, h('h3', null, 'Install Fuzzies'),
         h('p', { class: 'muted' }, 'Fuzzies works on phones, tablets and computers. Install it for a full-screen app with its own icon:'),
         h('ul', { class: 'how' },
