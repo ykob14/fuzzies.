@@ -9,7 +9,7 @@
  *   forgot   { email }                             → { ok }     (emails a reset link if the account exists)
  *   reset    { token, password }                   → { token, user }  (sets the new password; logs in)
  * Crypto wallets (see _lib/wallet.ts — the wallet only signs a message; nothing touches funds):
- *   wallet.challenge { address, chainId, purpose: 'link' | 'login', wallet } → { message, nonce }
+ *   wallet.challenge { address, chainId, purpose: 'link' | 'login', wallet, password (link only) } → { message, nonce }
  *                    ('link' needs you to be logged in; the server writes and keeps the exact message)
  *   wallet.verify    { nonce, signature } → link: { wallets } · login: { token, user }
  *   wallet.list      (logged in) → { wallets }
@@ -17,7 +17,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { db, q } from './_lib/db.js';
-import { requireMail, sendMail, resetEmail } from './_lib/mail.js';
+import { requireMail, sendMail, resetEmail, mailReady, walletLinkedEmail } from './_lib/mail.js';
 import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json, BUILD } from './_lib/auth.js';
 import { normAddress, recoverSigner, siteOf, siweMessage } from './_lib/wallet.js';
 
@@ -141,6 +141,16 @@ export function POST(req: Request): Promise<Response> {
         const wallet = str(b.wallet, 40).replace(/[^\w .()-]/g, '');
         const user = purpose === 'link' ? await requireUser(req) : null;
         const { domain, origin } = siteOf(req);
+        if (user) {
+          // a wallet becomes a way into the account, so linking one needs the password too (not just a logged-in device)
+          const { rows: fails } = await q("select count(*)::int as n from fz_login_fails where email = $1 and at > now() - interval '15 minutes'", [user.email]);
+          if (fails[0].n >= MAX_FAILS) throw new HttpError(429, 'Too many tries — please wait 15 minutes and try again.');
+          const { rows: pw } = await q<{ pass: string }>('select pass from fz_users where id = $1', [user.id]);
+          if (!(await checkPassword(typeof b.password === 'string' ? b.password : '', pw[0].pass))) {
+            await q('insert into fz_login_fails (email) values ($1)', [user.email]);
+            throw new HttpError(400, 'That password isn’t right — please try again.');
+          }
+        }
         const ip = clientIp(req);
         await q('delete from fz_wallet_nonces where expires_at < now()');
         const { rows: recent } = await q<{ a: number; i: number }>(
@@ -172,10 +182,14 @@ export function POST(req: Request): Promise<Response> {
         if (c.purpose === 'link') {
           const u = await requireUser(req);
           if (u.id !== c.user_id) throw new HttpError(403, 'This request was made for a different account — please try again.');
-          const { rows: ins } = await q<{ user_id: string }>(
-            'insert into fz_wallets (address, user_id, wallet) values ($1, $2, $3) on conflict (address) do update set wallet = excluded.wallet where fz_wallets.user_id = excluded.user_id returning user_id',
+          const { rows: ins } = await q<{ user_id: string; added: boolean }>(
+            'insert into fz_wallets (address, user_id, wallet) values ($1, $2, $3) on conflict (address) do update set wallet = excluded.wallet where fz_wallets.user_id = excluded.user_id returning user_id, (xmax = 0) as added',
             [c.address, u.id, c.wallet]);
           if (!ins[0]) throw new HttpError(409, 'This wallet is already linked to another Fuzzies account.');
+          // tell the account owner by email, so a wallet they didn't add never goes unnoticed (best effort)
+          if (ins[0].added && mailReady()) {
+            await sendMail(u.email, walletLinkedEmail(u.username, c.address, c.wallet, `${appUrl(req)}/#/profile`)).catch((e) => console.error('wallet email failed', e));
+          }
           return { wallets: await walletsOf(u.id) };
         }
         const { rows: owner } = await q<{ id: string; email: string; username: string; token_v: number }>(

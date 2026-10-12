@@ -23,7 +23,7 @@ keeps people coming back (the mascot, the game, missions).
 
 | | |
 |---|---|
-| **Current state** | All features below are built, type-check, build cleanly and were browser-tested. **Crypto wallets** (link MetaMask/Coinbase/Trust/any Ethereum wallet in Profile, log in with it) are on the branch only — ask the owner before merging to `main`. |
+| **Current state** | All features below are built, type-check, build cleanly and were browser-tested. **Crypto wallets** (link MetaMask/Coinbase/Trust/Crypto.com/Robinhood/OKX/Phantom/any Ethereum wallet in Profile, log in with it) are on the branch only — ask the owner before merging to `main`. Open question for the owner: add WalletConnect (QR from a computer; paid licence above 500 wallets/month)? |
 | **In progress** | Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
 | **Branches** | `main` = `1965633` (live); the branch adds crypto wallets on top. Earlier: the owner said to test again and put it live ("Done another test and post and add to GitHub … save everything everyplace") on 2026-10-13. Live now: Christmas, Hanukkah & Passover (60 templates), text effects & curved text, multicultural collections (9 art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search). **Rollback points:** `ae74508` (Halloween, previous live), `28b65cc`. Keep working on the branch and ask before the next merge. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
@@ -176,7 +176,8 @@ src/
     landIcons.ts       Fuzzies Land's own "sticker" icon set (coin, star, hammer, crate, barn, music, gate…)
     libthumbs.ts       lazy template previews (IntersectionObserver, one per frame, waits for fonts, cached)
     templateManager.ts "Manage templates" window (list, publish/unpublish, edit, delete, Draft with AI)
-    walletPicker.ts    "Connect a wallet" window (installed wallets / open-in-wallet-app links / install links) + safety note
+    walletPicker.ts    "Connect a wallet" window: password (when linking), installed wallets, popular wallets (TOP_WALLETS) with official
+                       open-in-app links or in-app-browser steps + Copy address, official download pages; safety note
     travel.ts          the circle-wipe transition between Fuzzy Crossing and Fuzzies Land (waits for 'fz:scene-ready')
     missions.ts        missions card + badge grid
     screens/           auth, home, templates (lazy wrapper → library.ts gallery), projects, editor, play, land, rewards, profile, settings, shared
@@ -293,7 +294,10 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   approvals or chain switches. The server writes the whole message and checks the signature against its stored copy
   (`wallet.verify` deletes the nonce first, so it works once). Wallet log-in only works for wallets linked while logged in
   (purpose `link` is bound to that user). A signature mismatch is a 400, not 401 (a 401 makes the app log the user out).
-  `siteOf()` uses Host/X-Forwarded-Host for the message domain and refuses a different Origin. Wallet icons are only
+  `siteOf()` uses Host/X-Forwarded-Host for the message domain and refuses a different Origin. Linking needs the password
+  (`wallet.challenge` purpose `link`; wrong ones go into `fz_login_fails`, answered with 400) and emails the owner
+  (`walletLinkedEmail`, best effort). `TOP_WALLETS` links must be the wallet maker's official site/documented deep link
+  only — fake wallet downloads are the top crypto scam. `vercel.json` sends security headers (frame-ancestors 'none' etc.). Wallet icons are only
   accepted as `data:image/…` and names are sanitised. Crypto test: compare `recoverSigner` with ethers' `signMessage` and
   parse the message with the `siwe` package (both in a scratch folder — not project dependencies).
 - **Mission/achievement tracking:** call `track('<event>')` from `core/missions.ts` where the user does the thing.
@@ -353,6 +357,8 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 | _(wallets)_ | **Crypto wallet sign-in** (owner: connect Trust Wallet, MetaMask, Coinbase Wallet and others, "super safe"). Profile → **Crypto wallets** card (link up to 5, remove with confirm) and Log in → **Continue with a wallet**. Picker finds every installed Ethereum wallet (EIP-6963) with its own icon; phones without one get official "Open in MetaMask / Trust Wallet / Coinbase Wallet" links; computers without one get the official download pages. Sign-In with Ethereum (EIP-4361): the server writes a one-time, 10-minute message naming the site, wallet and account; signature checked with audited `@noble/curves`/`@noble/hashes` (new dependencies — never hand-rolled crypto); Origin check; rate limits; one account per wallet; safety note on every screen ("we never ask for your recovery phrase"). No payments, transactions or funds. Tested: 1,040 crypto checks against ethers + the reference `siwe` parser/verifier, 40 API attack checks on real Postgres (replay, wrong signer, edited message, expired, other account's link, wallet owned elsewhere, foreign Origin, bad input, unlink scope, 5-wallet cap, cascade delete, rate limit), browser flow with a fake EIP-6963 wallet (link, cancel, log in, remove, unlinked wallet) on computer and phone, the Vercel-built function. Branch only. |
 
+| _(wallets 2)_ | **More wallets + more safety** (owner: "log in with any top wallets like crypto.com wallet and robinhood wallet… safety always number one"). Picker now lists popular wallets under the installed ones — MetaMask, Coinbase, Trust, **Crypto.com Onchain**, **Robinhood Wallet**, OKX, Phantom, Rabby, Rainbow — each with the safe way in: official open-in-app links (MetaMask, Coinbase, Trust, Phantom), otherwise steps for the wallet's own browser (Robinhood: Web3 tab / globe icon; Crypto.com: dapp browser search bar) with Copy address; official download pages only (checked by hand). Safety: **password required to link a wallet** (a stolen logged-in device can't add a back door; guesses lock after 10), **email to the owner on every new link**, last log-in time per wallet in Profile, "check your wallet shows <site>" tip, site-wide security headers (no framing/click-jacking, nosniff, referrer policy, no camera/mic/payment), email sending times out after 10 s. WalletConnect researched and **not added** (closed licence, paid above 500 monthly wallets) — asked the owner. Tested: 48 API checks (incl. password, lock-out, one email per new link), browser flow on computer + phone (password, wrong password, cancel, link, log in, remove, popular-wallet help, copy address), Vercel build with headers. Branch only. |
+
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
@@ -361,8 +367,10 @@ and chose a single consistent brand colour instead (see §3).
 
 - **Crypto wallets:** tested with a simulated wallet only (no real MetaMask/Trust/Coinbase in the container) — try it on the
   live site with a real wallet on a computer and a phone. Smart-contract wallets (Coinbase Smart Wallet, Safe) aren't
-  supported (friendly message). No WalletConnect QR (desktop → phone wallet) yet. You can't create an account with only a
-  wallet — log in with email first, then link. Ethereum-style wallets only (no Solana/Bitcoin sign-in). No payments.
+  supported (friendly message). No WalletConnect QR (desktop → phone wallet) — waiting for the owner's decision (licence
+  cost). Robinhood/Crypto.com/OKX on phones need the in-app browser steps (no official deep link found). Wallet logos come
+  from the wallets themselves when installed; others show a letter. You can't create an account with only a
+  wallet — log in with email first, then link. The link-notice email depends on Resend working (see Status). Ethereum-style wallets only (no Solana/Bitcoin sign-in). No payments.
 
 - **Multicultural collections:** native-script greetings were checked against reference spellings and visually (RTL order,
   Arabic joining, Devanagari/Gurmukhi/Malayalam shaping) in Chromium only — a native speaker review is still worth doing,

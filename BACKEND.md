@@ -78,11 +78,15 @@ production address.
 
 **Nothing to set up** — it works as soon as the database is connected (the two new tables create themselves).
 
-- **Profile → Crypto wallets → Connect a wallet** links a wallet to the logged-in account; **Log in → Continue with a
-  wallet** then logs in with it on any device. Up to 5 wallets per account; a wallet belongs to one account.
+- **Profile → Crypto wallets → Connect a wallet** links a wallet to the logged-in account (the password is asked again,
+  and the owner gets an email "A wallet was linked" when email is set up); **Log in → Continue with a wallet** then logs in
+  with it on any device. Up to 5 wallets per account; a wallet belongs to one account.
 - Works with every Ethereum wallet that's installed in the browser (they announce themselves through EIP-6963: MetaMask,
-  Coinbase Wallet, Trust Wallet, Rabby, Brave, OKX, Phantom…). On a phone browser with no wallet, the window offers
-  **Open in MetaMask / Trust Wallet / Coinbase Wallet** (their official links open Fuzzies inside the wallet app).
+  Coinbase Wallet, Trust Wallet, Crypto.com Onchain, OKX, Phantom, Rabby, Rainbow, Brave…). Below that, **popular
+  wallets** (`TOP_WALLETS` in `src/core/wallet.ts`: MetaMask, Coinbase, Trust, Crypto.com Onchain, Robinhood Wallet, OKX,
+  Phantom, Rabby, Rainbow) explain the safe way in: on phones the wallet's official "open in app" link (MetaMask, Coinbase,
+  Trust, Phantom) or steps for its built-in browser with a **Copy address** button (Crypto.com, Robinhood, OKX…), and
+  links to official download pages only. Robinhood Wallet is phone-only, so on a computer it explains the phone steps.
 - **Why it's safe:** the wallet only signs a plain-text message ("Sign-In with Ethereum", EIP-4361). No transactions,
   no token approvals, no network switches, no fees, no access to funds — the app only ever asks the wallet for
   `eth_requestAccounts`, `eth_chainId` and `personal_sign`. Fuzzies never asks for a recovery phrase or private key.
@@ -90,9 +94,15 @@ production address.
   keeps it; the signature is checked against that stored copy with audited cryptography (`@noble/curves` +
   `@noble/hashes`), and each message works once. A request from another website is refused (Origin check), wallet
   requests are rate-limited (10 per address / 40 per IP per 10 minutes), and wallet log-in only works for a wallet the
-  account owner linked while logged in. Deleting the account removes its wallets.
+  account owner linked while logged in **and with their password** (wrong passwords count towards the same 10-per-15-minutes
+  lock as log-in). Every new link is emailed to the owner. Deleting the account removes its wallets. The site also sends
+  security headers (`vercel.json`): no framing by other sites (stops "click-jacking" tricks), nosniff, a strict referrer
+  policy and no camera/microphone/payment access.
 - Not supported yet: smart-contract wallets (e.g. Coinbase *Smart* Wallet — they sign differently; the app says so) and
-  the WalletConnect QR code for desktop-to-phone (would need a free WalletConnect project ID and a new library).
+  the WalletConnect QR code (scan with a phone wallet from a computer). WalletConnect's SDK (`@walletconnect/ethereum-provider`
+  2.x, Reown) is **not open source any more**: the "WalletConnect Community License" (Aug 2025) is free only up to
+  500 monthly active wallets / 2.5M requests, then needs a paid licence, and requires a Reown project ID and attribution.
+  It's the owner's call; if added, limit the session to `personal_sign` only.
 - Code: `api/_lib/wallet.ts` (message + signature check), `api/auth.ts` (`wallet.challenge` / `wallet.verify` /
   `wallet.list` / `wallet.unlink`), tables `fz_wallets` + `fz_wallet_nonces`; app: `src/core/wallet.ts`,
   `src/ui/walletPicker.ts`, Profile card and log-in button.

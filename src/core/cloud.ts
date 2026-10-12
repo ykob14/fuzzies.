@@ -155,11 +155,12 @@ export const cloud = {
     return adopt(res.user);
   },
 
-  /** Link a wallet to the logged-in account (proves you own it). */
-  async linkWallet(w: WalletChoice): Promise<LinkedWallet[]> {
+  /** Link a wallet to the logged-in account (proves you own it). Needs the account password too. */
+  async linkWallet(w: WalletChoice, password: string): Promise<LinkedWallet[]> {
     if (!accounts.current?.cloud) throw new Error('Save your account first — wallets link to a Fuzzies account.');
+    if (!password) throw new Error('Please enter your Fuzzies password first.');
     const { address, chainId } = await connect(w);
-    const { message, nonce } = await api<{ message: string; nonce: string }>('auth', 'wallet.challenge', { purpose: 'link', address, chainId, wallet: w.name });
+    const { message, nonce } = await api<{ message: string; nonce: string }>('auth', 'wallet.challenge', { purpose: 'link', address, chainId, wallet: w.name, password });
     const signature = await signMessage(w, address, message);
     return (await api<{ wallets: LinkedWallet[] }>('auth', 'wallet.verify', { nonce, signature })).wallets;
   },

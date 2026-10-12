@@ -123,10 +123,10 @@ export function profileScreen(): Screen {
     const a = accounts.current!;
     if (!a.cloud) return null;
     const list = h('div', { class: 'wallet-linked' }, h('p', { class: 'muted' }, 'Loading…'));
-    const show = (ws: { address: string; wallet: string; created_at: string }[]) => {
+    const show = (ws: { address: string; wallet: string; created_at: string; last_used_at: string | null }[]) => {
       list.replaceChildren(...(ws.length ? ws.map((w) => h('div', { class: 'wallet-row' },
         h('span', { class: 'wallet-logo letter', 'aria-hidden': 'true' }, (w.wallet || 'W').slice(0, 1).toUpperCase()),
-        h('div', null, h('b', { title: w.address }, shortAddress(w.address)), h('small', null, `${w.wallet || 'Wallet'} · linked ${timeAgo(new Date(w.created_at).getTime())}`)),
+        h('div', null, h('b', { title: w.address }, shortAddress(w.address)), h('small', null, `${w.wallet || 'Wallet'} · linked ${timeAgo(new Date(w.created_at).getTime())}${w.last_used_at ? ` · last log-in ${timeAgo(new Date(w.last_used_at).getTime())}` : ''}`)),
         btn('Remove', { kind: 'ghost', size: 'sm', onClick: async () => {
           if (!(await confirmDialog('Remove this wallet?', `${shortAddress(w.address)} won’t be able to sign in to your account any more. Nothing happens to the wallet itself or its funds.`, 'Remove'))) return;
           try { show(await cloud.unlinkWallet(w.address)); toast('Wallet removed', 'good'); } catch (e) { toast((e as Error).message, 'bad'); }
@@ -135,13 +135,14 @@ export function profileScreen(): Screen {
     };
     cloud.wallets().then(show).catch((e) => list.replaceChildren(h('p', { class: 'form-err' }, (e as Error).message)));
     return h('section', { class: 'card' }, h('h3', null, icon('wallet', 18), ' Crypto wallets'),
-      h('p', { class: 'muted' }, 'Link MetaMask, Coinbase Wallet, Trust Wallet or another Ethereum wallet, then use it to log in to Fuzzies on any device.'),
+      h('p', { class: 'muted' }, 'Link MetaMask, Coinbase Wallet, Trust Wallet, Crypto.com Onchain, Robinhood Wallet or another Ethereum wallet, then use it to log in to Fuzzies on any device. We email you whenever a wallet is linked.'),
       list,
       btn('Connect a wallet', { kind: 'soft', icon: 'plus', onClick: () => pickWallet({
         title: 'Connect a wallet',
         intro: 'Choose your wallet. It will ask you to sign a short message that proves the wallet is yours.',
         hash: '#/profile',
-        run: async (w) => { show(await cloud.linkWallet(w)); toast('Wallet linked — you can log in with it now 🎉', 'good', 3500); },
+        password: true,
+        run: async (w, password) => { show(await cloud.linkWallet(w, password)); toast('Wallet linked — you can log in with it now 🎉', 'good', 3500); },
       }) }),
       walletSafetyNote());
   }

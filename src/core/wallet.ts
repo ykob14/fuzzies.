@@ -3,8 +3,8 @@
  *
  * - Finds every installed wallet with EIP-6963 (MetaMask, Coinbase Wallet, Trust Wallet, Rabby, Brave, OKX, Phantom…
  *   each announces itself with its name and icon), falling back to the classic `window.ethereum`.
- * - On a phone without a wallet in the browser, offers to open Fuzzies inside the wallet app's own browser
- *   (MetaMask, Trust Wallet, Coinbase Wallet) through their official links.
+ * - For popular wallets that aren't installed (Crypto.com Onchain, Robinhood Wallet, OKX, Phantom…) it explains how to
+ *   open Fuzzies inside the wallet app's own browser — through the wallet's official link where one exists.
  * - Only two wallet requests are ever made: `eth_requestAccounts` (which address?) and `personal_sign` (sign this
  *   text). Never transactions, approvals, network switches or anything that can move funds.
  * The server writes the message and checks the signature (api/_lib/wallet.ts).
@@ -41,15 +41,32 @@ export async function findWallets(waitMs = 400): Promise<WalletChoice[]> {
 
 export const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-/** Open this page inside a wallet app's browser (official links; the wallet then connects like a desktop extension). */
-export function walletApps(hash = location.hash || '#/profile'): WalletApp[] {
-  const url = `${location.origin}${location.pathname}${hash}`;
-  return [
-    { id: 'metamask', name: 'MetaMask', link: `https://metamask.app.link/dapp/${location.host}${location.pathname}${hash}` },
-    { id: 'trust', name: 'Trust Wallet', link: `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(url)}` },
-    { id: 'coinbase', name: 'Coinbase Wallet', link: `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(url)}` },
-  ];
-}
+/**
+ * The most popular wallets, for people who don't have one in this browser yet. Every address here is the wallet
+ * maker's own official site or documented link (checked by hand — fake wallet downloads are the #1 crypto scam, so
+ * never add a link from a search ad or a forum). `open` = the wallet's official "open this site in my app" link;
+ * wallets without one get step-by-step instructions instead (`browser` says where their built-in browser is).
+ */
+export interface TopWallet { id: string; name: string; match: RegExp; site: string; desktop: boolean; browser: string; open?: (url: string) => string }
+const enc = encodeURIComponent;
+export const TOP_WALLETS: TopWallet[] = [
+  { id: 'metamask', name: 'MetaMask', match: /metamask/i, site: 'https://metamask.io/download/', desktop: true, browser: 'its Browser',
+    open: (url) => `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, '')}` },
+  { id: 'coinbase', name: 'Coinbase Wallet', match: /coinbase/i, site: 'https://www.coinbase.com/wallet/downloads', desktop: true, browser: 'its Browser',
+    open: (url) => `https://go.cb-w.com/dapp?cb_url=${enc(url)}` },
+  { id: 'trust', name: 'Trust Wallet', match: /trust/i, site: 'https://trustwallet.com/download', desktop: true, browser: 'its Browser',
+    open: (url) => `https://link.trustwallet.com/open_url?coin_id=60&url=${enc(url)}` },
+  { id: 'cryptocom', name: 'Crypto.com Onchain', match: /crypto\.com|onchain|defi wallet/i, site: 'https://crypto.com/us/onchain', desktop: true, browser: 'the dapp browser (search bar)' },
+  { id: 'robinhood', name: 'Robinhood Wallet', match: /robinhood/i, site: 'https://robinhood.com/us/en/download/wallet/', desktop: false, browser: 'the Web3 tab (globe icon)' },
+  { id: 'okx', name: 'OKX Wallet', match: /okx|okex/i, site: 'https://web3.okx.com/download', desktop: true, browser: 'its Discover browser' },
+  { id: 'phantom', name: 'Phantom', match: /phantom/i, site: 'https://phantom.com/download', desktop: true, browser: 'its Browser',
+    open: (url) => `https://phantom.app/ul/browse/${enc(url)}?ref=${enc(new URL(url).origin)}` },
+  { id: 'rabby', name: 'Rabby', match: /rabby/i, site: 'https://rabby.io/', desktop: true, browser: 'its Dapps browser' },
+  { id: 'rainbow', name: 'Rainbow', match: /rainbow/i, site: 'https://rainbow.me/', desktop: true, browser: 'its Browser' },
+];
+
+/** This page's address, for "open it in your wallet app". */
+export const pageUrl = (hash = location.hash || '#/profile') => `${location.origin}${location.pathname}${hash}`;
 
 /** Turn wallet errors into plain words. */
 export function walletError(e: unknown): Error {
