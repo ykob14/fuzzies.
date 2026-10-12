@@ -885,6 +885,26 @@ export class LandView {
     }
   }
 
+  // ---------- seasonal atmosphere (land/events.ts says what's on) ----------
+  private season: Season | null = null;
+  private sunBase = new THREE.Color(0xfff0d8);
+  private hemiBase = new THREE.Color(0xdcefff);
+  /**
+   * Holiday weather: falling leaves, snow, petals, hearts, floating lanterns, sparks or fireflies around the camera, a
+   * warm tint on the light and, for Halloween, a shy ghost now and then. `null` = plain weather. Cheap: a few dozen
+   * sprites, fewer on phones and when the automatic quality steps down.
+   */
+  setSeason(o: { atmo: string; tint: string; ghosts?: boolean } | null): void {
+    const want = o && o.atmo !== 'none' ? `${o.atmo}:${o.ghosts ? 1 : 0}` : '';
+    if ((this.season?.key ?? '') !== want) {
+      this.season?.dispose(this.scene);
+      this.season = want ? new Season(this.scene, o!.atmo, !!o!.ghosts, this.mobile ? 34 : 70) : null;
+    }
+    const tint = o?.tint ? new THREE.Color(o.tint) : null;
+    this.sun.color.copy(this.sunBase); this.hemi.color.copy(this.hemiBase);
+    if (tint) { this.sun.color.lerp(tint, 0.28); this.hemi.color.lerp(tint, 0.22); }
+  }
+
   /** Mouse hover (computers): a fainter outline under what the pointer is over. */
   private hoverMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | null = null;
   private hoverId: number | null = null;
@@ -1071,6 +1091,7 @@ export class LandView {
         n.scale.set(1 + sq, 1 - sq, 1 + sq);
         if (k >= 1) { n.position.y = 0; n.scale.setScalar(1); delete n.userData.drop; this.sparkle(n.position.x, 0.25, n.position.z, 6); }
       }
+      if (n.userData.tick) (n.userData.tick as (T: number, dt: number) => void)(T, dt);
       if (n.userData.boing !== undefined) {
         n.userData.boing += dt;
         const k = n.userData.boing / 0.45;
@@ -1145,6 +1166,7 @@ export class LandView {
     for (const [id, base] of this.groupBase) { const b = this.built.get(id); if (b) b.node.position.y = base.y + 0.16 + Math.sin(T * 5) * 0.035; }
     if (this.ghost) this.ghost.node.position.y = 0.16 + Math.sin(T * 5) * 0.035; // the carried building floats a little
     for (const r of this.residents) this.live(r, dt, T);
+    this.season?.update(dt, T, this.target, this.quality);
     for (const f of this.butterflies) {
       const t = T * f.sp + f.ph;
       const x = f.home.x + Math.sin(t * 0.7) * 2.2 + Math.sin(t * 1.9) * 0.4, z = f.home.y + Math.cos(t * 0.53) * 1.8 + Math.cos(t * 2.3) * 0.3;
@@ -1350,10 +1372,152 @@ export class LandView {
   }
 
   destroy(): void {
+    this.season?.dispose(this.scene);
     this.disposed = true;
     this.stop();
     this.overlay.replaceChildren();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
+  }
+}
+
+// ---------- seasonal particles ----------
+interface Flake { s: THREE.Sprite; v: THREE.Vector3; ph: number; spin: number; rest: number; size: number }
+class Season {
+  key: string;
+  private flakes: Flake[] = [];
+  private ghost: { s: THREE.Sprite; t: number; v: THREE.Vector3 } | null = null;
+  private nextGhost = 12;
+  private tex: THREE.Texture;
+  private ghostTex: THREE.Texture | null = null;
+  constructor(private scene: THREE.Scene, private atmo: string, private ghosts: boolean, private max: number) {
+    this.key = `${atmo}:${ghosts ? 1 : 0}`;
+    this.tex = Season.texture(atmo);
+    for (let i = 0; i < max; i++) this.add(true);
+  }
+  /** A soft sprite per kind: leaf, snowflake, petal, heart, lantern light, spark, firefly. */
+  private static texture(atmo: string): THREE.Texture {
+    if (atmo === 'snow' || atmo === 'sparks' || atmo === 'fireflies' || atmo === 'lanterns') {
+      return GT.glow(atmo === 'snow' ? 'rgba(255,255,255,1)' : atmo === 'lanterns' ? 'rgba(255,214,140,1)' : atmo === 'fireflies' ? 'rgba(220,255,150,1)' : 'rgba(255,230,150,1)', 'rgba(255,255,255,0)');
+    }
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const x = c.getContext('2d')!;
+    x.translate(32, 32);
+    if (atmo === 'hearts') {
+      x.fillStyle = '#ff6b9a';
+      x.beginPath(); x.moveTo(0, 22); x.bezierCurveTo(-30, -2, -14, -26, 0, -10); x.bezierCurveTo(14, -26, 30, -2, 0, 22); x.fill();
+    } else {
+      // leaf / petal: a pointed ellipse with a soft vein
+      x.fillStyle = atmo === 'petals' ? '#ffb3d1' : '#e0792f';
+      x.beginPath(); x.moveTo(0, -28); x.bezierCurveTo(22, -12, 22, 12, 0, 28); x.bezierCurveTo(-22, 12, -22, -12, 0, -28); x.fill();
+      x.strokeStyle = atmo === 'petals' ? 'rgba(255,255,255,.6)' : 'rgba(120,50,20,.45)'; x.lineWidth = 2;
+      x.beginPath(); x.moveTo(0, -22); x.lineTo(0, 22); x.stroke();
+    }
+    const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return tx;
+  }
+  private colorFor(): THREE.Color {
+    const pick = (a: string[]) => new THREE.Color(a[Math.floor(Math.random() * a.length)]);
+    switch (this.atmo) {
+      case 'leaves': return pick(['#e0792f', '#c9512a', '#f2b134', '#b8431f', '#ffa94d']);
+      case 'petals': return pick(['#ffb3d1', '#ffd6e4', '#ffffff', '#ff9fc8']);
+      case 'hearts': return pick(['#ff6b9a', '#ff8fb4', '#ffffff']);
+      case 'sparks': return pick(['#ffd43b', '#ff922b', '#ff6b9a', '#4dabf7', '#ffffff']);
+      default: return new THREE.Color('#ffffff');
+    }
+  }
+  private add(anywhere: boolean): void {
+    const m = new THREE.SpriteMaterial({ map: this.tex, transparent: true, depthWrite: false, color: this.colorFor(), opacity: 0.9, blending: this.atmo === 'snow' || this.atmo === 'leaves' || this.atmo === 'petals' || this.atmo === 'hearts' ? THREE.NormalBlending : THREE.AdditiveBlending });
+    const s = new THREE.Sprite(m);
+    const size = this.atmo === 'snow' ? 0.12 + Math.random() * 0.1 : this.atmo === 'lanterns' ? 0.22 + Math.random() * 0.12 : this.atmo === 'fireflies' ? 0.08 : this.atmo === 'sparks' ? 0.1 + Math.random() * 0.08 : 0.16 + Math.random() * 0.08;
+    s.scale.setScalar(size);
+    this.scene.add(s);
+    const f: Flake = { s, v: new THREE.Vector3(), ph: Math.random() * 10, spin: (Math.random() - 0.5) * 3, rest: 0, size };
+    this.flakes.push(f);
+    this.respawn(f, new THREE.Vector3(MAP / 2, 0, MAP / 2), anywhere);
+  }
+  private respawn(f: Flake, target: THREE.Vector3, anywhere: boolean): void {
+    const rising = this.atmo === 'lanterns' || this.atmo === 'sparks' || this.atmo === 'fireflies';
+    const x = target.x + (Math.random() - 0.5) * 18, z = target.z + (Math.random() - 0.5) * 18;
+    const y = rising ? (anywhere ? Math.random() * 4 : 0.2 + Math.random() * 0.6) : anywhere ? Math.random() * 6 : 5.5 + Math.random() * 1.5;
+    f.s.position.set(x, y, z);
+    f.rest = 0;
+    (f.s.material as THREE.SpriteMaterial).opacity = 0.9;
+    switch (this.atmo) {
+      case 'snow': f.v.set(0.15, -0.55 - Math.random() * 0.35, 0.05); break;
+      case 'leaves': f.v.set(0.4 + Math.random() * 0.3, -0.9 - Math.random() * 0.5, 0.15); break;
+      case 'petals': case 'hearts': f.v.set(0.25, -0.5 - Math.random() * 0.3, 0.1); break;
+      case 'lanterns': f.v.set(0.05, 0.25 + Math.random() * 0.2, 0.03); break;
+      case 'sparks': f.v.set(0, 1.2 + Math.random() * 1.2, 0); f.ph = 0; break;
+      default: f.v.set(0, 0, 0); // fireflies wander
+    }
+  }
+  update(dt: number, T: number, target: THREE.Vector3, quality: number): void {
+    const limit = Math.max(8, this.max >> quality);
+    this.flakes.forEach((f, i) => {
+      if (i >= limit) { f.s.visible = false; return; }
+      f.s.visible = true;
+      const m = f.s.material as THREE.SpriteMaterial;
+      const p = f.s.position;
+      if (this.atmo === 'fireflies') {
+        const t = T * 0.6 + f.ph;
+        p.x += Math.sin(t * 1.3) * dt * 0.6; p.z += Math.cos(t * 0.9) * dt * 0.6; p.y = 0.35 + Math.sin(t * 2.1) * 0.25;
+        m.opacity = 0.25 + Math.max(0, Math.sin(T * 3 + f.ph * 5)) * 0.75;
+      } else if (this.atmo === 'sparks') {
+        p.addScaledVector(f.v, dt); f.v.y -= 1.6 * dt; f.ph += dt;
+        m.opacity = Math.max(0, 1 - f.ph / 1.6);
+        if (f.ph > 1.6) this.respawn(f, target, false);
+      } else {
+        const sway = Math.sin(T * 1.7 + f.ph) * (this.atmo === 'snow' ? 0.25 : 0.6);
+        if (f.rest > 0) { f.rest -= dt; m.opacity = Math.min(0.9, f.rest); if (f.rest <= 0) this.respawn(f, target, false); }
+        else {
+          p.x += (f.v.x + sway) * dt; p.z += (f.v.z + Math.cos(T * 1.3 + f.ph) * 0.3) * dt; p.y += f.v.y * dt;
+          m.rotation += f.spin * dt;
+          if (f.v.y > 0 && p.y > 6) this.respawn(f, target, false);
+          if (f.v.y < 0 && p.y <= 0.03) { p.y = 0.03; f.rest = this.atmo === 'snow' ? 0.5 : 2.5; }
+        }
+      }
+      // keep the flurry around the camera as it pans
+      if (Math.abs(p.x - target.x) > 11 || Math.abs(p.z - target.z) > 11) this.respawn(f, target, true);
+    });
+    if (this.ghosts) this.updateGhost(dt, T, target);
+  }
+  private updateGhost(dt: number, T: number, target: THREE.Vector3): void {
+    if (!this.ghost) {
+      this.nextGhost -= dt;
+      if (this.nextGhost > 0) return;
+      this.ghostTex ??= Season.ghostTexture();
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.ghostTex, transparent: true, depthWrite: false, opacity: 0 }));
+      s.scale.set(0.9, 1.1, 1);
+      const side = Math.random() < 0.5 ? -1 : 1;
+      s.position.set(target.x + side * 9, 1.2 + Math.random() * 0.8, target.z + (Math.random() - 0.5) * 8);
+      this.scene.add(s);
+      this.ghost = { s, t: 0, v: new THREE.Vector3(-side * 0.9, 0, 0.1) };
+      return;
+    }
+    const g = this.ghost;
+    g.t += dt;
+    g.s.position.addScaledVector(g.v, dt);
+    g.s.position.y += Math.sin(T * 2.2) * dt * 0.3;
+    (g.s.material as THREE.SpriteMaterial).opacity = Math.min(0.75, g.t * 0.5, (20 - g.t) * 0.5);
+    if (g.t > 20) { g.s.removeFromParent(); g.s.material.dispose(); this.ghost = null; this.nextGhost = 25 + Math.random() * 25; }
+  }
+  private static ghostTexture(): THREE.Texture {
+    const c = document.createElement('canvas'); c.width = 96; c.height = 128;
+    const x = c.getContext('2d')!;
+    x.fillStyle = '#ffffff';
+    x.beginPath(); x.arc(48, 44, 34, Math.PI, 0); x.lineTo(82, 100);
+    for (let i = 0; i < 4; i++) x.quadraticCurveTo(82 - i * 17 - 8, i % 2 ? 100 : 118, 82 - (i + 1) * 17, 100);
+    x.closePath(); x.fill();
+    x.fillStyle = '#2a2230';
+    x.beginPath(); x.ellipse(36, 44, 5, 8, 0, 0, Math.PI * 2); x.ellipse(60, 44, 5, 8, 0, 0, Math.PI * 2); x.fill();
+    x.beginPath(); x.ellipse(48, 64, 5, 7, 0, 0, Math.PI * 2); x.fill();
+    const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return tx;
+  }
+  dispose(scene: THREE.Scene): void {
+    for (const f of this.flakes) { f.s.removeFromParent(); f.s.material.dispose(); }
+    this.flakes = [];
+    if (this.ghost) { this.ghost.s.removeFromParent(); this.ghost.s.material.dispose(); this.ghost = null; }
+    this.tex.dispose(); this.ghostTex?.dispose();
+    void scene;
   }
 }

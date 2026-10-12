@@ -5,7 +5,7 @@
 export type LandIcon =
   | 'coin' | 'star' | 'pop' | 'hammer' | 'crate' | 'barn' | 'sparkles' | 'music' | 'musicOff'
   | 'zoomIn' | 'zoomOut' | 'back' | 'house' | 'wheat' | 'workshop' | 'flower' | 'clock' | 'lock'
-  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn';
+  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn' | 'festival' | 'token';
 
 const O = 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const HL = 'fill="#fff" opacity=".55"';
@@ -92,6 +92,16 @@ const ART: Record<LandIcon, string> = {
     <path d="M3 11.5h26v4.5H3z" fill="#e2b77f" stroke="#8a5a30" ${O}/>
     <path d="M13 19.5h6" stroke="#8a5a30" stroke-width="2.4" stroke-linecap="round"/>
     <path d="M16 2.5v9M12 8l4 4 4-4" fill="none" stroke="#e0527f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  // seasonal events: a string of bunting with a star; an event token (a round ticket)
+  festival: `<path d="M3 7q13 6 26 0" fill="none" stroke="#8a5a30" stroke-width="2" stroke-linecap="round"/>
+    <path d="M5 7.5l2.6 6 2.8-5.6zM11 9.4l2.4 6.2 3-5.8zM17.5 9.8l2.6 5.8 2.8-6zM23.6 8.4l2.4 5.6 2.6-6.4z" fill="#e45a78" stroke="#a8325a" ${O}/>
+    <path d="M11 9.4l2.4 6.2 3-5.8z" fill="#ffc94a" stroke="#d1900f" ${O}/><path d="M17.5 9.8l2.6 5.8 2.8-6z" fill="#33ab9b" stroke="#1f7d71" ${O}/>
+    <path d="M16 15.5l2.2 4.6 5 .7-3.6 3.5.9 5L16 26.9l-4.5 2.4.9-5-3.6-3.5 5-.7z" fill="#ffc94a" stroke="#d1900f" ${O}/>
+    <path d="M16 19l1.4 2.9 3.2.5" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>`,
+  token: `<circle cx="16" cy="16.5" r="11.5" fill="#c8326e" stroke="#8f1f4c" ${O}/><circle cx="16" cy="15.5" r="11" fill="#ff6b9a"/>
+    <circle cx="16" cy="15.5" r="7.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-dasharray="2.4 2"/>
+    <path d="M16 10.3l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#fff"/>
+    <circle cx="16" cy="16.5" r="11.5" fill="none" stroke="#8f1f4c" stroke-width="2"/><ellipse cx="11" cy="9.5" rx="3" ry="1.6" ${HL} transform="rotate(-35 11 9.5)"/>`,
   select: `<rect x="4.5" y="5.5" width="17" height="15" rx="3.5" fill="#fff4e3" stroke="#c9a77e" stroke-dasharray="3.2 2.6" ${O}/>
     <rect x="8" y="9" width="5" height="4.5" rx="1.2" fill="#7ad36b" stroke="#58a14a" ${O}/><rect x="14" y="12.5" width="4.5" height="4" rx="1.2" fill="#ff9fc8" stroke="#c8326e" ${O}/>
     <path d="M18.5 17l9 3.5-4 1.6 3.4 4.2-2.2 1.7-3.4-4.2-2.2 3.7z" fill="#fff" stroke="#3d2f2a" ${O}/>`,

@@ -18,6 +18,8 @@ export interface Settings {
   gameGfx: 'real' | 'classic';
   /** Soft background music in Fuzzies Land. */
   music: boolean;
+  /** Seasonal weather & effects in Fuzzies Land (falling leaves, snow, lanterns…). */
+  seasonFx: boolean;
   /** Home-screen / desktop app icon: Fuzzy colour + background (see core/appicon.ts). */
   appIcon: { color: string; bg: string };
 }
@@ -131,7 +133,7 @@ function fresh(username: string, name: string, email: string, guest: boolean): A
     topScores: [],
     brand: { colors: [], heading: 'Poppins', body: 'DM Sans' },
     land: freshLand(),
-    settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real', music: true, appIcon: { color: 'classic', bg: 'ink' } },
+    settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real', music: true, seasonFx: true, appIcon: { color: 'classic', bg: 'ink' } },
   };
 }
 

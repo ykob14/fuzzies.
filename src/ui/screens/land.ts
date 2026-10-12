@@ -5,6 +5,7 @@
 import type { Screen } from '../app';
 import { openShop } from '../shop';
 import * as L from '../../land/rules';
+import * as E from '../../land/events';
 import type { LandView, Pick } from '../../land/view3d';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
@@ -18,7 +19,10 @@ import { landIcon, type LandIcon } from '../landIcons';
 import { TutorialManager, type Reward } from '../../land/tutorial';
 import { mountTutorial, type TutTarget } from '../landTutorial';
 
-type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' };
+type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' } | { kind: 'events'; tab: string };
+
+/** The clock events run on (in development a test can set `fz.dev.now` to any date to see a holiday). */
+const now = (): number => { if (import.meta.env.DEV) { const v = Number(localStorage.getItem('fz.dev.now')); if (v) return v; } return Date.now(); };
 
 const fmt = (ms: number) => {
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -30,6 +34,7 @@ export function landScreen(): Screen {
   const s: L.LandState = JSON.parse(JSON.stringify(a.land ?? L.freshLand()));
   const lastVisit = s.savedAt;
   L.refillOrders(s);
+  E.decorateOrders(s, now()); // orders made during a holiday pay event tokens too
 
   const wrap = h('div', { class: 'land-stage' });
   const overlay = h('div', { class: 'land-overlay', 'aria-hidden': 'true' });
@@ -76,6 +81,16 @@ export function landScreen(): Screen {
     }
     view?.sync(s);
     renderHud();
+  }
+  /** Holiday weather on the town (the soonest-ending event sets the mood), unless switched off in Settings. */
+  let seasonKey = '';
+  function applySeason(): void {
+    const ev = E.activeEvents(now())[0];
+    const on = accounts.current?.settings.seasonFx !== false;
+    const key = ev && on ? ev.key : '';
+    if (key === seasonKey && view) return;
+    seasonKey = key;
+    view?.setSeason(ev && on ? { atmo: ev.holiday.atmo, tint: ev.holiday.tint, ghosts: ev.holiday.id === 'halloween' } : null);
   }
   /** Another device saved a newer town (it arrived through sync): switch to it. */
   function adoptRemote(): void {
@@ -163,7 +178,7 @@ export function landScreen(): Screen {
   let hudSig = '';
   function renderHud(): void {
     // only rebuild when something shown actually changed (rebuilding every second could swallow a tap)
-    const sig = JSON.stringify([s.level, s.xp, s.coins, L.population(s), rewards.balance(), L.barnUsed(s), s.orders.filter((o) => L.canFill(s, o)).length, L.awaySummary(s)]);
+    const sig = JSON.stringify([s.level, s.xp, s.coins, L.population(s), rewards.balance(), L.barnUsed(s), s.orders.filter((o) => L.canFill(s, o)).length, L.awaySummary(s), E.activeEvents(now()).map((e) => e.key), E.claimable(s, now())]);
     if (sig === hudSig) return;
     hudSig = sig;
     const need = L.xpFor(s.level);
@@ -197,6 +212,7 @@ export function landScreen(): Screen {
     tools.replaceChildren(...[
       waiting ? tool('collect', 'basket', 'Collect', collectAllNow, waiting) : null,
       tool('build', 'build', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
+      E.activeEvents(now()).length ? tool('events', 'festival', E.activeEvents(now())[0].holiday.short, () => openPanel({ kind: 'events', tab: E.activeEvents(now())[0].key }), E.claimable(s, now())) : null,
       tool('orders', 'parcel', 'Orders', () => openPanel({ kind: 'orders' }), ready),
       tool('barn', 'barnBig', 'Barn', () => openPanel({ kind: 'barn' }), 0, h('i', { class: `land-meter ${fill > 0.85 ? 'full' : ''}`, title: `${L.barnUsed(s)} / ${L.barnCap(s.level)}` }, h('b', { style: `width:${fill * 100}%` })))].filter((x) => x !== null) as HTMLElement[]);
     dockTab.classList.toggle('alert', waiting > 0 || ready > 0);
@@ -205,7 +221,10 @@ export function landScreen(): Screen {
 
   /** Harvest, collect and open everything that's ready, in one tap. */
   function collectAllNow(): void {
+    const before = s.stats.harvests;
     const r = L.collectAll(s);
+    const harvestsNow = s.stats.harvests - before;
+    if (harvestsNow) { const drop = E.harvested(s, harvestsNow, now()); if (drop) setTimeout(() => toast(`+1 ${drop.event.holiday.short} token 🎟️`, 'good'), 700); }
     const parts = Object.entries(r.got).map(([k, n]) => `${L.good(k).emoji}×${n}`);
     if (!parts.length && !r.built.length) { if (r.full) toast('Your barn is full — fill some orders first.', 'info'); return; }
     sfx.collect();
@@ -258,6 +277,10 @@ export function landScreen(): Screen {
     if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Tap something, then choose where it goes', landIcon('hammer', 34)), shopBody(panel.tab));
     else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Fuzzies ask for goods — deliver for coins & XP', landIcon('crate', 34)), ordersBody());
     else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', `${L.barnUsed(s)} / ${L.barnCap(s.level)} spaces used`, landIcon('barn', 34)), barnBody());
+    else if (panel.kind === 'events') {
+      const tab = panel.tab, live = E.activeEvents(now()), ev = live.find((e) => e.key === tab) ?? live[0], mine = tab === 'mine' || !ev;
+      sheet.replaceChildren(head(mine ? 'My collection' : ev.holiday.name, mine ? 'Everything you’ve collected, yours forever' : `${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left · collect, earn and decorate`, landIcon('festival', 34)), eventsBody(tab));
+    }
     else {
       const b = s.buildings.find((x) => x.id === (panel as { id: number }).id);
       if (!b) { openPanel(null); return; }
@@ -304,6 +327,16 @@ export function landScreen(): Screen {
   function itemCard(it: L.ItemDef): HTMLElement {
     const why = L.cantBuy(s, it.id, rewards.balance());
     const locked = s.level < it.level;
+    // a seasonal collectible you own: placed from your collection (so many copies, no price)
+    if (it.collectible) {
+      const sp = E.spare(s, it.id), own = E.owned(s, it.id);
+      const card = h('button', { class: `land-card land-card-col ${sp ? '' : 'off'}`, type: 'button', title: sp ? `Place (${sp} to place)` : 'All copies are already on the map or in storage', 'data-item': it.id },
+        h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), h('i', { class: 'land-store-n' }, `×${own}`)),
+        h('b', null, it.name), h('small', null, E.collectionOf(it.id)?.name ?? ''),
+        h('span', { class: 'land-price owned' }, landIcon('festival', 16), sp ? `${sp} to place` : 'All placed'));
+      card.addEventListener('click', () => { if (!sp) { toast('Every copy is already in your town — move one, or store it from Edit town.', 'info', 3500); return; } startPlacing(it.id); });
+      return card;
+    }
     const card = h('button', { class: `land-card ${why ? 'off' : ''} ${locked ? 'locked' : ''}`, type: 'button', title: why || it.blurb, 'data-item': it.id },
       h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), locked ? h('span', { class: 'land-card-lock' }, landIcon('lock', 26), h('small', null, `Level ${it.level}`)) : null),
       h('b', null, it.name),
@@ -317,9 +350,97 @@ export function landScreen(): Screen {
     return card;
   }
 
+  // ---------- seasonal events: shop, challenges, my collection ----------
+  function eventsBody(tab: string): HTMLElement {
+    const live = E.activeEvents(now());
+    const tabs = h('div', { class: 'land-tabs', role: 'tablist' },
+      ...live.map((e) => h('button', { class: `land-tab ${tab === e.key ? 'on' : ''}`, type: 'button', role: 'tab', 'data-tab': e.key, onclick: () => openPanel({ kind: 'events', tab: e.key }) }, landIcon('festival', 20), h('span', null, e.holiday.short))),
+      h('button', { class: `land-tab ${tab === 'mine' ? 'on' : ''}`, type: 'button', role: 'tab', 'data-tab': 'mine', onclick: () => openPanel({ kind: 'events', tab: 'mine' }) }, landIcon('star', 20), h('span', null, 'My collection')));
+    if (tab === 'mine' || !live.length) return h('div', null, tabs, myCollectionBody());
+    const ev = live.find((e) => e.key === tab) ?? live[0];
+    const col = ev.collection;
+    const parts: (HTMLElement | null)[] = [tabs];
+    parts.push(h('div', { class: 'land-ev-head' },
+      h('div', { class: 'land-ev-tokens', title: 'Event tokens — earned from holiday orders, harvests and challenges' }, landIcon('token', 26), h('b', null, String(E.tokens(s, ev.key))), h('small', null, 'tokens')),
+      h('div', { class: 'land-ev-when' }, h('b', null, `${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left`), h('small', null, `${ev.start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${ev.end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`))));
+    if (!col) {
+      parts.push(h('p', { class: 'muted land-ev-note' }, `${ev.holiday.name} is here — enjoy the weather in town! New ${ev.holiday.short} decorations are being drawn and will arrive in a future update.`));
+      return h('div', null, ...parts.filter((x) => x !== null) as HTMLElement[]);
+    }
+    // challenges
+    parts.push(h('p', { class: 'pnl-label' }, 'Challenges'));
+    parts.push(h('div', { class: 'land-ev-challenges' }, ...col.challenges.map((c) => {
+      const done = E.claimed(s, c.id), can = E.canClaim(s, ev, c);
+      const p = Math.min(c.goal, E.progress(s, ev.key, c.kind));
+      const reward = c.reward.item ? h('span', { class: 'land-ev-reward' }, thumb(c.reward.item, '🎁'), h('small', null, E.collectible(c.reward.item)?.name ?? '')) : h('span', { class: 'land-ev-reward' }, c.reward.tokens ? landIcon('token', 18) : landIcon('coin', 18), h('small', null, `+${c.reward.tokens ?? c.reward.coins}`));
+      const b = done ? h('span', { class: 'land-ev-done' }, icon('check', 16), ' Done') : btn(can ? 'Claim' : `${p}/${c.goal}`, { kind: can ? 'primary' : 'ghost', size: 'sm', class: can ? 'land-ev-claim' : '', onClick: () => {
+        if (!can) return;
+        try {
+          const r = E.claim(s, ev, c);
+          sfx.coins(); save();
+          const from = sheet.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+          if (r.coins) burst('coin', { x: from.left + from.width / 2 - sr.left, y: from.top + 60 - sr.top }, 6);
+          toast(r.item ? `🎉 ${E.collectible(r.item)?.name} is yours — place it from the shop or Build → Decor` : r.tokens ? `+${r.tokens} event tokens` : `+${r.coins} coins`, 'good', 3500);
+          renderPanel();
+        } catch (e) { toast((e as Error).message, 'info'); }
+      } });
+      return h('div', { class: `land-ev-ch ${done ? 'done' : can ? 'ready' : ''}` }, h('div', null, h('b', null, c.name), h('div', { class: 'progress' }, h('div', { style: `width:${(p / c.goal) * 100}%` }))), reward, b);
+    })));
+    // shop
+    parts.push(h('p', { class: 'pnl-label' }, `${col.name} collection`));
+    parts.push(h('div', { class: 'land-shop land-ev-shop' }, ...col.items.map((x) => collectibleCard(x, ev))));
+    parts.push(h('p', { class: 'fine' }, 'Everything you collect is yours forever — it stays in My collection and Build → Decor after the event, and moves and stores like any decoration.'));
+    return h('div', null, ...parts.filter((x) => x !== null) as HTMLElement[]);
+  }
+  function collectibleCard(x: E.Collectible, ev: E.ActiveEvent): HTMLElement {
+    const own = E.owned(s, x.id), sp = E.spare(s, x.id);
+    const why = E.cantBuyCollectible(s, x.id, rewards.balance(), now());
+    const earnOnly = !!x.earn && !x.price.coins && !x.price.fuzzies && !x.price.tokens;
+    const soldOut = own >= (x.max ?? 1);
+    const price = soldOut ? h('span', { class: 'land-price owned' }, icon('check', 14), x.max && x.max > 1 ? `Own all ${x.max}` : 'Owned')
+      : earnOnly ? h('span', { class: 'land-price owned' }, landIcon('star', 16), 'Challenge reward')
+      : h('span', { class: 'land-price' }, x.price.fuzzies ? fuzzyMark(16) : x.price.tokens ? landIcon('token', 16) : landIcon('coin', 16), String(x.price.fuzzies ?? x.price.tokens ?? x.price.coins));
+    const card = h('div', { class: `land-card land-ev-card ${x.rarity} ${why && !own ? 'off' : ''}`, 'data-item': x.id, title: x.blurb },
+      h('span', { class: 'land-card-art' }, thumb(x.id, '🎁'), own ? h('i', { class: 'land-store-n' }, `×${own}`) : null, h('i', { class: `land-ev-rarity ${x.rarity}` }, E.RARITY[x.rarity])),
+      h('b', null, x.name), h('small', null, x.blurb),
+      h('div', { class: 'land-ev-actions' },
+        soldOut || earnOnly ? price : btn(price, { kind: why ? 'soft' : 'primary', size: 'sm', title: why || `Buy ${x.name}`, onClick: () => buyCollectible(x, ev) }),
+        own ? btn(sp ? `Place${sp > 1 ? ` (${sp})` : ''}` : 'All placed', { kind: 'ghost', size: 'sm', onClick: () => { if (!sp) { toast('Every copy is already in your town.', 'info'); return; } startPlacing(x.id); } }) : null));
+    return card;
+  }
+  function buyCollectible(x: E.Collectible, ev: E.ActiveEvent): void {
+    const why = E.cantBuyCollectible(s, x.id, rewards.balance(), now());
+    if (why) { toast(why, 'info', 3200); if (x.price.fuzzies && rewards.balance() < x.price.fuzzies) void openShop(); return; }
+    try {
+      const r = E.buyCollectible(s, x.id, rewards.balance(), now());
+      if (r.fuzzies) spendFuzzies(r.fuzzies);
+    } catch (e) { toast((e as Error).message, 'info'); return; }
+    sfx.gold();
+    save();
+    toast(`${x.name} added to your collection 🎉 — tap Place to put it in your town`, 'good', 3500);
+    renderPanel();
+    void ev;
+  }
+  function myCollectionBody(): HTMLElement {
+    const groups = E.myCollections(s);
+    const total = groups.reduce((a, g) => a + g.ownedCount, 0);
+    return h('div', { class: 'land-mycol' },
+      h('p', { class: 'muted' }, total ? `${total} piece${total === 1 ? '' : 's'} collected. Each one is yours forever — place them from here or Build → Decor.` : 'Nothing collected yet. Holiday decorations you buy or earn during events appear here, forever.'),
+      ...groups.map(({ col, ownedCount }) => h('section', { class: 'land-mycol-set' },
+        h('div', { class: 'land-mycol-head' }, h('b', null, col.name), h('small', null, `${ownedCount}/${col.items.length}`)),
+        h('div', { class: 'land-shop land-ev-shop' }, ...col.items.map((x) => {
+          const own = E.owned(s, x.id), sp = E.spare(s, x.id);
+          const card = h('button', { class: `land-card land-ev-card ${own ? '' : 'missing'}`, type: 'button', 'data-item': x.id, title: own ? (sp ? `Place (${sp} to place)` : 'All copies are in your town') : `Not collected yet — ${E.RARITY[x.rarity].toLowerCase()} piece from ${col.name}` },
+            h('span', { class: 'land-card-art' }, thumb(x.id, '🎁'), own ? h('i', { class: 'land-store-n' }, `×${own}`) : h('span', { class: 'land-card-lock' }, landIcon('lock', 22))),
+            h('b', null, x.name), h('small', null, own ? (sp ? `${sp} to place` : 'All placed') : 'Not collected'));
+          card.addEventListener('click', () => { if (!own) { toast(`${x.name}: ${E.activeEvents(now()).some((e) => e.collection?.key === col.key) ? 'find it in the event shop' : `comes back with ${E.holiday(col.holiday).short} ${col.year} — this exact piece won’t be sold again, but you keep everything you have`}`, 'info', 4000); return; } if (!sp) { toast('Every copy is already in your town.', 'info'); return; } startPlacing(x.id); });
+          return card;
+        })))));
+  }
+
   function shopBody(tab: L.Kind | 'farm' | 'fuzzies'): HTMLElement {
     const tabs: [L.Kind | 'farm' | 'fuzzies', LandIcon, string][] = [['house', 'house', 'Houses'], ['farm', 'wheat', 'Farming'], ['factory', 'workshop', 'Workshops'], ['decor', 'flower', 'Decor'], ['fuzzies', 'star', 'Fuzzies']];
-    const list = L.ITEMS.filter((i) => (tab === 'farm' ? i.kind === 'field' : i.kind === tab));
+    const list = L.ITEMS.filter((i) => (tab === 'farm' ? i.kind === 'field' : i.kind === tab) && (!i.collectible || E.owned(s, i.id) > 0));
     return h('div', null,
       h('div', { class: 'land-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) => h('button', { class: `land-tab ${k === tab ? 'on' : ''}`, type: 'button', role: 'tab', 'data-tab': k, 'aria-selected': String(k === tab), onclick: () => openPanel({ kind: 'shop', tab: k }) }, landIcon(ic, 22), h('span', null, label)))),
       ...(tab === 'fuzzies' ? fuzziesBody() : [
@@ -340,6 +461,9 @@ export function landScreen(): Screen {
           btn('Deliver', { kind: ok ? 'primary' : 'soft', size: 'sm', onClick: () => {
             try {
               const g = L.fill(s, o.id);
+              const tok = E.orderDelivered(s, o, now());
+              E.decorateOrders(s, now());
+              if (tok) setTimeout(() => toast(`+${tok} event token${tok > 1 ? 's' : ''} 🎟️`, 'good'), 600);
               sfx.coins();
               const hall = s.buildings.find((b) => b.item === 'hall');
               const card = document.activeElement?.closest('.land-order') as HTMLElement | null;
@@ -481,6 +605,8 @@ export function landScreen(): Screen {
       }
       if (it.kind === 'field' && b.crop && L.cropProgress(b) >= 1) {
         const g = L.harvest(s, id);
+        const drop = E.harvested(s, 1, now());
+        if (drop) setTimeout(() => toast(`+1 ${drop.event.holiday.short} token 🎟️`, 'good'), 700);
         sfx.collect();
         gain(g, id, `+${g.n} ${L.good(g.good).emoji}`);
         save();
@@ -659,6 +785,7 @@ export function landScreen(): Screen {
         const g = L.place(s, p.item, p.x, p.z, p.rot); // throws (nothing spent) if the spot is taken
         if (it.currency === 'fuzzies') spendFuzzies(it.cost);
         sfx.build();
+        if (it.collectible) E.note(s, 'place', 1, p.item, now());
         save();
         tut.emit('placed', { item: p.item });
         const placed = s.buildings[s.buildings.length - 1];
@@ -1483,11 +1610,12 @@ export function landScreen(): Screen {
       if (!alive) return;
       view = new LandView(canvas, overlay, isTouch(), phrase);
       view.sync(s);
+      applySeason();
       try {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
       } catch { /* first visit */ }
-      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing }; // for tests
+      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }) }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
       setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
@@ -1518,6 +1646,7 @@ export function landScreen(): Screen {
     }
     if (crossed && panel?.kind === 'building') renderPanel(); // something just finished: show Harvest / Collect
     renderHud();
+    if (now % 60_000 < 1000) applySeason();
   }, 1000);
   const ro = new ResizeObserver(() => view?.resize());
   ro.observe(stage);
@@ -1529,6 +1658,7 @@ export function landScreen(): Screen {
   const off = accounts.onChange(() => {
     for (const b of hud.querySelectorAll('.fz-balance')) b.textContent = String(rewards.balance());
     adoptRemote();
+    applySeason();
   });
 
   return {

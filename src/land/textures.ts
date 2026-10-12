@@ -219,6 +219,21 @@ export function sign(text: string, bg: string, fg = '#fff'): THREE.CanvasTexture
   });
 }
 
+/** One big letter on a square tile (the dreidel's נ ג ה ש). */
+export function letter(text: string, bg: string, fg = '#1f3f8f'): THREE.CanvasTexture {
+  return memo(`letter${text}${bg}${fg}`, () => {
+    const [c, x] = canvas(256, 256);
+    x.fillStyle = bg; x.fillRect(0, 0, 256, 256);
+    x.font = '700 170px "Frank Ruhl Libre", "David Libre", Fredoka, serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = 'rgba(0,0,0,0.18)'; x.fillText(text, 131, 142);
+    x.fillStyle = fg; x.fillText(text, 128, 136);
+    const tx = new THREE.CanvasTexture(c);
+    tx.colorSpace = THREE.SRGBColorSpace;
+    return tx;
+  });
+}
+
 /** Light, warm cut-stone blocks (plinths, pillars, paths): soft mortar lines, no harsh speckle. Tint with the material colour. */
 export function stoneBlocks(): THREE.CanvasTexture {
   return memo('stoneblocks', () => {

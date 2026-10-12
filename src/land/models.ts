@@ -8,26 +8,27 @@ import * as T from './textures';
 import * as GT from '../game/textures3d';
 import * as M from '../game/models3d';
 import * as ENV from './environment';
+import { seasonalModel } from './seasonal';
 
 const mats = new Map<string, THREE.Material>();
 let base: M.Mats | null = null;
 /** The game's shared materials (bark, leaves, metal, fur…), made once. */
 export const baseMats = (): M.Mats => (base ??= M.makeMaterials());
-function mat(key: string, make: () => THREE.Material): THREE.Material {
+export function mat(key: string, make: () => THREE.Material): THREE.Material {
   let m = mats.get(key);
   if (!m) { m = make(); mats.set(key, m); }
   return m;
 }
 export const std = (color: string, rough = 0.8, metal = 0) => mat(`s${color}${rough}${metal}`, () => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal }));
-const textured = (key: string, map: THREE.Texture, repeat: [number, number], rough = 0.85, color = '#ffffff') => mat(`t${key}${repeat}`, () => {
+export const textured = (key: string, map: THREE.Texture, repeat: [number, number], rough = 0.85, color = '#ffffff') => mat(`t${key}${repeat}`, () => {
   const t = map.clone();
   t.repeat.set(repeat[0], repeat[1]);
   t.needsUpdate = true;
   return new THREE.MeshStandardMaterial({ map: t, roughness: rough, color });
 });
-const gold = () => mat('gold', () => new THREE.MeshStandardMaterial({ color: 0xffc94a, metalness: 1, roughness: 0.22 }));
+export const gold = () => mat('gold', () => new THREE.MeshStandardMaterial({ color: 0xffc94a, metalness: 1, roughness: 0.22 }));
 
-function add(g: THREE.Object3D, geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, shadow = true): THREE.Mesh {
+export function add(g: THREE.Object3D, geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, shadow = true): THREE.Mesh {
   const me = new THREE.Mesh(geo, m);
   me.position.set(x, y, z);
   me.castShadow = shadow;
@@ -35,7 +36,7 @@ function add(g: THREE.Object3D, geo: THREE.BufferGeometry, m: THREE.Material, x 
   g.add(me);
   return me;
 }
-const rbox = (w: number, h: number, d: number, r = 0.04) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2));
+export const rbox = (w: number, h: number, d: number, r = 0.04) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2));
 
 /** Fuzzies Land building palette (ART.md). */
 export const PAL = {
@@ -43,20 +44,20 @@ export const PAL = {
   stone: '#e6ddd0', stoneDark: '#b9ad9c', wood: '#c98b55', woodDark: '#9c6638', gold: '#ffc94a',
   raspberry: '#e45a78', coral: '#f2785c', teal: '#33ab9b', sky: '#5aa2e6', butterRoof: '#f5c84c',
 };
-const warmGlass = () => mat('warmglass', () => new THREE.MeshPhysicalMaterial({ color: 0xbfe4ff, roughness: 0.08, clearcoat: 1, envMapIntensity: 1.4, emissive: 0x3b2a10, emissiveIntensity: 0.25 }));
+export const warmGlass = () => mat('warmglass', () => new THREE.MeshPhysicalMaterial({ color: 0xbfe4ff, roughness: 0.08, clearcoat: 1, envMapIntensity: 1.4, emissive: 0x3b2a10, emissiveIntensity: 0.25 }));
 
 /** The stone base every building stands on. */
-function plinth(g: THREE.Group, w: number, d: number, h = 0.15): void {
+export function plinth(g: THREE.Group, w: number, d: number, h = 0.15): void {
   add(g, rbox(w, h, d, 0.05), textured('plinth', T.stoneBlocks(), [Math.max(1, w), 0.5], 0.9, PAL.stone), 0, h / 2, 0);
 }
 
 /** Rounded corner trims on a box of walls (w × d, from y0 up h). */
-function cornerTrims(g: THREE.Group, w: number, d: number, y0: number, h: number, color = PAL.trim): void {
+export function cornerTrims(g: THREE.Group, w: number, d: number, y0: number, h: number, color = PAL.trim): void {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(g, rbox(0.08, h, 0.08, 0.025), std(color, 0.7), sx * (w / 2), y0 + h / 2, sz * (d / 2));
 }
 
 /** A window: framed glass with cross bars, a sill and (optionally) painted shutters, on the +z face at (x, y). */
-function windowOn(g: THREE.Group, x: number, y: number, z: number, w = 0.26, h = 0.3, ry = 0, shutter = ''): void {
+export function windowOn(g: THREE.Group, x: number, y: number, z: number, w = 0.26, h = 0.3, ry = 0, shutter = ''): void {
   const win = new THREE.Group();
   add(win, rbox(w + 0.08, h + 0.08, 0.05, 0.02), std(PAL.trim, 0.6));
   add(win, new THREE.BoxGeometry(w, h, 0.03), warmGlass(), 0, 0, 0.014, false);
@@ -70,7 +71,7 @@ function windowOn(g: THREE.Group, x: number, y: number, z: number, w = 0.26, h =
 }
 
 /** A round-topped wooden door with a step and (optionally) a little canopy, on the +z face. */
-function doorOn(g: THREE.Group, x: number, z: number, w = 0.28, h = 0.42, color = '#8a5a34', ry = 0, canopy = ''): void {
+export function doorOn(g: THREE.Group, x: number, z: number, w = 0.28, h = 0.42, color = '#8a5a34', ry = 0, canopy = ''): void {
   const d = new THREE.Group();
   const wood = textured('door' + color, T.planks(color), [1, 1], 0.7);
   add(d, rbox(w + 0.08, h + 0.04, 0.04, 0.02), std(PAL.trim, 0.6), 0, (h + 0.04) / 2 - 0.02, -0.005);
@@ -97,7 +98,7 @@ function doorOn(g: THREE.Group, x: number, z: number, w = 0.28, h = 0.42, color 
 }
 
 /** A chunky gable roof over a w × d block whose walls end at height y; the ridge runs along x. */
-function gableRoof(g: THREE.Group, w: number, d: number, y: number, rise: number, color: string, overhang = 0.14, gableColor = PAL.trim): void {
+export function gableRoof(g: THREE.Group, w: number, d: number, y: number, rise: number, color: string, overhang = 0.14, gableColor = PAL.trim): void {
   const half = d / 2 + overhang;
   const slope = Math.hypot(half, rise);
   const ang = Math.atan2(rise, half);
@@ -116,7 +117,7 @@ function gableRoof(g: THREE.Group, w: number, d: number, y: number, rise: number
   add(g, gableGeo, std(gableColor, 0.85), 0, y, 0);
 }
 
-function chimney(g: THREE.Group, x: number, y: number, z: number, h = 0.38): void {
+export function chimney(g: THREE.Group, x: number, y: number, z: number, h = 0.38): void {
   add(g, rbox(0.18, h, 0.18, 0.03), textured('chim', T.bricks('#c06a48'), [1, 1]), x, y + h / 2, z);
   add(g, rbox(0.24, 0.06, 0.24, 0.02), std('#7a6a62', 0.8), x, y + h, z);
   add(g, new THREE.CylinderGeometry(0.05, 0.05, 0.02, 12), std('#2a2220', 1), x, y + h + 0.03, z, false);
@@ -124,7 +125,7 @@ function chimney(g: THREE.Group, x: number, y: number, z: number, h = 0.38): voi
 }
 
 /** A little white picket fence from (x0, z) to (x1, z) on the +z side (rotate the group for other sides). */
-function picket(g: THREE.Group, x0: number, x1: number, z: number, h = 0.16, color = '#fffaf2'): void {
+export function picket(g: THREE.Group, x0: number, x1: number, z: number, h = 0.16, color = '#fffaf2'): void {
   const n = Math.max(2, Math.round((x1 - x0) / 0.09));
   const m = std(color, 0.7);
   for (let i = 0; i <= n; i++) {
@@ -136,14 +137,14 @@ function picket(g: THREE.Group, x0: number, x1: number, z: number, h = 0.16, col
 }
 
 /** A warm lantern on a wall (glows a little). */
-function lantern(g: THREE.Group, x: number, y: number, z: number): void {
+export function lantern(g: THREE.Group, x: number, y: number, z: number): void {
   add(g, new THREE.BoxGeometry(0.02, 0.02, 0.06), std('#3b3a40', 0.5, 0.6), x, y + 0.06, z + 0.03, false);
   add(g, new THREE.CylinderGeometry(0.035, 0.028, 0.08, 8), mat('lanternglass', () => new THREE.MeshStandardMaterial({ color: '#fff1c2', emissive: '#ffcc66', emissiveIntensity: 0.9, roughness: 0.3 })), x, y, z + 0.07, false);
   add(g, new THREE.ConeGeometry(0.045, 0.04, 8), std('#3b3a40', 0.5, 0.6), x, y + 0.06, z + 0.07, false);
 }
 
 /** Stepping stones from (x, z0) to (x, z1). */
-function steppingStones(g: THREE.Group, x: number, z0: number, z1: number): void {
+export function steppingStones(g: THREE.Group, x: number, z0: number, z1: number): void {
   const n = Math.max(1, Math.round(Math.abs(z1 - z0) / 0.14));
   for (let i = 0; i <= n; i++) {
     const z = z0 + ((z1 - z0) * i) / n;
@@ -697,6 +698,6 @@ export function modelFor(itemId: string, seed: number): THREE.Group {
     case 'fountain': return fountain();
     case 'statue': return goldenStatue();
     case 'rainbow': return rainbowArch();
-    default: return new THREE.Group();
+    default: return seasonalModel(itemId) ?? new THREE.Group();
   }
 }

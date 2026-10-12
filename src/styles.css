@@ -2116,3 +2116,51 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
   .acct-row.wallet > .btn, .acct-row.wallet > .btn-plain { margin-left: auto; }
   .acct-row b .wallet-pill { white-space: nowrap; }
 }
+
+/* ---------- Fuzzies Land: seasonal events (shop, challenges, my collection) ---------- */
+.land-dock-btn.is-events { --c: #ff8c42; --lip: #c4591c; }
+.land-ev-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; margin-bottom: 12px; border-radius: 18px; background: #fff; box-shadow: 0 3px 0 var(--lline), 0 0 0 1.5px var(--lline) inset; }
+.land-ev-tokens { display: flex; align-items: center; gap: 8px; }
+.land-ev-tokens b { font: 700 22px/1 var(--brand); }
+.land-ev-tokens small { color: var(--lmuted); font-size: 12px; }
+.land-ev-when { text-align: right; display: grid; }
+.land-ev-when b { font: 700 15px/1.2 var(--brand); color: var(--lacc); }
+.land-ev-when small { color: var(--lmuted); font-size: 11.5px; }
+.land-ev-note { padding: 6px 2px 10px; }
+.land-ev-challenges { display: grid; gap: 8px; margin-bottom: 14px; }
+.land-ev-ch { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; background: #fff; box-shadow: 0 3px 0 var(--lline), 0 0 0 1.5px var(--lline) inset; }
+.land-ev-ch > div:first-child { display: grid; gap: 6px; min-width: 0; }
+.land-ev-ch b { font: 700 14px/1.2 var(--brand); }
+.land-ev-ch .progress { height: 8px; }
+.land-ev-ch.ready { box-shadow: 0 3px 0 var(--lacc-lip), 0 0 0 2px var(--lacc) inset; }
+.land-ev-ch.done { opacity: .7; }
+.land-ev-reward { display: inline-flex; align-items: center; gap: 4px; font: 700 13px var(--brand); }
+.land-ev-reward .land-thumb { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; }
+.land-ev-reward small { font: 700 12px var(--brand); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.land-ev-done { display: inline-flex; align-items: center; gap: 3px; color: var(--lgood); font: 700 13px var(--brand); }
+.land-ev-claim { animation: land-pulse 1.2s ease-in-out infinite; }
+.land-ev-shop { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.land-ev-card { cursor: default; }
+.land-ev-card.off .land-card-art { opacity: .8; }
+.land-ev-card.missing .land-thumb { filter: saturate(.2) brightness(1.05); opacity: .55; }
+.land-ev-card.missing { cursor: pointer; }
+.land-ev-rarity { position: absolute; top: 6px; left: 6px; padding: 3px 8px; border-radius: 99px; font: 700 10.5px/1 var(--brand); font-style: normal; background: rgba(255,255,255,.9); color: var(--lmuted); }
+.land-ev-rarity.rare { background: #d6ecff; color: #1d5a9a; }
+.land-ev-rarity.limited { background: #ffe7bf; color: #8a4f10; }
+.land-ev-rarity.premium { background: var(--lacc); color: #fff; }
+.land-ev-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
+.land-ev-actions .btn-sm { min-height: 32px; padding: 0 10px; font-size: 13px; }
+.land-ev-actions .land-price { margin: 0; }
+.land-price.owned { background: #e6f7ec; color: #1b7a4f; }
+.land-card-col .land-store-n { right: 6px; bottom: 6px; }
+.land-mycol { display: grid; gap: 14px; }
+.land-mycol > .muted { margin: 0; }
+.land-mycol-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.land-mycol-head b { font: 700 16px var(--brand); }
+.land-mycol-head small { color: var(--lmuted); font: 700 12px var(--brand); }
+@media (max-width: 560px) {
+  .land-ev-shop { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  .land-ev-ch { grid-template-columns: 1fr auto; }
+  .land-ev-ch .land-ev-reward { grid-column: 1; }
+  .land-ev-ch .btn, .land-ev-ch .land-ev-done { grid-column: 2; grid-row: 1 / span 2; }
+}

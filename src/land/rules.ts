@@ -21,6 +21,8 @@ export interface ItemDef {
   sellable?: boolean;
   /** Has water in it (pond, fountain): keeps a strip of grass between it and any road. */
   water?: boolean;
+  /** A seasonal collectible (land/events.ts): the key of its collection. Placed from what you own, never bought here. */
+  collectible?: string;
 }
 
 export interface Good {
@@ -40,7 +42,7 @@ export interface Placed {
   doneAt?: number;
 }
 
-export interface Order { id: number; who: string; items: Record<string, number>; coins: number; xp: number; fuzzies: number }
+export interface Order { id: number; who: string; items: Record<string, number>; coins: number; xp: number; fuzzies: number; /** holiday orders (land/events.ts) */ event?: string; tokens?: number }
 
 export interface LandState {
   v: 1;
@@ -58,6 +60,10 @@ export interface LandState {
   tutorial?: { status: 'active' | 'done' | 'skipped' | 'off'; step: number; got: string[]; paid: string[] };
   /** Temporary storage (Town Edit Mode): whole pieces lifted off the map, timers and all, waiting to be placed again. */
   storage?: Placed[];
+  /** Seasonal collectibles owned, forever: id → copies (land/events.ts). */
+  owned?: Record<string, number>;
+  /** Seasonal events: tokens per event, challenge progress per event, claimed challenge ids. */
+  events?: { tokens: Record<string, number>; progress: Record<string, Record<string, number>>; claimed: string[] };
 }
 
 export const MAP = 30; // the whole island is MAP × MAP tiles; the buildable square grows with expansions
@@ -162,7 +168,7 @@ const OLD_ROADS: [number, number][] = [...Array.from({ length: 14 }, (_, k) => [
 export function freshLand(now = Date.now()): LandState {
   const s: LandState = {
     v: 1, level: 1, xp: 0, coins: 150, size: SIZES[0], buildings: [], barn: { wheat: 4 }, orders: [], nextId: 1,
-    stats: { harvests: 0, made: 0, orders: 0, built: 0 }, savedAt: now, layout: 2, storage: [],
+    stats: { harvests: 0, made: 0, orders: 0, built: 0 }, savedAt: now, layout: 2, storage: [], owned: {}, events: { tokens: {}, progress: {}, claimed: [] },
   };
   const add = (it: string, x: number, z: number, extra: Partial<Placed> = {}) => s.buildings.push({ id: s.nextId++, item: it, x, z, rot: 0, builtAt: 0, ...extra });
   STARTER.forEach(([it, x, z], i) => add(it, x, z, i === 4 ? { crop: { good: 'wheat', at: now - 50_000 } } : {}));
@@ -241,6 +247,8 @@ export function canPlace(s: LandState, itemId: string, x: number, z: number, rot
 /** Why you can't buy this right now ('' = you can). `fuzzies` is the app-wide token balance. */
 export function cantBuy(s: LandState, itemId: string, fuzzies: number): string {
   const it = item(itemId);
+  // collectibles come from your collection (the event shop sells them; land/events.ts): place the copies you own
+  if (it.collectible) return (s.owned?.[itemId] ?? 0) > count(s, itemId) ? '' : 'Not in your collection yet';
   if (s.level < it.level) return `Unlocks at level ${it.level}`;
   if (it.max && count(s, itemId) >= it.max(s.level)) return it.kind === 'field' ? `Max ${it.max(s.level)} fields at this level` : 'You already have one';
   if (it.currency === 'coins' ? s.coins < it.cost : fuzzies < it.cost) return it.currency === 'coins' ? 'Not enough coins' : 'Not enough Fuzzies';
@@ -261,6 +269,7 @@ export function place(s: LandState, itemId: string, x: number, z: number, rot: R
   const it = item(itemId);
   const why = placeProblem(s, itemId, x, z, rot);
   if (why) throw new Error(why);
+  if (it.collectible && (s.owned?.[itemId] ?? 0) <= count(s, itemId)) throw new Error('Not in your collection yet.');
   if (it.currency === 'coins') s.coins -= it.cost;
   s.buildings.push({ id: s.nextId++, item: itemId, x, z, rot, builtAt: now, ...(it.kind === 'factory' ? { queue: [] } : {}), ...(it.build ? { doneAt: now + it.build * 1000 } : {}) });
   s.stats.built++;
@@ -569,7 +578,8 @@ export function migrateLand(s: Partial<LandState> | undefined): LandState {
   if (!s || s.v !== 1 || !Array.isArray(s.buildings)) return freshLand();
   const f = freshLand();
   const fix = (b: Placed) => ({ ...b, rot: ((b.rot ?? 0) & 3) as Rot });
-  const out = { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn }, buildings: s.buildings.map(fix), storage: Array.isArray(s.storage) ? s.storage.map(fix) : [] } as LandState;
+  const out = { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn }, buildings: s.buildings.map(fix), storage: Array.isArray(s.storage) ? s.storage.map(fix) : [],
+    owned: { ...(s.owned ?? {}) }, events: { tokens: { ...(s.events?.tokens ?? {}) }, progress: { ...(s.events?.progress ?? {}) }, claimed: [...(s.events?.claimed ?? [])] } } as LandState;
   if (!s.layout) { out.layout = undefined; tidyOldStarter(out); out.layout = 2; }
   return out;
 }
