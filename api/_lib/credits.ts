@@ -10,8 +10,9 @@ export async function applyCredits(userId: string): Promise<number> {
       returning amount
     ), s as (select coalesce(sum(amount), 0)::int as n from c)
     update fz_profiles p set
-      data = jsonb_set(jsonb_set(p.data, '{fuzzies}', to_jsonb(coalesce((p.data->>'fuzzies')::int, 0) + s.n)),
-                       '{totalFuzzies}', to_jsonb(coalesce((p.data->>'totalFuzzies')::int, 0) + s.n)),
+      data = jsonb_set(jsonb_set(p.data,
+        '{fuzzies}', to_jsonb(least(1000000000, greatest(0, case when jsonb_typeof(p.data->'fuzzies') = 'number' then floor((p.data->>'fuzzies')::numeric) else 0 end)::bigint + s.n))),
+        '{totalFuzzies}', to_jsonb(least(1000000000, greatest(0, case when jsonb_typeof(p.data->'totalFuzzies') = 'number' then floor((p.data->>'totalFuzzies')::numeric) else 0 end)::bigint + s.n))),
       updated_at = greatest(p.updated_at + 1, (extract(epoch from clock_timestamp()) * 1000)::bigint)
     from s where p.user_id = $1 and s.n > 0
     returning s.n`, [userId]);

@@ -41,7 +41,8 @@ export function walletFeeCents(): number {
 }
 
 // ---------- networks & coins ----------
-const dev = process.env.NODE_ENV !== 'production'; // test-only overrides are ignored on the live site
+// test-only overrides need PAY_TEST=1 and are always ignored on the live site (Vercel production or NODE_ENV=production)
+const dev = process.env.PAY_TEST === '1' && process.env.NODE_ENV !== 'production' && process.env.VERCEL_ENV !== 'production';
 const USDC = { ethereum: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' };
 type Net = 'base' | 'ethereum' | 'solana';
 type Asset = 'ETH' | 'USDC' | 'SOL';
@@ -52,8 +53,8 @@ function rpcList(envName: string, defaults: string[]): string[] {
   return (set.length ? set : defaults).slice(0, 2);
 }
 function netInfo(id: Net): NetInfo {
-  if (id === 'base') return { id, name: 'Base', chainId: 8453, chain: base, assets: ['ETH', 'USDC'], confirmations: 5, rpcs: rpcList('WALLET_RPC_8453', [base.rpcUrls.default.http[0], 'https://base-rpc.publicnode.com']), explorer: 'https://basescan.org/tx/', fee: 'under 1¢' };
-  if (id === 'ethereum') return { id, name: 'Ethereum', chainId: 1, chain: mainnet, assets: ['ETH', 'USDC'], confirmations: 3, rpcs: rpcList('WALLET_RPC_1', [mainnet.rpcUrls.default.http[0], 'https://ethereum-rpc.publicnode.com']), explorer: 'https://etherscan.io/tx/', fee: 'about $0.20–$3' };
+  if (id === 'base') return { id, name: 'Base', chainId: 8453, chain: base, assets: ['ETH', 'USDC'], confirmations: 0, rpcs: rpcList('WALLET_RPC_8453', [base.rpcUrls.default.http[0], 'https://base-rpc.publicnode.com']), explorer: 'https://basescan.org/tx/', fee: 'under 1¢' };
+  if (id === 'ethereum') return { id, name: 'Ethereum', chainId: 1, chain: mainnet, assets: ['ETH', 'USDC'], confirmations: 5, rpcs: rpcList('WALLET_RPC_1', [mainnet.rpcUrls.default.http[0], 'https://ethereum-rpc.publicnode.com']), explorer: 'https://etherscan.io/tx/', fee: 'about $0.20–$3' };
   return { id, name: 'Solana', assets: ['SOL', 'USDC'], confirmations: 0, rpcs: rpcList('SOLANA_RPC', ['https://api.mainnet-beta.solana.com', 'https://solana-rpc.publicnode.com']), explorer: 'https://solscan.io/tx/', fee: 'under 1¢' };
 }
 const DECIMALS: Record<Asset, number> = { ETH: 18, USDC: 6, SOL: 9 };
@@ -112,7 +113,7 @@ export async function usdPrice(asset: 'ETH' | 'SOL'): Promise<number> {
 
 /** Exact amount in base units: the dollar price converted, rounded up, plus a unique fingerprint worth less than a cent. */
 async function amountFor(cents: number, asset: Asset): Promise<bigint> {
-  if (asset === 'USDC') return BigInt(cents) * 10_000n + BigInt(randomInt(1, 999)); // micro-USDC; fingerprint < $0.001
+  if (asset === 'USDC') return BigInt(cents) * 10_000n + BigInt(randomInt(1, 4_999)); // micro-USDC; fingerprint < half a cent
   const price = await usdPrice(asset);
   const d = DECIMALS[asset];
   const step = asset === 'ETH' ? 10n ** 12n : 1_000n; // round up to 0.000001 ETH / 0.000001 SOL
@@ -151,7 +152,7 @@ export function publicPayment(p: PaymentRow) {
   };
 }
 
-export async function createQuote(userId: string, kind: 'pack' | 'wallet', item: string, net: Net, asset: Asset): Promise<PaymentRow> {
+export async function createQuote(userId: string, kind: 'pack' | 'wallet', item: string, net: Net, asset: Asset, ip = ''): Promise<PaymentRow> {
   const to = payTo(net);
   if (!to) throw new HttpError(400, 'That way of paying isn’t available.');
   if (!netInfo(net).assets.includes(asset)) throw new HttpError(400, 'That coin isn’t available on this network.');
@@ -172,15 +173,19 @@ export async function createQuote(userId: string, kind: 'pack' | 'wallet', item:
   await q("update fz_payments set status = 'expired' where status = 'pending' and expires_at < now() - interval '1 hour'");
   const { rows: n } = await q("select count(*) filter (where created_at > now() - interval '1 hour')::int as hour, count(*) filter (where status = 'pending' and expires_at > now())::int as open from fz_payments where user_id = $1", [userId]);
   if (n[0].hour >= 30 || n[0].open >= 6) throw new HttpError(429, 'Too many payment requests — please finish or wait for the open ones first.');
-  for (let attempt = 0; attempt < 6; attempt++) {
+  if (ip) {
+    const { rows: byIp } = await q("select count(*)::int as n from fz_payments where ip = $1 and created_at > now() - interval '1 hour'", [ip]);
+    if (byIp[0].n >= 60) throw new HttpError(429, 'Too many payment requests from this network — please try again later.');
+  }
+  for (let attempt = 0; attempt < 12; attempt++) {
     const amount = await amountFor(cents, asset);
     const id = 'pay_' + randomBytes(12).toString('hex');
     const reference = net === 'solana' ? base58.encode(randomBytes(32)) : null;
     try {
       const { rows } = await q<PaymentRow>(
-        `insert into fz_payments (id, user_id, kind, item, usd_cents, fuzzies, network, asset, amount, pay_to, reference, expires_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now() + interval '${QUOTE_MINUTES} minutes') returning *`,
-        [id, userId, kind, item, cents, fuzzies, net, asset, amount.toString(), to, reference]);
+        `insert into fz_payments (id, user_id, kind, item, usd_cents, fuzzies, network, asset, amount, pay_to, reference, ip, expires_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now() + interval '${QUOTE_MINUTES} minutes') returning *`,
+        [id, userId, kind, item, cents, fuzzies, net, asset, amount.toString(), to, reference, ip]);
       return rows[0];
     } catch (e) {
       if ((e as { code?: string }).code === '23505') continue; // that exact amount is taken by another open payment: new fingerprint
@@ -202,8 +207,15 @@ async function checkEvm(p: PaymentRow, hash: string, rpc: string): Promise<Verdi
   const receipt = await c.getTransactionReceipt({ hash: hash as Hash }).catch(() => null);
   if (!receipt) return { ok: false, why: 'pending' };
   if (receipt.status !== 'success') return { ok: false, why: 'wrong', detail: 'The transaction failed on the network.' };
-  const latest = await c.getBlockNumber();
-  const confs = Number(latest - receipt.blockNumber + 1n);
+  // Base: wait until the block is "safe" (posted to Ethereum, ~1–3 min); Ethereum: 5 blocks deep
+  let confirmed: boolean, confs = 0;
+  if (p.network === 'base') {
+    const safe = await c.getBlock({ blockTag: 'safe' });
+    confirmed = safe.number !== null && receipt.blockNumber <= safe.number;
+  } else {
+    confs = Number((await c.getBlockNumber()) - receipt.blockNumber + 1n);
+    confirmed = confs >= info.confirmations;
+  }
   const block = await c.getBlock({ blockNumber: receipt.blockNumber });
   const when = Number(block.timestamp) * 1000;
   if (when < new Date(p.created_at).getTime() - 120_000 || when > new Date(p.expires_at).getTime() + GRACE_MINUTES * 60_000) return { ok: false, why: 'wrong', detail: 'That transaction was sent outside this payment’s time window.' };
@@ -211,13 +223,13 @@ async function checkEvm(p: PaymentRow, hash: string, rpc: string): Promise<Verdi
   if (p.asset === 'ETH') {
     const tx = await c.getTransaction({ hash: hash as Hash });
     if (tx.to?.toLowerCase() !== p.pay_to.toLowerCase() || tx.value !== amount) return { ok: false, why: 'wrong', detail: 'That transaction isn’t this payment (address or amount differ).' };
-    if (confs < info.confirmations) return { ok: false, why: 'confirming', confirmations: confs };
+    if (!confirmed) return { ok: false, why: 'confirming', confirmations: confs };
     return { ok: true, payer: tx.from.toLowerCase() };
   }
   const token = tokenOf(p.network, p.asset)!.toLowerCase();
   const log = receipt.logs.find((l) => l.address.toLowerCase() === token && l.topics[0] === TRANSFER && l.topics[2]?.toLowerCase() === pad32(p.pay_to) && BigInt(l.data) === amount);
   if (!log) return { ok: false, why: 'wrong', detail: 'That transaction isn’t this payment (token, address or amount differ).' };
-  if (confs < info.confirmations) return { ok: false, why: 'confirming', confirmations: confs };
+  if (!confirmed) return { ok: false, why: 'confirming', confirmations: confs };
   return { ok: true, payer: ('0x' + (log.topics[1] ?? '').slice(-40)).toLowerCase() };
 }
 
@@ -237,7 +249,7 @@ interface TokBal { accountIndex: number; mint: string; owner?: string; uiTokenAm
 
 /** Solana Pay: find a finalized transfer carrying this payment's reference, with exactly the right amount to the owner. */
 async function checkSolana(p: PaymentRow, rpc: string): Promise<Verdict & { tx?: string }> {
-  const sigs = (await solRpc(rpc, 'getSignaturesForAddress', [p.reference, { limit: 10, commitment: 'finalized' }])) as { signature: string; err: unknown }[];
+  const sigs = (await solRpc(rpc, 'getSignaturesForAddress', [p.reference, { limit: 3, commitment: 'finalized' }])) as { signature: string; err: unknown }[];
   const amount = BigInt(p.amount);
   const mint = tokenOf('solana', p.asset);
   let wrong: string | undefined;
@@ -264,11 +276,48 @@ async function checkSolana(p: PaymentRow, rpc: string): Promise<Verdict & { tx?:
   return wrong ? { ok: false, why: 'wrong', detail: wrong } : { ok: false, why: 'pending' };
 }
 
+/**
+ * USDC on Ethereum/Base without a transaction id (the app was closed, a smart wallet returned another kind of id, or the
+ * person paid from somewhere else): look for a transfer of exactly this amount to the owner since the quote was made.
+ */
+async function findUsdc(p: PaymentRow, rpc: string): Promise<string | null> {
+  const info = netInfo(p.network);
+  const c = createPublicClient({ chain: info.chain, transport: http(rpc, { timeout: 8000, retryCount: 1 }) });
+  if ((await c.getChainId()) !== info.chainId) throw new Error(`provider ${new URL(rpc).host} is on another network`);
+  const latest = await c.getBlockNumber();
+  const secs = (Date.now() - new Date(p.created_at).getTime()) / 1000 + 300;
+  const span = BigInt(Math.min(20_000, Math.ceil(secs / (p.network === 'base' ? 2 : 12))));
+  const amount = BigInt(p.amount);
+  const token = tokenOf(p.network, p.asset)! as `0x${string}`;
+  for (let to = latest; to > latest - span && to > 0n; to -= 2_000n) {
+    const from = to - 1_999n > latest - span ? to - 1_999n : latest - span + 1n;
+    const logs = await c.getLogs({ address: token, fromBlock: from < 0n ? 0n : from, toBlock: to, event: TRANSFER_EVENT, args: { to: p.pay_to as `0x${string}` } });
+    const hit = logs.find((l) => l.args.value === amount);
+    if (hit) return hit.transactionHash;
+  }
+  return null;
+}
+const TRANSFER_EVENT = { type: 'event', name: 'Transfer', inputs: [{ type: 'address', name: 'from', indexed: true }, { type: 'address', name: 'to', indexed: true }, { type: 'uint256', name: 'value', indexed: false }] } as const;
+
+/** Is `address` a smart-contract wallet on this payment's network? (EIP-7702 accounts count as regular wallets.) */
+export async function isSmartWallet(p: PaymentRow, address: string): Promise<boolean> {
+  const info = netInfo(p.network);
+  const c = createPublicClient({ chain: info.chain, transport: http(info.rpcs[0], { timeout: 8000, retryCount: 1 }) });
+  const code = await c.getCode({ address: address as `0x${string}` }).catch(() => undefined);
+  return !!code && code !== '0x' && !code.toLowerCase().startsWith('0xef0100');
+}
+
 /** Ask both providers; every one must confirm the same thing. */
 export async function verifyOnChain(p: PaymentRow, hash?: string): Promise<Verdict & { tx?: string }> {
   const info = netInfo(p.network);
   let verdicts: (Verdict & { tx?: string })[];
   try {
+    if (p.network !== 'solana' && !hash) {
+      if (p.asset !== 'USDC') return { ok: false, why: 'pending' };
+      const found = await Promise.all(info.rpcs.map((rpc) => findUsdc(p, rpc)));
+      if (!found[0] || found.some((f) => f !== found[0])) return { ok: false, why: 'pending' };
+      hash = found[0];
+    }
     verdicts = await Promise.all(info.rpcs.map((rpc) => (p.network === 'solana' ? checkSolana(p, rpc) : checkEvm(p, hash!, rpc).then((v) => ({ ...v, tx: hash })))));
   } catch (e) {
     console.error('payment check failed', e);

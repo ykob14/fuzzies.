@@ -126,12 +126,20 @@ async function pushProfile(me: string, attempt = 0): Promise<void> {
   const base = readBase(me);
   if (base && same(data, base.data)) return;
   const at = Math.max(Date.now(), (base?.at ?? 0) + 1);
-  const res = await api<{ ok?: boolean; conflict?: boolean }>('data', 'profile.put', { data, at, ifVersion: base?.at ?? null });
+  const res = await api<{ ok?: boolean; conflict?: boolean; fuzzies?: number; totalFuzzies?: number }>('data', 'profile.put', { data, at, ifVersion: base?.at ?? null });
   if (res.conflict) {
     if (attempt >= 3) throw new Error('Your account changed on another device — will try again.');
     // someone else saved first: fetch their copy, merge, and try again
     pullProfile(me, await getProfile(), { profile: 0, designs: {}, uploads: {} });
     return pushProfile(me, attempt + 1);
+  }
+  if (typeof res.fuzzies === 'number' && typeof res.totalFuzzies === 'number') {
+    // the server capped the balance (more than a day's worth of Fuzzies appeared): take its numbers
+    const fixed = { ...data, fuzzies: res.fuzzies, totalFuzzies: res.totalFuzzies };
+    const now = accounts.current?.id === me ? accounts.current : accounts.get(me);
+    if (now) accounts.store({ ...now, fuzzies: Math.max(0, now.fuzzies - ((data.fuzzies ?? 0) - res.fuzzies)), totalFuzzies: Math.max(0, now.totalFuzzies - ((data.totalFuzzies ?? 0) - res.totalFuzzies)) });
+    writeBase(me, { at, data: fixed });
+    return;
   }
   writeBase(me, { at, data });
 }

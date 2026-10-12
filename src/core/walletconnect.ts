@@ -58,7 +58,7 @@ export async function connectRemote(mode: 'sign' | 'pay' = 'sign', chainId = 845
     showQrModal: true,
     metadata: {
       name: 'Fuzzies',
-      description: 'Dream it fuzzy. Make it sharp. — sign in with your wallet (free, no transactions).',
+      description: mode === 'pay' ? 'Fuzzies — pay for your order (your wallet shows the exact amount first).' : 'Fuzzies — sign in with your wallet (free, no transactions).',
       url: location.origin,
       icons: [`${location.origin}/icon-192.png`],
     },

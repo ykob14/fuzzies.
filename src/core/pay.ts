@@ -9,9 +9,10 @@
  * - A payment that was sent but not yet confirmed is remembered on this device and checked again later, so closing the
  *   app at the wrong moment never loses anything.
  */
-import { api } from './api';
+import { api, cloudEnabled } from './api';
 import { sync } from './sync';
 import { walletError, type WalletChoice } from './wallet';
+import { accounts } from './account';
 
 export type Network = 'base' | 'ethereum' | 'solana';
 export type Asset = 'ETH' | 'USDC' | 'SOL';
@@ -37,22 +38,25 @@ const OFF: PayConfig = { enabled: false, networks: [], packs: [], walletFeeCents
 
 export const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
-// payments sent from this device that still need checking: { paymentId: txHash }
-const PENDING_KEY = 'fz.pay.pending';
-function pending(): Record<string, string> { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '{}'); } catch { return {}; } }
-function setPending(p: Record<string, string>): void { try { localStorage.setItem(PENDING_KEY, JSON.stringify(p)); } catch { /* private mode */ } }
+// payments sent from this device that still need checking: { paymentId: txHash } (one list per account)
+const PENDING_KEY_BASE = 'fz.pay.pending';
+const PENDING_KEY_GET = () => `${PENDING_KEY_BASE}.${accounts.current?.id ?? 'none'}`;
+function pending(): Record<string, string> { try { return JSON.parse(localStorage.getItem(PENDING_KEY_GET()) || '{}'); } catch { return {}; } }
+function setPending(p: Record<string, string>): void { try { localStorage.setItem(PENDING_KEY_GET(), JSON.stringify(p)); } catch { /* private mode */ } }
 
 export const pay = {
   /** What can be bought and how (cached; "off" when the site has no payment addresses or no backend). */
   config(): Promise<PayConfig> {
+    if (!cloudEnabled) return Promise.resolve(OFF); // on-device version: no backend, no payments
     cfg ??= api<PayConfig>('pay', 'pay.config').catch(() => { cfg = null; return OFF; });
     return cfg;
   },
   quote(kind: 'pack' | 'wallet', item: string, network: Network, asset: Asset): Promise<Payment> {
-    return api<{ payment: Payment }>('pay', 'pay.quote', { kind, item, network, asset }).then((r) => r.payment);
+    return api<{ payment: Payment }>('pay', 'pay.quote', { kind, item, network, asset }).then((r) => checked(r.payment));
   },
   async check(id: string, tx?: string): Promise<CheckResult> {
     const r = await api<CheckResult>('pay', 'pay.check', { id, tx });
+    r.payment = checked(r.payment);
     if (r.state === 'paid') {
       const p = pending(); delete p[id]; setPending(p);
       void sync.pull(); // bring the new Fuzzies into this device
@@ -81,6 +85,31 @@ export const pay = {
   },
 };
 
+/**
+ * Double-check what the server sent before showing it or handing it to a wallet (defence in depth): known networks and
+ * coins only, real addresses, a whole positive amount, and the shown amount rebuilt here from the exact one.
+ */
+const TOKENS: Record<string, string> = { base: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', ethereum: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' };
+const DEV_TOKENS = import.meta.env.DEV; // a test coin is allowed only while developing
+function checked(p: Payment): Payment {
+  const bad = (why: string) => { throw new Error(`This payment request looks wrong (${why}) — please try again.`); };
+  if (!['base', 'ethereum', 'solana'].includes(p.network)) bad('network');
+  if (!/^\d{1,40}$/.test(p.amount) || BigInt(p.amount) <= 0n) bad('amount');
+  const dec = { ETH: 18, USDC: 6, SOL: 9 }[p.asset];
+  if (!dec || dec !== p.decimals) bad('coin');
+  if (p.network === 'solana') {
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(p.payTo) || !p.solanaPay?.startsWith(`solana:${p.payTo}?`)) bad('address');
+    if (p.asset === 'USDC' && p.token !== TOKENS.solana) bad('token');
+  } else {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(p.payTo) || ![1, 8453].includes(p.chainId ?? 0) || (p.network === 'base') !== (p.chainId === 8453)) bad('address');
+    if (p.asset === 'USDC' && !DEV_TOKENS && p.token?.toLowerCase() !== TOKENS[p.network]) bad('token');
+    if (p.asset === 'ETH' && p.token) bad('token');
+  }
+  const s = p.amount.padStart(dec + 1, '0');
+  const frac = s.slice(-dec).replace(/0+$/, '');
+  return { ...p, display: frac ? `${s.slice(0, -dec)}.${frac}` : s.slice(0, -dec) };
+}
+
 // ---------- sending on Ethereum / Base ----------
 const hex = (n: bigint | number) => '0x' + BigInt(n).toString(16);
 const BASE_PARAMS = { chainId: '0x2105', chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] };
@@ -106,11 +135,17 @@ export async function sendEvmPayment(w: WalletChoice, p: Payment): Promise<strin
     const accounts = (await w.provider.request({ method: 'eth_requestAccounts' })) as string[];
     const from = String(accounts?.[0] ?? '');
     if (!/^0x[0-9a-fA-F]{40}$/.test(from)) throw new Error('Your wallet didn’t share an address.');
+    if (Date.now() > new Date(p.expiresAt).getTime() - 15_000) throw new Error('This price has expired — choose your coin again for a fresh one. Nothing was paid.');
+    // smart wallets can only pay in USDC (their ETH payments can't be matched to the order)
+    if (p.asset === 'ETH') await api('pay', 'pay.precheck', { id: p.id, from });
     await onNetwork(w, p.chainId!);
     const amount = BigInt(p.amount);
+    const chainId = hex(p.chainId!);
     const tx = p.token
-      ? { from, to: p.token, value: '0x0', data: '0xa9059cbb' + p.payTo.slice(2).toLowerCase().padStart(64, '0') + amount.toString(16).padStart(64, '0') }
-      : { from, to: p.payTo, value: hex(amount) };
+      ? { from, to: p.token, value: '0x0', chainId, data: '0xa9059cbb' + p.payTo.slice(2).toLowerCase().padStart(64, '0') + amount.toString(16).padStart(64, '0') }
+      : { from, to: p.payTo, value: hex(amount), chainId };
+    // last look right before sending: still on the right network?
+    if (parseInt(String(await w.provider.request({ method: 'eth_chainId' })), 16) !== p.chainId) throw new Error(`Your wallet changed network — please switch it to ${p.networkName} and try again. Nothing was paid.`);
     const hash = await w.provider.request({ method: 'eth_sendTransaction', params: [tx] });
     if (typeof hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error('Your wallet didn’t return a transaction id.');
     pay.remember(p.id, hash);

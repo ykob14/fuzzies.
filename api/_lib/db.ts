@@ -162,6 +162,19 @@ create table if not exists fz_gifts (
   created_at timestamptz not null default now(),
   opened_at timestamptz
 );
+-- Fuzzies a profile added by itself per day (the balance guard in _lib/balance.ts)
+create table if not exists fz_earn (
+  user_id uuid not null references fz_users (id) on delete cascade,
+  day date not null,
+  amount integer not null default 0,
+  primary key (user_id, day)
+);
+alter table fz_payments add column if not exists checked_at timestamptz;
+alter table fz_payments add column if not exists ip text not null default '';
+create index if not exists fz_payments_ip_idx on fz_payments (ip, created_at);
+-- sign-ups per network address (flood guard)
+create table if not exists fz_signups (ip text not null, at timestamptz not null default now());
+create index if not exists fz_signups_idx on fz_signups (ip, at);
 -- Once-per-wallet bookkeeping, kept even if the wallet is removed (only a hash of the address is stored).
 create table if not exists fz_wallet_rewards (
   address_hash text primary key,

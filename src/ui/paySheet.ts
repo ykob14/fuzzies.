@@ -86,16 +86,20 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
   function show(p: Payment): void {
     const status = h('div', { class: 'pay-status', role: 'status' });
     const left = h('small', { class: 'pay-left' });
+    let payBtn: HTMLButtonElement | null = null;
     const tick = () => {
       const s = Math.max(0, Math.round((new Date(p.expiresAt).getTime() - Date.now()) / 1000));
       left.textContent = s ? `Price held for ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'This price has expired — choose again for a new one.';
+      if (s < 15 && payBtn) payBtn.disabled = true; // never start a payment the server would no longer accept
     };
     tick(); timer = window.setInterval(tick, 1000);
+    // Ethereum/Base are paid from the wallet button (no copy & paste, so the amount and network can't go wrong)
+    const sol = p.network === 'solana';
     const amount = h('div', { class: 'pay-amount' }, coinLogo(p.asset, p.network),
-      h('div', null, h('small', null, 'Send exactly'), h('b', null, `${p.display} ${p.asset}`), h('small', null, `${money(p.usdCents)} · on ${p.networkName}`)),
-      btn(null, { icon: 'copy', kind: 'plain', size: 'sm', title: 'Copy amount', onClick: () => void copy(p.display, 'Amount') }));
+      h('div', null, h('small', null, sol ? 'Send exactly' : 'You pay'), h('b', null, `${p.display} ${p.asset}`), h('small', null, `${money(p.usdCents)} · on ${p.networkName}`)),
+      sol ? btn(null, { icon: 'copy', kind: 'plain', size: 'sm', title: 'Copy amount', onClick: () => void copy(p.display, 'Amount') }) : null);
     const to = h('div', { class: 'pay-to' }, h('small', null, 'To Fuzzies'), h('code', { title: p.payTo }, shortAddress(p.payTo)),
-      btn(null, { icon: 'copy', kind: 'plain', size: 'sm', title: 'Copy address', onClick: () => void copy(p.payTo, 'Address') }));
+      sol ? btn(null, { icon: 'copy', kind: 'plain', size: 'sm', title: 'Copy address', onClick: () => void copy(p.payTo, 'Address') }) : null);
     const back = h('button', { type: 'button', class: 'link small' }, '← Choose another coin');
     back.addEventListener('click', choose);
 
@@ -109,7 +113,7 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
       waitFor(p, undefined, status);
       return;
     }
-    const payBtn = btn('Pay with my wallet', { kind: 'primary', size: 'lg', class: 'btn-block', icon: 'wallet', onClick: () => pickWallet({
+    payBtn = btn('Pay with my wallet', { kind: 'primary', size: 'lg', class: 'btn-block', icon: 'wallet', onClick: () => pickWallet({
       title: `Pay ${money(p.usdCents)}`,
       intro: `Your wallet will show a payment of ${p.display} ${p.asset} on ${p.networkName} to ${shortAddress(p.payTo)}. Check it, then approve.`,
       remote: () => connectRemote('pay', p.chainId),
@@ -118,7 +122,8 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
         busy(true);
         try {
           const hash = await sendEvmPayment(w, p);
-          payBtn.remove();
+          payBtn?.remove();
+          paidAlready.remove();
           waitFor(p, hash, status);
         } finally {
           busy(false);
@@ -126,13 +131,30 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
         }
       },
     }) });
-    body.replaceChildren(summary(), amount, to, payBtn, h('div', { class: 'pay-row' }, back), status, left, fine());
+    // already paid but the window lost track (e.g. the phone reloaded)? paste the transaction id
+    const paidAlready = h('div', { class: 'pay-paste' });
+    const pasteLink = h('button', { type: 'button', class: 'link small' }, 'Already paid? Enter the transaction id');
+    pasteLink.addEventListener('click', () => {
+      const inp = h('input', { class: 'input', placeholder: '0x… (from your wallet’s activity)', spellcheck: 'false', autocapitalize: 'none' });
+      const go = btn('Check', { kind: 'soft', size: 'sm', onClick: () => {
+        const v = inp.value.trim();
+        if (!/^0x[0-9a-fA-F]{64}$/.test(v)) { toast('That doesn’t look like a transaction id (0x + 64 characters).', 'bad'); return; }
+        pay.remember(p.id, v); payBtn?.remove(); paidAlready.remove(); waitFor(p, v, status);
+      } });
+      paidAlready.replaceChildren(h('div', { class: 'pay-paste-row' }, inp, go));
+      inp.focus();
+    });
+    paidAlready.append(pasteLink);
+    body.replaceChildren(summary(), amount, to, payBtn, h('div', { class: 'pay-row' }, back, paidAlready), status, left, fine());
+    // USDC payments are found by their exact amount even without a transaction id
+    if (p.asset === 'USDC') waitFor(p, undefined, status, true);
   }
 
   // ---- step 3: watch the blockchain until it's confirmed ----
-  function waitFor(p: Payment, tx: string | undefined, status: HTMLElement): void {
+  function waitFor(p: Payment, tx: string | undefined, status: HTMLElement, quiet = false): void {
+    clearTimeout(poll);
     const say = (t: string, kind = '') => { status.className = `pay-status ${kind}`; status.replaceChildren(kind === 'wait' ? h('span', { class: 'spin' }) : '', h('span', null, t)); };
-    say(tx ? `Payment sent — confirming on ${p.networkName}…` : 'Waiting for your payment…', 'wait');
+    if (!quiet) say(tx ? `Payment sent — confirming on ${p.networkName}…` : 'Waiting for your payment…', 'wait');
     const once = async () => {
       if (closed) return;
       try {
@@ -140,16 +162,16 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
         if (closed) return;
         if (r.state === 'paid') { done(r); return; }
         if (r.state === 'expired') { say('This payment request expired. Nothing was charged — choose again for a fresh price.', 'bad'); stop(); return; }
-        if (r.state === 'confirming') say(`Confirming on ${p.networkName}… ${r.confirmations ?? 0}/${p.confirmations}`, 'wait');
+        if (r.state === 'confirming') say(p.network === 'base' ? 'Payment received — Base is locking it in (usually 1–3 minutes)…' : `Confirming on ${p.networkName}… ${r.confirmations ?? 0}/${p.confirmations}`, 'wait');
         else if (r.detail) say(r.detail, 'bad');
       } catch (e) {
         const st = (e as { status?: number }).status;
         if (st === 409 || st === 400) { say((e as Error).message, 'bad'); return; }
         say('Still checking with the network…', 'wait'); // a hiccup: keep going
       }
-      poll = window.setTimeout(once, p.network === 'solana' ? 3000 : 4000);
+      poll = window.setTimeout(once, quiet && !tx ? 8000 : p.network === 'solana' ? 4500 : 5000);
     };
-    poll = window.setTimeout(once, tx ? 1500 : 3000);
+    poll = window.setTimeout(once, tx ? 1500 : quiet ? 8000 : 4500);
   }
 
   function done(r: CheckResult): void {

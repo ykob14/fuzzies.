@@ -141,12 +141,32 @@ address is set (e.g. only `PAY_EVM_ADDRESS` = Base + Ethereum only).
 - **Packs** (in `api/_lib/pay.ts` → `PACKS`): 100 Fuzzies $0.99 · 550 $4.99 · 1,200 $9.99 · 3,000 $19.99. Shown in Rewards → *Get
   more Fuzzies* and from the Fuzzies counter in Fuzzies Land.
 - **Wallet activation:** a newly linked wallet pays the fee once (ever, per wallet); then it can log in, and a **gift box**
-  with 100 Fuzzies appears (double-click / double-tap to open). Unlinking and relinking doesn't charge or gift again.
+  with 100 Fuzzies appears (double-click / double-tap to open). Unlinking and relinking doesn't charge or gift again. The gift
+  only ever comes with a **paid** activation (free gifts could be farmed with throwaway wallets); with no fee, there's no gift.
 - **How a payment is checked:** the server sets the price (USD → coin; ETH/SOL prices from Coinbase + Kraken, which must agree
   within 3%; USDC 1:1) with a unique sub-cent "fingerprint", valid 30 minutes; then it reads the blockchain itself through two
   providers: right coin, right amount to the cent, to your address, after the quote, confirmed (Base 5 blocks, Ethereum 3,
   Solana finalized). Each transaction pays one payment only. Solana uses Solana Pay (a one-time reference in the payment).
   Bought Fuzzies are added on the server (`fz_credits`) and sync to every device.
+- **Hardening (second safety review):**
+  - **Balance guard** (`api/_lib/balance.ts`): a profile can add at most `DAILY_EARN_CAP` Fuzzies a day by itself (default 2,000;
+    5,000 on the first save). Bought Fuzzies and gifts are added by the server and don't count. A doctored balance is cut back
+    and the app takes the server's numbers.
+  - **Checks:** the blockchain is asked at most once every 4 s per payment. Solana looks at 3 signatures at most. Base payments
+    count once the block is "safe" (posted to Ethereum, ~1–3 min); Ethereum after 5 blocks.
+  - **USDC payments are found by their exact amount** even without a transaction id (e.g. the phone reloaded). For ETH the
+    window offers "Already paid? Enter the transaction id".
+  - **Smart wallets must pay in USDC:** they're stopped before paying ETH (their ETH can't be matched).
+  - **Limits:** 60 quotes per network address per hour; 8 sign-ups per network address per hour; log-in challenges counted
+    per wallet *and* network address.
+  - **Password reset by email unlinks all wallets** (they can be re-linked with the new password, without paying again).
+  - **Test switches** (`PAY_TEST_USDC_*`, `PRICE_TEST_*`) need `PAY_TEST=1` and never work when `NODE_ENV` or `VERCEL_ENV`
+    is `production`.
+  - **The app double-checks** every payment the server sends (network, coin contract, address, amount) before showing it or
+    asking a wallet. Transactions carry the chain id, and the network is re-checked right before sending. The pay button turns
+    off before the price expires. Pending payments are remembered per account.
+  - **Strict script rule:** `vercel.json` adds `script-src 'self'` (only the site's own files run; the launch screen script is
+    `public/splash.js`).
 - **The fine print you should know:** crypto payments are final (no chargebacks — refunds are manual, from your wallet).
   Selling a game currency is income: keep records (Rewards → payments are in `fz_payments`) and check tax/consumer rules
   where you live. The app says Fuzzies have no cash value. App stores (if Fuzzies is ever shipped as an iPhone/Android app)

@@ -137,24 +137,33 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
       const status = h('small', { class: 'wallet-status' }, idle);
       const b = h('button', { type: 'button', class: 'wallet-opt wallet-qr' },
         h('img', { class: 'wallet-logo', src: logoUrl('walletconnect'), alt: '', width: '32', height: '32' }),
-        h('span', { class: 'wallet-qr-text' }, h('b', null, tablet ? 'Scan QR code or use a wallet app' : phone ? 'Use a wallet app' : 'Scan QR code with your phone'),
+        h('span', { class: 'wallet-qr-text' }, h('b', null, tablet ? 'Scan a QR code or pick a wallet app' : phone ? 'Pick another wallet app' : 'Scan a QR code instead'),
           h('small', null, phone ? 'Robinhood, Crypto.com, Rainbow, Ledger and 500+ more' : 'Robinhood, Crypto.com, MetaMask, Trust and 500+ phone wallets')),
         status);
       b.addEventListener('click', () => void viaQr(status));
       qrRow = b;
     }
+    // 1. wallets in this browser: click → approve "connect" → approve "sign" (the quickest way, always first)
     list.replaceChildren(...(buttons.length
-      ? [h('p', { class: 'wallet-head' }, phone ? 'In this app' : 'In this browser'), ...buttons, ...(qrRow ? [h('p', { class: 'wallet-head' }, 'Wallet on another device'), qrRow] : [])]
-      : qrRow
-        ? [h('p', { class: 'wallet-head' }, isTablet() ? 'Wallet app or another device' : phone ? 'Your wallet app' : 'Wallet on your phone or tablet'), qrRow]
-        : [h('p', { class: 'wallet-hint' }, phone
-          ? 'No wallet in this browser. Pick your wallet below to open Fuzzies inside its app:'
-          : 'No wallet found in this browser. Pick yours below to see how to connect it:')]));
+      ? [h('p', { class: 'wallet-head' }, phone ? 'In this app' : 'In this browser'), ...buttons]
+      : [h('p', { class: 'wallet-hint' }, phone ? 'Tap your wallet to open it:' : 'Pick your wallet:')]));
 
-    // popular wallets that aren't installed here
+    // 2. popular wallets that aren't here: on phones one tap opens the wallet app; on computers, how to add it
     const rest = TOP_WALLETS.filter((t) => !found.some((w) => t.match.test(w.name)));
     more.replaceChildren(h('p', { class: 'wallet-head' }, buttons.length ? 'Other popular wallets' : 'Popular wallets'), ...rest.map((t) => {
       const row = h('div', { class: 'wallet-more' });
+      if (phone && t.open) {
+        // the wallet's official "open this site in my app" link: Fuzzies opens inside the wallet, then click → approve → approve
+        row.append(h('a', { class: 'wallet-opt', href: t.open(url), rel: 'noopener noreferrer' }, walletBadge(t), h('b', null, t.name), h('small', { class: 'wallet-status' }, 'Open')));
+        return row;
+      }
+      if (phone && viaQr) {
+        const st = h('small', { class: 'wallet-status' }, 'Open');
+        const b = h('button', { type: 'button', class: 'wallet-opt' }, walletBadge(t), h('b', null, t.name), st);
+        b.addEventListener('click', () => void viaQr(st));
+        row.append(b);
+        return row;
+      }
       const b = h('button', { type: 'button', class: 'wallet-opt', 'aria-expanded': 'false' }, walletBadge(t), h('b', null, t.name), icon('chevR', 16));
       b.addEventListener('click', () => {
         const open = row.classList.toggle('open');
@@ -163,6 +172,9 @@ export function pickWallet(opts: { title: string; intro: string; run: (w: Wallet
       });
       row.append(b);
       return row;
-    }), h('p', { class: 'fine' }, viaQr ? 'Smart wallets (Coinbase Smart Wallet, Safe, Argent…) work too.' : 'Any other Ethereum wallet works too once it’s installed in this browser. Smart wallets (Coinbase Smart Wallet, Safe…) work too.'));
+    }),
+    // 3. last: a wallet on another device (QR code), or any other wallet app
+    ...(qrRow ? [h('p', { class: 'wallet-head' }, phone && !isTablet() ? 'Other wallet apps' : 'Wallet on your phone?'), qrRow] : []),
+    h('p', { class: 'fine' }, 'Smart wallets (Coinbase Smart Wallet, Safe, Argent…) work too.'));
   });
 }

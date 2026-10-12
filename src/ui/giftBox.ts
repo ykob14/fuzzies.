@@ -5,6 +5,7 @@
  */
 import { h, btn, fuzzyMark, toast } from './dom';
 import { mascot } from './mascot';
+import { getArt } from './art3d';
 import { sfx } from '../game/sound';
 import { cloud } from '../core/cloud';
 import { accounts } from '../core/account';
@@ -32,6 +33,13 @@ export function showGift(g: Gift): void {
     h('span', { class: 'gift-shadow' }),
     h('span', { class: 'gift-body' }, h('span', { class: 'gift-ribbon v' })),
     h('span', { class: 'gift-lid' }, h('span', { class: 'gift-ribbon v' }), h('span', { class: 'gift-bow l' }), h('span', { class: 'gift-bow r' }), h('span', { class: 'gift-knot' })));
+  // the real 3D present replaces the drawn one as soon as it's rendered (usually before anyone has clicked)
+  void getArt().then((art) => {
+    if (!art || !box.isConnected) return;
+    box.querySelector('.gift-body')!.replaceWith(h('img', { class: 'gift-img gift-body', src: art.giftBody, alt: '', draggable: 'false' }));
+    box.querySelector('.gift-lid')!.replaceWith(h('img', { class: 'gift-img gift-lid', src: art.giftLid, alt: '', draggable: 'false' }));
+    box.classList.add('real');
+  });
   const pop = h('div', { class: 'gift-pop', 'aria-hidden': 'true' }, mascot(132, { sparkles: true }));
   const sparks = h('div', { class: 'gift-sparks', 'aria-hidden': 'true' });
   const actions = h('div', { class: 'gift-actions' });

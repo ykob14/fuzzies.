@@ -129,14 +129,29 @@ export function fuzzySvg(colors: [string, string] = ['#ff8fbf', '#c8326e'], face
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="${id}" cx="0.38" cy="0.32" r="0.75"><stop offset="0" stop-color="${colors[0]}"/><stop offset="1" stop-color="${colors[1]}"/></radialGradient></defs><polygon points="${spikes.join(' ')}" fill="url(#${id})"/><circle cx="50" cy="50" r="41" fill="url(#${id})"/>${eye(38, face === 'blink', face === 'giggle')}${eye(62, face !== 'open', face === 'wink' || face === 'giggle')}<path d="${smile}" stroke="#1c1830" stroke-width="3.2" fill="${face === 'giggle' ? '#7a1f3d' : 'none'}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="30" cy="59" r="4.5" fill="#fff" opacity=".35"/><circle cx="70" cy="59" r="4.5" fill="#fff" opacity=".35"/></svg>`;
 }
 
-/** Fuzzy token mark (the currency icon). */
-export function fuzzyMark(size = 32, colors: [string, string] = ['#ff8fbf', '#c8326e']): SVGSVGElement {
+/** The realistic furry 3D Fuzzy (a picture of the game model), once it has been rendered — see ui/mascot.ts. */
+let markSrc = '';
+try { markSrc = (JSON.parse(localStorage.getItem('fz.splash.frames') || 'null') as { open?: string } | null)?.open ?? ''; } catch { /* none yet */ }
+
+/** Fuzzy token mark (the currency icon): the fluffy 3D Fuzzy, or a flat drawing until that picture exists. */
+export function fuzzyMark(size = 32, colors: [string, string] = ['#ff8fbf', '#c8326e']): SVGSVGElement | HTMLImageElement {
+  if (markSrc && colors[0] === '#ff8fbf') return h('img', { class: 'fz-mark real', src: markSrc, alt: '', width: String(size), height: String(size), draggable: 'false' });
   const wrap = document.createElement('div');
   wrap.innerHTML = fuzzySvg(colors);
   const svg = wrap.firstElementChild as SVGSVGElement;
   svg.setAttribute('width', String(size));
   svg.setAttribute('height', String(size));
+  svg.classList.add('fz-mark');
   return svg;
+}
+
+/** Swap every flat Fuzzy mark on screen (and all future ones) for the 3D picture. */
+export function useRealMarks(src: string): void {
+  markSrc = src;
+  for (const svg of document.querySelectorAll<SVGSVGElement>('svg.fz-mark')) {
+    const size = svg.getAttribute('width') || '32';
+    svg.replaceWith(h('img', { class: 'fz-mark real', src, alt: '', width: size, height: size, draggable: 'false' }));
+  }
 }
 
 export const QUOTE = 'Dream it fuzzy. Make it sharp.';

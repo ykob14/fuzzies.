@@ -10,6 +10,7 @@
  *   kind = 'designs' | 'uploads'
  */
 import { applyCredits } from './_lib/credits.js';
+import { guardBalance, type Guarded } from './_lib/balance.js';
 import { db, q } from './_lib/db.js';
 import { handle, requireUser, HttpError } from './_lib/auth.js';
 
@@ -38,13 +39,21 @@ export function POST(req: Request): Promise<Response> {
       case 'profile.put': {
         const at = num(b.at);
         if (!b.data || typeof b.data !== 'object' || Number.isNaN(at)) throw new HttpError(400, 'Bad profile.');
-        const data = JSON.stringify({ ...(b.data as object), username: u.username });
+        const incoming = { ...(b.data as Record<string, unknown>), username: u.username };
+        // the Fuzzies balance can't be raised beyond what normal play earns (see _lib/balance.ts)
+        const reply = (g: Guarded) => (g.clamped ? { ok: true, fuzzies: g.fuzzies, totalFuzzies: g.totalFuzzies } : { ok: true });
         if (b.ifVersion === null || b.ifVersion === undefined) {
-          const r = await q('insert into fz_profiles (user_id, data, updated_at) values ($1, $2, $3) on conflict (user_id) do nothing', [u.id, data, at]);
-          return r.rowCount ? { ok: true } : { conflict: true };
+          const { rows: had } = await q('select 1 from fz_profiles where user_id = $1', [u.id]);
+          if (had[0]) return { conflict: true };
+          const g = await guardBalance(u.id, incoming, null);
+          const r = await q('insert into fz_profiles (user_id, data, updated_at) values ($1, $2, $3) on conflict (user_id) do nothing', [u.id, JSON.stringify(g.data), at]);
+          return r.rowCount ? reply(g) : { conflict: true };
         }
-        const r = await q('update fz_profiles set data = $2, updated_at = $3 where user_id = $1 and updated_at = $4', [u.id, data, at, num(b.ifVersion)]);
-        return r.rowCount ? { ok: true } : { conflict: true };
+        const { rows: cur } = await q<{ f: unknown; t: unknown; v: number }>("select data->'fuzzies' as f, data->'totalFuzzies' as t, updated_at::float8 as v from fz_profiles where user_id = $1", [u.id]);
+        if (!cur[0] || cur[0].v !== num(b.ifVersion)) return { conflict: true };
+        const g = await guardBalance(u.id, incoming, { fuzzies: cur[0].f, totalFuzzies: cur[0].t });
+        const r = await q('update fz_profiles set data = $2, updated_at = $3 where user_id = $1 and updated_at = $4', [u.id, JSON.stringify(g.data), at, num(b.ifVersion)]);
+        return r.rowCount ? reply(g) : { conflict: true };
       }
       case 'rows.list': {
         const { rows } = await q(`select id, updated_at::float8 as updated_at, deleted from ${tableOf(b.kind)} where owner = $1`, [u.id]);

@@ -19,7 +19,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { db, q } from './_lib/db.js';
 import { requireMail, sendMail, resetEmail, mailReady, walletLinkedEmail } from './_lib/mail.js';
 import { handle, hashPassword, checkPassword, makeToken, requireUser, HttpError, errorRef, json, BUILD } from './_lib/auth.js';
-import { paymentsEnabled, walletFeeCents, giftForWallet, addressHash } from './_lib/pay.js';
+import { paymentsEnabled, walletFeeCents, addressHash } from './_lib/pay.js';
 import { normAddress, recoverSigner, siteOf, siweMessage, verifySmartWallet, MAX_SIGNATURE } from './_lib/wallet.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,6 +74,13 @@ export function POST(req: Request): Promise<Response> {
         if (!EMAIL.test(email)) throw new HttpError(400, 'Please enter your email — it’s how you log in on other devices.');
         if (!USERNAME.test(username)) throw new HttpError(400, 'Username: 3–20 letters, numbers, dots or underscores.');
         if (password.length < 6 || password.length > 200) throw new HttpError(400, 'Password needs at least 6 characters.');
+        const ip = clientIp(req);
+        if (ip) {
+          const { rows: n } = await q("select count(*)::int as n from fz_signups where ip = $1 and at > now() - interval '1 hour'", [ip]);
+          if (n[0].n >= 8) throw new HttpError(429, 'Too many new accounts from this network — please try again in an hour.');
+          await q('insert into fz_signups (ip) values ($1)', [ip]);
+          await q("delete from fz_signups where at < now() - interval '1 day'");
+        }
         const pass = await hashPassword(password);
         try {
           const { rows } = await q('insert into fz_users (email, username, pass) values ($1, $2, $3) returning id, email, username, token_v', [email, username, pass]);
@@ -131,6 +138,7 @@ export function POST(req: Request): Promise<Response> {
         // new password, and every other device is logged out
         const { rows: u } = await q('update fz_users set pass = $2, token_v = token_v + 1 where id = $1 returning id, email, username, token_v', [rows[0].user_id, await hashPassword(password)]);
         await q('update fz_resets set used_at = now() where user_id = $1 and used_at is null', [rows[0].user_id]); // older links stop working too
+        await q('delete from fz_wallets where user_id = $1', [rows[0].user_id]); // wallets must be linked again (with the new password)
         await q('delete from fz_login_fails where email = $1', [u[0].email]);
         return { token: makeToken(u[0].id, u[0].token_v), user: publicUser(u[0]) };
       }
@@ -155,7 +163,7 @@ export function POST(req: Request): Promise<Response> {
         const ip = clientIp(req);
         await q('delete from fz_wallet_nonces where expires_at < now()');
         const { rows: recent } = await q<{ a: number; i: number }>(
-          "select count(*) filter (where address = $1)::int as a, count(*) filter (where ip = $2 and $2 <> '')::int as i from fz_wallet_nonces where created_at > now() - interval '10 minutes'", [address, ip]);
+          "select count(*) filter (where address = $1 and (ip = $2 or $3))::int as a, count(*) filter (where ip = $2 and $2 <> '')::int as i from fz_wallet_nonces where created_at > now() - interval '10 minutes'", [address, ip, purpose === 'link']);
         if (recent[0].a >= MAX_CHALLENGES || recent[0].i >= MAX_CHALLENGES * 4) throw new HttpError(429, 'Too many wallet requests — please wait a few minutes and try again.');
         if (user) {
           const { rows: n } = await q('select count(*)::int as n from fz_wallets where user_id = $1', [user.id]);
@@ -207,9 +215,8 @@ export function POST(req: Request): Promise<Response> {
           if (ins[0].added && mailReady()) {
             await sendMail(u.email, walletLinkedEmail(u.username, c.address, c.wallet, `${appUrl(req)}/#/profile`)).catch((e) => console.error('wallet email failed', e));
           }
-          // no fee to pay: the welcome gift comes straight away (once per wallet, ever)
-          const gift = ins[0].active ? await giftForWallet(u.id, c.address) : null;
-          return { wallets: await walletsOf(u.id), activate: ins[0].active ? null : { address: c.address, feeCents: walletFeeCents() }, gift };
+          // the 100-Fuzzies gift comes with a paid activation only (free gifts could be farmed with throwaway wallets)
+          return { wallets: await walletsOf(u.id), activate: ins[0].active ? null : { address: c.address, feeCents: walletFeeCents() }, gift: null };
         }
         const { rows: owner } = await q<{ id: string; email: string; username: string; token_v: number; active: boolean }>(
           'select u.id, u.email, u.username, u.token_v, w.active from fz_wallets w join fz_users u on u.id = w.user_id where w.address = $1', [c.address]);

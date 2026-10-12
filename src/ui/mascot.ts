@@ -5,7 +5,7 @@
  * While you hover, its sparkles twinkle with little bell sounds.
  * Starts with a flat drawing and swaps to photos of the real 3D game model once they're rendered.
  */
-import { h, fuzzySvg } from './dom';
+import { h, fuzzySvg, useRealMarks } from './dom';
 import { accounts } from '../core/account';
 import { sfx } from '../game/sound';
 
@@ -33,6 +33,7 @@ export function upgradeMascots(): void {
     void saveForSplash(f);
     frames = f;
     realistic = true;
+    useRealMarks(f.open);
     for (const m of live) {
       if (!m.img.isConnected) { live.delete(m); continue; }
       m.img.src = frames[m.face];

@@ -1,11 +1,11 @@
 // Fuzzies offline support: the app shell and fonts are cached so it opens without a connection.
-const CACHE = 'fuzzies-v3';
+const CACHE = 'fuzzies-v4';
 // your chosen app icon (drawn by the app, see src/core/appicon.ts) — kept across updates
 const ICON_CACHE = 'fuzzies-icon';
 const ICON_FILES = /\/(icon\.svg|icon-192\.png|icon-512\.png|icon-maskable-512\.png|apple-touch-icon\.png)$/;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './splash-fuzzy.svg'])).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './splash-fuzzy.svg', './splash.js'])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
