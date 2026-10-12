@@ -154,6 +154,21 @@ overlap. Seasonal effects can be switched off in Settings.`,
     asks: ['What is the festival button?', 'How do I earn event tokens?', 'Will these decorations come back next year?'],
   },
   {
+    id: 'adventures', title: 'Fuzzies Adventures (daily missions & mini-games)', screens: ['land'],
+    keywords: ['adventure', 'adventures', 'mission', 'daily mission', 'boat', 'race', 'boat race', 'forest', 'chop', 'tree', 'wood', 'talk', 'character', 'personality', 'pom', 'host', 'reward', 'practice', 'laps', 'checkpoint', 'steer'],
+    body: `Every Fuzzy walking around your town is a character with a name and a personality (Adventurer, Farmer, Builder, Explorer, Fisher,
+Decorator, Nature keeper, Baker). Tap one: the camera glides in, it says hello and a card shows who it is. One Fuzzy has today's adventure
+(the pill under the level badge and the compass side button say who): Start Adventure plays it, Maybe later closes the card, and other
+Fuzzies point you to the host. A new adventure comes every day at midnight (the countdown is shown) and each adventure pays town coins
+and XP once a day — playing again the same day is practice. Boat Race: three laps around Palm Island through the gates in order
+(a lap only counts with every gate); steer with A/D or the arrows (W accelerates, S brakes) or hold the left/right side of the screen on
+a phone; the arrow at the top points to the next gate; 1st = 100 coins, 2nd 60, 3rd 30. Forest Expansion: tap a tree with a glowing ring,
+then tap CHOP when the marker is in the green (perfect hits give extra wood); only marked trees fall, finish before sunset; wood is kept in
+your records. More adventures (fishing, treasure hunt, harvest rush, delivery, garden contest) are coming. Rewards are town coins only —
+never Fuzzies tokens or crypto.`,
+    asks: ['How do I start an adventure?', 'How do I steer the boat?', 'Why didn’t I get coins for the race?', 'Which Fuzzy has today’s mission?'],
+  },
+  {
     id: 'wallets', title: 'Crypto wallets & wallet log-in', screens: ['profile', 'login', 'signup', 'welcome'],
     keywords: ['wallet', 'crypto', 'metamask', 'coinbase', 'trust', 'phantom', 'robinhood', 'crypto.com', 'okx', 'rabby', 'rainbow', 'walletconnect', 'qr', 'smart wallet', 'link', 'unlink', 'sign in with ethereum', 'seed', 'recovery phrase', 'activation', 'gift box', 'safe'],
     body: `Profile → Account & login shows your log-in ways: email + password and up to 5 linked crypto wallets. Linking asks you to confirm with your

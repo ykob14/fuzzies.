@@ -118,3 +118,28 @@ export function resultsScreen(o: ResultOpts): HTMLElement {
       reward,
       h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), btn('Race again', { kind: 'soft', onClick: o.onAgain }))));
 }
+
+export interface ForestResultOpts { adv: A.Adventure; place: number; timeMs: number; wood: number; cleared: number; total: number; perfect: number; hostPortrait: string; payout: A.Payout | null; pending: boolean; onAgain: () => void; onBack: () => void }
+/** The results screen after the forest mission: trees cleared, wood, time and what you earned. */
+export function forestResults(o: ForestResultOpts): HTMLElement {
+  const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+  const all = o.cleared >= o.total;
+  const title = !all ? 'The sun set first…' : o.place === 1 ? 'Lightning fast!' : o.place === 2 ? 'Nicely cleared!' : 'Cleared before sunset!';
+  const reward = o.payout?.practice
+    ? h('p', { class: 'adv-reward practice' }, 'Practice run — today’s reward was already collected. Come back tomorrow for a new adventure!')
+    : o.pending ? h('p', { class: 'adv-reward practice' }, 'You’re offline — your reward will be added when you’re back online.')
+      : o.payout ? h('p', { class: 'adv-reward' }, landIcon('coin', 22), h('b', null, `+${o.payout.coins} coins`), h('span', null, `+${o.payout.xp} XP`), ...(o.payout.levelUps.length ? [h('span', { class: 'adv-lvl' }, `Level ${o.payout.levelUps[o.payout.levelUps.length - 1]}!`)] : [])) : null;
+  return h('div', { class: `adv-results ${all && o.place === 1 ? 'won' : ''}` },
+    h('div', { class: 'adv-results-card' },
+      h('span', { class: 'adv-kicker' }, `${o.adv.emoji} ${o.adv.name}`),
+      h('h2', null, title),
+      h('div', { class: 'adv-forest-host' }, o.hostPortrait ? h('img', { src: o.hostPortrait, alt: '' }) : null, h('span', { class: 'adv-forest-trees' }, ...Array.from({ length: o.total }, (_, i) => h('i', { class: i < o.cleared ? 'cut' : '' }, i < o.cleared ? '🪵' : '🌳')))),
+      h('div', { class: 'land-adv-grid adv-forest-grid' },
+        h('span', null, h('small', null, 'Trees'), h('b', null, `${o.cleared}/${o.total}`)),
+        h('span', null, h('small', null, 'Wood'), h('b', null, `+${o.wood}`)),
+        h('span', null, h('small', null, 'Perfect hits'), h('b', null, String(o.perfect))),
+        h('span', null, h('small', null, 'Time'), h('b', null, fmt(o.timeMs)))),
+      h('p', { class: 'adv-time' }, `${A.medal(o.place)} ${A.placeWord(o.place)} tier · wood goes towards the town’s expansion`),
+      reward,
+      h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), btn('Try again', { kind: 'soft', onClick: o.onAgain }))));
+}

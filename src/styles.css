@@ -2266,7 +2266,7 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 
 /* where it sits on each screen, so it never covers buttons */
 html[data-screen='land'] .fz-assist { right: auto; left: 14px; align-items: flex-start; }
-html:has(.race, .adv-results, .land-talk) .fz-assist { display: none; } /* out of the way during a mini-game or a conversation */
+html:has(.race, .forest, .adv-results, .land-talk) .fz-assist { display: none; } /* out of the way during a mini-game or a conversation */
 html[data-screen='land'] .fzc-panel { transform-origin: 0 100%; }
 /* the 3D town keeps the GPU busy: no fade-ins there, so the window and messages show at once on slow phones */
 html[data-screen='land'] .fzc-panel, html[data-screen='land'] .fzc-msg, html[data-screen='land'] .fzc-hello { animation: none; }
@@ -2419,3 +2419,29 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .race-paused-box .btn { width: 100%; min-height: 46px; }
 @media (max-width: 760px) { .race-lap b, .race-pos b { font-size: 26px; } .race-count { font-size: 72px; } .race-banner { font-size: 26px; } .race-map { width: 96px; height: 96px; } }
 :root[data-motion='reduce'] .race, :root[data-motion='reduce'] .adv-results, :root[data-motion='reduce'] .land-talk { animation: none; }
+
+/* the forest clearing */
+.forest { position: absolute; inset: 0; z-index: 8; background: #cfe6ee; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none; animation: fzcIn .4s var(--ease) both; }
+.forest-time { display: flex; align-items: center; gap: 8px; }
+.forest-sun { display: inline-block; color: #ffc94a; transition: transform 1s linear; }
+.forest-time.warn { background: rgba(214, 51, 108, .75); animation: land-pulse 1s ease-in-out infinite; }
+.forest-intro { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(20, 30, 50, .45); backdrop-filter: blur(3px); }
+.forest-intro[hidden] { display: none; }
+.forest-intro-box { display: grid; gap: 10px; justify-items: center; width: min(420px, calc(100% - 32px)); padding: 22px; border-radius: 24px; background: var(--lc, #fffaf0); color: var(--link, #3b2a1a); text-align: center; box-shadow: 0 5px 0 var(--llip, #e8d9bf), 0 24px 50px rgba(20, 30, 50, .4); animation: land-quick-in .4s var(--ease-spring); }
+.forest-intro-box h2 { margin: 0; font: 700 28px var(--brand); } .forest-intro-box p { margin: 0 0 4px; font: 600 14.5px/1.45 var(--ui); }
+.forest-intro-box .btn { min-height: 48px; width: 100%; }
+.forest-meter { position: absolute; left: 50%; bottom: calc(22px + var(--safe-b, 0px)); transform: translateX(-50%); width: min(420px, calc(100% - 24px)); display: grid; gap: 10px; justify-items: center; }
+.forest-meter[hidden] { display: none; }
+.forest-meter-bar { position: relative; width: 100%; height: 22px; border-radius: 999px; background: rgba(20, 30, 50, .5); box-shadow: 0 0 0 2px rgba(255, 255, 255, .55) inset; overflow: visible; }
+.forest-meter-sweet { position: absolute; top: 0; bottom: 0; background: #58d68d; border-radius: 999px; box-shadow: 0 0 10px rgba(88, 214, 141, .8); }
+.forest-meter-marker { position: absolute; top: -6px; width: 10px; height: 34px; margin-left: -5px; border-radius: 6px; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .4); }
+.forest-chop { width: min(260px, 70%); min-height: 60px; border: 0; border-radius: 999px; background: var(--accent, #d6336c); color: #fff; font: 700 22px var(--brand); letter-spacing: .04em; box-shadow: 0 5px 0 #a8325a, 0 12px 26px rgba(214, 51, 108, .4); cursor: pointer; transition: transform .08s; }
+.forest-chop:active { transform: translateY(4px); box-shadow: 0 1px 0 #a8325a; }
+.forest-hit { position: absolute; top: -40px; font: 700 18px var(--brand); color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, .4); opacity: 0; transition: opacity .15s, transform .15s; transform: translateY(6px); }
+.forest-hit.on { opacity: 1; transform: translateY(0); }
+.forest-hit.perfect { color: #ffe066; } .forest-hit.weak { color: #cfd8e3; }
+.adv-forest-host { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 4px 0 10px; }
+.adv-forest-host img { width: 64px; height: 64px; object-fit: contain; animation: fzaBreathe 2.6s ease-in-out infinite; }
+.adv-forest-trees { display: flex; gap: 2px; font-size: 22px; }
+.adv-forest-trees i { font-style: normal; opacity: .45; } .adv-forest-trees i.cut { opacity: 1; }
+.adv-forest-grid { margin-bottom: 8px; }

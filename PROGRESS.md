@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-13 · by Claude Code · `main` = branch `claude/fuzzies-design-app-jwv4tu` (the **website-wide Fuzzy AI assistant, Phase 1** went live 2026-10-13 — owner: "yes"; rollback point `da8b353`)_
+_Last updated: 2026-10-13 · by Claude Code · `main` = `95b5b89` (Fuzzy AI assistant live); branch `claude/fuzzies-design-app-jwv4tu` adds **Fuzzies Adventures** (talk to the Fuzzies, daily missions, the Boat Race and the Forest Expansion mini-games) — not live yet, ask the owner_
 
 ---
 
@@ -24,7 +24,7 @@ keeps people coming back (the mascot, the game, missions).
 | | |
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested, and are **live**: crypto wallets (link MetaMask/Coinbase/Trust/Crypto.com/Robinhood/OKX/Phantom/any Ethereum wallet, log in with it; WalletConnect QR + smart wallets — `VITE_WALLETCONNECT_PROJECT_ID` must be in Vercel for Production + Preview), crypto payments to the owner's built-in addresses (packs, $0.50 one-time wallet activation, 100-Fuzzies gift box), card / Apple Pay through the buyer's wallet app, Fuzzies Land Phase 1 controls. First real purchase on each network still to be done by the owner. |
-| **In progress** | **Fuzzy AI assistant — Phase 1 is live** (blue Fuzzy in the corner of every screen, real Claude chat on the server with the site guide + the person's own account facts, built-in guide when AI is off, voice, minimize/mute/hide, Settings toggles). The owner says `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are now in Vercel (same keys as Draft with AI; optional `ASSIST_MODEL`) — Claude can't see Vercel (403), so the first real check is the owner's: the line under Fuzzy's name must say "Here to help", not "Built-in guide · AI is off here". Phase 2 ideas below. **Fuzzies Land tutorial/help/economy spec (5 phases): Phase 1 (tutorial + Pip guidance, polished v2), multi-select group editing and **Town Edit Mode with temporary Storage** (Township-style) are done and live; Phase 2 (Help Center + contextual tips) is next** — the owner asked for phases in order, so check in first. The earlier controls spec: Phase 1 done, its Phase 2 not started. Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
+| **In progress** | **Fuzzies Adventures (owner spec, 6 phases) are on the branch:** Phase 1 interactive Fuzzies + mission dialogue, Phase 2 daily mission manager (server-confirmed rewards for cloud accounts), Phase 3 the three-lap Boat Race with computer racers, Phase 4 polish/sounds/tests, Phase 5 the Forest Expansion mini-game, Phase 6 the adventure registry (5 more listed as coming soon). Ask the owner before `main`. **Fuzzy AI assistant — Phase 1 is live** (blue Fuzzy in the corner of every screen, real Claude chat on the server with the site guide + the person's own account facts, built-in guide when AI is off, voice, minimize/mute/hide, Settings toggles). The owner says `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` are now in Vercel (same keys as Draft with AI; optional `ASSIST_MODEL`) — Claude can't see Vercel (403), so the first real check is the owner's: the line under Fuzzy's name must say "Here to help", not "Built-in guide · AI is off here". Phase 2 ideas below. **Fuzzies Land tutorial/help/economy spec (5 phases): Phase 1 (tutorial + Pip guidance, polished v2), multi-select group editing and **Town Edit Mode with temporary Storage** (Township-style) are done and live; Phase 2 (Help Center + contextual tips) is next** — the owner asked for phases in order, so check in first. The earlier controls spec: Phase 1 done, its Phase 2 not started. Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
 | **Branches** | `main` = the branch (live; tutorial v2 + multi-select went live 2026-10-13, owner: "Yes u can put it live"; rollback point `c0493c6`) since the owner said "Put everything we worked on live … check for safety and fix any issues" (2026-10-13). **Rollback point:** `1965633` (before wallets/payments). Previously live: `1965633`. Earlier: the owner said to test again and put it live ("Done another test and post and add to GitHub … save everything everyplace") on 2026-10-13. Live now: Christmas, Hanukkah & Passover (60 templates), text effects & curved text, multicultural collections (9 art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search). **Rollback points:** `ae74508` (Halloween, previous live), `28b65cc`. Keep working on the branch and ask before the next merge. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
@@ -171,6 +171,12 @@ src/
     rules.ts           RULES only: items, goods, crops/workshops/orders/levels/expansions, placement; wall-clock timers
     view3d.ts          Three.js island town: sky, ocean, forest, buildings, growing crops, residents (BFS walking,
                        breathing/blinking/looking idle, speech bubbles), camera pan/zoom/swoop, picking, placement ghost
+    adventures.ts      Fuzzies Adventures RULES: characters/personalities, ADVENTURES registry, daily mission (local-day key, rotation,
+                       reset countdown), once-per-day rewards (`finish`/`payout`), AdvState in the town, migration
+    race.ts            Boat Race RULES/physics: course spline + 8 gates, boats, drift, collisions, AI racers (skill, racing lines, overtaking), laps, places
+    raceView.ts        Boat Race 3D: lagoon water shader, Palm Island, reef, buoys/banner, speedboats with Fuzzies, wakes, chase camera, HUD, controls
+    forestGame.ts      Forest Expansion RULES: 16 trees / 6 marked, timing meter (perfect/good/weak), wood, sunset limit, place tiers
+    forestView.ts      Forest Expansion 3D: clearing, tree line, glowing rings, axe swing, chips, falling trees, stumps, logs, sunset light
     environment.ts     the island: terrain slab + beach, shader water (shore foam), sky dome, instanced swaying forest,
                        grass tufts/wildflowers, rocks, clouds; PALETTE; islandRadius()
     models.ts, textures.ts  procedural building/crop/decor models (PAL palette, plinth/gableRoof/windowOn/doorOn helpers) and textures
@@ -178,6 +184,7 @@ src/
     app.ts             shell (sidebar / top bar / phone tab bar) + hash router
     mascot.ts          the living mascot component (bounce, shadow, sparkles, wink, tap hop, tickle)
     assistant.ts       the Fuzzy AI assistant: blue 3D Fuzzy launcher (blink/wink/talk/think/listen frames), chat panel, voice, mic, hide
+    landAdventure.ts   conversation card (portrait, personality, speech, Start Adventure / Maybe later), daily pill, Adventures sheet, results screens
     landIcons.ts       Fuzzies Land's own "sticker" icon set (coin, star, hammer, crate, barn, music, gate…)
     libthumbs.ts       lazy template previews (IntersectionObserver, one per frame, waits for fonts, cached)
     templateManager.ts "Manage templates" window (list, publish/unpublish, edit, delete, Draft with AI)
@@ -220,7 +227,7 @@ IndexedDB database `fuzzies` with stores `designs` and `uploads` (both indexed b
 `fz_template_uses` (one row per person per template per day → Trending/Popular), `fz_admins` (template managers set in the database; RLS on),
 `fz_wallets` (lower-case address PK → user, cascade delete, `active`), `fz_wallet_nonces` (server-written sign-in messages, single use, 10 min),
 `fz_payments` (quotes/payments, exact base-unit amounts unique among open ones, `tx` unique), `fz_credits` (server-added Fuzzies, applied once),
-`fz_gifts` (gift boxes), `fz_wallet_rewards` (sha256 of address → fee paid / gift given, kept after unlink). Every query is
+`fz_gifts` (gift boxes), `fz_adventures` (one adventure reward per account per local day, PK `(user_id, day, adventure)`), `fz_wallet_rewards` (sha256 of address → fee paid / gift given, kept after unlink). Every query is
 scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 ## 6. Rules of the codebase (gotchas)
@@ -333,6 +340,25 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   R turns (placing or the selected building, `turnInPlace`), Enter confirms, Escape cancels hold → placing → panel; handlers are
   removed in `destroy`. Mouse hover outlines buildings (`view.hover`) and shows a pointer. `view.nudge()` pans without glide
   (pinch midpoint, edge scroll), `view.stopGlide()` stops inertia. Phase 1 test: `land-p1.cjs` in the scratchpad pattern (26 checks).
+- **Fuzzies Adventures:** `land/adventures.ts` is DOM-free and imported by `rules.ts` (migration) and by `api/data.ts` (reward
+  amounts) — keep it free of browser code. Every town Fuzzy is a character by index (`character(i)`: name from `NAMES`, personality
+  from `ROLES`); tap one → `talkTo(i)` in `land.ts`: `view.focusResident(i, hello)` glides the camera in and puts the resident in
+  mode `greet` (faces you, bounces, waves — `view.react(i, 'wave'|'hop'|'cheer')`), `conversation()` draws the card
+  (`stage.talking` hides the dock/side); a pan/zoom or Escape/ground tap ends it (`endTalk`). **Daily mission:** `featured(now)`
+  rotates through `playable()` adventures by local day; the host is the first present resident whose role is in `adventure.hosts`
+  (`hostIndex`); `mission(s, now)` → done/plays/best/countdown; `finish(s, {id, place, timeMs}, now, pay)` pays ONCE per adventure
+  per day (later runs = `practice`, 0 coins), keeps plays/best/bestTime/log; for **cloud accounts** the screen calls `finish(…, pay=false)`
+  then `data` → `adventure.claim {day, id, place}` (server inserts into `fz_adventures`, `ok:false` = already paid today) and only
+  then `payout()`; offline → `adventures.pending` retried on the next town visit (`retryPending`). Rewards per place live in
+  `ADVENTURES[].coins` (configurable; the forest has a 4th "sunset first" tier). **Mini-games** run in their own full-screen layer over
+  the town (`runRace` / `runForest`: own renderer, the town view is `stop()`ped and restarted in `backToTown()`); they return a result
+  through `onFinish`, never touch the town state themselves; `startAdventure(adv)` dispatches by `adv.id`, `finishAdventure` shows
+  `resultsScreen` (podium) or `forestResults`. New mini-game = an `ADVENTURES` entry (`playable: true`) + a DOM-free rules file + a
+  view file + a branch in `startAdventure`. Dev hooks: `__land.adv/talkTo/endTalk/findHost/startAdventure/hostIndex/talking/playing`,
+  `__race.sim/finishNow`, `__forest.sim/select/chop/finishNow`; `fz.dev.now` picks the day. Tests (scratchpad `adv/`): `race-check.ts`
+  (15), `adv-check.ts` (20), `forest-check.ts` (15), `flow.cjs` (32, computer + `PHONE=1`), `forest-flow.cjs` (16); the assistant hides
+  during a race/conversation (`html:has(.race, .adv-results, .land-talk)`). Node checks need copies of `rules.ts` + `adventures.ts`
+  side by side (they import each other).
 - **Fuzzy assistant:** mounted once in `startApp()` (`ui/assistant.ts` → `mountAssistant()`), placed per screen with CSS on
   `html[data-screen=…]` (set by `assistant.setScreen()` in the router: bottom-left in Land, above the tab bar / zoom control on phones
   and in the editor). **It only knows `src/content/help.ts`** — when a feature changes, change its topic there (the server sends the
@@ -499,12 +525,22 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 
 | _(assistant)_ | **Website-wide Fuzzy AI assistant — Phase 1** (owner: the blue fluffy Fuzzy as the official helper for the whole site, real AI, context-aware, no fake answers, animated, optional voice, floating + chat panel, desktop + mobile, account-aware through the backend). `src/content/help.ts` = the site guide (22 topics, per-screen order, example questions). Server `api/assist.ts` + `api/_lib/guide.ts`: Claude (Anthropic Messages API, same keys as Draft with AI, optional `ASSIST_MODEL`) with the guide as its only knowledge, strict rules (never invent, never ask for secrets, says what it can't do), the person's own account facts read server-side (username, balance, counts, Land level — never email/password/payments), visitors get general help, rate limits (`fz_assist`), timeouts, calm error messages, 501 when not configured. App: blue 3D Fuzzy (new talking/thinking/listening expressions via a shared `studio()` renderer) in the corner of every screen incl. Land, auth and the editor; chat panel with greeting per screen, suggestion chips, thinking dots, typed-out answers while Fuzzy talks, bold/bullets/app links (links navigate; phones close the sheet), "From the built-in guide · not AI" answers when AI is off, voice replies (device voices pitched up + synthesised giggle for the hehes), microphone input (browser speech recognition), minimize, mute, ⋯ menu (Clear chat, Hide Fuzzy), Settings → Fuzzy helper (Show / Voice), first-visit "Ask me" label, Escape. Tested: 36 API checks (status, visitor/user context, facts from the server, bad token = visitor, link filter, history capping, limits 15/40, upstream 429/500/empty/timeout, 501 without keys) and 55 browser checks on computer, phone, Land, the editor and dark mode (placement overlaps nothing, open/ask/answer/links, voice pref, minimize, clear, hide + Settings restore, 3D frames, error notes, guide mode). Vercel build OK. Safety pass before go-live: prompt-injection rules, link allow-list, DOM-only rendering (no innerHTML), bad tokens never log people out, limits before the AI call, `Permissions-Policy` now `microphone=(self)` so the mic button can work on the live site (it was blocked for everyone). **Merged to `main` (live).** |
 
+| _(adventures)_ | **Fuzzies Adventures** (owner spec: interactive Fuzzies, personalities, a real daily mission system, a fully playable 3D boat race with AI opponents, a forest-clearing mini-game, an expandable framework, production look, reliable rewards). Audit first: reused the residents (names, outfits, idle life), `flyTo`, the town save, `addXp`/coins, the environment builders; no second engine. **Phase 1:** tap any Fuzzy → smooth camera focus (no jump), greeting (turns to you, bounces, waves, says hello), conversation card with 3D portrait, name, personality (8: Adventurer, Farmer, Builder, Explorer, Fisher, Decorator, Nature keeper, Baker — unique names, lines, bios), Start Adventure / Maybe later; other Fuzzies chat and point to the host; drags never select. **Phase 2:** one featured adventure a day (rotation), countdown to midnight, HUD pill + Adventures sheet (rewards table, records, coming soon list), one reward per adventure per day, practice replays, server-side `fz_adventures` claim for cloud accounts (a refresh can't double-claim), offline retry. **Phase 3 Boat Race:** 3 laps around Palm Island, 8 gates in order, boat physics (throttle, drift, brake, island/reef/boat bumps), 3 computer racers with skill levels, racing lines and overtaking, random grid, live positions, true finishing order; lagoon water shader, island with palms/hut/rocks, reef, buoys, chequered start banner, speedboats with the Fuzzies at the wheel, wakes, bow spray, splashes; chase camera; keyboard/touch/mouse with assisted steering; HUD (lap, position, timer, next-gate arrow, mini-map, wrong way, countdown, pause); engine purr + sounds; results with podium. **Phase 4:** sounds, adaptive quality (pixel ratio/shadows step down on slow devices), tests. **Phase 5 Forest Expansion:** a clearing with 6 glowing-ring trees among 16, timing-based chopping (perfect/good/weak, no mashing), axe swing, chips, falling trees, stumps, logs, sunset timer, wood + coins + XP; only marked trees can go; the town's own forest is never touched. **Phase 6:** `ADVENTURES` registry with 5 more missions listed as coming soon. Tested: Node — race 15 (laps/gates in order, countdown, wrong way, brake, bumps, finishes, 20-race fairness: wins spread across skills and lanes), adventures 20, forest 15; browser — full flow 32/32 on computer and phone (pill, sheet, talk, portrait, focus, later/chat/find host, Escape, drag, race HUD, pause, results, +100 coins once, practice run, reload) and the forest flow 16/16; screenshots reviewed. Branch only — ask the owner before `main`. |
+
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
 ## 8. Known limitations / not verified
 
+- **Fuzzies Adventures:** played in a software-rendered test browser (~1 fps) and the rules in Node — the real feel of steering,
+  the 60 fps target and phone performance need a real device (the race drops pixel density/shadows by itself when slow). Art is
+  procedural (no image assets): boats, island, palms, buoys and trees are original 3D models in the Fuzzies style; a professional
+  pass could add richer hull textures, animated water foam meshes and a proper axe-chop animation for the Fuzzy (today the Fuzzy
+  cheers while an axe swings). Only 2 of 7 adventures are playable (the others are listed as coming soon). Rewards are town coins/XP
+  only (never Fuzzies tokens or crypto); for cloud accounts the server records one claim per day, guest/on-device accounts are
+  trusted locally. The player always races the first three town Fuzzies; opponents don't have voice lines yet. Wood is counted
+  (records + results) but not yet spent on anything — the expansion discount is the next step.
 - **Fuzzy assistant:** tested against a stand-in AI service (no internet here) — the first real conversations on the live site
   need the owner's eyes. Voice uses whatever voices the device has (quality varies; iPhones need a tap before sound), and the
   microphone needs Chrome/Safari speech recognition (Firefox has none → the button is hidden). The assistant knows the guide +
@@ -600,7 +636,10 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Fuzzy assistant — Phase 2 ideas:** richer context hints from screens (selected element in the editor, open panel in Land),
+0. **Fuzzies Adventures — next:** owner tries the race and the forest on a real phone; then spend wood (expansion discount),
+   more adventures from the registry (fishing, treasure hunt, harvest rush, delivery, garden contest), seasonal variants (snow
+   race), a per-character daily greeting when the mission is done, a real axe-chop animation for the Fuzzy, boat skins.
+   **Fuzzy assistant — Phase 2 ideas:** richer context hints from screens (selected element in the editor, open panel in Land),
    streaming answers, a few "do it for me" actions the person confirms (open a panel, switch a setting), a multilingual guide,
    a server log of *counts* only to tune the guide, and a real-device voice pass. Owner must add `ANTHROPIC_API_KEY` +
    `ANTHROPIC_MODEL` in Vercel first and OK the merge to `main`.

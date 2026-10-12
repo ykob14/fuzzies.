@@ -52,7 +52,7 @@ export interface Adventure {
   /** what the host says when offering it */
   pitch: string;
   objective: string;
-  /** town coins by finishing place (1st, 2nd, 3rd…); other places get the last entry */
+  /** town coins by finishing place (1st, 2nd, 3rd…); other places get the last entry (the forest's 4th tier = sunset came first) */
   coins: number[];
   xp: number;
   /** false = designed and listed as "coming soon", not playable yet */
@@ -65,7 +65,7 @@ export const ADVENTURES: Adventure[] = [
     objective: 'Race three laps around Palm Island and finish first', coins: [100, 60, 30], xp: 25, playable: true },
   { id: 'forest', name: 'Forest Expansion', short: 'Forest Clearing', emoji: '🪓', hosts: ['nature', 'builder'],
     pitch: 'The town wants to grow! Help me clear the marked trees at the forest edge — we’ll keep the wood for building.',
-    objective: 'Clear the marked trees before the sun sets', coins: [80, 50, 30], xp: 20, playable: false },
+    objective: 'Clear the six marked trees before the sun sets', coins: [80, 50, 30, 15], xp: 20, playable: true },
   { id: 'fishing', name: 'Fishing Contest', short: 'Fishing', emoji: '🎣', hosts: ['fisher'], pitch: 'The big one is out there. Fancy a fishing contest?', objective: 'Catch the most fish in three minutes', coins: [80, 50, 30], xp: 20, playable: false },
   { id: 'treasure', name: 'Island Treasure Hunt', short: 'Treasure Hunt', emoji: '🗺️', hosts: ['explorer'], pitch: 'My map has an X on it. Shall we find out why?', objective: 'Follow the clues to the hidden chest', coins: [90, 60, 30], xp: 20, playable: false },
   { id: 'harvest', name: 'Harvest Rush', short: 'Harvest Rush', emoji: '🌾', hosts: ['farmer'], pitch: 'The crops are all ready at once! Help me bring them in?', objective: 'Harvest the fields before the timer runs out', coins: [70, 45, 25], xp: 15, playable: false },

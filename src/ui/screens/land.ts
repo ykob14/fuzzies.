@@ -7,7 +7,7 @@ import { openShop } from '../shop';
 import * as L from '../../land/rules';
 import * as E from '../../land/events';
 import * as A from '../../land/adventures';
-import { conversation, dailyPill, adventuresBody, resultsScreen } from '../landAdventure';
+import { conversation, dailyPill, adventuresBody, resultsScreen, forestResults } from '../landAdventure';
 import { api, cloudEnabled } from '../../core/api';
 import type { LandView, Pick } from '../../land/view3d';
 import { accounts } from '../../core/account';
@@ -1421,18 +1421,32 @@ export function landScreen(): Screen {
     endTalk();
     openPanel(null);
     save();
-    const racers = Array.from({ length: Math.min(view.residentCount, 3) }, (_, i) => view!.residentInfo(i)!).filter(Boolean);
-    const you = { name: accounts.current?.name?.split(' ')[0] || 'You', skin: ['#ff86bb', '#b8235f'] as [string, string] };
-    const t0 = Date.now();
-    void import('../../land/raceView').then(({ runRace }) => {
-      view?.stop();
-      music.stop();
-      runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound: accounts.current?.settings.sound !== false, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
-        onFinish: (res) => finishAdventure(adv, res, t0),
-        onQuit: () => backToTown(),
-      });
-    }).catch((e) => { console.error(e); playing = false; view?.start(); toast('The adventure couldn’t load — please try again.', 'bad'); });
+    const sound = accounts.current?.settings.sound !== false;
+    const fail = (e: unknown) => { console.error(e); playing = false; view?.start(); toast('The adventure couldn’t load — please try again.', 'bad'); };
+    const pause = () => { view?.stop(); music.stop(); };
+    if (adv.id === 'boatrace') {
+      const racers = Array.from({ length: Math.min(view.residentCount, 3) }, (_, i) => view!.residentInfo(i)!).filter(Boolean);
+      const you = { name: accounts.current?.name?.split(' ')[0] || 'You', skin: ['#ff86bb', '#b8235f'] as [string, string] };
+      void import('../../land/raceView').then(({ runRace }) => {
+        pause();
+        runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
+          onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, race: res.order }),
+          onQuit: () => backToTown(),
+        });
+      }).catch(fail);
+    } else if (adv.id === 'forest') {
+      const hi = hostIndex();
+      const info = view.residentInfo(hi);
+      void import('../../land/forestView').then(({ runForest }) => {
+        pause();
+        runForest(stage, { mobile: isTouch(), sound, host: { name: info?.name ?? A.character(hi).name, skin: info?.skin ?? ['#b8f28a', '#4f9e2f'] } }, {
+          onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, forest: { ...res, hostPortrait: safePortrait(hi) } }),
+          onQuit: () => backToTown(),
+        });
+      }).catch(fail);
+    } else { playing = false; toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); }
   }
+  interface AdvResult { place: number; timeMs: number; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { wood: number; cleared: number; total: number; perfect: number; hostPortrait: string } }
   function backToTown(): void {
     playing = false;
     stage.querySelector('.adv-results')?.remove();
@@ -1442,21 +1456,21 @@ export function landScreen(): Screen {
     renderHud();
   }
   /** A finished mini-game: record it, pay the reward once per day (cloud accounts: only after the server agrees), show the results. */
-  function finishAdventure(adv: A.Adventure, res: { place: number; timeMs: number; order: { name: string; place: number; you: boolean; index: number }[] }, startedAt: number): void {
+  function finishAdventure(adv: A.Adventure, res: AdvResult): void {
     const cloud = !!accounts.current?.cloud && cloudEnabled;
     let payout: A.Payout | null = null, pending = false;
     const show = () => {
-      const screen = resultsScreen({
-        adv, place: res.place, timeMs: res.timeMs, payout, pending,
-        order: res.order.map((o) => ({ name: o.name, place: o.place, you: o.you, portrait: o.you ? '' : safePortrait(o.index) })),
-        onAgain: () => { screen.remove(); playing = false; startAdventure(adv); },
-        onBack: () => { screen.remove(); backToTown(); },
-      });
+      const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, onAgain: () => { screen.remove(); playing = false; startAdventure(adv); }, onBack: () => { screen.remove(); backToTown(); } };
+      const screen: HTMLElement = res.forest
+        ? forestResults({ ...common, ...res.forest })
+        : resultsScreen({ ...common, order: (res.race ?? []).map((o) => ({ name: o.name, place: o.place, you: o.you, portrait: o.you ? '' : safePortrait(o.index) })) });
       stage.append(screen);
       try { if (res.place === 1) sfx.gold(); else sfx.home(); } catch { /* */ }
     };
     try {
       payout = A.finish(s, { id: adv.id, place: res.place, timeMs: res.timeMs }, now(), !cloud);
+      // wood from the forest is a resource for the town (first run of the day only — practice chops don't stock the barn)
+      if (res.forest && !payout.practice) A.adventures(s, now()).wood += res.forest.wood;
     } catch (e) { toast((e as Error).message, 'bad'); backToTown(); return; }
     if (!payout.practice && cloud) {
       // the server decides whether today's reward was already collected (a refresh can't claim twice)
@@ -1471,7 +1485,6 @@ export function landScreen(): Screen {
         pending = true; save(); show();
       });
     } else { save(); show(); }
-    void startedAt;
   }
   /** Rewards earned offline: ask the server again (once per town visit). */
   function retryPending(): void {
