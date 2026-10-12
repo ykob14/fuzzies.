@@ -58,29 +58,59 @@ export async function openPaySheet(o: PayOptions): Promise<void> {
   const fine = () => h('p', { class: 'pay-fine' }, icon('lock', 12),
     ' Payments are final and go straight to Fuzzies’ wallet. Fuzzies are a game currency with no cash value. Always check the amount and address in your wallet before approving.');
 
-  // ---- step 1: choose a coin ----
+  type Opt = { network: Network; asset: Asset; label: string; fee: string; tag?: string };
+  const allOpts: Opt[] = [];
+  for (const n of cfg.networks) for (const a of n.assets) {
+    const label = n.id === 'solana' ? (a === 'SOL' ? 'SOL' : 'USDC on Solana') : n.id === 'bitcoin' ? COIN_NAME.BTC : `${COIN_NAME[a]} on ${n.name}`;
+    allOpts.push({ network: n.id, asset: a, label, fee: `Network fee ${n.fee}${n.id === 'bitcoin' ? ' · takes ~10–30 min' : ''}`, tag: n.id === 'base' && a === 'USDC' ? 'Lowest fee' : undefined });
+  }
+  /** One coin to pay with: asks the server for an exact price, then shows the payment. */
+  const optButton = (x: Opt, err: HTMLElement) => {
+    const b = h('button', { type: 'button', class: 'pay-opt' }, coinLogo(x.asset, x.network),
+      h('span', { class: 'pay-opt-t' }, h('b', null, x.label), h('small', null, x.fee)),
+      x.tag ? h('span', { class: 'pay-tag' }, x.tag) : null, icon('chevR', 16));
+    b.addEventListener('click', async () => {
+      err.textContent = '';
+      body.querySelectorAll('button').forEach((y) => (y.disabled = true));
+      b.classList.add('busy');
+      try { show(await pay.quote(o.kind, o.item, x.network, x.asset)); }
+      catch (e) { err.textContent = (e as Error).message; body.querySelectorAll('button').forEach((y) => (y.disabled = false)); b.classList.remove('busy'); }
+    });
+    return b;
+  };
+
+  // ---- step 1: choose a coin (or card, via the wallet's own "Add Cash") ----
   function choose(): void {
     stop();
-    const opts: { network: Network; asset: Asset; label: string; fee: string; tag?: string }[] = [];
-    for (const n of cfg.networks) for (const a of n.assets) {
-      const label = n.id === 'solana' ? (a === 'SOL' ? 'SOL' : 'USDC on Solana') : n.id === 'bitcoin' ? COIN_NAME.BTC : `${COIN_NAME[a]} on ${n.name}`;
-      opts.push({ network: n.id, asset: a, label, fee: `Network fee ${n.fee}${n.id === 'bitcoin' ? ' · takes ~10–30 min' : ''}`, tag: n.id === 'base' && a === 'USDC' ? 'Lowest fee' : undefined });
-    }
     const err = h('p', { class: 'form-err', role: 'alert' });
-    body.replaceChildren(summary(), h('p', { class: 'wallet-head' }, 'Pay with'),
-      h('div', { class: 'pay-opts' }, ...opts.map((x) => {
-        const b = h('button', { type: 'button', class: 'pay-opt' }, coinLogo(x.asset, x.network),
-          h('span', { class: 'pay-opt-t' }, h('b', null, x.label), h('small', null, x.fee)),
-          x.tag ? h('span', { class: 'pay-tag' }, x.tag) : null, icon('chevR', 16));
-        b.addEventListener('click', async () => {
-          err.textContent = '';
-          body.querySelectorAll('button').forEach((y) => (y.disabled = true));
-          b.classList.add('busy');
-          try { show(await pay.quote(o.kind, o.item, x.network, x.asset)); }
-          catch (e) { err.textContent = (e as Error).message; body.querySelectorAll('button').forEach((y) => (y.disabled = false)); b.classList.remove('busy'); }
-        });
-        return b;
-      })), err, fine());
+    const cardOpt = h('button', { type: 'button', class: 'pay-opt pay-card-opt' }, h('span', { class: 'pay-card-ic' }, icon('card', 20)),
+      h('span', { class: 'pay-opt-t' }, h('b', null, 'Card, Apple Pay or bank'), h('small', null, 'No crypto yet? Add cash in your wallet app, then pay — about 2 minutes')), icon('chevR', 16));
+    cardOpt.addEventListener('click', card);
+    body.replaceChildren(summary(), h('div', { class: 'pay-opts' }, cardOpt), h('p', { class: 'wallet-head' }, 'Pay with crypto'),
+      h('div', { class: 'pay-opts' }, ...allOpts.map((x) => optButton(x, err))), err, fine());
+  }
+
+  // ---- paying by card: the wallet app (Phantom, Coinbase Wallet, MetaMask…) sells the coin, then you pay with it ----
+  function card(): void {
+    stop();
+    const err = h('p', { class: 'form-err', role: 'alert' });
+    // ETH on Base first: one purchase covers the price and the (tiny) network fee
+    const pick = ([['base', 'ETH'], ['base', 'USDC'], ['solana', 'USDC']] as [Network, Asset][])
+      .map(([n, a]) => allOpts.find((x) => x.network === n && x.asset === a)).filter((x): x is Opt => !!x);
+    if (pick[0]?.asset === 'ETH' && pick[0].network === 'base') pick[0] = { ...pick[0], tag: 'Easiest' };
+    const step = (n: number, ...kids: (Node | string | null)[]) => h('li', { class: 'pay-step' }, h('span', { class: 'pay-step-n' }, String(n)), h('div', null, ...kids));
+    const getApp = h('a', { class: 'link small', href: 'https://phantom.com/download', target: '_blank', rel: 'noopener noreferrer' }, 'Get Phantom (free, official site) ↗');
+    const back = h('button', { type: 'button', class: 'link small' }, '← Other ways to pay');
+    back.addEventListener('click', choose);
+    body.replaceChildren(summary(),
+      h('ol', { class: 'pay-steps' },
+        step(1, h('b', null, 'Open your wallet app'), h('small', null, 'Phantom, Coinbase Wallet, MetaMask or Trust Wallet. No wallet yet? '), getApp),
+        step(2, h('b', null, 'Tap “Add Cash” or “Buy”'), h('small', null, `Pay with Apple Pay, your card or bank. Buy about ${money(o.cents + 100)} of ETH on Base (or USDC) — a little extra covers the app’s fee and some apps have a small minimum.`)),
+        step(3, h('b', null, 'Come back and pay with it'), h('small', null, 'Choose the coin you bought:'))),
+      h('div', { class: 'pay-opts' }, ...pick.map((x) => optButton(x, err))),
+      h('p', { class: 'pay-fine' }, 'Paying with USDC? Keep a few cents of ETH (Base) or SOL (Solana) in your wallet for the network fee.'),
+      err, back,
+      h('p', { class: 'pay-fine' }, icon('lock', 12), ' Your card is handled by your wallet app and its payment partner — Fuzzies never sees your card or bank details.'));
   }
 
   // ---- step 2: the exact payment ----

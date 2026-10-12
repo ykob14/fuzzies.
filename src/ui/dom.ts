@@ -100,6 +100,7 @@ export const ICONS = {
   group: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><path d="M11 7h4a2 2 0 0 1 2 2v4"/>',
   town: '<path d="M3 21V11l5-4 5 4v10"/><path d="M13 21v-6l4-3 4 3v6M2 21h20M7 21v-4h2v4M8 7V3l3 1.5L8 6"/>',
   cloud: '<path d="M17.5 19H7a5 5 0 1 1 1.1-9.9A6 6 0 0 1 19.5 11 4 4 0 0 1 17.5 19z"/>',
+  card: '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/>',
   wallet: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="3" y="8" width="18" height="12" rx="2.5"/><path d="M16 14h2"/>',
 };
 export type IconName = keyof typeof ICONS;

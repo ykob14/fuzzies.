@@ -35,7 +35,7 @@ export async function packCards(onPick?: () => void): Promise<HTMLElement | null
     h('div', { class: 'pack-grid' }, ...cfg.packs.map(card)),
     h('div', { class: 'shop-pay' }, h('small', null, 'Pay with'),
       ...['usdc', 'usdt', 'eth', 'sol', 'btc'].map((c) => h('img', { src: logoUrl(c), alt: c.toUpperCase(), title: c.toUpperCase(), width: '20', height: '20' })),
-      h('small', null, 'on Base, Solana, BNB Chain, Robinhood Chain, Ethereum or Bitcoin'),
+      h('small', null, 'on Base, Solana, BNB Chain, Robinhood Chain, Ethereum or Bitcoin — or by card / Apple Pay through your wallet app'),
       a?.cloud ? null : h('small', { class: 'shop-note' }, '· Save your account first (Profile) — bought Fuzzies live in your account.')));
   // swap the flat drawings for 3D piles of fluffy Fuzzies as soon as they're rendered
   void getArt().then((art) => {

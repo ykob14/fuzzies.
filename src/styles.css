@@ -1915,3 +1915,12 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 .land-quick::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 14px; height: 14px; margin-left: -7px; transform: rotate(45deg); background: inherit; border-radius: 3px; box-shadow: 3px 3px 0 var(--llip, #e8d9bf); z-index: -1; }
 @keyframes land-quick-in { from { opacity: 0; margin-top: 8px; } }
 @media (pointer: coarse) { .land-quick .btn { min-height: 46px; padding: 0 18px; } }
+
+/* Pay by card (through the wallet app's Add Cash) */
+.pay-card-ic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--accent); color: var(--on-accent); }
+.pay-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pay-step { display: flex; gap: 12px; align-items: flex-start; }
+.pay-step-n { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 700; font-size: 13px; }
+.pay-step > div { display: grid; gap: 2px; min-width: 0; }
+.pay-step small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.pay-step .link { justify-self: start; }
