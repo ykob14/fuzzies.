@@ -5,7 +5,7 @@
 export type LandIcon =
   | 'coin' | 'star' | 'pop' | 'hammer' | 'crate' | 'barn' | 'sparkles' | 'music' | 'musicOff'
   | 'zoomIn' | 'zoomOut' | 'back' | 'house' | 'wheat' | 'workshop' | 'flower' | 'clock' | 'lock'
-  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn' | 'festival' | 'token';
+  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn' | 'festival' | 'token' | 'boat' | 'compass';
 
 const O = 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const HL = 'fill="#fff" opacity=".55"';
@@ -93,6 +93,11 @@ const ART: Record<LandIcon, string> = {
     <path d="M13 19.5h6" stroke="#8a5a30" stroke-width="2.4" stroke-linecap="round"/>
     <path d="M16 2.5v9M12 8l4 4 4-4" fill="none" stroke="#e0527f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`,
   // seasonal events: a string of bunting with a star; an event token (a round ticket)
+  boat: `<path d="M5 20h22l-3 6H8z" fill="#e45a78" stroke="#a8325a" ${O}/><path d="M8 26h16l-1.5 2h-13z" fill="#ffffff" stroke="#a8325a" ${O}/>
+    <path d="M16 4v16" stroke="#8a5a30" stroke-width="2.2" stroke-linecap="round"/><path d="M16 5l9 13H16z" fill="#ffc94a" stroke="#d1900f" ${O}/><path d="M15 7L8 18h7z" fill="#ffffff" stroke="#d1900f" ${O}/>
+    <path d="M3 28q4-2 8 0t8 0 8 0" fill="none" stroke="#5aaee0" stroke-width="2.2" stroke-linecap="round"/>`,
+  compass: `<circle cx="16" cy="16" r="12" fill="#fff6e0" stroke="#8a5a30" ${O}/><circle cx="16" cy="16" r="9" fill="#ffffff" stroke="#e8d9bf" stroke-width="1.5"/>
+    <path d="M16 7l3 9-3 9-3-9z" fill="#e45a78" stroke="#a8325a" ${O}/><path d="M16 16l3-9-3 9z" fill="#ffffff"/><circle cx="16" cy="16" r="1.8" fill="#8a5a30"/>`,
   festival: `<path d="M3 7q13 6 26 0" fill="none" stroke="#8a5a30" stroke-width="2" stroke-linecap="round"/>
     <path d="M5 7.5l2.6 6 2.8-5.6zM11 9.4l2.4 6.2 3-5.8zM17.5 9.8l2.6 5.8 2.8-6zM23.6 8.4l2.4 5.6 2.6-6.4z" fill="#e45a78" stroke="#a8325a" ${O}/>
     <path d="M11 9.4l2.4 6.2 3-5.8z" fill="#ffc94a" stroke="#d1900f" ${O}/><path d="M17.5 9.8l2.6 5.8 2.8-6z" fill="#33ab9b" stroke="#1f7d71" ${O}/>

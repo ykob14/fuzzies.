@@ -48,8 +48,8 @@ type Goal = { kind: 'visit'; id: number; door: THREE.Vector2; face: number } | {
 interface Resident {
   model: M.FuzzyModel; skin: number; feet: THREE.Mesh[]; shadow: THREE.Mesh; name: string; persona: Persona;
   pos: THREE.Vector2; path: THREE.Vector2[]; facing: number; targetFacing: number; goal: Goal | null;
-  mode: 'walk' | 'idle' | 'hop' | 'enter' | 'inside' | 'exit' | 'work' | 'sit' | 'chat'; timer: number; phase: number; blinkIn: number; blinking: number;
-  lookIn: number; look: THREE.Vector2; hop: number; bubble?: HTMLElement; bubbleT: number; seed: number; mood: 'normal' | 'happy' | 'sleepy'; y: number;
+  mode: 'walk' | 'idle' | 'hop' | 'enter' | 'inside' | 'exit' | 'work' | 'sit' | 'chat' | 'greet'; timer: number; phase: number; blinkIn: number; blinking: number;
+  lookIn: number; look: THREE.Vector2; hop: number; bubble?: HTMLElement; bubbleT: number; seed: number; mood: 'normal' | 'happy' | 'sleepy'; y: number; wave: number;
 }
 interface Floater { el: HTMLElement; pos: THREE.Vector3; t: number }
 interface Puff { s: THREE.Sprite; v: THREE.Vector3; life: number; max: number; grow: number }
@@ -101,6 +101,8 @@ export class LandView {
   target = new THREE.Vector3(MAP / 2, 0, MAP / 2);
   dist = 24;
   private fly: { from: THREE.Vector3; to: THREE.Vector3; d0: number; d1: number; t: number; dur: number; done?: () => void } | null = null;
+  /** The Fuzzy the camera is keeping company with (Fuzzies Adventures): the view glides after it until released. */
+  private focus: number | null = null;
   private ray = new THREE.Raycaster();
 
   /** `phrase(i)` gives a resident something to say; `onFrame` runs after each frame (the screen keeps its HUD fresh). */
@@ -396,7 +398,7 @@ export class LandView {
       this.scene.add(model.group, shadow);
       const r = GT.rng(i * 31 + 7);
       const persona: Persona = { speed: 0.85 + r() * 0.4, chatty: 0.2 + r() * 0.6, hoppy: 0.05 + r() * 0.2, homebody: 0.2 + r() * 0.6, farmer: 0.2 + r() * 0.6 };
-      this.residents.push({ model, skin, feet, shadow, name: NAMES[i % NAMES.length], persona, pos: start.clone(), path: [], facing: 0, targetFacing: 0, goal: null, mode: 'idle', timer: 1 + Math.random() * 3, phase: Math.random() * 10, blinkIn: 1 + Math.random() * 3, blinking: 0, lookIn: 2, look: new THREE.Vector2(), hop: 0, bubbleT: 0, seed: i * 7 + 1, mood: 'normal', y: 0 });
+      this.residents.push({ model, skin, feet, shadow, name: NAMES[i % NAMES.length], persona, pos: start.clone(), path: [], facing: 0, targetFacing: 0, goal: null, mode: 'idle', timer: 1 + Math.random() * 3, phase: Math.random() * 10, blinkIn: 1 + Math.random() * 3, blinking: 0, lookIn: 2, look: new THREE.Vector2(), hop: 0, bubbleT: 0, seed: i * 7 + 1, mood: 'normal', y: 0, wave: 0 });
     }
   }
 
@@ -550,11 +552,24 @@ export class LandView {
       scene.environmentIntensity = 0.6;
       this.thumbRig = { scene, cam: new THREE.PerspectiveCamera(28, 1, 0.1, 100) };
     }
+    return this.snap(LM.modelFor(itemId, 3), itemId, THREE.MathUtils.degToRad(56), YAW, 0.9);
+  }
+
+  /** Photograph any node with the thumbnail rig: `polar` = how high the camera sits, `azimuth` = from which side, `fit` = how tightly framed. */
+  private snap(node: THREE.Object3D, key: string, polar: number, azimuth: number, fit: number): string {
+    if (!this.thumbRig) {
+      const scene = new THREE.Scene();
+      const sun = new THREE.DirectionalLight(0xfff0d8, 2.4);
+      sun.position.copy(this.sunDir).multiplyScalar(10);
+      scene.add(sun, new THREE.HemisphereLight(0xdcefff, 0x8a8a6a, 1.1));
+      scene.environment = this.scene.environment;
+      scene.environmentIntensity = 0.6;
+      this.thumbRig = { scene, cam: new THREE.PerspectiveCamera(28, 1, 0.1, 100) };
+    }
     const { scene, cam } = this.thumbRig;
-    const node = LM.modelFor(itemId, 3);
     scene.add(node);
     const sphere = new THREE.Box3().setFromObject(node).getBoundingSphere(new THREE.Sphere());
-    const off = new THREE.Vector3().setFromSphericalCoords(sphere.radius / Math.sin(THREE.MathUtils.degToRad(14)) * 0.9, THREE.MathUtils.degToRad(56), YAW);
+    const off = new THREE.Vector3().setFromSphericalCoords(sphere.radius / Math.sin(THREE.MathUtils.degToRad(14)) * fit, polar, azimuth);
     cam.position.copy(sphere.center).add(off);
     cam.lookAt(sphere.center);
     const r = this.renderer, pr = r.getPixelRatio(), N = Math.min(320, Math.floor(Math.min(this.canvas.width, this.canvas.height) * 0.9)), n = N / pr;
@@ -578,7 +593,7 @@ export class LandView {
     // repaint the town over the corner once, after this batch of pictures (before the screen updates)
     if (!this.repaint) { this.repaint = true; queueMicrotask(() => { this.repaint = false; if (!this.disposed) this.composer.render(0); }); }
     const url = out.toDataURL('image/png');
-    this.thumbs.set(itemId, url);
+    this.thumbs.set(key, url);
     return url;
   }
 
@@ -595,7 +610,7 @@ export class LandView {
 
   /** Move the view by a screen drag (pixels). Letting go keeps a little glide (see release()). */
   pan(dx: number, dy: number): void {
-    this.fly = null;
+    this.fly = null; this.focus = null;
     const k = this.unitsPerPx();
     const right = new THREE.Vector3(Math.cos(YAW), 0, -Math.sin(YAW));
     const fwd = new THREE.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
@@ -610,7 +625,7 @@ export class LandView {
 
   /** Move the view without any glide afterwards (two-finger drag, edge scrolling, keyboard). */
   nudge(dx: number, dy: number): void {
-    this.fly = null;
+    this.fly = null; this.focus = null;
     const k = this.unitsPerPx();
     const right = new THREE.Vector3(Math.cos(YAW), 0, -Math.sin(YAW));
     const fwd = new THREE.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
@@ -633,7 +648,7 @@ export class LandView {
 
   /** Zoom by a factor, towards the point under the cursor/fingers if given. */
   zoom(f: number, cx?: number, cy?: number): void {
-    this.fly = null;
+    this.fly = null; this.focus = null;
     this.zoomGoal = THREE.MathUtils.clamp(this.zoomGoal * f, 9, 56);
     if (cx !== undefined && cy !== undefined) {
       const g = this.ground(cx, cy);
@@ -974,6 +989,59 @@ export class LandView {
     this.say(r, this.phrase(r.seed + Math.floor(Math.random() * 100)), 3.2);
   }
 
+  /** How many Fuzzies are out and about (the adventure host is chosen among them). */
+  get residentCount(): number { return this.residents.length; }
+
+  /** A resident's name, colours and whether it can be talked to right now (not indoors). */
+  residentInfo(i: number): { name: string; skin: [string, string]; available: boolean; pos: { x: number; z: number } } | null {
+    const r = this.residents[i];
+    if (!r) return null;
+    return { name: r.name, skin: SKINS[r.skin], available: r.mode !== 'inside' && r.mode !== 'enter' && r.mode !== 'exit', pos: { x: r.pos.x, z: r.pos.y } };
+  }
+
+  /**
+   * Keep a Fuzzy company: the camera glides in close and follows it, and it stops to face you, waves and says hello.
+   * `null` lets it go back to its day (the camera stays where it is).
+   */
+  focusResident(i: number | null, hello?: string): void {
+    const prev = this.focus !== null ? this.residents[this.focus] : null;
+    if (prev && (i === null || this.residents[i] !== prev) && prev.mode === 'greet') { prev.mode = 'idle'; prev.timer = 1 + Math.random(); prev.mood = 'normal'; }
+    this.focus = i;
+    if (i === null) return;
+    const r = this.residents[i];
+    if (!r) { this.focus = null; return; }
+    r.mode = 'greet'; r.hop = 0; r.path = []; r.goal = null; r.y = 0; r.mood = 'happy'; r.timer = 0;
+    r.targetFacing = this.facingCamera(r);
+    if (hello) this.say(r, hello, 4);
+    this.vel.set(0, 0);
+    this.zoomAnchor = null;
+    const dist = this.mobile ? 8.5 : 7.5;
+    this.fly = { from: this.target.clone(), to: new THREE.Vector3(r.pos.x, 0, r.pos.y), d0: this.dist, d1: dist, t: 0, dur: Math.min(1.6, 0.6 + this.target.distanceTo(new THREE.Vector3(r.pos.x, 0, r.pos.y)) * 0.05) };
+  }
+  get focused(): number | null { return this.focus; }
+
+  /** A little wave / happy hop from a resident (reactions during a conversation). */
+  react(i: number, how: 'wave' | 'hop' | 'cheer'): void {
+    const r = this.residents[i];
+    if (!r) return;
+    if (how === 'hop' || how === 'cheer') { r.mode = this.focus === i ? 'greet' : 'hop'; r.hop = 0; r.mood = 'happy'; r.phase = 0; }
+    r.wave = how === 'wave' || how === 'cheer' ? 1.2 : r.wave;
+  }
+
+  /** A portrait of a resident (front view, PNG data URL, cached): the picture on its conversation card. */
+  portrait(i: number): string {
+    const r = this.residents[i];
+    if (!r) return '';
+    const key = `fuzzy:${r.skin}:${i % 14}`;
+    const hit = this.thumbs.get(key);
+    if (hit) return hit;
+    const clone = r.model.group.clone();
+    clone.position.set(0, 0, 0); clone.rotation.set(0, 0, 0); clone.scale.setScalar(1);
+    clone.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = false; });
+    clone.children.forEach((c) => { if (c instanceof THREE.Mesh && c.geometry === FOOT) c.visible = false; });
+    return this.snap(clone, key, THREE.MathUtils.degToRad(80), 0.25, 0.72);
+  }
+
   private facingCamera(r: Resident): number {
     const d = this.camera.position.clone().sub(r.model.group.position);
     return Math.atan2(d.x, d.z);
@@ -1049,6 +1117,10 @@ export class LandView {
       if (f.t >= f.dur) { this.fly = null; f.done?.(); }
     } else {
       const d0 = this.dist;
+      // keeping a Fuzzy company: drift after it (it mostly stands still, but it can shuffle)
+      const fr = this.focus !== null ? this.residents[this.focus] : null;
+      if (fr) this.target.lerp(new THREE.Vector3(fr.pos.x, 0, fr.pos.y), Math.min(1, dt * 3));
+      else if (this.focus !== null) this.focus = null;
       this.dist += (this.zoomGoal - this.dist) * Math.min(1, dt * 10);
       // keep the point under the cursor in place while zooming
       if (this.zoomAnchor && d0 > 0) this.target.lerp(this.zoomAnchor, 1 - this.dist / d0);
@@ -1266,6 +1338,14 @@ export class LandView {
       const br = Math.sin(r.phase * 5);
       sy = 1 + br * 0.04; sx = 1 - br * 0.02;
       if (r.timer <= 0) { r.mode = 'idle'; r.mood = 'normal'; r.timer = 2 + Math.random() * 3; }
+    } else if (r.mode === 'greet') {
+      // talking to you: face the camera, a happy little bounce and a wave now and then
+      r.targetFacing = this.facingCamera(r);
+      const br = Math.sin(r.phase * 4.2);
+      sy = 1 + br * 0.05; sx = 1 - br * 0.025;
+      bob = Math.max(0, Math.sin(r.phase * 4.2)) * 0.05;
+      if (r.wave <= 0 && Math.random() < dt * 0.25) r.wave = 1.2;
+      if (r.hop < 0.55) { r.hop += dt; const k = r.hop / 0.55; bob += Math.sin(Math.min(1, k) * Math.PI) * 0.3; sy *= k < 0.15 ? 1 - k : k > 0.9 ? 0.9 : 1.05; sx = 2 - sy; }
     } else if (r.mode === 'hop') {
       r.hop += dt;
       const k = r.hop / 0.55;
@@ -1293,6 +1373,7 @@ export class LandView {
       }
     }
     if (r.mode !== 'idle') m.body.rotation.z *= 0.9;
+    if (r.wave > 0) { r.wave -= dt; m.body.rotation.z = Math.sin(r.wave * 18) * 0.22 * Math.min(1, r.wave); }
     // turn smoothly towards where we're going / looking
     let df = r.targetFacing - r.facing;
     df = Math.atan2(Math.sin(df), Math.cos(df));

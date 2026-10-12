@@ -185,6 +185,53 @@ function shimmer(): void {
   });
 }
 
+/** Boat-race sounds: countdown beeps, the GO, gates, laps, bumps, splashes and the finish fanfare. */
+export const race = {
+  count: () => tone(660, 0.12, 'square', 0.07),
+  go: () => { tone(880, 0.18, 'square', 0.09); tone(1320, 0.42, 'square', 0.07, 0, 0.12); },
+  gate: () => { tone(1040, 0.1, 'sine', 0.09, 260); tone(1560, 0.14, 'sine', 0.06, 0, 0.06); },
+  lap: () => { [660, 880, 1100].forEach((f, i) => tone(f, 0.15, 'triangle', 0.1, 0, i * 0.08)); },
+  bump: () => { noise(0.22, 320, 900, 0.14); tone(140, 0.16, 'triangle', 0.08, -60); },
+  splash: () => noise(0.5, 1400, 260, 0.12),
+  finish: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.28, 'triangle', 0.12, 0, i * 0.09)); },
+  wrong: () => tone(220, 0.2, 'square', 0.05, -40),
+};
+
+/** A running boat engine: a soft purr that rises with speed. Call `set()` every frame and `stop()` when the race ends. */
+export function engine(): { set(speed: number, throttle: number): void; stop(): void } {
+  const a = ctx();
+  if (!a) return { set() { /* no audio */ }, stop() { /* no audio */ } };
+  const g = a.createGain();
+  g.gain.value = 0;
+  const lp = a.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.7;
+  const o1 = a.createOscillator(), o2 = a.createOscillator();
+  o1.type = 'sawtooth'; o2.type = 'triangle';
+  o1.frequency.value = 70; o2.frequency.value = 35;
+  const g2 = a.createGain(); g2.gain.value = 0.5;
+  o1.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(a.destination);
+  o1.start(); o2.start();
+  let stopped = false;
+  return {
+    set(speed, throttle) {
+      if (stopped) return;
+      const t = a.currentTime;
+      const f = 62 + speed * 8.5 + throttle * 12;
+      o1.frequency.setTargetAtTime(f, t, 0.08);
+      o2.frequency.setTargetAtTime(f / 2, t, 0.08);
+      lp.frequency.setTargetAtTime(380 + speed * 60, t, 0.1);
+      g.gain.setTargetAtTime(0.02 + throttle * 0.035 + Math.min(1, speed / 14) * 0.03, t, 0.1);
+    },
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      const t = a.currentTime;
+      g.gain.setTargetAtTime(0.0001, t, 0.15);
+      setTimeout(() => { try { o1.stop(); o2.stop(); o1.disconnect(); o2.disconnect(); g.disconnect(); } catch { /* already gone */ } }, 600);
+    },
+  };
+}
+
 export const sfx = {
   giggle,
   twinkle,

@@ -6,6 +6,9 @@ import type { Screen } from '../app';
 import { openShop } from '../shop';
 import * as L from '../../land/rules';
 import * as E from '../../land/events';
+import * as A from '../../land/adventures';
+import { conversation, dailyPill, adventuresBody, resultsScreen } from '../landAdventure';
+import { api, cloudEnabled } from '../../core/api';
 import type { LandView, Pick } from '../../land/view3d';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
@@ -19,7 +22,7 @@ import { landIcon, type LandIcon } from '../landIcons';
 import { TutorialManager, type Reward } from '../../land/tutorial';
 import { mountTutorial, type TutTarget } from '../landTutorial';
 
-type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' } | { kind: 'events'; tab: string };
+type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' } | { kind: 'events'; tab: string } | { kind: 'adventures' };
 
 /** The clock events run on (in development a test can set `fz.dev.now` to any date to see a holiday). */
 const now = (): number => { if (import.meta.env.DEV) { const v = Number(localStorage.getItem('fz.dev.now')); if (v) return v; } return Date.now(); };
@@ -192,6 +195,7 @@ export function landScreen(): Screen {
         h('div', { class: 'land-lvl', title: `${s.xp} / ${need} XP to level ${s.level + 1}` },
           h('span', { class: 'land-lvl-n', style: `--p:${pct}%` }, h('b', null, String(s.level))),
           h('div', { class: 'land-lvl-t' }, h('b', null, 'Fuzzies Land'), h('div', { class: 'land-xp' }, h('div', { style: `width:${pct}%` }), h('small', null, `${s.xp} / ${need}`))))),
+      daily.el,
       h('div', { class: 'land-hud-r' },
         cap(landIcon('coin', 30), 'coins', s.coins, 'Coins'),
         cap(landIcon('pop', 30), 'pop', pop, 'Fuzzies living here'),
@@ -258,6 +262,7 @@ export function landScreen(): Screen {
 
   // ---------- panels ----------
   function openPanel(p: Panel): void {
+    if (talk) endTalk();
     if (placing) cancelPlacing();
     if (p && selMode) exitSelect();
     if (p) document.querySelector('.land-away')?.remove(); // one card at a time
@@ -277,6 +282,10 @@ export function landScreen(): Screen {
     if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Tap something, then choose where it goes', landIcon('hammer', 34)), shopBody(panel.tab));
     else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Fuzzies ask for goods — deliver for coins & XP', landIcon('crate', 34)), ordersBody());
     else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', `${L.barnUsed(s)} / ${L.barnCap(s.level)} spaces used`, landIcon('barn', 34)), barnBody());
+    else if (panel.kind === 'adventures') {
+      const m = A.mission(s, now());
+      sheet.replaceChildren(head('Adventures', `A new mission every day · resets in ${A.countdown(m.resetsIn)}`, landIcon('compass', 34)), adventuresBody(s, now(), hostName(), () => { openPanel(null); startAdventure(m.adventure); }, () => { openPanel(null); findHost(); }));
+    }
     else if (panel.kind === 'events') {
       const tab = panel.tab, live = E.activeEvents(now()), ev = live.find((e) => e.key === tab) ?? live[0], mine = tab === 'mine' || !ev;
       sheet.replaceChildren(head(mine ? 'My collection' : ev.holiday.name, mine ? 'Everything you’ve collected, yours forever' : `${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left · collect, earn and decorate`, landIcon('festival', 34)), eventsBody(tab));
@@ -1346,9 +1355,137 @@ export function landScreen(): Screen {
     if ((!p || p.kind === 'ground') && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) { view.zoom(0.65, e.clientX, e.clientY); lastTap.t = 0; tut.emit('zoom'); return; }
     lastTap.t = now; lastTap.x = e.clientX; lastTap.y = e.clientY;
     if (!p || p.kind === 'ground') { openPanel(null); return; }
-    if (p.kind === 'resident') { view.poke(p.index); try { sfx.giggle(); } catch { /* */ } return; }
+    if (p.kind === 'resident') { talkTo(p.index); return; }
     tapBuilding(p.id);
   }
+
+  // ---------- Fuzzies Adventures: talk to a Fuzzy, today's mission, mini-games ----------
+  let talk: { index: number; el: HTMLElement; destroy: () => void } | null = null;
+  let playing = false; // a mini-game is on screen
+  const hostIndex = () => A.hostIndex(A.featured(now()), view?.residentCount ?? 2);
+  const hostName = () => view?.residentInfo(hostIndex())?.name ?? A.character(hostIndex()).name;
+  /** Tap a Fuzzy: the camera glides in, it turns to you and says hello, and the conversation card opens. */
+  function talkTo(index: number): void {
+    if (!view || playing) return;
+    const info = view.residentInfo(index);
+    if (!info || !info.available) { view.poke(index); return; }
+    if (placing) cancelPlacing();
+    if (selMode) exitSelect();
+    if (panel) { panel = null; sheet.hidden = true; }
+    document.querySelector('.land-away')?.remove();
+    talk?.destroy();
+    const m = A.mission(s, now());
+    const isHost = index === hostIndex();
+    const c = A.character(index);
+    view.focusResident(index, c.hello[Math.floor(Math.random() * c.hello.length)].split(' ').slice(0, 3).join(' ') + '…');
+    try { sfx.giggle(); } catch { /* no sound */ }
+    const card = conversation({
+      index, name: info.name, portrait: safePortrait(index), mission: m, isHost, hostName: hostName(),
+      onStart: () => { const adv = m.adventure; endTalk(); startAdventure(adv); },
+      onLater: () => { view?.react(index, 'wave'); endTalk(); },
+      onFindHost: () => { endTalk(); findHost(); },
+      onChat: () => { view?.react(index, Math.random() < 0.5 ? 'hop' : 'wave'); },
+      onClose: () => endTalk(),
+    });
+    stage.append(card.el);
+    stage.classList.add('talking');
+    talk = { index, el: card.el, destroy: card.destroy };
+    view.react(index, 'wave');
+    tut.emit('continue');
+  }
+  function safePortrait(index: number): string { try { return view?.portrait(index) ?? ''; } catch { return ''; } }
+  function endTalk(): void {
+    if (!talk) return;
+    talk.destroy();
+    talk = null;
+    stage.classList.remove('talking');
+    view?.focusResident(null);
+  }
+  /** Fly to the Fuzzy who has today's adventure and start talking. */
+  function findHost(): void {
+    const i = hostIndex();
+    if (!view) return;
+    const info = view.residentInfo(i);
+    if (!info) return;
+    if (!info.available) { toast(`${info.name} is indoors — try again in a moment.`, 'info'); return; }
+    talkTo(i);
+  }
+  const daily = dailyPill(() => { if (panel?.kind === 'adventures') openPanel(null); else openPanel({ kind: 'adventures' }); });
+  function paintDaily(): void { daily.update(A.mission(s, now()), hostName()); }
+
+  /** Leave the town for a mini-game (the town keeps running its clocks; the 3D view pauses to give the game the GPU). */
+  function startAdventure(adv: A.Adventure): void {
+    if (playing || !view) return;
+    if (!adv.playable) { toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); return; }
+    playing = true;
+    endTalk();
+    openPanel(null);
+    save();
+    const racers = Array.from({ length: Math.min(view.residentCount, 3) }, (_, i) => view!.residentInfo(i)!).filter(Boolean);
+    const you = { name: accounts.current?.name?.split(' ')[0] || 'You', skin: ['#ff86bb', '#b8235f'] as [string, string] };
+    const t0 = Date.now();
+    void import('../../land/raceView').then(({ runRace }) => {
+      view?.stop();
+      music.stop();
+      runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound: accounts.current?.settings.sound !== false, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
+        onFinish: (res) => finishAdventure(adv, res, t0),
+        onQuit: () => backToTown(),
+      });
+    }).catch((e) => { console.error(e); playing = false; view?.start(); toast('The adventure couldn’t load — please try again.', 'bad'); });
+  }
+  function backToTown(): void {
+    playing = false;
+    stage.querySelector('.adv-results')?.remove();
+    view?.start();
+    if (accounts.current?.settings.music) music.start();
+    paintDaily();
+    renderHud();
+  }
+  /** A finished mini-game: record it, pay the reward once per day (cloud accounts: only after the server agrees), show the results. */
+  function finishAdventure(adv: A.Adventure, res: { place: number; timeMs: number; order: { name: string; place: number; you: boolean; index: number }[] }, startedAt: number): void {
+    const cloud = !!accounts.current?.cloud && cloudEnabled;
+    let payout: A.Payout | null = null, pending = false;
+    const show = () => {
+      const screen = resultsScreen({
+        adv, place: res.place, timeMs: res.timeMs, payout, pending,
+        order: res.order.map((o) => ({ name: o.name, place: o.place, you: o.you, portrait: o.you ? '' : safePortrait(o.index) })),
+        onAgain: () => { screen.remove(); playing = false; startAdventure(adv); },
+        onBack: () => { screen.remove(); backToTown(); },
+      });
+      stage.append(screen);
+      try { if (res.place === 1) sfx.gold(); else sfx.home(); } catch { /* */ }
+    };
+    try {
+      payout = A.finish(s, { id: adv.id, place: res.place, timeMs: res.timeMs }, now(), !cloud);
+    } catch (e) { toast((e as Error).message, 'bad'); backToTown(); return; }
+    if (!payout.practice && cloud) {
+      // the server decides whether today's reward was already collected (a refresh can't claim twice)
+      const day = A.adventures(s, now()).day;
+      api<{ ok: boolean; coins: number; xp: number }>('data', 'adventure.claim', { day, id: adv.id, place: res.place }).then((r) => {
+        if (r.ok) { const p = A.payout(s, r.coins, r.xp); payout = { ...payout!, coins: r.coins, xp: r.xp, levelUps: p.levelUps }; }
+        else payout = { ...payout!, practice: true, coins: 0, xp: 0 };
+        save(); show();
+      }).catch(() => {
+        // offline: remember it and try again next time the town opens
+        A.adventures(s, now()).pending.push(`${day}:${adv.id}:${res.place}`);
+        pending = true; save(); show();
+      });
+    } else { save(); show(); }
+    void startedAt;
+  }
+  /** Rewards earned offline: ask the server again (once per town visit). */
+  function retryPending(): void {
+    const a = A.adventures(s, now());
+    if (!a.pending.length || !accounts.current?.cloud || !cloudEnabled) return;
+    const list = a.pending.splice(0);
+    for (const key of list) {
+      const [day, id, place] = key.split(':');
+      api<{ ok: boolean; coins: number; xp: number }>('data', 'adventure.claim', { day, id, place: Number(place) }).then((r) => {
+        if (r.ok) { A.payout(s, r.coins, r.xp); toast(`+${r.coins} coins from your ${A.adventure(id)?.short ?? 'adventure'} — welcome back!`, 'fuzzy'); save(); }
+      }).catch(() => { A.adventures(s, now()).pending.push(key); save(); });
+    }
+  }
+  wrap.addEventListener('pointerdown', (e) => { if (talk && !(e.target as HTMLElement).closest('.land-talk')) { /* a tap elsewhere closes the chat; onUp decides what was tapped */ } });
   wrap.addEventListener('pointerdown', onDown);
   wrap.addEventListener('pointermove', onMove);
   wrap.addEventListener('pointerup', onUp);
@@ -1382,6 +1519,7 @@ export function landScreen(): Screen {
       if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); redo(); return; }
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (k === 'escape' && talk) { e.preventDefault(); endTalk(); return; }
     if (selMode && !placing) {
       if (k === 'escape') { e.preventDefault(); if (menuEl) closeMenu(); else if (boxEl) clearBox(); else if (gmove) cancelGroup(); else if (!drawer.hidden) closeDrawer(); else if (sel.size) { sel.clear(); paintSel(); } else saveLayout(); return; }
       if (k === 'enter' && gmove) { e.preventDefault(); confirmGroup(); return; }
@@ -1581,6 +1719,7 @@ export function landScreen(): Screen {
   const sideToggle = h('button', { class: 'land-side-toggle', type: 'button' }, landIcon('chevRight', 18));
   const sideBody = h('div', { class: 'land-side-body' }, ...[
     musicBtn,
+    round(landIcon('compass', 30), 'Adventures — today’s mission', () => (panel?.kind === 'adventures' ? openPanel(null) : openPanel({ kind: 'adventures' })), 'land-adv-btn'),
     round(landIcon('edit', 30), 'Edit town — move, store & rearrange', () => (selMode ? saveLayout() : enterSelect()), 'land-select'),
     round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
@@ -1611,11 +1750,13 @@ export function landScreen(): Screen {
       view = new LandView(canvas, overlay, isTouch(), phrase);
       view.sync(s);
       applySeason();
+      paintDaily();
+      retryPending();
       try {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
       } catch { /* first visit */ }
-      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }) }; // for tests
+      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), adv: A, talkTo, endTalk, findHost, startAdventure, hostIndex, talking: () => !!talk, playing: () => playing }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
       setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
@@ -1629,8 +1770,10 @@ export function landScreen(): Screen {
   }
 
   // timers in open panels and HUD badges tick every second; crops keep growing while the view shows them
+  let dailyAt = 0;
   const tick = setInterval(() => {
     const now = Date.now();
+    if (now - dailyAt > 30_000) { dailyAt = now; paintDaily(); }
     let crossed = false;
     for (const el of sheet.querySelectorAll<HTMLElement>('[data-end]')) {
       const left = Number(el.dataset.end) - now;
@@ -1663,6 +1806,6 @@ export function landScreen(): Screen {
 
   return {
     el: h('div', { class: 'page land' }, stage),
-    destroy: () => { closeMenu(); tutUi?.destroy(); removeEventListener('keydown', onKeyDown); removeEventListener('keyup', onKeyUp); removeEventListener('blur', onBlur); cancelAnimationFrame(quickRaf); cancelAnimationFrame(edgeRaf); music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
+    destroy: () => { closeMenu(); endTalk(); tutUi?.destroy(); removeEventListener('keydown', onKeyDown); removeEventListener('keyup', onKeyUp); removeEventListener('blur', onBlur); cancelAnimationFrame(quickRaf); cancelAnimationFrame(edgeRaf); music.stop(); remember(); save(); alive = false; clearInterval(tick); removeEventListener('pagehide', onHide); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); off(); view?.destroy(); },
   };
 }

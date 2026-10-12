@@ -42,6 +42,8 @@ export interface Placed {
   doneAt?: number;
 }
 
+import { migrateAdventures, type AdvState } from './adventures';
+
 export interface Order { id: number; who: string; items: Record<string, number>; coins: number; xp: number; fuzzies: number; /** holiday orders (land/events.ts) */ event?: string; tokens?: number }
 
 export interface LandState {
@@ -64,6 +66,8 @@ export interface LandState {
   owned?: Record<string, number>;
   /** Seasonal events: tokens per event, challenge progress per event, claimed challenge ids. */
   events?: { tokens: Record<string, number>; progress: Record<string, Record<string, number>>; claimed: string[] };
+  /** Fuzzies Adventures: today's mission results, plays, bests, pending rewards (land/adventures.ts). */
+  adventures?: AdvState;
 }
 
 export const MAP = 30; // the whole island is MAP × MAP tiles; the buildable square grows with expansions
@@ -579,7 +583,8 @@ export function migrateLand(s: Partial<LandState> | undefined): LandState {
   const f = freshLand();
   const fix = (b: Placed) => ({ ...b, rot: ((b.rot ?? 0) & 3) as Rot });
   const out = { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn }, buildings: s.buildings.map(fix), storage: Array.isArray(s.storage) ? s.storage.map(fix) : [],
-    owned: { ...(s.owned ?? {}) }, events: { tokens: { ...(s.events?.tokens ?? {}) }, progress: { ...(s.events?.progress ?? {}) }, claimed: [...(s.events?.claimed ?? [])] } } as LandState;
+    owned: { ...(s.owned ?? {}) }, events: { tokens: { ...(s.events?.tokens ?? {}) }, progress: { ...(s.events?.progress ?? {}) }, claimed: [...(s.events?.claimed ?? [])] },
+    adventures: s.adventures ? migrateAdventures(s.adventures) : undefined } as LandState;
   if (!s.layout) { out.layout = undefined; tidyOldStarter(out); out.layout = 2; }
   return out;
 }

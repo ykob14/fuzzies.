@@ -9,6 +9,7 @@
  *   rows.put    { kind, row: { id, data, deleted, updated_at } } → { ok }
  *   kind = 'designs' | 'uploads'
  */
+import { adventure } from '../src/land/adventures.js';
 import { applyCredits } from './_lib/credits.js';
 import { guardBalance, type Guarded } from './_lib/balance.js';
 import { db, q } from './_lib/db.js';
@@ -31,6 +32,19 @@ export function POST(req: Request): Promise<Response> {
     const u = await requireUser(req);
     await db(); // connects and makes sure the tables exist
     switch (b.action) {
+      // Fuzzies Adventures: the reward for today's mission is granted once per adventure per day (the app pays only after this says ok)
+      case 'adventure.claim': {
+        const id = String(b.id ?? ''), day = String(b.day ?? ''), place = Math.round(Number(b.place));
+        const adv = adventure(id);
+        if (!adv || !adv.playable) throw new HttpError(400, 'That adventure doesn’t exist.');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isInteger(place) || place < 1 || place > 12) throw new HttpError(400, 'Bad result.');
+        // the day is the player's local calendar day: allow a day either side of the server's clock, nothing older
+        const diff = Math.abs(Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10)) - Date.now()) / 86_400_000;
+        if (!Number.isFinite(diff) || diff > 1.5) throw new HttpError(400, 'That day’s mission has expired.');
+        const coins = adv.coins[Math.min(place, adv.coins.length) - 1];
+        const r = await q('insert into fz_adventures (user_id, day, adventure, place, coins) values ($1, $2, $3, $4, $5) on conflict (user_id, day, adventure) do nothing', [u.id, day, id, place, coins]);
+        return { ok: (r.rowCount ?? 0) > 0, coins, xp: adv.xp };
+      }
       case 'profile.get': {
         await applyCredits(u.id); // Fuzzies bought or gifted while this account's profile wasn't saved yet
         const { rows } = await q('select data, updated_at::float8 as updated_at from fz_profiles where user_id = $1', [u.id]);
