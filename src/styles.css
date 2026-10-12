@@ -2174,3 +2174,110 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
   .land-dock { gap: 3px; padding: 6px 5px 6px 6px; }
   .land-dock-tools { gap: 5px; }
 }
+
+/* ===================== Fuzzy assistant (the blue helper in the corner) ===================== */
+.fz-assist { position: fixed; right: 16px; bottom: calc(16px + var(--safe-b, 0px)); z-index: 90; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
+.fz-assist > * { pointer-events: auto; }
+.fz-assist[hidden] { display: none; }
+.fzc-launch { position: relative; width: 72px; height: 72px; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%; -webkit-tap-highlight-color: transparent; }
+.fzc-launch::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md), 0 0 0 1px var(--border); transition: transform .25s var(--ease); }
+.fzc-launch:hover::before { transform: scale(1.06); }
+.fzc-launch:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.fz-assist.open .fzc-launch::before { background: var(--accent); }
+.fzc-launch .fza { position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%); }
+.fzc-hello { border: 0; background: var(--surface); color: var(--text); font: 600 13px/1.2 var(--ui); padding: 9px 13px; border-radius: 16px 16px 4px 16px; box-shadow: var(--shadow-md), 0 0 0 1px var(--border); cursor: pointer; animation: fzcPop .5s var(--ease) both; }
+.fzc-hello b { color: var(--accent); }
+.fzc-hello[hidden] { display: none; }
+@keyframes fzcPop { from { opacity: 0; transform: translateY(8px) scale(.9); } }
+
+/* the blue Fuzzy: a photo of the 3D model that breathes on a soft shadow; CSS handles the moves */
+.fza { --s: 64px; position: relative; width: var(--s); height: var(--s); flex: none; }
+.fza-body { position: absolute; inset: 0; transform-origin: 50% 92%; animation: fzaBreathe 3.2s ease-in-out infinite; }
+.fza-img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
+.fza.real .fza-img { transform: scale(1.18); }
+.fza-shadow { position: absolute; left: 18%; right: 18%; bottom: -4%; height: 14%; border-radius: 50%; background: radial-gradient(closest-side, rgba(20, 40, 70, .35), rgba(20, 40, 70, 0)); animation: fzaShadow 3.2s ease-in-out infinite; }
+@keyframes fzaBreathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.03, .97) translateY(1.5%); } }
+@keyframes fzaShadow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.fza.wave .fza-body { animation: fzaWave 1s ease-in-out 1; }
+@keyframes fzaWave { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-12deg) translateY(-6%); } 45% { transform: rotate(10deg) translateY(-8%); } 70% { transform: rotate(-8deg) translateY(-5%); } }
+.fza.cheer .fza-body { animation: fzaCheer .8s cubic-bezier(.3, .7, .4, 1) 1; }
+@keyframes fzaCheer { 0%, 100% { transform: translateY(0) scale(1); } 30% { transform: translateY(-26%) scale(.96, 1.06); } 60% { transform: translateY(0) scale(1.06, .92); } 80% { transform: translateY(-8%) scale(1); } }
+.fza.talking .fza-body { animation: fzaTalk .5s ease-in-out infinite; }
+@keyframes fzaTalk { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-4%) rotate(2deg); } }
+.fza.thinking .fza-body { animation: fzaThink 1.6s ease-in-out infinite; }
+@keyframes fzaThink { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg) translateY(-2%); } }
+.fza.listening::after { content: ''; position: absolute; inset: -6%; border-radius: 50%; border: 3px solid var(--accent); animation: fzaPulse 1.1s ease-out infinite; }
+@keyframes fzaPulse { from { transform: scale(.92); opacity: .9; } to { transform: scale(1.25); opacity: 0; } }
+.fza-spark { position: absolute; left: 50%; top: 42%; width: 12%; aspect-ratio: 1; background: #fff6b0; clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); animation: mBurst .85s cubic-bezier(.2, .8, .3, 1) forwards; pointer-events: none; }
+
+/* the chat window */
+.fzc-panel { width: min(380px, calc(100vw - 32px)); height: min(600px, calc(100dvh - 120px - var(--safe-b, 0px))); display: flex; flex-direction: column; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-lg); overflow: hidden; transform-origin: 100% 100%; animation: fzcIn .22s var(--ease) both; }
+.fzc-panel[hidden] { display: none; }
+.fz-assist:not(.open) .fzc-panel { animation: fzcOut .2s var(--ease) both; }
+@keyframes fzcIn { from { opacity: 0; transform: translateY(12px) scale(.96); } }
+@keyframes fzcOut { to { opacity: 0; transform: translateY(12px) scale(.96); } }
+.fzc-head { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.fzc-who { flex: 1; min-width: 0; display: grid; line-height: 1.15; }
+.fzc-who b { font-family: var(--brand); font-size: 17px; }
+.fzc-status { color: var(--muted); font-size: 12px; }
+.fzc-hb { display: flex; gap: 2px; }
+.fzc-ib { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: background .15s, color .15s; }
+.fzc-ib:hover { background: var(--hover); color: var(--text); }
+.fzc-ib.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.fzc-log { flex: 1; overflow-y: auto; padding: 14px 12px 6px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; scroll-behavior: smooth; }
+.fzc-msg { display: flex; gap: 8px; align-items: flex-end; max-width: 92%; animation: fzcMsg .25s var(--ease) both; }
+@keyframes fzcMsg { from { opacity: 0; transform: translateY(6px); } }
+.fzc-msg.is-user { align-self: flex-end; flex-direction: row-reverse; }
+.fzc-ava { width: 28px; height: 28px; flex: none; border-radius: 50%; background: color-mix(in srgb, #9ad8ff 30%, var(--surface)); overflow: hidden; display: grid; place-items: center; }
+.fzc-ava img { width: 26px; height: 26px; display: block; }
+.fzc-ava img.real { transform: scale(1.2); }
+.fzc-bubble { padding: 9px 12px; border-radius: 16px 16px 16px 5px; background: var(--bg); font-size: 14.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.is-user .fzc-bubble { background: var(--accent); color: var(--on-accent); border-radius: 16px 16px 5px 16px; }
+.fzc-bubble p { margin: 0; }
+.fzc-md p + p, .fzc-md p + ul, .fzc-md p + ol, .fzc-md ul + p, .fzc-md ol + p { margin-top: 6px; }
+.fzc-md ul, .fzc-md ol { margin: 0; padding-left: 18px; }
+.fzc-md li + li { margin-top: 3px; }
+.fzc-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); font-weight: 700; text-decoration: none; }
+.fzc-link:hover { text-decoration: underline; }
+.fzc-tag { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 4px; }
+.k-note.is-assistant .fzc-bubble { background: color-mix(in srgb, #9ad8ff 18%, var(--surface)); }
+.fzc-typing::after { content: '▍'; color: var(--accent); animation: fzcCaret .8s steps(2) infinite; }
+@keyframes fzcCaret { 50% { opacity: 0; } }
+.fzc-dots { display: flex; gap: 4px; padding: 12px 14px; }
+.fzc-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: fzcDot 1.1s ease-in-out infinite; }
+.fzc-dots i:nth-child(2) { animation-delay: .18s; } .fzc-dots i:nth-child(3) { animation-delay: .36s; }
+@keyframes fzcDot { 0%, 100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-4px); opacity: 1; } }
+.fzc-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 6px 12px 4px; }
+.fzc-chips[hidden] { display: none; }
+.fzc-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 600 12.5px/1.2 var(--ui); padding: 7px 11px; border-radius: 999px; cursor: pointer; transition: border-color .15s, background .15s; }
+.fzc-chip:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.fzc-row { display: flex; align-items: flex-end; gap: 6px; padding: 8px 10px 8px 12px; border-top: 1px solid var(--border); }
+.fzc-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 14px; padding: 9px 12px; font: 500 14.5px/1.35 var(--ui); color: var(--text); background: var(--bg); max-height: 120px; }
+.fzc-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.fzc-mic.on { color: var(--accent); animation: fzcMic 1s ease-in-out infinite; }
+@keyframes fzcMic { 50% { background: color-mix(in srgb, var(--accent) 16%, transparent); } }
+.fzc-send { width: 38px; height: 38px; flex: none; border: 0; border-radius: 12px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; cursor: pointer; transition: transform .15s var(--ease), opacity .15s; }
+.fzc-send:hover { transform: scale(1.05); }
+.fzc-send:disabled { opacity: .5; cursor: default; transform: none; }
+.fzc-foot { padding: 0 14px 8px; text-align: center; }
+.fzc-foot small { color: var(--muted); font-size: 11px; }
+
+/* where it sits on each screen, so it never covers buttons */
+html[data-screen='land'] .fz-assist { right: auto; left: 14px; align-items: flex-start; }
+html[data-screen='land'] .fzc-panel { transform-origin: 0 100%; }
+html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); } /* above the editor's zoom control */
+@media (max-width: 760px) {
+  .fz-assist { right: 10px; bottom: calc(76px + var(--safe-b, 0px)); }
+  html[data-screen='welcome'] .fz-assist, html[data-screen='login'] .fz-assist, html[data-screen='signup'] .fz-assist, html[data-screen='s'] .fz-assist, html[data-screen='reset'] .fz-assist { bottom: calc(14px + var(--safe-b, 0px)); }
+  html[data-screen='land'] .fz-assist { left: 8px; bottom: calc(100px + var(--safe-b, 0px)); }
+  html[data-screen='edit'] .fz-assist { bottom: calc(150px + var(--safe-b, 0px)); right: 8px; }
+  .fzc-launch { width: 60px; height: 60px; }
+  .fzc-launch .fza { --s: 52px; }
+  .fz-assist.open { left: 0; right: 0; bottom: 0 !important; align-items: stretch; }
+  .fz-assist.open .fzc-launch, .fz-assist.open .fzc-hello { display: none; }
+  .fz-assist.open .fzc-panel { width: 100%; height: min(78dvh, 640px); border-radius: 22px 22px 0 0; border-bottom: 0; padding-bottom: var(--safe-b, 0px); transform-origin: 50% 100%; }
+}
+@media (min-width: 761px) and (max-width: 960px) {
+  html[data-screen='edit'] .fz-assist { bottom: calc(70px + var(--safe-b, 0px)); }
+}
+:root[data-motion='reduce'] .fza-body, :root[data-motion='reduce'] .fza-shadow { animation: none; }

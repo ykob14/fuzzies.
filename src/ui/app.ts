@@ -23,6 +23,8 @@ import { sharedScreen, remixShared, REMIX_KEY } from './screens/shared';
 import { createDialog } from './create';
 import { startAchievements } from '../core/missions';
 import { mascot, upgradeMascots } from './mascot';
+import { mountAssistant } from './assistant';
+import { assistant } from '../core/assistant';
 
 export interface Screen { el: HTMLElement; destroy?: () => void }
 
@@ -106,6 +108,7 @@ export async function signOut(): Promise<void> {
 export function route(): void {
   const hash = location.hash.replace(/^#\/?/, '').split('?')[0] || 'home'; // '?…' carries screen state (e.g. template filters)
   const [name, arg] = hash.split('/');
+  assistant.setScreen(!accounts.current && !['reset', 's'].includes(name) ? (name === 'login' || name === 'signup' ? name : 'welcome') : name);
   current?.destroy?.();
   current = null;
   document.querySelector('.popmenu')?.remove();
@@ -177,6 +180,7 @@ export function startApp(): void {
   upgradeMascots();
   addEventListener('hashchange', route);
   route();
+  mountAssistant(); // the Fuzzy helper, on every screen
   if (cloud.enabled) {
     cloud.init((why) => { toast(why, 'info', 3500); location.hash = '#/login'; route(); });
     // payments sent earlier that still need confirming, then any gift waiting to be opened

@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-13 · by Claude Code · `main` = branch `claude/fuzzies-design-app-jwv4tu` (Town Edit Mode + Storage, wallet log-in v2 and the seasonal events & collectibles system)_
+_Last updated: 2026-10-13 · by Claude Code · `main` = `da8b353` (Town Edit Mode + Storage, wallet log-in v2, seasonal events); branch `claude/fuzzies-design-app-jwv4tu` adds the **website-wide Fuzzy AI assistant (Phase 1)** — not live yet, ask the owner_
 
 ---
 
@@ -24,7 +24,7 @@ keeps people coming back (the mascot, the game, missions).
 | | |
 |---|---|
 | **Current state** | All features below are built, type-check, build cleanly and were browser-tested, and are **live**: crypto wallets (link MetaMask/Coinbase/Trust/Crypto.com/Robinhood/OKX/Phantom/any Ethereum wallet, log in with it; WalletConnect QR + smart wallets — `VITE_WALLETCONNECT_PROJECT_ID` must be in Vercel for Production + Preview), crypto payments to the owner's built-in addresses (packs, $0.50 one-time wallet activation, 100-Fuzzies gift box), card / Apple Pay through the buyer's wallet app, Fuzzies Land Phase 1 controls. First real purchase on each network still to be done by the owner. |
-| **In progress** | **Fuzzies Land tutorial/help/economy spec (5 phases): Phase 1 (tutorial + Pip guidance, polished v2), multi-select group editing and **Town Edit Mode with temporary Storage** (Township-style) are done and live; Phase 2 (Help Center + contextual tips) is next** — the owner asked for phases in order, so check in first. The earlier controls spec: Phase 1 done, its Phase 2 not started. Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
+| **In progress** | **Fuzzy AI assistant — Phase 1 is on the branch** (blue Fuzzy in the corner of every screen, real Claude chat on the server with the site guide + the person's own account facts, built-in guide when AI is off, voice, minimize/mute/hide, Settings toggles). Needs `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` in Vercel (same keys as Draft with AI; optional `ASSIST_MODEL`). Phase 2 ideas below. **Fuzzies Land tutorial/help/economy spec (5 phases): Phase 1 (tutorial + Pip guidance, polished v2), multi-select group editing and **Town Edit Mode with temporary Storage** (Township-style) are done and live; Phase 2 (Help Center + contextual tips) is next** — the owner asked for phases in order, so check in first. The earlier controls spec: Phase 1 done, its Phase 2 not started. Nothing half-done in code. **Password-reset email is not working on the live site yet**: Resend answered 401 to the key pasted in Vercel (twice), so either the value got mangled when pasted or the redeploy hadn't happened. The app now names Resend's reason plus a safe key hint (`key re_…36`) in the error, and failed sends no longer count towards the 3-per-hour limit — ask the owner for the new `ref:` text. |
 | **Branches** | `main` = the branch (live; tutorial v2 + multi-select went live 2026-10-13, owner: "Yes u can put it live"; rollback point `c0493c6`) since the owner said "Put everything we worked on live … check for safety and fix any issues" (2026-10-13). **Rollback point:** `1965633` (before wallets/payments). Previously live: `1965633`. Earlier: the owner said to test again and put it live ("Done another test and post and add to GitHub … save everything everyplace") on 2026-10-13. Live now: Christmas, Hanukkah & Passover (60 templates), text effects & curved text, multicultural collections (9 art collections, themed template system, 175 templates in 71 topics, 6 new categories, multilingual search). **Rollback points:** `ae74508` (Halloween, previous live), `28b65cc`. Keep working on the branch and ask before the next merge. |
 | **Deploy** | Two Vercel projects (team `silver-swan-special`) both build `ykob14/fuzzies.` `main`: **`fuzzies.` → fuzzies-nine.vercel.app has the database (cloud accounts) — this is the real one**; `fuzzies.-ekp9` → fuzzies-ekp9.vercel.app has no database (on-device mode). The database is a Supabase Postgres (`supabase-fuchsia-tree`, provider-signed certificate — handled by the sslmode fallback). `RESEND_API_KEY` was added in Vercel by the owner (value rejected so far, see above). Claude's Vercel connector still gets 403 for this team scope; the Supabase connector works (read queries; a delete timed out). |
 
@@ -114,6 +114,7 @@ src/
     wallet.ts          browser wallets: EIP-6963 discovery (+ window.ethereum fallback), phone deep links, connect, personal_sign
     walletconnect.ts   WalletConnect (lazy SDK): QR on computers/tablets, wallet apps on phones; personal_sign-only session (pay mode: eth_sendTransaction + chain switch only), disconnect after
     pay.ts             crypto payments app side: config/quote/check, sendEvmPayment (switch to Base/Ethereum, exact transfer), pending-payment resume, gifts
+    assistant.ts       assistant state: screen context, chat history (per tab), prefs (fz.assistant), ask() → api/assist or the built-in guide
     appicon.ts         app icon colours; draws icon PNGs into a cache that public/sw.js serves
     sync.ts            offline queue + pull/push of profile, designs, uploads; status for the Profile "Sync" card
     merge.ts           three-way merge of two account copies (counters add, bests max, lists union)
@@ -137,6 +138,7 @@ src/
     export.ts / share.ts  PNG/JPG/PDF/.fuzzies export, share sheet, share links
     shapes.ts, qr.ts   shape paths; QR encoder (byte mode, level M, v1–10)
   content/             classic templates (28), art packs, sticker packs, fonts (Google Fonts), text styles
+    help.ts            THE SITE GUIDE for the Fuzzy assistant (topics per screen, keywords, example questions) + searchHelp(); the server reads it too
     library/           the template library (lazy chunk):
       taxonomy.json    DATA: categories › topics (keywords, palettes, starter texts). Add topics here — no code.
       layouts.ts       14 layout archetypes (split, badge, photo, ticket, matchup, editorial, burst, stack, collage,
@@ -175,6 +177,7 @@ src/
   ui/
     app.ts             shell (sidebar / top bar / phone tab bar) + hash router
     mascot.ts          the living mascot component (bounce, shadow, sparkles, wink, tap hop, tickle)
+    assistant.ts       the Fuzzy AI assistant: blue 3D Fuzzy launcher (blink/wink/talk/think/listen frames), chat panel, voice, mic, hide
     landIcons.ts       Fuzzies Land's own "sticker" icon set (coin, star, hammer, crate, barn, music, gate…)
     libthumbs.ts       lazy template previews (IntersectionObserver, one per frame, waits for fonts, cached)
     templateManager.ts "Manage templates" window (list, publish/unpublish, edit, delete, Draft with AI)
@@ -197,6 +200,8 @@ api/                   Vercel serverless functions (the backend)
   _lib/auth.ts         scrypt passwords, HMAC login tokens, JSON/error helpers
   pay.ts               pay.config/quote/check/history, gift.list/open
   _lib/pay.ts          prices (Coinbase+Kraken), quotes with unique amounts, on-chain checks (viem ×2 RPCs; Solana Pay ×2 RPCs), fulfil, gifts
+  assist.ts            the Fuzzy assistant: status + chat (Claude Messages API with _lib/guide.ts as system prompt, account facts from fz_profiles, fz_assist rate limits)
+  _lib/guide.ts        system prompt builder (rules + APP_FACTS + topics ordered for the screen) and suggestionsFor()
   _lib/credits.ts      applyCredits(): adds server-side Fuzzies to fz_profiles in one statement (sync merges them)
   _lib/wallet.ts       Sign-In with Ethereum: server-written message, signature recovery (@noble/curves + @noble/hashes), EIP-55, Origin check
 ```
@@ -328,6 +333,17 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   R turns (placing or the selected building, `turnInPlace`), Enter confirms, Escape cancels hold → placing → panel; handlers are
   removed in `destroy`. Mouse hover outlines buildings (`view.hover`) and shows a pointer. `view.nudge()` pans without glide
   (pinch midpoint, edge scroll), `view.stopGlide()` stops inertia. Phase 1 test: `land-p1.cjs` in the scratchpad pattern (26 checks).
+- **Fuzzy assistant:** mounted once in `startApp()` (`ui/assistant.ts` → `mountAssistant()`), placed per screen with CSS on
+  `html[data-screen=…]` (set by `assistant.setScreen()` in the router: bottom-left in Land, above the tab bar / zoom control on phones
+  and in the editor). **It only knows `src/content/help.ts`** — when a feature changes, change its topic there (the server sends the
+  topics for the current screen first; the client uses the same file for the no-AI "Quick help"). Server `api/assist.ts`: visitors
+  allowed (15 messages/hour/IP), accounts 40/hour, 12 turns × 1,200 chars, `max_tokens` 450, 25 s timeout, links in answers filtered to
+  `#/home|templates|…`, account facts read from `fz_profiles` (never from the browser; no email/password), 501 when
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` are missing → the app shows guide answers labelled "From the built-in guide · not AI".
+  Chats live in `sessionStorage fz.assistant.chat` (cleared on account change), prefs in `localStorage fz.assistant`
+  (`voice`, `hidden`, `seen`). Screens can add context with `assistant.setHints([...])`. Frames: `renderAssistantFrames()` in
+  `game/mascot3d.ts` (shared `studio()` with the brand mascot; blue `ASSIST_COLORS`). Tests: `assist/api-test.mjs` (36) and
+  `assist/browser.cjs` (54) in the scratchpad, with `assist/mockai.cjs` standing in for Anthropic (`ANTHROPIC_BASE_URL`).
 - **Template library:** new categories/topics = edit `content/library/taxonomy.json` only (each topic gets 4–5 templates built
   from different archetypes/formats/palettes; `generate: false` = menu only). New layouts = an `Archetype` in `layouts.ts`
   (`kinds` it suits, `also` topic ids, `fits(ev)` to refuse texts it can't show). Library template ids are `${topic}--${arch}`
@@ -478,12 +494,19 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
 | _(town editor + storage)_ | **Town Edit Mode with Township-style temporary Storage** (owner: premium town editing, multi-select, store/restore, undo, safe saving). Pencil button → edit mode (frame, tag, faint grid, two-group floating toolbar). **Store** selected pieces or everything / by kind (Houses, Workshops, Fields, Decor, Roads & paths) — whole pieces with crops, queues and construction timers, never sold; Town Hall and Gate stay. **Storage drawer** with category tabs, 3D pictures and ×counts; tap to place back one by one (keeps carrying the next of that kind) or **Restore all** (old spot if free, else nearest free; leftovers stay safe). **Cancel editing** restores the layout from before (kept on the device across a refresh — editing resumes automatically) and takes back coins from removals; **Save** commits. Undo/redo covers moves, turns, removals, store and restore; pieces plop into place. Tested: 20 rules checks (store/unstore/restoreAll/exactness/no duplicates/migration/300-piece speed), browser 31/31 on computer and 31/31 on phone (store, badge, drawer, place back ×2, undo/redo chain, Store everything with confirm, tabs, Restore all = identical town, crop kept, hall refuses, Cancel = old layout, refresh resumes, Save, ids unique, no errors), multi-select + smoke re-run. |
 | _(tutorial v2 + multi-select)_ | **Tutorial polish** (owner: premium, immersive, less words): one-line steps; welcome/finale scene (vignette, 3D Pip pops in and waves, one button, camera glides to the Town Hall); during steps a compact Pip + speech bubble beside the action (step label, live hint, tiny checklist, "⋯" menu: Hide tips / Skip step / Skip tutorial), warm glow ring + tap ripple instead of an arrow; on each step Pip cheers, sparkles pop where you acted and coins/stars fly to the counters (`mascotDo(el, 'wave' | 'hop' | 'cheer')` in `ui/mascot.ts`). **Select & move several**: select mode, tap / Shift-click / double-tap connected roads & fields / area select (drag or hold+drag), drag the whole group with green/red preview per piece, Put here / Cancel, Remove with confirm, Turn, undo/redo, saved. Tested: rules (15 checks: layout + crops kept, refused moves change nothing, undo exact, no duplicates, 60-piece check < 30 ms), browser: computer 18/18 (mouse, Shift-click, Esc, Delete flow), phone 16/16 (touch: tap, double-tap road, hold+drag area, drag group, Put here, undo/redo, remove+undo, reload). |
 
+| _(assistant)_ | **Website-wide Fuzzy AI assistant — Phase 1** (owner: the blue fluffy Fuzzy as the official helper for the whole site, real AI, context-aware, no fake answers, animated, optional voice, floating + chat panel, desktop + mobile, account-aware through the backend). `src/content/help.ts` = the site guide (22 topics, per-screen order, example questions). Server `api/assist.ts` + `api/_lib/guide.ts`: Claude (Anthropic Messages API, same keys as Draft with AI, optional `ASSIST_MODEL`) with the guide as its only knowledge, strict rules (never invent, never ask for secrets, says what it can't do), the person's own account facts read server-side (username, balance, counts, Land level — never email/password/payments), visitors get general help, rate limits (`fz_assist`), timeouts, calm error messages, 501 when not configured. App: blue 3D Fuzzy (new talking/thinking/listening expressions via a shared `studio()` renderer) in the corner of every screen incl. Land, auth and the editor; chat panel with greeting per screen, suggestion chips, thinking dots, typed-out answers while Fuzzy talks, bold/bullets/app links (links navigate; phones close the sheet), "From the built-in guide · not AI" answers when AI is off, voice replies (device voices pitched up + synthesised giggle for the hehes), microphone input (browser speech recognition), minimize, mute, ⋯ menu (Clear chat, Hide Fuzzy), Settings → Fuzzy helper (Show / Voice), first-visit "Ask me" label, Escape. Tested: 36 API checks (status, visitor/user context, facts from the server, bad token = visitor, link filter, history capping, limits 15/40, upstream 429/500/empty/timeout, 501 without keys) and 54 browser checks on computer, phone, Land and the editor (placement overlaps nothing, open/ask/answer/links, voice pref, minimize, clear, hide + Settings restore, 3D frames, error notes, guide mode). Vercel build OK. Branch only — ask the owner before `main`. |
+
 Design exploration (not code): a Claude Design canvas with three palette mockups —
 https://claude.ai/artifact/QTuketL61NYuYA21APjJn4 (private to the owner). The owner rejected all three as "too much"
 and chose a single consistent brand colour instead (see §3).
 
 ## 8. Known limitations / not verified
 
+- **Fuzzy assistant:** tested against a stand-in AI service (no internet here) — the first real conversations on the live site
+  need the owner's eyes. Voice uses whatever voices the device has (quality varies; iPhones need a tap before sound), and the
+  microphone needs Chrome/Safari speech recognition (Firefox has none → the button is hidden). The assistant knows the guide +
+  account facts only (no design contents, payments or wallet details) and chats aren't stored. Software-rendered test browsers
+  showed message fade-ins lagging in Land (CSS animations starve at 1 fps); not seen on a real device yet.
 - **Balance guard:** heavy players earning more than `DAILY_EARN_CAP` (2,000) Fuzzies in a day on their own are capped (raise it
   in Vercel if needed). Unlocks are still written by the app (cosmetic). 3D art needs WebGL (flat drawings otherwise) and is
   rendered once per visit (~0.5–1 s on phones; not cached across visits).
@@ -574,7 +597,11 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
-0. **Seasonal events — next:** artwork for the other holidays (Valentine's, Lunar New Year, Easter/Passover/Ramadan,
+0. **Fuzzy assistant — Phase 2 ideas:** richer context hints from screens (selected element in the editor, open panel in Land),
+   streaming answers, a few "do it for me" actions the person confirms (open a panel, switch a setting), a multilingual guide,
+   a server log of *counts* only to tune the guide, and a real-device voice pass. Owner must add `ANTHROPIC_API_KEY` +
+   `ANTHROPIC_MODEL` in Vercel first and OK the merge to `main`.
+   **Seasonal events — next:** artwork for the other holidays (Valentine's, Lunar New Year, Easter/Passover/Ramadan,
    Diwali, Summer…), 2027 sets, seasonal crops/orders with holiday goods, a server-side collectible ledger.
    **Fuzzies Land tutorial spec, Phase 2** (after the owner tries Phase 1): Help Center (Getting Started, Moving Around, Building
    and Decorating, Farming and Production, Orders, Earning Coins, Fuzzy Coin and Wallet, Saving, FAQ) with icons and small

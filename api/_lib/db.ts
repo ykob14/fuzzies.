@@ -180,6 +180,9 @@ create unique index if not exists fz_payments_seen_tx on fz_payments (seen_tx) w
 -- sign-ups per network address (flood guard)
 create table if not exists fz_signups (ip text not null, at timestamptz not null default now());
 create index if not exists fz_signups_idx on fz_signups (ip, at);
+-- Fuzzy assistant messages per account / network address (rate limits only; chats are never stored)
+create table if not exists fz_assist (key text not null, at timestamptz not null default now());
+create index if not exists fz_assist_idx on fz_assist (key, at);
 -- Once-per-wallet bookkeeping, kept even if the wallet is removed (only a hash of the address is stored).
 create table if not exists fz_wallet_rewards (
   address_hash text primary key,

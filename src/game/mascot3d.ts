@@ -11,7 +11,20 @@ import { furStrands } from './textures3d';
 export type Face = 'open' | 'wink' | 'blink' | 'giggle';
 export type Frames = Record<Face, string>;
 
-export async function renderMascotFrames(colors: [string, string] = ['#ff86bb', '#b8235f'], size = 320): Promise<Frames> {
+/** One expression: which eyes are shut, how wide the smile is, where the pupils look, head tilt/turn, how wide the eyes open. */
+interface Expression { eyes: 'open' | 'wink' | 'shut'; grin: [number, number]; tilt?: number; turn?: number; look?: [number, number]; wide?: number }
+const EXPRESSIONS: Record<Face, Expression> = {
+  open: { eyes: 'open', grin: [1.5, 1.4] },
+  wink: { eyes: 'wink', grin: [1.9, 1.8], tilt: -0.16, turn: -0.05 },
+  blink: { eyes: 'shut', grin: [1.5, 1.4] },
+  giggle: { eyes: 'shut', grin: [2.3, 2.4], tilt: 0.1 },
+};
+
+/**
+ * Photograph one furry Fuzzy in a little studio, once per expression, as transparent PNGs. `rim` is the back light's colour
+ * (pink for the brand mascot, sky-blue for the assistant).
+ */
+async function studio<K extends string>(colors: [string, string], size: number, faces: Record<K, Expression>, rim = 0xffc4f0): Promise<Record<K, string>> {
   const SS = 2; // supersample, then scale down for silky fur edges
   const canvas = document.createElement('canvas');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -30,16 +43,17 @@ export async function renderMascotFrames(colors: [string, string] = ['#ff86bb', 
     scene.environmentIntensity = 0.3;
     const key = new THREE.DirectionalLight(0xfff4ea, 2.1);
     key.position.set(-1.2, 2, 2.2);
-    const rim = new THREE.DirectionalLight(0xffc4f0, 2.2);
-    rim.position.set(1.6, 1.2, -1.8);
+    const back = new THREE.DirectionalLight(rim, 2.2);
+    back.position.set(1.6, 1.2, -1.8);
     const fill = new THREE.HemisphereLight(0xd8e4ff, 0x3a2050, 0.45);
-    scene.add(key, rim, fill);
+    scene.add(key, back, fill);
 
     const mats = { fur: furStrands() } as unknown as M.Mats;
     const fz = M.makeFuzzy(mats, colors, 0.27, 0.12, 32); // a little fluffier than in the game: it's a close-up
     fz.mouth?.position.add(new THREE.Vector3(0, -0.01, 0.022));
     fz.face.position.z += 0.012; // the face sits on top of the (longer) fur
     scene.add(fz.group);
+    const pupilHome = fz.pupils.map((p) => p.position.clone());
 
     const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 20);
     camera.position.set(0, 0.12, 2.0);
@@ -50,23 +64,25 @@ export async function renderMascotFrames(colors: [string, string] = ['#ff86bb', 
     const ox = out.getContext('2d')!;
     ox.imageSmoothingQuality = 'high';
 
-    const shoot = (face: Face): string => {
+    const shoot = (x: Expression): string => {
       fz.eyes.forEach((e, i) => {
         // closed eyes are drawn as happy "^" arcs: one for the wink, both for a blink
-        const happy = face === 'blink' || face === 'giggle' || (face === 'wink' && i === 1);
+        const happy = x.eyes === 'shut' || (x.eyes === 'wink' && i === 1);
         e.open.visible = !happy;
         e.lid.visible = happy;
+        e.open.scale.setScalar(x.wide ?? 1);
       });
-      const grin = face === 'giggle' ? [2.3, 2.4] : face === 'wink' ? [1.9, 1.8] : [1.5, 1.4];
-      if (fz.mouth) fz.mouth.scale.set(grin[0], grin[1], 1.2);
-      fz.body.rotation.z = face === 'wink' ? -0.16 : face === 'giggle' ? 0.1 : 0;
-      fz.face.rotation.y = face === 'wink' ? -0.05 : 0;
+      fz.pupils.forEach((p, i) => p.position.set(pupilHome[i].x + (x.look?.[0] ?? 0), pupilHome[i].y + (x.look?.[1] ?? 0), pupilHome[i].z));
+      if (fz.mouth) fz.mouth.scale.set(x.grin[0], x.grin[1], 1.2);
+      fz.body.rotation.z = x.tilt ?? 0;
+      fz.face.rotation.y = x.turn ?? 0;
       renderer.render(scene, camera);
       ox.clearRect(0, 0, size, size);
       ox.drawImage(canvas, 0, 0, size, size);
       return out.toDataURL('image/png');
     };
-    const frames: Frames = { open: shoot('open'), wink: shoot('wink'), blink: shoot('blink'), giggle: shoot('giggle') };
+    const frames = {} as Record<K, string>;
+    for (const k of Object.keys(faces) as K[]) frames[k] = shoot(faces[k]);
     env.dispose();
     pmrem.dispose();
     scene.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
@@ -75,6 +91,25 @@ export async function renderMascotFrames(colors: [string, string] = ['#ff86bb', 
     renderer.dispose();
     renderer.forceContextLoss();
   }
+}
+
+export function renderMascotFrames(colors: [string, string] = ['#ff86bb', '#b8235f'], size = 320): Promise<Frames> {
+  return studio(colors, size, EXPRESSIONS);
+}
+
+/** The Fuzzy assistant's expressions: the brand mascot's four plus talking, thinking and listening faces. */
+export type AssistFace = Face | 'talkA' | 'talkB' | 'think' | 'listen';
+export type AssistFrames = Record<AssistFace, string>;
+export const ASSIST_COLORS: [string, string] = ['#9ad8ff', '#3b86d6'];
+export function renderAssistantFrames(size = 256): Promise<AssistFrames> {
+  const faces: Record<AssistFace, Expression> = {
+    ...EXPRESSIONS,
+    talkA: { eyes: 'open', grin: [2.1, 2.9], tilt: 0.03 },
+    talkB: { eyes: 'open', grin: [1.3, 1.1], tilt: -0.03 },
+    think: { eyes: 'open', grin: [1.1, 0.9], tilt: 0.12, turn: 0.1, look: [0.03, 0.035] },
+    listen: { eyes: 'open', grin: [1.4, 1.2], tilt: -0.1, wide: 1.12, look: [0, 0.01] },
+  };
+  return studio(ASSIST_COLORS, size, faces, 0xcfe6ff);
 }
 
 // ---------- 3D pictures for the shop and the gift box (rendered once, on demand) ----------

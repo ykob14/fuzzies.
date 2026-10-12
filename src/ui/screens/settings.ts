@@ -1,5 +1,7 @@
 /** Settings: theme & accent colour, editor, game, motion, storage and install. */
 import type { Screen } from '../app';
+import { assistant } from '../../core/assistant';
+import { showAssistant } from '../assistant';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { THEMES, ACCENTS, applyTheme } from '../../core/themes';
@@ -128,6 +130,10 @@ export function settingsScreen(): Screen {
         toggle('Seasonal effects in Fuzzies Land', 'Falling leaves, snow, lanterns and a warm glow during holidays.', a.settings.seasonFx !== false, (v) => set((s) => (s.seasonFx = v))),
         toggle('Reduce motion', 'Fewer animations across the app.', a.settings.reduceMotion, (v) => set((s) => (s.reduceMotion = v)))),
       appIconCard(),
+      h('section', { class: 'card', id: 'helper' }, h('h3', null, 'Fuzzy helper'),
+        h('p', { class: 'muted' }, 'The little blue Fuzzy in the corner answers questions about every part of Fuzzies.'),
+        toggle('Show Fuzzy', 'The helper button on every screen (you can also hide it from its own menu).', !assistant.prefs.hidden, (v) => { assistant.setPrefs({ hidden: !v }); if (v) showAssistant(); }),
+        toggle('Voice replies', 'Fuzzy reads its answers out loud (uses your device’s voices).', assistant.prefs.voice, (v) => assistant.setPrefs({ voice: v }))),
       h('section', { class: 'card', id: 'help' }, h('h3', null, 'Help'),
         h('p', { class: 'muted' }, 'New to Fuzzies Land, or want a refresher? Pip will walk you through it again, step by step.'),
         h('div', { class: 'btn-row' }, btn(a.land?.tutorial?.status === 'active' ? 'Continue the Fuzzies Land tutorial' : 'Replay the Fuzzies Land tutorial', { kind: 'soft', icon: 'play', onClick: () => {
