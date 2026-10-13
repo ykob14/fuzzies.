@@ -107,10 +107,12 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const crateFallback = (b: Box) => { const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.BoxGeometry(b.hw * 1.9, 0.9, b.hd * 1.9), std('#b9824a', 0.85)); m.position.y = 0.45; m.castShadow = shadows; g.add(m); return g; };
   const fit = (o: THREE.Object3D, k: Kit, name: string, w: number, h?: number) => { const sz = k.size(name).getSize(new THREE.Vector3()); const s = h ? Math.min(w / Math.max(sz.x, sz.z), h / sz.y) : w / Math.max(sz.x, sz.z); o.scale.setScalar(s); return o; };
   const bushGroups: { box: Box; g: THREE.Group }[] = [];
+  let dressG: THREE.Group | null = null;
   const dress = (k: Kit | null) => {
+    if (dressG) scene.remove(dressG); const dg = new THREE.Group(); scene.add(dg); dressG = dg; boxNodes.clear(); bushGroups.length = 0;
     for (const b of layoutBoxes) {
-      if (b.kind === 'rock') { const o = k ? fit(k.clone(Math.abs(b.x * 7 + b.z) % 2 > 1 ? 'rock_1' : 'rock_2', { shadow: shadows }), k, 'rock_1', Math.max(b.hw, b.hd) * 2.3, 1.4) : rock(b.id, Math.max(b.hw, b.hd) * 1.6, 'grey', shadows); o.position.set(b.x, k ? 0 : o.position.y, b.z); o.rotation.y = b.id; scene.add(o); }
-      else if (b.kind === 'crate') { const o = k ? fit(k.clone(b.id % 2 ? 'crate_apples' : 'crate_pears', { shadow: shadows }), k, 'crate_apples', b.hw * 2.1) : crateFallback(b); o.position.set(b.x, 0, b.z); o.rotation.y = (b.id % 4) * Math.PI / 2; scene.add(o); boxNodes.set(b.id, o); }
+      if (b.kind === 'rock') { const o = k ? fit(k.clone(Math.abs(b.x * 7 + b.z) % 2 > 1 ? 'rock_1' : 'rock_2', { shadow: shadows }), k, 'rock_1', Math.max(b.hw, b.hd) * 2.3, 1.4) : rock(b.id, Math.max(b.hw, b.hd) * 1.6, 'grey', shadows); o.position.set(b.x, k ? 0 : o.position.y, b.z); o.rotation.y = b.id; dg.add(o); }
+      else if (b.kind === 'crate') { const o = k ? fit(k.clone(b.id % 2 ? 'crate_apples' : 'crate_pears', { shadow: shadows }), k, 'crate_apples', b.hw * 2.1) : crateFallback(b); o.position.set(b.x, 0, b.z); o.rotation.y = (b.id % 4) * Math.PI / 2; dg.add(o); boxNodes.set(b.id, o); }
       else if (b.kind === 'bush') {
         const g = new THREE.Group(); const nx = Math.max(1, Math.round(b.hw * 2 / 0.95)), nz = Math.max(1, Math.round(b.hd * 2 / 0.95));
         for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
@@ -119,7 +121,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
           else { o = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 1), std('#4f9e3f', 0.85)); o.position.y = 0.5; o.scale.y = 0.85; }
           const holder = new THREE.Group(); holder.add(o); holder.position.set(x + Math.sin(i * 3 + j) * 0.1, 0, z + Math.cos(i + j * 2) * 0.1); holder.rotation.y = i * 1.7 + j; g.add(holder);
         }
-        scene.add(g); bushGroups.push({ box: b, g });
+        dg.add(g); bushGroups.push({ box: b, g });
       }
     }
     // a fence round the arena, trees and flowers beyond it
@@ -127,15 +129,19 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
       const sz = k.size('fence').getSize(new THREE.Vector3()); const L = Math.max(sz.x, sz.z) * 0.95; const spots: { x: number; z: number; rot: number }[] = []; const along = sz.x >= sz.z ? 0 : Math.PI / 2;
       for (let x = -ARENA.hw + L / 2; x < ARENA.hw; x += L) for (const z of [-ARENA.hd - 0.3, ARENA.hd + 0.3]) spots.push({ x, z, rot: along });
       for (let z = -ARENA.hd + L / 2; z < ARENA.hd; z += L) for (const x of [-ARENA.hw - 0.3, ARENA.hw + 0.3]) spots.push({ x, z, rot: along + Math.PI / 2 });
-      scene.add(k.scatter('fence', spots, { shadow: shadows }));
+      dg.add(k.scatter('fence', spots, { shadow: shadows }));
       const outside: { x: number; z: number; rot: number; s: number }[] = []; for (let i = 0; i < (a.mobile ? 14 : 24); i++) { const side = i % 4; const t = ((i * 37) % 100) / 100; const x = side < 2 ? (side ? 1 : -1) * (ARENA.hw + 2.6 + (i % 3)) : (t - 0.5) * (ARENA.hw * 2 + 6); const z = side < 2 ? (t - 0.5) * (ARENA.hd * 2 + 4) : (side === 2 ? 1 : -1) * (ARENA.hd + 2.6 + (i % 3)); outside.push({ x, z, rot: i, s: 0.9 + (i % 3) * 0.15 }); }
-      for (const [n, name] of (['tree_1', 'tree_2', 'tree_3', 'pine_1'] as const).entries()) if (k.has(name)) scene.add(k.scatter(name, outside.filter((_, i) => i % 4 === n), { shadow: shadows }));
-      if (k.has('flowers_a')) { const fl: { x: number; z: number; rot: number; s: number }[] = []; for (let i = 0; i < 26; i++) fl.push({ x: (i % 2 ? 1 : -1) * (ARENA.hw + 0.9 + (i % 3) * 0.3), z: -ARENA.hd + ((i * 2.37) % (ARENA.hd * 2)), rot: i, s: 0.3 }); scene.add(k.scatter('flowers_a', fl)); }
-    } else for (let i = 0; i < 12; i++) { const t = tree('leafy', i, 1.1, shadows); t.position.set((i % 2 ? 1 : -1) * (ARENA.hw + 3), 0, -ARENA.hd + i * 2.7); scene.add(t); }
+      for (const [n, name] of (['tree_1', 'tree_2', 'tree_3', 'pine_1'] as const).entries()) if (k.has(name)) dg.add(k.scatter(name, outside.filter((_, i) => i % 4 === n), { shadow: shadows }));
+      if (k.has('flowers_a')) { const fl: { x: number; z: number; rot: number; s: number }[] = []; for (let i = 0; i < 26; i++) fl.push({ x: (i % 2 ? 1 : -1) * (ARENA.hw + 0.9 + (i % 3) * 0.3), z: -ARENA.hd + ((i * 2.37) % (ARENA.hd * 2)), rot: i, s: 0.3 }); dg.add(k.scatter('flowers_a', fl)); }
+    } else for (let i = 0; i < 12; i++) { const t = tree('leafy', i, 1.1, shadows); t.position.set((i % 2 ? 1 : -1) * (ARENA.hw + 3), 0, -ARENA.hd + i * 2.7); dg.add(t); }
   };
   let kit: Kit | null = null; let dressed = false;
   const kitReady = Promise.race([loadKit('orchard', setup.mobile).then((k) => { kit = k; }).catch(() => { /* fallback art */ }), new Promise((r) => setTimeout(r, 8000))]);
-  void kitReady.then(() => { if (!dressed) { dressed = true; dress(kit); } });
+  // dress with the kit once it's here; on a slow connection the hand-made stand-ins come first and the kit replaces them when it lands
+  let dressedWithKit = false;
+  const redress = () => { dress(kit); dressedWithKit = !!kit; if (sim) for (const b of sim.boxes) if (b.kind === 'crate' && b.hp <= 0) { const o = boxNodes.get(b.id); if (o) o.visible = false; } };
+  void kitReady.then(() => { if (!dressed) { dressed = true; redress(); } });
+  void loadKit('orchard', setup.mobile).then((k) => { kit = k; if (dressed && !dressedWithKit) redress(); }).catch(() => { /* keep the stand-ins */ });
   const glbReady = Promise.race([loadFuzzyGlb().catch(() => null), new Promise((r) => setTimeout(r, 6000))]);
 
   // ------------------------------------------------------------------ fighters (built when the match starts — your role is picked first)
