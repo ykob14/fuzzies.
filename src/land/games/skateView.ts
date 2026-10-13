@@ -7,6 +7,8 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { blob } from './sceneArt';
+import { paint as shade } from './orchardArt';
 import { SkateSim, RINK, GATE_HW, SPIN, type Gate } from './skate';
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
@@ -38,7 +40,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   }
   // snow drifts round the boards, a bench and a lamp by the pond
   const snowMat = std('#ffffff', 0.95);
-  for (let i = 0; i < 14; i++) { const an = (i / 14) * Math.PI * 2 + 0.2; const d = add(scene, new THREE.SphereGeometry(0.9 + (i % 3) * 0.3, 10, 7), snowMat, Math.cos(an) * (RINK.hw + 1.6), -0.35, Math.sin(an) * (RINK.hd + 1.6), false); d.scale.y = 0.55; }
+  const driftMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 });
+  for (let i = 0; i < 14; i++) { const an = (i / 14) * Math.PI * 2 + 0.2; const d = add(scene, shade(blob(0.9 + (i % 3) * 0.3, 2, 0.1, i), (_p, n, c) => c.set('#c9d9ec').lerp(new THREE.Color('#ffffff'), Math.max(0, n.y) * 0.9)), driftMat, Math.cos(an) * (RINK.hw + 1.6), -0.35, Math.sin(an) * (RINK.hd + 1.6), false); d.scale.y = 0.55; }
   const wood = std('#8a5a30', 0.85);
   const bench = new THREE.Group(); bench.position.set(0, 0, RINK.hd + 2.2);
   add(bench, new THREE.BoxGeometry(2, 0.1, 0.5), wood, 0, 0.5, 0); add(bench, new THREE.BoxGeometry(2, 0.4, 0.08), wood, 0, 0.8, -0.22); for (const sx of [-1, 1]) add(bench, new THREE.BoxGeometry(0.1, 0.5, 0.5), wood, sx * 0.9, 0.25, 0, false);

@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { groundTex, hedgeWalls } from './sceneArt';
 import { MazeSim, N, CELL, KEYS, HALF, MOVE, type Pickup } from './maze';
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
@@ -21,22 +22,12 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   });
   const { scene, time } = a;
   // the gravel floor of the maze
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(N * CELL + 0.6, N * CELL + 0.6).rotateX(-Math.PI / 2), std('#d8c9a3', 0.95));
-  floor.position.y = 0.015; floor.receiveShadow = !a.mobile; scene.add(floor);
-  // hedges: one instanced body + one instanced lighter "clipped" top
+  const gravel = groundTex('gravel').clone(); gravel.needsUpdate = true; gravel.repeat.set((N * CELL) / 3, (N * CELL) / 3);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(N * CELL + 0.6, N * CELL + 0.6).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: gravel, roughness: 0.95 }));
+  floor.position.y = 0.015; floor.receiveShadow = true; scene.add(floor);
+  // hedges: clipped leafy walls (rounded, textured in world space, darker at the roots) merged into one mesh
   const H = 1.5;
-  const body = new THREE.InstancedMesh(new THREE.BoxGeometry(1, H, 1), std('#4f9a48', 1), sim.walls.length);
-  const top = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.18, 1), std('#6fbd5f', 0.95), sim.walls.length);
-  const m4 = new THREE.Matrix4(); const col = new THREE.Color(); const q = new THREE.Quaternion();
-  sim.walls.forEach((w, i) => {
-    if (w.kind !== 'box') return;
-    m4.compose(new THREE.Vector3(w.x, H / 2, w.z), q, new THREE.Vector3(w.hw * 2, H, w.hd * 2)); body.setMatrixAt(i, m4);
-    m4.compose(new THREE.Vector3(w.x, H + 0.02, w.z), q, new THREE.Vector3(Math.max(0.2, w.hw * 2 - 0.08), 0.18, Math.max(0.2, w.hd * 2 - 0.08))); top.setMatrixAt(i, m4);
-    const k = 0.9 + ((i * 7) % 6) * 0.03;
-    col.set('#4f9a48').multiplyScalar(k); body.setColorAt(i, col); col.set('#6fbd5f').multiplyScalar(k); top.setColorAt(i, col);
-  });
-  body.castShadow = body.receiveShadow = !a.mobile;
-  scene.add(body, top);
+  scene.add(hedgeWalls(sim.walls.filter((w) => w.kind === 'box').map((w) => ({ x: w.x, z: w.z, w: w.hw * 2, d: w.hd * 2 })), H));
   // the gate: stone posts, a timber beam, a lamp, a floor glow — and a padlock on a chain while the keys are missing
   const gate = new THREE.Group(); gate.position.set(sim.gatePos.x, 0, sim.gatePos.z);
   if (sim.exitSide === 'e' || sim.exitSide === 'w') gate.rotation.y = Math.PI / 2;

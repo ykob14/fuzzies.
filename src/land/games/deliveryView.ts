@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { groundTex, cottage } from './sceneArt';
 import { DeliverySim, SQUARE, DEPOT, CART, type Parcel, type House } from './delivery';
 
 const HOUSE_COLORS = ['#ff5c8a', '#ffc94a', '#4fa3ff', '#6fd36a', '#ff8c42', '#b48cff'];
@@ -24,22 +25,21 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   });
   const { scene, time } = a;
   // ---- the square ----
-  const cobble = new THREE.Mesh(new THREE.PlaneGeometry(SQUARE.hw * 2 + 1, SQUARE.hd * 2 + 1).rotateX(-Math.PI / 2), std('#cfc4b2', 0.95)); cobble.position.y = 0.012; cobble.receiveShadow = !a.mobile; scene.add(cobble);
-  for (let i = 0; i < 50; i++) { const s = new THREE.Mesh(new THREE.CircleGeometry(0.16 + (i % 3) * 0.04, 8).rotateX(-Math.PI / 2), std(i % 2 ? '#c2b7a4' : '#d9cfbd', 0.95)); s.position.set(Math.sin(i * 12.9898) * (SQUARE.hw - 1), 0.02, Math.cos(i * 78.233) * (SQUARE.hd - 1)); scene.add(s); }
-  const wallMat = std('#f6efe2', 0.9), roofMat = std('#8a5a30', 0.85), stone = std('#b9b4a6', 0.9), wood = std('#a97c50', 0.9);
+  const cob = groundTex('cobble').clone(); cob.needsUpdate = true; cob.repeat.set((SQUARE.hw * 2 + 1) / 2.2, (SQUARE.hd * 2 + 1) / 2.2);
+  const cobble = new THREE.Mesh(new THREE.PlaneGeometry(SQUARE.hw * 2 + 1, SQUARE.hd * 2 + 1).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: cob, roughness: 0.9 })); cobble.position.y = 0.012; cobble.receiveShadow = true; scene.add(cobble);
+  const stone = std('#b9b4a6', 0.9), wood = std('#a97c50', 0.9);
   // houses from the rules, colour-coded
   type HouseNode = { h: House; mat: THREE.Mesh; glow: THREE.MeshBasicMaterial };
   const houseNodes: HouseNode[] = sim.houses.map((h) => {
     const g = new THREE.Group(); g.position.set(h.x, 0, h.z);
     const col = HOUSE_COLORS[h.color];
-    add(g, new THREE.BoxGeometry(h.hw * 2, 2.6, h.hd * 2), wallMat, 0, 1.3, 0);
-    const roof = add(g, new THREE.CylinderGeometry(0, Math.max(h.hw, h.hd) * 1.25, 1.5, 4), roofMat, 0, 2.6 + 0.75, 0); roof.rotation.y = Math.PI / 4; roof.scale.set(h.hw / Math.max(h.hw, h.hd), 1, h.hd / Math.max(h.hw, h.hd));
-    // the door faces the door point: an awning + a coloured door + a mat that glows
+    // a cottage turned so its front door faces the door point, roof and door in the house's colour
     const dir = new THREE.Vector3(h.door.x - h.x, 0, h.door.z - h.z).normalize();
     const faceDist = Math.abs(dir.x) > 0.5 ? h.hw : h.hd;
-    const door = add(g, new THREE.BoxGeometry(0.9, 1.4, 0.1), std(col, 0.6), dir.x * (faceDist + 0.05), 0.7, dir.z * (faceDist + 0.05), false); door.lookAt(door.position.clone().add(dir));
+    const side = Math.abs(dir.x) > 0.5;
+    const home = cottage({ w: (side ? h.hd : h.hw) * 2, d: (side ? h.hw : h.hd) * 2, h: 2.4, roof: col, door: col, wall: ['#f6efe2', '#f2e3cc', '#eef0e2'][h.color % 3], seed: h.color + 1 });
+    home.rotation.y = Math.atan2(dir.x, dir.z); g.add(home);
     const awning = add(g, new THREE.BoxGeometry(1.6, 0.08, 0.7), std(col, 0.8), dir.x * (faceDist + 0.35), 1.7, dir.z * (faceDist + 0.35), false); awning.lookAt(awning.position.clone().add(dir)); awning.rotation.x += 0.2;
-    for (const sx of [-1, 1]) { const w = add(g, new THREE.BoxGeometry(0.6, 0.6, 0.1), std('#9fd3ff', 0.3), dir.x * (faceDist + 0.05) + (Math.abs(dir.x) > 0.5 ? 0 : sx * 1.1), 1.5, dir.z * (faceDist + 0.05) + (Math.abs(dir.x) > 0.5 ? sx * 1.1 : 0), false); w.lookAt(w.position.clone().add(dir)); }
     const glow = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false });
     const mat = new THREE.Mesh(new THREE.RingGeometry(0.5, 1.1, 28).rotateX(-Math.PI / 2), glow); mat.position.set(h.door.x, 0.03, h.door.z); scene.add(mat);
     const flag = add(g, new THREE.BoxGeometry(0.06, 1.2, 0.06), wood, dir.x * (faceDist + 0.6) + (Math.abs(dir.x) > 0.5 ? 0 : 1.2), 2.9, dir.z * (faceDist + 0.6) + (Math.abs(dir.x) > 0.5 ? 1.2 : 0), false);

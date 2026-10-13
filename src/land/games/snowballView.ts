@@ -7,6 +7,8 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { blob, cottage, treeRing } from './sceneArt';
+import { paint as shade } from './orchardArt';
 import { SnowballSim, YARD, YOU, type Target, type Ball } from './snowball';
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
@@ -26,7 +28,11 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   // ---- the yard ----
   const wood = std('#8a5a30', 0.9), snow = std('#ffffff', 0.95), coal = std('#222', 0.8);
   for (const sx of [-1, 1]) add(scene, new THREE.BoxGeometry(0.12, 1.1, 0.12), wood, sx * 2.2, 0.55, -1.2); for (let i = 0; i < 2; i++) add(scene, new THREE.BoxGeometry(4.6, 0.12, 0.08), wood, 0, 0.4 + i * 0.45, -1.2, false);
-  for (let i = 0; i < 9; i++) { const m = add(scene, new THREE.SphereGeometry(0.8 + (i % 3) * 0.3, 10, 7), snow, -9 + i * 2.3 + Math.sin(i) * 0.6, -0.3, -YARD.far - 1.5 - (i % 2) * 1.5); m.scale.y = 0.5; }
+  // soft snow drifts (smooth, blue in the shade), a snow-roofed cottage and snowy pines behind the yard
+  const driftMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 });
+  for (let i = 0; i < 9; i++) { const r = 0.8 + (i % 3) * 0.3; const geo = shade(blob(r, 2, 0.1, i), (_p, n, c) => c.set('#c9d9ec').lerp(new THREE.Color('#ffffff'), Math.max(0, n.y) * 0.9)); const m = add(scene, geo, driftMat, -9 + i * 2.3 + Math.sin(i) * 0.6, -0.3, -YARD.far - 1.5 - (i % 2) * 1.5); m.scale.y = 0.5; }
+  { const c = cottage({ w: 3.6, d: 3, h: 2.4, roof: '#f4f8fd', wall: '#e9d3b4', seed: 9 }); c.position.set(-YARD.hw - 1.2, 0, -YARD.far - 4.5); c.rotation.y = 0.35; scene.add(c); }
+  scene.add(treeRing([{ x: YARD.hw + 2.5, z: -YARD.far - 3, s: 1.2 }, { x: YARD.hw + 4.5, z: -YARD.far - 1, s: 1 }, { x: -YARD.hw - 4.5, z: -YARD.far - 2, s: 1.1 }, { x: 2, z: -YARD.far - 6, s: 1.3 }], 'snowpine'));
   const snowman = new THREE.Group(); snowman.position.set(YARD.hw + 1.6, 0, -6);
   add(snowman, new THREE.SphereGeometry(0.55, 12, 9), snow, 0, 0.5, 0); add(snowman, new THREE.SphereGeometry(0.4, 12, 9), snow, 0, 1.25, 0); add(snowman, new THREE.SphereGeometry(0.3, 12, 9), snow, 0, 1.8, 0);
   add(snowman, new THREE.ConeGeometry(0.07, 0.3, 6).rotateX(Math.PI / 2), std('#ff8c42', 0.6), 0, 1.8, 0.35, false); for (const sx of [-1, 1]) add(snowman, new THREE.SphereGeometry(0.04, 6, 4), coal, sx * 0.1, 1.9, 0.27, false);

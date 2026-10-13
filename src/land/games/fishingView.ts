@@ -7,6 +7,8 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { water as waterSurface, groundTex } from './sceneArt';
+import { woodTex, grassTufts } from './orchardArt';
 import { FishingSim, LAKE, CAST_TIME, type FishKind, type Shoal } from './fishing';
 
 const FISH: Record<FishKind, { color: string; size: number; name: string }> = {
@@ -28,15 +30,17 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const { scene, time, camera } = a;
   a.camTarget.set(0, 0, 1.2);
   // ---- the lake (z < 0) ----
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(LAKE.hw * 2 + 30, LAKE.far + 30).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#3a8fc4', roughness: 0.18, metalness: 0.15, transparent: true, opacity: 0.9 }));
+  const water = waterSurface(LAKE.hw * 2 + 30, LAKE.far + 30, { shallow: '#6fcac0', deep: '#1f6fa8', depth: (_x, z) => ((LAKE.far + 30) / 2 - z) / 7, waves: 0.03, opacity: 0.92 }, time);
   water.position.set(0, 0.02, -(LAKE.far + 30) / 2 + 0.6); scene.add(water);
-  const shoreMat = std('#cdb98a', 0.95);
+  const sandT = groundTex('sand').clone(); sandT.needsUpdate = true; sandT.repeat.set(10, 0.5); const shoreMat = new THREE.MeshStandardMaterial({ map: sandT, roughness: 0.95 });
   const shore = new THREE.Mesh(new THREE.PlaneGeometry(LAKE.hw * 2 + 30, 1.4).rotateX(-Math.PI / 2), shoreMat); shore.position.set(0, 0.025, 0.3); scene.add(shore);
   const reedMat = std('#5f9a3f', 0.8), padMat = std('#4f9a48', 0.7);
   for (let i = 0; i < 26; i++) { const x = -LAKE.hw - 2 + (i / 26) * (LAKE.hw * 2 + 4) + Math.sin(i * 7) * 0.5; if (Math.abs(x) < 1.6) continue; const h = 0.9 + (i % 3) * 0.25; add(scene, new THREE.CylinderGeometry(0.03, 0.045, h, 5), reedMat, x, h / 2, -0.4 - (i % 2) * 0.5); if (i % 3 === 0) add(scene, new THREE.CylinderGeometry(0.06, 0.06, 0.25, 6), std('#6b4a2b', 0.9), x, h + 0.1, -0.4 - (i % 2) * 0.5, false); }
   for (let i = 0; i < 9; i++) { const p = new THREE.Mesh(new THREE.CircleGeometry(0.35 + (i % 3) * 0.1, 14, 0.3, 5.6).rotateX(-Math.PI / 2), padMat); p.position.set(-LAKE.hw + 1 + ((i * 2.3) % (LAKE.hw * 2 - 2)), 0.035, -LAKE.near - 0.5 - ((i * 1.7) % 4)); scene.add(p); if (i % 4 === 0) add(scene, new THREE.SphereGeometry(0.12, 8, 6), std('#ff8fb4', 0.6), p.position.x + 0.1, 0.12, p.position.z, false); }
   // the jetty: posts + planks from the shore out over the water
-  const plank = std('#a97c50', 0.9), post = std('#7a5634', 0.9);
+  const plankT = woodTex().clone(); plankT.needsUpdate = true; plankT.rotation = Math.PI / 2; const plank = new THREE.MeshStandardMaterial({ map: plankT, color: '#c9a070', roughness: 0.85 }), post = std('#6b4a2b', 0.9);
+  // reeds and grasses along the bank (swaying cards), cattails kept as the tall accents
+  { const sp: { x: number; z: number; s: number }[] = []; for (let i = 0; i < 70; i++) { const x = -LAKE.hw - 4 + (i / 70) * (LAKE.hw * 2 + 8) + Math.sin(i * 7.3) * 0.4; if (Math.abs(x) < 1.5) continue; sp.push({ x, z: -0.3 - (i % 3) * 0.35, s: 1.3 + (i % 4) * 0.25 }); } scene.add(grassTufts(sp, time)); }
   for (let i = 0; i < 7; i++) add(scene, new THREE.BoxGeometry(1.8, 0.08, 0.42), plank, 0, 0.42, 1.6 - i * 0.47 + 0.0);
   for (const sx of [-1, 1]) for (const z of [1.5, 0.2, -1.1]) add(scene, new THREE.CylinderGeometry(0.09, 0.1, 0.9, 8), post, sx * 0.8, 0.1, z);
   // a bucket for the catch

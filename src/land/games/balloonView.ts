@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { treeModel } from '../environment';
 import { adventure } from '../adventures';
+import { groundTex, cottage } from './sceneArt';
 import { BalloonSim, TOP, SQUARE, type Balloon } from './balloon';
 
 const PALETTE = ['#ff5c8a', '#ffc94a', '#4fa3ff', '#6fd36a', '#ff8c42'];
@@ -26,18 +27,11 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   });
   const { scene, time, camera } = a;
   // ---- the square ----
-  const cobble = new THREE.Mesh(new THREE.PlaneGeometry(SQUARE.hw * 2 + 2, SQUARE.hd * 2 + 2).rotateX(-Math.PI / 2), std('#cfc4b2', 0.95)); cobble.position.y = 0.015; cobble.receiveShadow = !a.mobile; scene.add(cobble);
-  for (let i = 0; i < 40; i++) { const s = new THREE.Mesh(new THREE.CircleGeometry(0.16 + (i % 3) * 0.04, 8).rotateX(-Math.PI / 2), std(i % 2 ? '#c2b7a4' : '#d9cfbd', 0.95)); s.position.set((Math.sin(i * 12.9898) * 0.5) * (SQUARE.hw * 2 - 1), 0.02, (Math.cos(i * 78.233) * 0.5) * (SQUARE.hd * 2 - 1)); scene.add(s); }
-  const roof = std('#c9534f', 0.8), trim = std('#8a5a30', 0.85), stone = std('#b9b4a6', 0.9);
-  const cottage = (x: number, z: number, w: number, h: number, tint: string) => {
-    const g = new THREE.Group(); g.position.set(x, 0, z);
-    add(g, new THREE.BoxGeometry(w, h, 3), std(tint, 0.9), 0, h / 2, 0);
-    const r = add(g, new THREE.CylinderGeometry(0, w * 0.74, 1.4, 4), roof, 0, h + 0.7, 0); r.rotation.y = Math.PI / 4; r.scale.z = 3 / (w * 1.05);
-    add(g, new THREE.BoxGeometry(0.8, 1.3, 0.1), trim, 0, 0.65, 1.52, false);
-    for (const sx of [-1, 1]) add(g, new THREE.BoxGeometry(0.7, 0.7, 0.1), std('#9fd3ff', 0.3), sx * w * 0.3, h * 0.6, 1.52, false);
-    scene.add(g);
-  };
-  cottage(-5, -6.5, 3.6, 2.6, '#f1e4cf'); cottage(0, -7, 4.4, 3, '#f7d9c4'); cottage(5.2, -6.5, 3.4, 2.4, '#e8efd8');
+  const cob = groundTex('cobble').clone(); cob.needsUpdate = true; cob.repeat.set((SQUARE.hw * 2 + 2) / 2.2, (SQUARE.hd * 2 + 2) / 2.2);
+  const cobble = new THREE.Mesh(new THREE.PlaneGeometry(SQUARE.hw * 2 + 2, SQUARE.hd * 2 + 2).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: cob, roughness: 0.9 })); cobble.position.y = 0.015; cobble.receiveShadow = true; scene.add(cobble);
+  const trim = std('#8a5a30', 0.85), stone = std('#b9b4a6', 0.9);
+  const house = (x: number, z: number, w: number, h: number, wall: string, roof: string, seed: number) => { const c = cottage({ w, d: 3, h, wall, roof, seed }); c.position.set(x, 0, z); scene.add(c); };
+  house(-5, -6.5, 3.6, 2.6, '#f1e4cf', '#c4524c', 1); house(0, -7, 4.4, 3, '#f7d9c4', '#5f7fa8', 2); house(5.2, -6.5, 3.4, 2.4, '#e8efd8', '#b8743a', 3);
   // the stall with a striped awning
   const stall = new THREE.Group(); stall.position.set(-7.2, 0, 1.5);
   add(stall, new THREE.BoxGeometry(2.2, 1, 1.2), trim, 0, 0.5, 0);
@@ -55,10 +49,10 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const me = a.figure(setup.you.skin, 0.3);
   me.group.position.set(2.2, 0, 4.2); me.group.rotation.y = Math.PI;
   // ---- balloons ----
-  const mats = PALETTE.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.25, metalness: 0.05 }));
+  const mats = PALETTE.map((c) => new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.32, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.4, sheenColor: new THREE.Color('#ffffff') })); // glossy latex
   const shinyMat = new THREE.MeshStandardMaterial({ color: '#ffd34a', roughness: 0.18, metalness: 0.7, emissive: '#7a5200', emissiveIntensity: 0.3 });
   const spikyMat = std('#5b5566', 0.6), knotMat = std('#6b6b6b', 0.7), stringMat = new THREE.MeshBasicMaterial({ color: '#f5f5f5' });
-  const sphere = new THREE.SphereGeometry(1, 18, 14).scale(1, 1.15, 1);
+  const sphere = new THREE.SphereGeometry(1, 28, 20).scale(1, 1.15, 1);
   const spike = new THREE.ConeGeometry(0.12, 0.3, 6);
   type Node = { b: Balloon; g: THREE.Group; body: THREE.Mesh; gone: number };
   const nodes = new Map<number, Node>();

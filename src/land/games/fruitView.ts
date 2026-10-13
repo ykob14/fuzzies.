@@ -29,7 +29,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     cls: 'fruit', setup, adv, hooks, buttonLabel: 'Catch!',
     hud: { count: 'CAUGHT' },
     camera: cam,
-    world: { size: { hw: 14, hd: 8 }, path: false, fence: false, treeLine: false, flowers: 0, fog: ['#e3eedb', portrait ? 34 : 28, portrait ? 100 : 85], sun: 2.6 },
+    world: { size: { hw: 14, hd: 8 }, path: false, fence: false, treeLine: false, flowers: 0, clouds: false, tufts: false, fog: ['#e3eedb', portrait ? 34 : 28, portrait ? 100 : 85], sun: 2.6 },
     controls: { touch: false, mouseSteer: false }, onStart: () => sim.start(),
   });
   const { scene, time, renderer, sun, hemi, camera } = a;
@@ -43,7 +43,6 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05;
   hemi.color.set('#d6eaff'); hemi.groundColor.set('#7f9c56'); hemi.intensity = 0.95;
   scene.environmentIntensity = 0.42;
-  const rim = new THREE.DirectionalLight('#ffe0b0', 0.85); rim.position.set(7, 8, -14); scene.add(rim);
   const skyU = (a.sky.material as THREE.ShaderMaterial).uniforms; (skyU.uTop.value as THREE.Color).set('#5aaae4'); (skyU.uHorizon.value as THREE.Color).set('#fcefd4');
 
   // ---- ground: painted lawn (large-scale variation baked into vertex colours) + a soft-edged dirt lane ----
@@ -137,7 +136,6 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const top = SCORING.tiers[0] * 1.12;
   const notches = (['bronze', 'silver', 'gold'] as const).map((k, i) => { const d = document.createElement('b'); d.className = k; d.style.left = `${(SCORING.tiers[2 - i] / top) * 100}%`; d.title = `${k} ${SCORING.tiers[2 - i]}`; track.append(d); return d; });
   a.hud.append(bar);
-  const vign = document.createElement('div'); vign.className = 'mg-vignette'; a.root.insertBefore(vign, a.hud);
   let medal = 0;
 
   // ---- drag anywhere: the Fuzzy follows your finger / the mouse along the lane ----

@@ -7,6 +7,8 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { groundTex, soilTex, cropGeo, cropMaterial } from './sceneArt';
 import { GardenSim, GARDEN, MOVE, type Weed, type Bud } from './garden';
 
 const PETALS = ['#ff5c8a', '#ff8c42', '#9b7bff', '#4fa3ff', '#ff6b9a'];
@@ -24,11 +26,14 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   });
   const { scene, time } = a;
   // ---- paths, fountain, bench, beds ----
-  const sand = std('#e3d3ad', 0.95), stone = std('#b9b4a6', 0.9), soil = std('#6f4f33', 1);
+  const gx = groundTex('gravel').clone(); gx.needsUpdate = true; gx.repeat.set(GARDEN.hw * 2 / 3, 0.8); const gz = gx.clone(); gz.needsUpdate = true; gz.repeat.set(0.8, GARDEN.hd * 2 / 3);
+  const sand = new THREE.MeshStandardMaterial({ map: gx, roughness: 0.95 }), sandZ = new THREE.MeshStandardMaterial({ map: gz, roughness: 0.95 });
+  const stone = new THREE.MeshStandardMaterial({ map: groundTex('cobble'), color: '#e8e2d6', roughness: 0.9 });
+  const soilT = soilTex().clone(); soilT.needsUpdate = true; soilT.wrapS = soilT.wrapT = THREE.RepeatWrapping; soilT.repeat.set(1.5, 1.5); const soil = new THREE.MeshStandardMaterial({ map: soilT, roughness: 1 });
   const px = new THREE.Mesh(new THREE.PlaneGeometry(GARDEN.hw * 2, 2.4).rotateX(-Math.PI / 2), sand); px.position.y = 0.012; scene.add(px);
-  const pz = new THREE.Mesh(new THREE.PlaneGeometry(2.4, GARDEN.hd * 2).rotateX(-Math.PI / 2), sand); pz.position.y = 0.012; scene.add(pz);
+  const pz = new THREE.Mesh(new THREE.PlaneGeometry(2.4, GARDEN.hd * 2).rotateX(-Math.PI / 2), sandZ); pz.position.y = 0.012; scene.add(pz);
   const fountain = new THREE.Group();
-  add(fountain, new THREE.CylinderGeometry(1.3, 1.4, 0.5, 24, 1, true), new THREE.MeshStandardMaterial({ color: '#b9b4a6', roughness: 0.9, side: THREE.DoubleSide }), 0, 0.25, 0);
+  add(fountain, new THREE.LatheGeometry([new THREE.Vector2(1.18, 0.08), new THREE.Vector2(1.22, 0.5), new THREE.Vector2(1.32, 0.56), new THREE.Vector2(1.44, 0.5), new THREE.Vector2(1.46, 0.05), new THREE.Vector2(1.5, 0)], 40), new THREE.MeshStandardMaterial({ color: '#cfc8ba', roughness: 0.85, side: THREE.DoubleSide }), 0, 0, 0);
   add(fountain, new THREE.CylinderGeometry(1.22, 1.22, 0.04, 24), new THREE.MeshStandardMaterial({ color: '#3fa7d6', roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.85 }), 0, 0.4, 0, false);
   add(fountain, new THREE.CylinderGeometry(0.16, 0.2, 1.3, 10), stone, 0, 0.9, 0); const top = add(fountain, new THREE.CylinderGeometry(0.5, 0.1, 0.25, 16), stone, 0, 1.55, 0, false); void top;
   scene.add(fountain);
@@ -36,7 +41,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   add(bench, new THREE.BoxGeometry(2, 0.1, 0.6), std('#a97c50', 0.9), 0, 0.5, 0); add(bench, new THREE.BoxGeometry(2, 0.5, 0.1), std('#a97c50', 0.9), 0, 0.85, -0.28);
   for (const sx of [-1, 1]) add(bench, new THREE.BoxGeometry(0.1, 0.5, 0.55), std('#5a3b1e', 0.9), sx * 0.9, 0.25, 0);
   scene.add(bench);
-  for (const b of sim.beds) { add(scene, new THREE.BoxGeometry(b.hw * 2, 0.3, b.hd * 2), soil, b.x, 0.15, b.z); for (const sx of [-1, 1]) { add(scene, new THREE.BoxGeometry(0.16, 0.4, b.hd * 2 + 0.16), stone, b.x + sx * (b.hw + 0.08), 0.2, b.z, false); add(scene, new THREE.BoxGeometry(b.hw * 2 + 0.16, 0.4, 0.16), stone, b.x, 0.2, b.z + sx * (b.hd + 0.08), false); } }
+  for (const b of sim.beds) { add(scene, new RoundedBoxGeometry(b.hw * 2, 0.32, b.hd * 2, 2, 0.08), soil, b.x, 0.14, b.z); for (const sx of [-1, 1]) { add(scene, new RoundedBoxGeometry(0.2, 0.4, b.hd * 2 + 0.2, 2, 0.06), stone, b.x + sx * (b.hw + 0.08), 0.2, b.z); add(scene, new RoundedBoxGeometry(b.hw * 2 + 0.2, 0.4, 0.2, 2, 0.06), stone, b.x, 0.2, b.z + sx * (b.hd + 0.08)); } }
   // ---- buds / blooms ----
   const stemMat = std('#4f8a3a', 0.8), budMat = std('#7ab86a', 0.7), goldMat = new THREE.MeshStandardMaterial({ color: '#ffd34a', metalness: 0.5, roughness: 0.3, emissive: '#6b4a00', emissiveIntensity: 0.4 });
   const centreMat = std('#ffd34a', 0.5);
@@ -59,9 +64,9 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const weedNodes = new Map<number, WeedNode>();
   const makeWeed = (w: Weed): WeedNode => {
     const g = new THREE.Group(); g.position.set(w.x, 0.02, w.z);
-    const n = w.kind === 'big' ? 7 : 5, h = w.kind === 'big' ? 0.75 : 0.45;
-    for (let i = 0; i < n; i++) { const an = (i / n) * Math.PI * 2 + w.id; const blade = add(g, new THREE.ConeGeometry(0.07, h, 4), i % 2 ? weedMat : weedDark, Math.cos(an) * 0.12, h / 2, Math.sin(an) * 0.12, false); blade.rotation.z = Math.cos(an) * 0.5; blade.rotation.x = -Math.sin(an) * 0.5; }
-    if (w.kind === 'big') { add(g, new THREE.CylinderGeometry(0.02, 0.03, 0.7, 5), weedMat, 0, 0.75, 0, false); add(g, new THREE.SphereGeometry(0.14, 8, 6), fluff, 0, 1.12, 0, false); }
+    const body = new THREE.Mesh(cropGeo(w.kind === 'big' ? 'weedBig' : 'weed'), cropMaterial()); body.scale.setScalar(w.kind === 'big' ? 1.5 : 1.35); body.rotation.y = w.id; body.castShadow = true; g.add(body);
+    if (w.kind === 'big') { add(g, new THREE.CylinderGeometry(0.02, 0.03, 0.7, 5), weedMat, 0, 0.75, 0, false); add(g, new THREE.SphereGeometry(0.14, 12, 10), fluff, 0, 1.12, 0, false); }
+    void weedDark;
     scene.add(g); const node = { w, g, gone: -1 }; weedNodes.set(w.id, node); return node;
   };
   for (const w of sim.weeds) makeWeed(w);

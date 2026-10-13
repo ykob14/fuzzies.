@@ -7,6 +7,8 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { rockGeo, rockMat } from './sceneArt';
+import { woodTex } from './orchardArt';
 import { MiningSim, MINE, HP, MOVE, SWING, RUMBLE, FALL, type Pile, type Rock, type Gem } from './mining';
 
 const GEM: Record<Gem, { color: string; glow: string; name: string }> = {
@@ -21,29 +23,29 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     cls: 'mining', setup, adv, hooks, buttonLabel: 'Start digging!',
     hud: { count: 'GEMS' },
     camera: { fov: 44, back: 9, up: 9.5, lookDy: -2.4, lead: 0 },
-    world: { size: { hw: MINE.hw + 2, hd: MINE.hd + 2 }, ground: ['#8a7a66', '#766858'], path: false, fence: false, treeLine: false, flowers: 0, sky: 'dusk', fog: ['#3a3330', 16, 46] },
+    world: { size: { hw: MINE.hw + 2, hd: MINE.hd + 2 }, ground: ['#8a7a66', '#766858'], groundKind: 'dirt', path: false, fence: false, treeLine: false, flowers: 0, sky: 'dusk', fog: ['#3a3330', 16, 46] },
     controls: { mouseSteer: false },
     onStart: () => sim.start(),
   });
   const { scene, time } = a;
   // ---- the mine ----
-  const rock = std('#6e6258', 1), rockDark = std('#4f463f', 1), timber = std('#8a5a30', 0.9), rail = std('#8a8f99', 0.5);
-  for (let i = 0; i < 46; i++) { const t = i / 46; const an = t * Math.PI * 2; const x = Math.cos(an) * (MINE.hw + 1.2), z = Math.sin(an) * (MINE.hd + 1.2); const r = add(scene, new THREE.DodecahedronGeometry(1.1 + (i % 3) * 0.35, 0), i % 2 ? rock : rockDark, x, 0.5 + (i % 3) * 0.2, z); r.rotation.set(i, i * 0.7, 0); }
+  const rock = rockMat(), rockDark = rockMat(); const tT = woodTex().clone(); tT.needsUpdate = true; const timber = new THREE.MeshStandardMaterial({ map: tT, color: '#a87a4a', roughness: 0.85 }), rail = std('#8a8f99', 0.5);
+  for (let i = 0; i < 46; i++) { const t = i / 46; const an = t * Math.PI * 2; const x = Math.cos(an) * (MINE.hw + 1.2), z = Math.sin(an) * (MINE.hd + 1.2); const r = add(scene, rockGeo(i, 1.1 + (i % 3) * 0.35, 'cave'), i % 2 ? rock : rockDark, x, 0.5 + (i % 3) * 0.2, z); r.rotation.set(i, i * 0.7, 0); }
   for (const [x, z] of [[-6, -4], [6, -4], [-6, 4], [6, 4]]) { add(scene, new THREE.BoxGeometry(0.4, 3.2, 0.4), timber, x, 1.6, z); add(scene, new THREE.BoxGeometry(2.4, 0.3, 0.5), timber, x, 3.3, z, false); add(scene, new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshStandardMaterial({ color: '#ffe9a8', emissive: '#ffb347', emissiveIntensity: 1.2 }), x + 0.35, 2.4, z + 0.3, false); }
   const cartG = new THREE.Group(); cartG.position.set(-MINE.hw + 1.6, 0, 0);
   for (const sz of [-0.5, 0.5]) add(cartG, new THREE.BoxGeometry(5, 0.06, 0.08), rail, 0, 0.04, sz, false);
   add(cartG, new THREE.BoxGeometry(2, 0.9, 1.2), std('#5a5f66', 0.6), 0, 0.75, 0); add(cartG, new THREE.BoxGeometry(1.8, 0.2, 1), rockDark, 0, 1.25, 0, false);
   for (const sx of [-0.7, 0.7]) for (const sz of [-0.5, 0.5]) add(cartG, new THREE.CylinderGeometry(0.22, 0.22, 0.1, 10).rotateX(Math.PI / 2), rail, sx, 0.22, sz, false);
   scene.add(cartG);
-  for (const o of sim.obstacles) if (o.kind === 'circle' && o.r >= 0.5) { const b = add(scene, new THREE.DodecahedronGeometry(o.r, 0), rock, o.x, o.r * 0.6, o.z); b.scale.y = 0.75; b.rotation.y = o.x; }
+  for (const o of sim.obstacles) if (o.kind === 'circle' && o.r >= 0.5) { const b = add(scene, rockGeo(Math.round(o.x * 3 + o.z), o.r * 1.05, 'cave'), rock, o.x, o.r * 0.45, o.z); b.scale.y = 0.75; b.rotation.y = o.x; }
   // ---- piles ----
   type PileNode = { p: Pile; g: THREE.Group; mound: THREE.Mesh; sparks: THREE.Mesh[]; core: THREE.Mesh; gone: number };
   const pileNodes = new Map<number, PileNode>();
-  const moundGeo = new THREE.DodecahedronGeometry(0.55, 0), sparkGeo = new THREE.OctahedronGeometry(0.09, 0), gemGeo = new THREE.OctahedronGeometry(0.28, 0);
+  const moundGeo = rockGeo(5, 0.55, 'cave'), sparkGeo = new THREE.OctahedronGeometry(0.09, 0), gemGeo = new THREE.OctahedronGeometry(0.28, 0);
   const makePile = (p: Pile): PileNode => {
     const g = new THREE.Group(); g.position.set(p.x, 0, p.z);
     const mound = add(g, moundGeo, rock, 0, 0.3, 0); mound.scale.set(1.1, 0.75, 1); mound.rotation.y = p.id;
-    const gm = new THREE.MeshStandardMaterial({ color: GEM[p.gem].color, emissive: GEM[p.gem].glow, emissiveIntensity: 0.9, roughness: 0.2 });
+    const gm = new THREE.MeshPhysicalMaterial({ color: GEM[p.gem].color, emissive: GEM[p.gem].glow, emissiveIntensity: 0.9, roughness: 0.06, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.05 });
     const core = add(g, new THREE.SphereGeometry(0.2, 10, 8), gm, 0, 0.35, 0, false); core.visible = false;
     const sparks: THREE.Mesh[] = []; for (let i = 0; i < 3; i++) { const s = add(g, sparkGeo, gm, 0, 0.7, 0, false); sparks.push(s); }
     scene.add(g); const n = { p, g, mound, sparks, core, gone: -1 }; pileNodes.set(p.id, n); return n;
@@ -56,7 +58,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const rockNodes = new Map<number, RockNode>();
   const shadowMat = new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.35, depthWrite: false });
   const makeRock = (r: Rock): RockNode => {
-    const m = add(scene, new THREE.DodecahedronGeometry(0.75, 0), rockDark, r.x, 7.5, r.z); m.rotation.set(r.id, r.id * 0.5, 0);
+    const m = add(scene, rockGeo(r.id + 40, 0.75, 'cave'), rockDark, r.x, 7.5, r.z); m.rotation.set(r.id, r.id * 0.5, 0);
     const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.1, 20).rotateX(-Math.PI / 2), shadowMat.clone()); shadow.position.set(r.x, 0.03, r.z); scene.add(shadow);
     const n = { r, m, shadow, t: 0, landed: -1 }; rockNodes.set(r.id, n); return n;
   };

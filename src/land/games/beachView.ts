@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { water, palm, rock } from './sceneArt';
 import { BeachSim, BEACH, BIN, BAG, MOVE, HOP, type Litter, type LitterKind } from './beach';
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
@@ -16,12 +17,12 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     cls: 'beach', setup, adv, hooks, buttonLabel: 'Clean up!',
     hud: { count: 'BAGGED' },
     camera: { fov: 44, back: 9.5, up: 10, lookDy: -2.6, lead: 0 },
-    world: { size: { hw: BEACH.hw + 3, hd: BEACH.hd + 3 }, ground: ['#efd9a8', '#e6c98f'], path: false, fence: false, treeLine: false, flowers: 0, fog: ['#dff0f7', 40, 120] },
+    world: { size: { hw: BEACH.hw + 3, hd: BEACH.hd + 3 }, ground: ['#efd9a8', '#e6c98f'], groundKind: 'sand', path: false, fence: false, treeLine: false, flowers: 0, fog: ['#dff0f7', 40, 120] },
     onStart: () => sim.start(),
   });
   const { scene, time } = a;
   // ---- the sea, moving with the tide ----
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 40).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#3fa7d6', roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.9 }));
+  const sea = water(BEACH.hw * 2 + 60, 40, { shallow: '#7fe0d4', deep: '#1f7fc4', depth: (_x, z) => (20 - z) / 14, waves: 0.05 }, time);
   sea.position.set(0, 0.03, -BEACH.hd - 20); scene.add(sea);
   const foam = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 0.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.75 })); foam.position.y = 0.04; scene.add(foam);
   const wet = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 4).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#d2b67c', roughness: 0.9, transparent: true, opacity: 0.8 })); wet.position.y = 0.02; scene.add(wet);
@@ -31,7 +32,9 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(chair, new THREE.BoxGeometry(0.08, 2.2, 0.08), white, sx * 0.5, 1.1, sz * 0.5);
   add(chair, new THREE.BoxGeometry(1.2, 0.08, 1.2), white, 0, 2.2, 0, false); add(chair, new THREE.BoxGeometry(1.2, 0.6, 0.08), std('#d6336c', 0.7), 0, 2.5, -0.55, false); scene.add(chair);
   add(scene, new THREE.CylinderGeometry(0.03, 0.03, 2.4, 6), wood, 2, 1.2, BEACH.hd - 2.2); const para = add(scene, new THREE.ConeGeometry(1.5, 0.5, 10, 1, true), new THREE.MeshStandardMaterial({ color: '#ff8fb4', roughness: 0.7, side: THREE.DoubleSide }), 2, 2.5, BEACH.hd - 2.2, false); void para;
-  for (const [x, z, r] of [[-4, -1, 0.8], [6.5, 0.5, 0.6]]) { const m = add(scene, new THREE.DodecahedronGeometry(r, 0), rockMat, x, r * 0.55, z); m.scale.y = 0.7; }
+  for (const [x, z, r] of [[-4, -1, 0.8], [6.5, 0.5, 0.6]]) { const m = rock(Math.round(x * 3 + z), r * 1.05, 'sand'); m.position.x = x; m.position.z = z; scene.add(m); }
+  void rockMat;
+  for (const [x, z, h] of [[-BEACH.hw - 1.8, BEACH.hd - 1, 4.4], [BEACH.hw + 1.8, BEACH.hd - 2.5, 5], [BEACH.hw + 2.5, -1, 4.2], [-BEACH.hw - 2.2, 1.5, 4.8]]) { const p = palm(Math.round(x * 5 + z), h); p.position.set(x, 0, z); scene.add(p); }
   const bin = new THREE.Group(); bin.position.set(BIN.x, 0, BIN.z);
   add(bin, new THREE.CylinderGeometry(0.42, 0.38, 1, 14), std('#2fa84f', 0.6), 0, 0.5, 0); add(bin, new THREE.CylinderGeometry(0.45, 0.45, 0.08, 14), std('#1f7a3a', 0.6), 0, 1.02, 0, false);
   add(bin, new THREE.TorusGeometry(0.3, 0.04, 6, 16), white, 0, 0.6, 0.42, false); scene.add(bin);

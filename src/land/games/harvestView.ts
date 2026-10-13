@@ -7,6 +7,9 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { soilTex, cropGeo } from './sceneArt';
+import { woodTex, paint as shade } from './orchardArt';
 import { HarvestSim, FIELD, ROWS, COLS, ROW_GAP, COL_GAP, FRESH, MOVE, type Plant, type Crop } from './harvest';
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
@@ -22,8 +25,12 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   });
   const { scene, time } = a;
   // ---- the beds ----
-  const soil = std('#7a5a3a', 1), edge = std('#a97c50', 0.9);
-  for (let r = 0; r < ROWS; r++) { const z = (r - (ROWS - 1) / 2) * ROW_GAP; add(scene, new THREE.BoxGeometry(COLS * COL_GAP + 0.8, 0.22, 1.3), soil, 0, 0.11, z); for (const sz of [-1, 1]) add(scene, new THREE.BoxGeometry(COLS * COL_GAP + 0.9, 0.12, 0.08), edge, 0, 0.2, z + sz * 0.68, false); }
+  // raised beds: tilled soil (furrows along the row) in a planked wooden frame
+  const soilT = soilTex().clone(); soilT.needsUpdate = true; soilT.wrapS = soilT.wrapT = THREE.RepeatWrapping; soilT.repeat.set((COLS * COL_GAP + 0.8) / 2, 1);
+  const soil = new THREE.MeshStandardMaterial({ map: soilT, roughness: 1 });
+  const plankT = woodTex().clone(); plankT.needsUpdate = true; plankT.rotation = Math.PI / 2; plankT.wrapS = plankT.wrapT = THREE.RepeatWrapping; plankT.repeat.set(1, 6);
+  const edge = new THREE.MeshStandardMaterial({ map: plankT, color: '#c99a62', roughness: 0.85 });
+  for (let r = 0; r < ROWS; r++) { const z = (r - (ROWS - 1) / 2) * ROW_GAP; const bed = add(scene, new RoundedBoxGeometry(COLS * COL_GAP + 0.8, 0.26, 1.3, 2, 0.1), soil, 0, 0.11, z); bed.receiveShadow = true; for (const sz of [-1, 1]) add(scene, new THREE.BoxGeometry(COLS * COL_GAP + 1.0, 0.2, 0.1), edge, 0, 0.14, z + sz * 0.7); for (const sx of [-1, 1]) add(scene, new THREE.BoxGeometry(0.1, 0.2, 1.5), edge, sx * (COLS * COL_GAP + 0.95) / 2, 0.14, z); }
   // trough + scarecrow (the rules' obstacles)
   const trough = new THREE.Group(); trough.position.set(FIELD.hw - 1.4, 0, 0);
   add(trough, new THREE.BoxGeometry(1, 0.55, 2.2), edge, 0, 0.28, 0); add(trough, new THREE.BoxGeometry(0.84, 0.05, 2.04), std('#3fa7d6', 0.2), 0, 0.5, 0, false); scene.add(trough);
@@ -32,8 +39,13 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   add(crow, new THREE.BoxGeometry(0.9, 0.5, 0.3), std('#4f74c9', 0.9), 0, 1.4, 0, false); add(crow, new THREE.SphereGeometry(0.22, 10, 8), std('#f2d49b', 0.9), 0, 1.95, 0, false);
   add(crow, new THREE.ConeGeometry(0.3, 0.3, 10), std('#d9b27a', 0.9), 0, 2.25, 0, false); add(crow, new THREE.CylinderGeometry(0.34, 0.34, 0.04, 12), std('#d9b27a', 0.9), 0, 2.1, 0, false); scene.add(crow);
   // ---- plants ----
-  const leafMat = std('#5fb35a', 0.8), youngMat = std('#9ad58c', 0.8), brownMat = std('#8a6a3a', 0.95);
-  const fruitMat: Record<Crop, THREE.Material> = { carrot: std('#ff8c42', 0.6), tomato: std('#e8473c', 0.45), pumpkin: std('#ff9f1a', 0.6), corn: std('#ffd34a', 0.6) };
+  // leaves carry baked shading (vertex colours); the material tints them young / grown / wilted
+  const plantMat = (c: string) => new THREE.MeshStandardMaterial({ vertexColors: true, color: c, roughness: 0.7, side: THREE.DoubleSide });
+  const leafMat = plantMat('#ffffff'), youngMat = plantMat('#dcffcc'), brownMat = plantMat('#a3824e');
+  const ribbed = (r: number) => { const g = new THREE.SphereGeometry(r, 28, 16); const p = g.attributes.position; const v = new THREE.Vector3(); for (let k = 0; k < p.count; k++) { v.fromBufferAttribute(p, k); const a = Math.atan2(v.z, v.x); const k8 = 1 + 0.09 * Math.cos(a * 8); v.x *= k8; v.z *= k8; v.y *= 0.82; p.setXYZ(k, v.x, v.y, v.z); } g.computeVertexNormals(); return g; };
+  const pumpkinGeo = ribbed(0.3), tomatoGeo = new THREE.SphereGeometry(0.1, 16, 12);
+  const cornStalk = shade(new THREE.CylinderGeometry(0.05, 0.07, 1.2, 8), (q, _n, c) => c.set('#5f9a3f').lerp(new THREE.Color('#a9d27a'), (q.y + 0.6) / 1.2));
+  const fruitMat: Record<Crop, THREE.Material> = { carrot: std('#ff8c42', 0.55), tomato: new THREE.MeshPhysicalMaterial({ color: '#e8352c', roughness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.15 }), pumpkin: std('#ff9a1f', 0.55), corn: std('#ffd34a', 0.5) };
   const ringMat = new THREE.MeshBasicMaterial({ color: '#ffd34a', transparent: true, opacity: 0.5, depthWrite: false });
   const ringMatFresh = new THREE.MeshBasicMaterial({ color: '#fff3a8', transparent: true, opacity: 0.8, depthWrite: false });
   const ringGeo = new THREE.RingGeometry(0.42, 0.6, 24).rotateX(-Math.PI / 2);
@@ -41,10 +53,10 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const nodes: Node[] = sim.plants.map((p) => {
     const g = new THREE.Group(); g.position.set(p.x, 0.22, p.z);
     const leaf = new THREE.Group(); const fruit = new THREE.Group(); g.add(leaf, fruit);
-    if (p.crop === 'carrot') { for (let i = 0; i < 4; i++) { const l = add(leaf, new THREE.ConeGeometry(0.1, 0.5, 5), leafMat, Math.cos(i * 1.6) * 0.1, 0.3, Math.sin(i * 1.6) * 0.1, false); l.rotation.z = Math.cos(i * 1.6) * 0.35; l.rotation.x = -Math.sin(i * 1.6) * 0.35; } add(fruit, new THREE.ConeGeometry(0.14, 0.45, 8), fruitMat.carrot, 0, 0.12, 0, false).rotation.x = Math.PI; }
-    else if (p.crop === 'tomato') { add(leaf, new THREE.SphereGeometry(0.32, 9, 7), leafMat, 0, 0.35, 0, false).scale.y = 1.2; for (let i = 0; i < 4; i++) add(fruit, new THREE.SphereGeometry(0.1, 8, 6), fruitMat.tomato, Math.cos(i * 1.7) * 0.26, 0.3 + Math.sin(i * 2.3) * 0.15, Math.sin(i * 1.7) * 0.26, false); }
-    else if (p.crop === 'pumpkin') { add(leaf, new THREE.SphereGeometry(0.2, 8, 6), leafMat, 0.2, 0.12, 0.1, false).scale.set(1.6, 0.5, 1.2); const pk = add(fruit, new THREE.SphereGeometry(0.3, 12, 9), fruitMat.pumpkin, 0, 0.26, 0, false); pk.scale.set(1.15, 0.85, 1.15); add(fruit, new THREE.CylinderGeometry(0.04, 0.05, 0.14, 6), std('#5a7a3a', 0.9), 0, 0.56, 0, false); }
-    else { add(leaf, new THREE.CylinderGeometry(0.05, 0.07, 1.2, 6), leafMat, 0, 0.6, 0, false); for (let i = 0; i < 3; i++) { const l = add(leaf, new THREE.BoxGeometry(0.06, 0.6, 0.18), leafMat, Math.cos(i * 2.1) * 0.12, 0.45 + i * 0.25, Math.sin(i * 2.1) * 0.12, false); l.rotation.z = Math.cos(i * 2.1) * 0.7; } const cob = add(fruit, new THREE.CylinderGeometry(0.09, 0.08, 0.42, 8), fruitMat.corn, 0.14, 0.85, 0, false); cob.rotation.z = -0.3; }
+    if (p.crop === 'carrot') { const l = new THREE.Mesh(cropGeo('carrot'), leafMat); l.scale.setScalar(1.25); l.castShadow = true; leaf.add(l); add(fruit, new THREE.ConeGeometry(0.14, 0.45, 8), fruitMat.carrot, 0, 0.12, 0, false).rotation.x = Math.PI; }
+    else if (p.crop === 'tomato') { const l = new THREE.Mesh(cropGeo('lettuce'), leafMat); l.scale.set(1.3, 1.7, 1.3); l.castShadow = true; leaf.add(l); for (let i = 0; i < 4; i++) add(fruit, tomatoGeo, fruitMat.tomato, Math.cos(i * 1.7) * 0.26, 0.3 + Math.sin(i * 2.3) * 0.15, Math.sin(i * 1.7) * 0.26, false); }
+    else if (p.crop === 'pumpkin') { const l = new THREE.Mesh(cropGeo('cabbage'), leafMat); l.scale.set(1.5, 0.6, 1.5); l.position.set(0.15, 0, 0.1); l.castShadow = true; leaf.add(l); const pk = add(fruit, pumpkinGeo, fruitMat.pumpkin, 0, 0.24, 0, false); pk.scale.set(1.1, 1, 1.1); add(fruit, new THREE.CylinderGeometry(0.04, 0.05, 0.14, 6), std('#5a7a3a', 0.9), 0, 0.56, 0, false); }
+    else { add(leaf, cornStalk, leafMat, 0, 0.6, 0, false); const l = new THREE.Mesh(cropGeo('weedBig'), leafMat); l.scale.set(1.3, 2.4, 1.3); l.castShadow = true; leaf.add(l); const cob = add(fruit, new THREE.CylinderGeometry(0.09, 0.08, 0.42, 8), fruitMat.corn, 0.14, 0.85, 0, false); cob.rotation.z = -0.3; }
     const ring = new THREE.Mesh(ringGeo, ringMat); ring.position.y = 0.01; ring.visible = false; g.add(ring);
     scene.add(g);
     return { p, g, leaf, fruit, ring, shown: '' };

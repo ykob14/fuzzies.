@@ -7,6 +7,8 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { cottage, rockGeo, rockMat } from './sceneArt';
+import { bush } from './orchardArt';
 import { FireSim, CAMP, POND, POND_R, CAMPFIRE, TANK, MOVE, type Flame, type Cottage } from './fire';
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
@@ -22,25 +24,22 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   });
   const { scene, time } = a;
   // ---- the campsite ----
-  const stone = std('#b9b4a6', 0.9), wood = std('#8a5a30', 0.9), charcoal = std('#2a2622', 1);
-  const pond = new THREE.Mesh(new THREE.CircleGeometry(POND_R, 28).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#3fa7d6', roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.9 })); pond.position.set(POND.x, 0.03, POND.z); scene.add(pond);
-  for (let i = 0; i < 16; i++) { const an = (i / 16) * Math.PI * 2; add(scene, new THREE.DodecahedronGeometry(0.22 + (i % 3) * 0.06, 0), stone, POND.x + Math.cos(an) * (POND_R + 0.1), 0.12, POND.z + Math.sin(an) * (POND_R + 0.1), false); }
+  const charcoal = std('#2a2622', 1);
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(POND_R, 36).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#2f8fc4', roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.9 })); pond.position.set(POND.x, 0.03, POND.z); scene.add(pond);
+  for (let i = 0; i < 16; i++) { const an = (i / 16) * Math.PI * 2; add(scene, rockGeo(i + 70, 0.24 + (i % 3) * 0.06), rockMat(), POND.x + Math.cos(an) * (POND_R + 0.1), 0.12, POND.z + Math.sin(an) * (POND_R + 0.1), false); }
   for (let i = 0; i < 8; i++) { const an = (i / 8) * Math.PI * 2 + 0.3; add(scene, new THREE.CylinderGeometry(0.03, 0.045, 0.9, 5), std('#5f9a3f', 0.8), POND.x + Math.cos(an) * (POND_R + 0.5), 0.45, POND.z + Math.sin(an) * (POND_R + 0.5), false); }
   const camp = new THREE.Group(); camp.position.set(CAMPFIRE.x, 0, CAMPFIRE.z);
-  for (let i = 0; i < 8; i++) { const an = (i / 8) * Math.PI * 2; add(camp, new THREE.DodecahedronGeometry(0.16, 0), stone, Math.cos(an) * 0.6, 0.1, Math.sin(an) * 0.6, false); }
+  for (let i = 0; i < 8; i++) { const an = (i / 8) * Math.PI * 2; add(camp, rockGeo(i + 90, 0.18), rockMat(), Math.cos(an) * 0.6, 0.1, Math.sin(an) * 0.6, false); }
   for (let i = 0; i < 3; i++) { const l = add(camp, new THREE.CylinderGeometry(0.08, 0.08, 0.9, 7).rotateZ(Math.PI / 2), charcoal, 0, 0.12, 0, false); l.rotation.y = i * 1.05; }
   scene.add(camp);
-  for (const o of sim.obstacles) if (o.kind === 'circle' && o.r === 0.45) { const b = add(scene, new THREE.SphereGeometry(0.5, 9, 7), std('#5fb35a', 0.8), o.x, 0.35, o.z); b.scale.y = 0.8; }
+  for (const o of sim.obstacles) if (o.kind === 'circle' && o.r === 0.45) { const b = bush(Math.round(o.x * 7 + o.z), 0.7); b.position.set(o.x, 0, o.z); scene.add(b); }
   // cottages
-  const wallMat = std('#f6efe2', 0.9), roofMat = std('#c9534f', 0.8), winOff = std('#9fd3ff', 0.3);
+  const winOff = new THREE.MeshStandardMaterial({ color: '#bfe3ff', roughness: 0.08, metalness: 0.35, emissive: '#ffd99a', emissiveIntensity: 0.12 });
   type CotNode = { c: Cottage; g: THREE.Group; wins: THREE.Mesh[]; smokeT: number; shown: string };
   const cotNodes: CotNode[] = sim.cottages.map((c) => {
     const g = new THREE.Group(); g.position.set(c.x, 0, c.z);
-    add(g, new THREE.BoxGeometry(c.hw * 2, 2.4, c.hd * 2), wallMat, 0, 1.2, 0);
-    const r = add(g, new THREE.CylinderGeometry(0, c.hw * 1.3, 1.3, 4), roofMat, 0, 2.4 + 0.65, 0); r.rotation.y = Math.PI / 4; r.scale.z = c.hd / c.hw;
-    add(g, new THREE.BoxGeometry(0.7, 1.2, 0.1), wood, 0, 0.6, c.hd + 0.05, false);
-    const wins: THREE.Mesh[] = []; for (const sx of [-1, 1]) wins.push(add(g, new THREE.BoxGeometry(0.6, 0.6, 0.1), winOff, sx * 0.9, 1.4, c.hd + 0.05, false));
-    add(g, new THREE.BoxGeometry(0.35, 0.8, 0.35), stone, c.hw * 0.5, 3.2, -0.2, false);
+    const home = cottage({ w: c.hw * 2, d: c.hd * 2, h: 2.4, wall: ['#f6efe2', '#f2e3cc', '#eef0e2'][c.id % 3], roof: ['#c4524c', '#5f7fa8', '#b8743a'][c.id % 3], seed: c.id + 4 }); g.add(home);
+    const wins = (home.userData.windows ?? []) as THREE.Mesh[];
     scene.add(g); return { c, g, wins, smokeT: 0, shown: 'fine' };
   });
   const winOn = new THREE.MeshStandardMaterial({ color: '#ffb347', emissive: '#ff7a1a', emissiveIntensity: 1.4 });

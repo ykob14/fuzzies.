@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
+import { water, palm, rock, rowboat } from './sceneArt';
 import { TreasureSim, BEACH, CHESTS, GEMS, SHELLS, DIG_TIME, MOVE, type Buried, type Shell } from './treasure';
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
@@ -16,36 +17,22 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     cls: 'treasure', setup, adv, hooks, buttonLabel: 'Start digging!',
     hud: { count: 'CHESTS' },
     camera: { fov: 42, back: 9.5, up: 10, lookDy: -2.4, lead: 0 },
-    world: { size: { hw: BEACH.hw + 3, hd: BEACH.hd + 3 }, ground: ['#efd9a8', '#e6c98f'], path: false, fence: false, treeLine: false, flowers: 0, fog: ['#dff0f7', 40, 120] },
+    world: { size: { hw: BEACH.hw + 3, hd: BEACH.hd + 3 }, ground: ['#efd9a8', '#e6c98f'], groundKind: 'sand', path: false, fence: false, treeLine: false, flowers: 0, fog: ['#dff0f7', 40, 120] },
     onStart: () => sim.start(),
   });
   const { scene, time } = a;
   // ---- the sea along the north edge, with a foam line ----
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 40).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#3fa7d6', roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.92 }));
+  const sea = water(BEACH.hw * 2 + 60, 40, { shallow: '#7fe0d4', deep: '#1f7fc4', depth: (_x, z) => (20 - z) / 14, waves: 0.05 }, time);
   sea.position.set(0, 0.03, -BEACH.hd - 20.5); scene.add(sea);
   const foam = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 0.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.7 }));
   foam.position.set(0, 0.04, -BEACH.hd - 0.6); scene.add(foam);
   const wet = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 1.6).rotateX(-Math.PI / 2), std('#d9bf86', 0.9)); wet.position.set(0, 0.02, -BEACH.hd + 0.3); scene.add(wet);
   // ---- furniture from the rules: palms (r 0.5), rocks (other circles), the boat (box) ----
-  const trunkMat = std('#a97c50', 0.9), leafMat = std('#3f9a46', 0.8), rockMat = std('#9a948a', 0.95), hullMat = std('#6b4a2b', 0.85), paintMat = std('#f3f0e6', 0.8);
+  const trunkMat = std('#a97c50', 0.9);
   for (const o of sim.obstacles) {
-    if (o.kind === 'circle' && o.r === 0.5) {
-      const g = new THREE.Group(); g.position.set(o.x, 0, o.z); const lean = (Math.sin(o.x * 3.1 + o.z) * 0.18);
-      for (let i = 0; i < 5; i++) { const seg = add(g, new THREE.CylinderGeometry(0.16 - i * 0.015, 0.2 - i * 0.015, 0.9, 8), trunkMat, Math.sin(lean) * i * 0.8, 0.45 + i * 0.85, 0); seg.rotation.z = -lean; }
-      const topX = Math.sin(lean) * 4, topY = 4.5;
-      for (let i = 0; i < 7; i++) { const an = (i / 7) * Math.PI * 2; const leaf = add(g, new THREE.BoxGeometry(2.4, 0.06, 0.6), leafMat, topX + Math.cos(an) * 1.1, topY - 0.1, Math.sin(an) * 1.1, false); leaf.rotation.y = -an; leaf.rotation.z = -0.45; leaf.geometry = leaf.geometry.clone(); leaf.geometry.translate(0, 0, 0); }
-      for (let i = 0; i < 3; i++) add(g, new THREE.SphereGeometry(0.16, 8, 6), std('#6b4a2b', 0.9), topX + Math.cos(i * 2.1) * 0.25, topY - 0.3, Math.sin(i * 2.1) * 0.25, false);
-      scene.add(g);
-    } else if (o.kind === 'circle') {
-      const r = add(scene, new THREE.DodecahedronGeometry(o.r, 0), rockMat, o.x, o.r * 0.55, o.z); r.scale.set(1, 0.7, 1); r.rotation.set(Math.sin(o.x) * 0.3, o.z, 0);
-    } else {
-      const g = new THREE.Group(); g.position.set(o.x, 0, o.z);
-      const hull = add(g, new THREE.BoxGeometry(o.hw * 2, 0.9, o.hd * 2), hullMat, 0, 0.45, 0); hull.rotation.z = 0.08;
-      add(g, new THREE.BoxGeometry(o.hw * 2 + 0.1, 0.1, o.hd * 2 + 0.1), paintMat, 0, 0.9, 0, false);
-      add(g, new THREE.BoxGeometry(0.2, 0.08, o.hd * 2 - 0.2), paintMat, -0.6, 0.6, 0, false); add(g, new THREE.BoxGeometry(0.2, 0.08, o.hd * 2 - 0.2), paintMat, 0.6, 0.6, 0, false);
-      add(g, new THREE.CylinderGeometry(0.05, 0.06, 2.6, 6), trunkMat, 0.2, 1.8, 0, false);
-      scene.add(g);
-    }
+    if (o.kind === 'circle' && o.r === 0.5) { const p = palm(Math.round(o.x * 7 + o.z * 3), 4.6); p.position.set(o.x, 0, o.z); scene.add(p); }
+    else if (o.kind === 'circle') { const r = rock(Math.round(o.x * 5 + o.z), o.r * 1.05, 'sand'); r.position.x = o.x; r.position.z = o.z; scene.add(r); }
+    else { const b = rowboat(o.hw * 2.1, o.hd * 2.1); b.position.set(o.x, 0, o.z); b.rotation.y = 0.08; scene.add(b); }
   }
   // ---- shells ----
   const shellMat = std('#ffd8c2', 0.6), shellMat2 = std('#f7f1e8', 0.6);

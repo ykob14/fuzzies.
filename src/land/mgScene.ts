@@ -14,7 +14,9 @@ import * as M from '../game/models3d';
 import * as T from '../game/textures3d';
 import { race as snd, vac, sfx } from '../game/sound';
 import { PAL, std, add } from './models';
-import { buildSky, treeModel } from './environment';
+import { buildSky } from './environment';
+import * as O from './games/orchardArt';
+import { groundTex, treeRing, type GroundKind, type TreeKind } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls, type Controls } from '../ui/joystick';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
@@ -42,7 +44,7 @@ export interface ArcadeOpts {
   hud?: { score?: string; count?: string; hint?: { desktop: string; mobile: string } };
   camera?: { fov?: number; back?: number; up?: number; lookDy?: number; lead?: number; lookY?: number };
   /** the world: a grassy clearing by default; `size` = half extents of the fenced area */
-  world?: { size?: { hw: number; hd: number }; ground?: [string, string]; path?: boolean; treeLine?: boolean; fence?: boolean; flowers?: number; sky?: 'day' | 'dusk' | 'snow' | 'night'; fog?: [string, number, number]; sun?: number };
+  world?: { size?: { hw: number; hd: number }; ground?: [string, string]; groundKind?: GroundKind; trees?: TreeKind; tufts?: boolean; clouds?: boolean; path?: boolean; treeLine?: boolean; fence?: boolean; flowers?: number; sky?: 'day' | 'dusk' | 'snow' | 'night'; fog?: [string, number, number]; sun?: number };
   /** how long the end celebration lasts before the results (ms) */
   outro?: number;
 }
@@ -102,7 +104,8 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
   const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'Take your time.'), resume, restart, quit);
   pauseOverlay.append(pbox);
-  root.append(canvas, hud, intro, pauseOverlay);
+  const vignette = el('div', 'mg-vignette');
+  root.append(canvas, vignette, hud, intro, pauseOverlay);
   stage.append(root);
   const tips = makeCoach(root);
 
@@ -111,55 +114,77 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
-  renderer.shadowMap.enabled = !mobile; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // soft shadows on phones too (a smaller map on a tight frustum that follows the camera), a touch more exposure
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMappingExposure = 1.05;
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
   const env = pmrem.fromScene(new RoomEnvironment(), 0.04);
-  scene.environment = env.texture; scene.environmentIntensity = 0.3;
+  scene.environment = env.texture; scene.environmentIntensity = 0.42;
   const camera = new THREE.PerspectiveCamera(o.camera?.fov ?? (mobile ? 44 : 36), 1, 0.3, 300);
   const skyKind = W.sky ?? 'day';
   const sunColor = skyKind === 'dusk' ? 0xffd2a6 : skyKind === 'night' ? 0xb9c8ff : skyKind === 'snow' ? 0xf4f8ff : 0xfff1dc;
   const sun = new THREE.DirectionalLight(sunColor, W.sun ?? (skyKind === 'night' ? 1.2 : 2.4));
-  sun.position.set(-14, 22, 12); sun.castShadow = !mobile;
+  sun.position.set(-14, 22, 12); sun.castShadow = true;
   Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 2, far: 90 });
-  sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
   const hemi = new THREE.HemisphereLight(skyKind === 'night' ? 0x8fa3ff : 0xdff0ff, skyKind === 'snow' ? 0xdde7ee : 0x6a8a4a, skyKind === 'night' ? 0.5 : 0.75);
   scene.add(sun, sun.target, hemi);
   // the dome is built for the island (centred on the map); mini-game scenes sit at the origin, so re-centre it and keep it inside the camera's far plane
   const sky = buildSky(); sky.position.set(0, 0, 0); sky.scale.setScalar(0.6); scene.add(sky);
   const skyMat = sky.material as THREE.ShaderMaterial;
+  if (skyKind === 'day') { (skyMat.uniforms.uTop.value as THREE.Color).set('#5aaae4'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#fcefd4'); }
+  // a warm rim light from behind lifts silhouettes off the ground (characters, props, trees)
+  const rim = new THREE.DirectionalLight(skyKind === 'night' ? 0x9fb4ff : skyKind === 'snow' ? 0xe6f0ff : 0xffe0b0, skyKind === 'night' ? 0.5 : 0.8); rim.position.set(7, 8, -14); scene.add(rim);
   if (skyKind === 'dusk') { (skyMat.uniforms.uTop.value as THREE.Color).set('#6a5aa8'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#ffc9a0'); }
   else if (skyKind === 'night') { (skyMat.uniforms.uTop.value as THREE.Color).set('#1b2140'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#4a5a9a'); }
   else if (skyKind === 'snow') { (skyMat.uniforms.uTop.value as THREE.Color).set('#9fc0e0'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#e9f1fa'); }
   const fog = W.fog ?? (skyKind === 'night' ? ['#2a3560', 30, 110] : skyKind === 'snow' ? ['#e4edf5', 35, 120] : ['#cfe6ee', 45, 130]);
   scene.fog = new THREE.Fog(fog[0], fog[1], fog[2]);
   const time = { value: 0 };
-  // ground: a soft two-tone surface with an optional dirt path across the start
-  const [gA, gB] = W.ground ?? ['#79c86b', '#5fb35a'];
-  const ground = new THREE.PlaneGeometry(120, 120, 80, 80).rotateX(-Math.PI / 2);
+  // ground: a painted texture (grass / sand / dirt / snow / cobbles), large-scale light/shade variation baked into vertex colours, flat
+  const gKind: GroundKind = W.groundKind ?? (skyKind === 'snow' ? 'snow' : 'grass');
+  const ground = new THREE.PlaneGeometry(120, 120, 60, 60).rotateX(-Math.PI / 2);
   const gp = ground.attributes.position, gc = new Float32Array(gp.count * 3);
-  const g1 = new THREE.Color(gA), g2 = new THREE.Color(gB), dirt = new THREE.Color('#c9a06b');
-  const cc = new THREE.Color();
+  const tint = new THREE.Color(W.ground ? W.ground[0] : '#ffffff'), white = new THREE.Color('#ffffff'), cc = new THREE.Color();
+  const tintK = W.ground && gKind === 'grass' ? 0.5 : 0;
   for (let i = 0; i < gp.count; i++) {
     const x = gp.getX(i), z = gp.getZ(i);
-    const n = Math.sin(x * 0.8) * Math.cos(z * 0.6) * 0.5 + 0.5;
-    const path = W.path ? Math.exp(-Math.pow((z - size.hd * 0.45) / 1.3, 2)) * (Math.abs(x) < 7 ? 1 : 0) : 0;
-    cc.copy(g1).lerp(g2, n).lerp(dirt, path * 0.9);
-    gc.set([cc.r, cc.g, cc.b], i * 3);
-    gp.setY(i, Math.sin(x * 0.5) * Math.cos(z * 0.4) * 0.05);
+    const k = 0.88 + Math.sin(x * 0.21 + 1) * Math.cos(z * 0.17) * 0.08 + Math.sin(x * 0.07 - z * 0.05) * 0.06;
+    cc.copy(white).lerp(tint, tintK).multiplyScalar(k); gc.set([cc.r * 1.02, cc.g, cc.b * 0.96], i * 3);
   }
   ground.setAttribute('color', new THREE.BufferAttribute(gc, 3)); ground.computeVertexNormals();
-  const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
-  groundMesh.receiveShadow = !mobile; scene.add(groundMesh);
+  const gTex = groundTex(gKind); gTex.repeat.set(gKind === 'grass' ? 30 : 24, gKind === 'grass' ? 30 : 24);
+  const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ map: gTex, vertexColors: true, roughness: gKind === 'snow' ? 0.7 : 0.95 }));
+  groundMesh.receiveShadow = true; scene.add(groundMesh);
+  if (W.path) { const pt = O.pathTex(); pt.repeat.set(4, 1); const lane = new THREE.Mesh(new THREE.PlaneGeometry(16, 2.6).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: pt, transparent: true, depthWrite: false, roughness: 0.95 })); lane.position.set(0, 0.012, size.hd * 0.45); lane.receiveShadow = true; scene.add(lane); }
   const rr = T.rng(setup.seed + 101);
-  if (W.treeLine !== false) for (let i = 0; i < (mobile ? 28 : 44); i++) { const a = (i / 44) * Math.PI * 2; const r = 1 + (i % 5) * 0.35; const t = treeModel(100 + i, time, 1.1 + (i % 3) * 0.3); t.position.set(Math.cos(a) * (size.hw + 3.5) * r, 0, Math.sin(a) * (size.hd + 3.5) * r); scene.add(t); }
-  if (W.fence !== false) {
-    const rail = std('#b58a5a', 0.9);
-    const { hw, hd } = size;
-    for (let x = -hw; x <= hw; x += 2) for (const z of [-hd, hd]) { add(scene, new THREE.CylinderGeometry(0.06, 0.07, 0.8, 8), rail, x, 0.4, z, false); if (x < hw) add(scene, new THREE.BoxGeometry(2, 0.07, 0.07), rail, x + 1, 0.6, z, false); }
-    for (let z = -hd; z <= hd; z += 2) for (const x of [-hw, hw]) { add(scene, new THREE.CylinderGeometry(0.06, 0.07, 0.8, 8), rail, x, 0.4, z, false); if (z < hd) add(scene, new THREE.BoxGeometry(0.07, 0.07, 2), rail, x, 0.6, z + 1, false); }
+  // the tree line: leafy trees with some pines (snowy pines on snow), all instanced
+  if (W.treeLine !== false) {
+    const n = mobile ? 26 : 40; const spots: { x: number; z: number; s: number }[] = [];
+    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + (rr() - 0.5) * 0.12; const r = 1 + (i % 5) * 0.3 + rr() * 0.15; spots.push({ x: Math.cos(a) * (size.hw + 3.5) * r, z: Math.sin(a) * (size.hd + 3.5) * r, s: 0.95 + (i % 3) * 0.22 + rr() * 0.15 }); }
+    const kind: TreeKind = W.trees ?? (skyKind === 'snow' ? 'snowpine' : 'leafy');
+    if (kind === 'leafy') { scene.add(treeRing(spots.filter((_, i) => i % 4 !== 3), 'leafy', { leaves: mobile ? 40 : 60 }), treeRing(spots.filter((_, i) => i % 4 === 3), 'pine')); }
+    else scene.add(treeRing(spots, kind, { leaves: mobile ? 40 : 60 }));
   }
-  for (let i = 0; i < (W.flowers ?? (mobile ? 14 : 26)); i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), std(i % 3 ? '#ff8fb4' : '#ffc94a', 0.6)); f.position.set((rr() - 0.5) * size.hw * 2, 0.1, (rr() - 0.5) * size.hd * 2); f.scale.y = 0.6; scene.add(f); }
+  // a rustic picket fence round the play area
+  if (W.fence !== false) {
+    const { hw, hd } = size;
+    for (const sz of [-1, 1]) scene.add(O.fence(-hw, hw, sz * hd));
+    for (const sx of [-1, 1]) { const f = O.fence(-hd, hd, 0); f.rotation.y = Math.PI / 2; f.position.x = sx * hw; scene.add(f); }
+  }
+  // flowers (daisies, poppies, buttercups) and swaying grass tufts on lawns — tufts only outside the play area so nothing hides
+  const nFl = W.flowers ?? (mobile ? 14 : 26);
+  if (nFl > 0) { const fl: { x: number; z: number; kind: number }[] = []; for (let i = 0; i < nFl; i++) fl.push({ x: (rr() - 0.5) * size.hw * 2, z: (rr() - 0.5) * size.hd * 2, kind: (rr() * 3) | 0 }); scene.add(O.flowers(fl)); }
+  if (gKind === 'grass' && W.tufts !== false) {
+    const tf: { x: number; z: number; s: number }[] = [];
+    for (let i = 0; tf.length < (mobile ? 150 : 260) && i < 3000; i++) { const x = (rr() - 0.5) * (size.hw * 2 + 16), z = (rr() - 0.5) * (size.hd * 2 + 16); if (Math.abs(x) < size.hw + 0.3 && Math.abs(z) < size.hd + 0.3) continue; tf.push({ x, z, s: 0.6 + rr() * 0.6 }); }
+    scene.add(O.grassTufts(tf, time));
+  }
+  // clouds and soft hills on the horizon
+  if (W.clouds !== false && skyKind !== 'night') {
+    for (let i = 0; i < 5; i++) { const c = O.cloud(i + 11); c.position.set((i - 2) * 22 + (rr() - 0.5) * 8, 16 + (i % 3) * 3, -55 - (i % 2) * 10); c.scale.multiplyScalar(1.5 + (i % 3) * 0.3); scene.add(c); }
+    if (skyKind !== 'snow') scene.add(O.hills());
+  }
 
   // ---- figures, particles ----
   const mats = { fur: T.furStrands() } as unknown as M.Mats;
@@ -172,6 +197,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     fuzzy.group.position.y = base;
     group.add(fuzzy.group);
     const shadow = new THREE.Mesh(new THREE.CircleGeometry(r * 1.6, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })); shadow.position.y = 0.02; group.add(shadow);
+    group.traverse((o) => { if ((o as THREE.Mesh).isMesh && o !== shadow) o.castShadow = true; });
     scene.add(group);
     return { group, fuzzy, squash: 0, base };
   };

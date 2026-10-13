@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
-import { treeModel } from '../environment';
+import { tree, trailTex } from './sceneArt';
 import { adventure } from '../adventures';
 import { RunSim, LANES, type Thing } from './obstacle';
 
@@ -25,7 +25,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   });
   const { scene, time } = a;
   // ---- the trail: a long dirt strip with edge lines and dashes that scroll ----
-  const trail = new THREE.Mesh(new THREE.PlaneGeometry(8.2, AHEAD + BEHIND + 10).rotateX(-Math.PI / 2), std('#c9b07e', 0.95)); trail.position.set(0, 0.012, -(AHEAD - BEHIND) / 2); trail.receiveShadow = !a.mobile; scene.add(trail);
+  const TRAIL_L = AHEAD + BEHIND + 10, TILE = 6; const tt = trailTex(); tt.repeat.set(1, TRAIL_L / TILE);
+  const trail = new THREE.Mesh(new THREE.PlaneGeometry(9.4, TRAIL_L).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: tt, transparent: true, depthWrite: false, roughness: 0.95 })); trail.position.set(0, 0.012, -(AHEAD - BEHIND) / 2); trail.receiveShadow = true; scene.add(trail);
   for (const sx of [-1, 1]) { const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.18, AHEAD + BEHIND + 10).rotateX(-Math.PI / 2), std('#f3eadb', 0.9)); edge.position.set(sx * 3.6, 0.016, -(AHEAD - BEHIND) / 2); scene.add(edge); }
   type Scroller = { m: THREE.Object3D; d: number; span: number; x: number };
   const scrollers: Scroller[] = [];
@@ -33,7 +34,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   for (let i = 0; i < 14; i++) for (const lx of [-1.1, 1.1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 1.2).rotateX(-Math.PI / 2), dashMat); m.position.y = 0.015; scene.add(m); scrollers.push({ m, d: i * 6, span: 84, x: lx }); }
   // trees and bushes along both sides
   const nTrees = a.mobile ? 16 : 24;
-  for (let i = 0; i < nTrees; i++) { const t = treeModel(500 + i, time, 1 + (i % 3) * 0.3); const side = i % 2 ? 1 : -1; t.position.y = 0; scene.add(t); scrollers.push({ m: t, d: (i / nTrees) * 90 + ((i * 7) % 5), span: 90, x: side * (5.6 + ((i * 13) % 4) * 0.9) }); }
+  for (let i = 0; i < nTrees; i++) { const t = tree(i % 4 === 3 ? 'pine' : 'leafy', i, 0.95 + (i % 3) * 0.2, !a.mobile); const side = i % 2 ? 1 : -1; t.position.y = 0; scene.add(t); scrollers.push({ m: t, d: (i / nTrees) * 90 + ((i * 7) % 5), span: 90, x: side * (5.6 + ((i * 13) % 4) * 0.9) }); }
   const bushMat = std('#5fb35a', 0.8), flowerMats = [std('#ff8fb4', 0.6), std('#ffc94a', 0.6), std('#9fd3ff', 0.6)];
   for (let i = 0; i < 30; i++) { const g = new THREE.Group(); add(g, new THREE.SphereGeometry(0.28 + (i % 3) * 0.08, 8, 6), bushMat, 0, 0.2, 0, false); if (i % 2) add(g, new THREE.SphereGeometry(0.08, 6, 5), flowerMats[i % 3], 0.1, 0.42, 0.05, false); scene.add(g); scrollers.push({ m: g, d: (i / 30) * 80 + (i % 4), span: 80, x: (i % 2 ? 1 : -1) * (4.3 + ((i * 11) % 5) * 0.5) }); }
   // ---- things on the course ----
@@ -87,6 +88,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     shake = Math.max(0, shake - dt);
     a.camTarget.set(lerp(a.camTarget.x, tx * 0.6, Math.min(1, dt * 5)) + (shake > 0 ? (Math.random() - 0.5) * shake * 0.3 : 0), 0, 0);
     // scrolling scenery
+    tt.offset.y = sim.dist / TILE; // the trail scrolls with the run
     for (const s of scrollers) { let rel = s.d - sim.dist; while (rel < -BEHIND) { s.d += s.span; rel += s.span; } while (rel > s.span - BEHIND) { s.d -= s.span; rel -= s.span; } s.m.position.x = s.x; s.m.position.z = -rel; s.m.visible = rel < AHEAD; }
     // things
     for (const t of sim.things) {

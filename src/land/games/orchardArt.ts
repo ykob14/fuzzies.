@@ -11,16 +11,16 @@ import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferG
 
 // ---------- small helpers ----------
 export const rng = (seed: number): (() => number) => { let s = (seed * 9301 + 49297) % 233280 || 1; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
-const C = (h: string) => new THREE.Color(h);
+export const C = (h: string) => new THREE.Color(h);
 /** smooth pseudo-noise in 3D (cheap, deterministic, good enough for lumps and colour variation) */
-const noise3 = (x: number, y: number, z: number) => (Math.sin(x * 1.7 + y * 2.3) * Math.cos(z * 1.9 - x * 0.7) + Math.sin(y * 3.1 - z * 1.3 + 1.7) * 0.5 + Math.cos(x * 2.9 + z * 2.2) * 0.35) / 1.85;
-const canvas = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return { c, g: c.getContext('2d')! }; };
-const tex = (c: HTMLCanvasElement, repeat?: [number, number]) => {
+export const noise3 = (x: number, y: number, z: number) => (Math.sin(x * 1.7 + y * 2.3) * Math.cos(z * 1.9 - x * 0.7) + Math.sin(y * 3.1 - z * 1.3 + 1.7) * 0.5 + Math.cos(x * 2.9 + z * 2.2) * 0.35) / 1.85;
+export const canvas = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return { c, g: c.getContext('2d')! }; };
+export const tex = (c: HTMLCanvasElement, repeat?: [number, number]) => {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
   return t;
 };
-const once = <T>(f: () => T): (() => T) => { let v: T | undefined; return () => (v ??= f()); };
+export const once = <T>(f: () => T): (() => T) => { let v: T | undefined; return () => (v ??= f()); };
 
 // ---------- painted textures ----------
 /** a card of 9 overlapping leaves with veins, on transparent — breaks crowns into foliage */
@@ -130,13 +130,13 @@ export const softDotTex = once(() => {
 
 // ---------- vertex-colour shading ----------
 type Shade = (p: THREE.Vector3, n: THREE.Vector3, out: THREE.Color) => void;
-const paint = (geo: THREE.BufferGeometry, f: Shade): THREE.BufferGeometry => {
+export const paint = (geo: THREE.BufferGeometry, f: Shade): THREE.BufferGeometry => {
   const pos = geo.attributes.position, nor = geo.attributes.normal; const col = new Float32Array(pos.count * 3);
   const p = new THREE.Vector3(), n = new THREE.Vector3(), c = new THREE.Color();
   for (let i = 0; i < pos.count; i++) { p.fromBufferAttribute(pos, i); n.fromBufferAttribute(nor, i); f(p, n, c); col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); return geo;
 };
-const SUN = new THREE.Vector3(-0.5, 0.8, 0.45).normalize();
+export const SUN = new THREE.Vector3(-0.5, 0.8, 0.45).normalize();
 
 // ---------- fruit ----------
 export type FruitArtKind = 'apple' | 'pear' | 'berry' | 'gold' | 'cone';
@@ -222,7 +222,7 @@ export function fruitModel(kind: FruitArtKind, shadow = true): THREE.Group {
 
 // ---------- trees ----------
 /** a tapered tube along a curve: radius r0 at the base to r1 at the tip */
-function taperTube(curve: THREE.Curve<THREE.Vector3>, r0: number, r1: number, segs = 10, radial = 9): THREE.BufferGeometry {
+export function taperTube(curve: THREE.Curve<THREE.Vector3>, r0: number, r1: number, segs = 10, radial = 9): THREE.BufferGeometry {
   const frames = curve.computeFrenetFrames(segs, false); const pos: number[] = [], nor: number[] = [], uv: number[] = [], idx: number[] = [];
   const p = new THREE.Vector3(), n = new THREE.Vector3();
   for (let i = 0; i <= segs; i++) {
@@ -238,7 +238,7 @@ function taperTube(curve: THREE.Curve<THREE.Vector3>, r0: number, r1: number, se
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
   return g;
 }
-const barkTex = once(() => {
+export const barkTex = once(() => {
   const { c, g } = canvas(128, 256); const r = rng(51);
   g.fillStyle = '#8a6440'; g.fillRect(0, 0, 128, 256);
   for (let i = 0; i < 70; i++) { const x = r() * 128; g.strokeStyle = r() < 0.5 ? 'rgba(70,45,25,0.5)' : 'rgba(170,135,95,0.4)'; g.lineWidth = 1 + r() * 2.5; g.beginPath(); g.moveTo(x, 0); for (let y = 0; y <= 256; y += 12) g.lineTo(x + Math.sin(y * 0.05 + i) * 3 + (r() - 0.5) * 2, y); g.stroke(); }
@@ -405,8 +405,8 @@ export function flowers(spots: { x: number; z: number; kind: number }[]): THREE.
 }
 
 // ---------- props ----------
-const woodMat = once(() => new THREE.MeshStandardMaterial({ map: woodTex(), roughness: 0.85, vertexColors: true }));
-const shadeBox = (w: number, h: number, d: number) => paint(new THREE.BoxGeometry(w, h, d), (p, n, c) => c.setScalar(0.72 + Math.max(0, n.dot(SUN)) * 0.35 - (p.y < -h * 0.3 ? 0.1 : 0)));
+export const woodMat = once(() => new THREE.MeshStandardMaterial({ map: woodTex(), roughness: 0.85, vertexColors: true }));
+export const shadeBox = (w: number, h: number, d: number) => paint(new THREE.BoxGeometry(w, h, d), (p, n, c) => c.setScalar(0.72 + Math.max(0, n.dot(SUN)) * 0.35 - (p.y < -h * 0.3 ? 0.1 : 0)));
 /** a rustic picket fence along x from x0 to x1 at depth z */
 export function fence(x0: number, x1: number, z: number, shadow = true): THREE.Group {
   const g = new THREE.Group(); const parts: THREE.BufferGeometry[] = []; const r = rng(Math.round(x0 * 13 + z * 7));
