@@ -506,7 +506,8 @@ export function landScreen(): Screen {
 
   function shopBody(tab: L.Kind | 'farm' | 'fuzzies'): HTMLElement {
     const tabs: [L.Kind | 'farm' | 'fuzzies', LandIcon, string][] = [['house', 'house', 'Houses'], ['farm', 'wheat', 'Farming'], ['factory', 'workshop', 'Workshops'], ['decor', 'flower', 'Decor'], ['fuzzies', 'star', 'Fuzzies']];
-    const list = L.ITEMS.filter((i) => (tab === 'farm' ? i.kind === 'field' : i.kind === tab) && (!i.collectible || E.owned(s, i.id) > 0));
+    const list = L.ITEMS.filter((i) => (tab === 'farm' ? i.kind === 'field' : i.kind === tab) && (!i.collectible || E.owned(s, i.id) > 0))
+      .sort((x, y) => Number(TR.isTrophy(y.id)) - Number(TR.isTrophy(x.id))); // your trophies first
     return h('div', null,
       h('div', { class: 'land-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) => h('button', { class: `land-tab ${k === tab ? 'on' : ''}`, type: 'button', role: 'tab', 'data-tab': k, 'aria-selected': String(k === tab), onclick: () => openPanel({ kind: 'shop', tab: k }) }, landIcon(ic, 22), h('span', null, label)))),
       ...(tab === 'fuzzies' ? fuzziesBody() : [
