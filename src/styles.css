@@ -2573,3 +2573,14 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 }
 .land-sheet.settle { transition: transform .22s var(--ease), max-height .22s var(--ease); }
 .land-sheet.dragging { transition: none; animation: none; }
+
+/* ---- mission sets: the Completed mark over a Fuzzy, the pill states (Polish v2) ---- */
+.land-mark { position: absolute; transform: translate(-50%, -100%); display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 6px; border-radius: 999px; background: rgba(255, 250, 240, .96); color: #2a7d3f; font: 700 12px/1 var(--ui); box-shadow: 0 2px 0 #e8d9bf, 0 6px 16px rgba(60, 40, 20, .2); white-space: nowrap; pointer-events: none; animation: land-quick-in .3s var(--ease-spring); }
+.land-mark[hidden] { display: none; }
+.land-mark svg { flex: none; }
+.land-daily.ready .land-daily-ic { background: #fff3c4; animation: land-pulse 1.4s ease-in-out infinite; }
+.land-adv-next { margin: 0; padding: 10px 14px; border-radius: 16px; background: #fff; box-shadow: 0 2px 0 var(--lline, #e8d9bf); font: 700 13.5px/1.35 var(--ui); display: flex; align-items: center; gap: 10px; }
+.land-adv-next b { font: 700 16px var(--brand); color: var(--lacc, #d6336c); }
+.land-adv-next.ready { background: #fff3c4; }
+.land-adv-host { display: inline-flex; align-items: center; gap: 6px; font: 700 12px var(--ui); opacity: .85; }
+.land-adv-host i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }

@@ -8,8 +8,11 @@
  *   rows.get    { kind, ids }                → { rows: [{ id, data }] }
  *   rows.put    { kind, row: { id, data, deleted, updated_at } } → { ok }
  *   kind = 'designs' | 'uploads'
+ *   adventure.set                            → { now, set: { key, issuedAt, seed, n, list }, done, nextAt }  (issues a new set when due)
+ *   adventure.claim { set, id, place, score } → { ok, coins, xp }  (ok = false when already collected)
  */
-import { adventure } from '../src/land/adventures.js';
+import { randomInt } from 'node:crypto';
+import { adventure, pickSet, CYCLE_MS } from '../src/land/adventures.js';
 import { applyCredits } from './_lib/credits.js';
 import { guardBalance, type Guarded } from './_lib/balance.js';
 import { db, q } from './_lib/db.js';
@@ -32,18 +35,39 @@ export function POST(req: Request): Promise<Response> {
     const u = await requireUser(req);
     await db(); // connects and makes sure the tables exist
     switch (b.action) {
-      // Fuzzies Adventures: the reward for today's mission is granted once per adventure per day (the app pays only after this says ok)
+      // Fuzzies Adventures: the account's current mission set — THREE missions, a new set five hours after the last one was
+      // issued and only once all three are done. The server's clock decides; the app only shows it.
+      case 'adventure.set': {
+        const now = Date.now();
+        const { rows } = await q('select key, (extract(epoch from issued_at) * 1000)::float8 as issued_at, seed, n, list, done from fz_adventure_sets where user_id = $1', [u.id]);
+        let cur = rows[0] as { key: string; issued_at: number; seed: number; n: number; list: { id: string; variant: string | null }[]; done: Record<string, unknown> } | undefined;
+        if (cur) cur = { ...cur, issued_at: Number(cur.issued_at), n: Number(cur.n) }; // numbers, whatever the driver hands back
+        const finished = (c: typeof cur) => !!c && c.list.every((e) => !!c!.done[e.id]);
+        if (!cur || (finished(cur) && now >= cur.issued_at + CYCLE_MS)) {
+          const n = (cur?.n ?? 0) + 1;
+          const seed = randomInt(1, 2_000_000_000);
+          const list = pickSet(seed, cur?.list.map((e) => e.id) ?? []);
+          await q(`insert into fz_adventure_sets (user_id, key, issued_at, seed, n, list, done) values ($1, $2, to_timestamp($3 / 1000.0), $4, $5, $6, '{}'::jsonb)
+                   on conflict (user_id) do update set key = excluded.key, issued_at = excluded.issued_at, seed = excluded.seed, n = excluded.n, list = excluded.list, done = excluded.done`, [u.id, String(now), now, seed, n, JSON.stringify(list)]);
+          cur = { key: String(now), issued_at: now, seed, n, list, done: {} };
+        }
+        return { now, set: { key: cur.key, issuedAt: cur.issued_at, seed: Number(cur.seed), n: cur.n, list: cur.list }, done: cur.done, nextAt: cur.issued_at + CYCLE_MS };
+      }
+      // the reward for a mission in the current set is granted once (the app pays only after this says ok)
       case 'adventure.claim': {
-        const id = String(b.id ?? ''), day = String(b.day ?? ''), place = Math.round(Number(b.place));
+        const id = String(b.id ?? ''), key = String(b.set ?? ''), place = Math.round(Number(b.place)), score = b.score === undefined ? undefined : Math.round(Number(b.score));
         const adv = adventure(id);
         if (!adv || !adv.playable) throw new HttpError(400, 'That adventure doesn’t exist.');
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isInteger(place) || place < 1 || place > 12) throw new HttpError(400, 'Bad result.');
-        // the day is the player's local calendar day: allow a day either side of the server's clock, nothing older
-        const diff = Math.abs(Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10)) - Date.now()) / 86_400_000;
-        if (!Number.isFinite(diff) || diff > 1.5) throw new HttpError(400, 'That day’s mission has expired.');
+        if (!Number.isInteger(place) || place < 1 || place > 12 || (score !== undefined && !Number.isFinite(score))) throw new HttpError(400, 'Bad result.');
+        const { rows } = await q('select key, list, done from fz_adventure_sets where user_id = $1', [u.id]);
+        const cur = rows[0] as { key: string; list: { id: string }[]; done: Record<string, unknown> } | undefined;
+        if (!cur || cur.key !== key) throw new HttpError(400, 'That mission set is over.');
+        if (!cur.list.some((e) => e.id === id)) throw new HttpError(400, 'That mission isn’t in your set.');
         const coins = adv.coins[Math.min(place, adv.coins.length) - 1];
-        const r = await q('insert into fz_adventures (user_id, day, adventure, place, coins) values ($1, $2, $3, $4, $5) on conflict (user_id, day, adventure) do nothing', [u.id, day, id, place, coins]);
-        return { ok: (r.rowCount ?? 0) > 0, coins, xp: adv.xp };
+        const r = await q('insert into fz_adventures (user_id, day, adventure, place, coins) values ($1, $2, $3, $4, $5) on conflict (user_id, day, adventure) do nothing', [u.id, key, id, place, coins]);
+        const ok = (r.rowCount ?? 0) > 0;
+        if (ok) await q(`update fz_adventure_sets set done = done || $2::jsonb where user_id = $1 and key = $3`, [u.id, JSON.stringify({ [id]: { place, coins, xp: adv.xp, at: Date.now(), ...(score !== undefined ? { score } : {}) } }), key]);
+        return { ok, coins, xp: adv.xp };
       }
       case 'profile.get': {
         await applyCredits(u.id); // Fuzzies bought or gifted while this account's profile wasn't saved yet

@@ -25,7 +25,9 @@ import { mountTutorial, type TutTarget } from '../landTutorial';
 type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' } | { kind: 'events'; tab: string } | { kind: 'adventures' };
 
 /** The clock events run on (in development a test can set `fz.dev.now` to any date to see a holiday). */
-const now = (): number => { if (import.meta.env.DEV) { const v = Number(localStorage.getItem('fz.dev.now')); if (v) return v; } return Date.now(); };
+/** the server's clock, once an account has talked to it (missions are issued by server time; the device clock can't hurry them) */
+let clockOffset = 0;
+const now = (): number => { if (import.meta.env.DEV) { const v = Number(localStorage.getItem('fz.dev.now')); if (v) return v; } return Date.now() + clockOffset; };
 
 const fmt = (ms: number) => {
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -333,8 +335,8 @@ export function landScreen(): Screen {
     else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Fuzzies ask for goods — deliver for coins & XP', landIcon('crate', 34)), ordersBody());
     else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', `${L.barnUsed(s)} / ${L.barnCap(s.level)} spaces used`, landIcon('barn', 34)), barnBody());
     else if (panel.kind === 'adventures') {
-      const m = A.mission(s, now());
-      sheet.replaceChildren(head('Adventures', `${A.today(now()).special ? 'Fuzzy Festival — every adventure pays today' : 'A new mission every day'} · resets in ${A.countdown(m.resetsIn)}`, landIcon('compass', 34)), adventuresBody(s, now(), (id) => hostNameOf(id), (adv) => { openPanel(null); startAdventure(adv); }, (adv) => { openPanel(null); findHost(adv); }));
+      const st = A.setStatus(s, now());
+      sheet.replaceChildren(head('Adventures', st.ready ? 'New missions are ready!' : st.allDone ? `All ${st.total} done · new missions in ${A.countdown(st.unlockIn)}` : `${st.doneCount} of ${st.total} done · three missions every five hours`, landIcon('compass', 34)), adventuresBody(s, now(), (id) => hostNameOf(id), (adv) => { openPanel(null); startAdventure(adv); }, (adv) => { openPanel(null); findHost(adv); }, (id) => view?.residentInfo(hostIndexOf(id))?.skin[0] ?? null));
     }
     else if (panel.kind === 'events') {
       const tab = panel.tab, live = E.activeEvents(now()), ev = live.find((e) => e.key === tab) ?? live[0], mine = tab === 'mine' || !ev;
@@ -1416,7 +1418,8 @@ export function landScreen(): Screen {
   let talk: { index: number; el: HTMLElement; destroy: () => void } | null = null;
   let playing = false; // a mini-game is on screen
   /** today's hosts: each adventure has its own Fuzzy (the headline one when no id is given) */
-  const hostIndexOf = (id?: string) => A.hosts(view?.residentCount ?? 2, now())[id ?? A.featured(now()).id] ?? 0;
+  const isCloud = () => !!accounts.current?.cloud && cloudEnabled;
+  const hostIndexOf = (id?: string) => A.hosts(s, view?.residentCount ?? 2, now())[id ?? A.featured(s, now()).id] ?? 0;
   const hostIndex = () => hostIndexOf();
   const hostNameOf = (id?: string) => { const i = hostIndexOf(id); return view?.residentInfo(i)?.name ?? A.character(i).name; };
   const hostName = () => hostNameOf();
@@ -1430,7 +1433,7 @@ export function landScreen(): Screen {
     if (panel) { panel = null; sheet.hidden = true; }
     document.querySelector('.land-away')?.remove();
     talk?.destroy();
-    const hosted = A.hostedBy(index, view.residentCount, now());
+    const hosted = A.hostedBy(s, index, view.residentCount, now());
     const m = A.mission(s, now(), hosted?.id);
     const isHost = !!hosted;
     const c = A.character(index);
@@ -1468,14 +1471,49 @@ export function landScreen(): Screen {
     talkTo(i);
   }
   const daily = dailyPill(() => { if (panel?.kind === 'adventures') openPanel(null); else openPanel({ kind: 'adventures' }); });
-  function paintDaily(): void { const t = A.today(now()); const a = A.adventures(s, now()); daily.update(A.mission(s, now()), hostName(), t, t.list.filter((x) => !!a.done[x.adventure.id]).length); }
+  function paintDaily(): void {
+    const st = A.setStatus(s, now());
+    if (st.ready && isCloud()) void syncMissions(); // the next set is due: the server issues it
+    daily.update(st, hostNameOf(A.featured(s, now()).id));
+    paintMarks();
+  }
+  /** a "Completed" mark floats over the Fuzzy whose mission is done */
+  function paintMarks(): void {
+    if (!view) return;
+    const a = A.adventures(s, now());
+    const h = A.hosts(s, view.residentCount, now());
+    const marked = new Set<number>();
+    for (const id in h) if (a.done[id]) { view.setMark(h[id], 'Completed'); marked.add(h[id]); }
+    for (let i = 0; i < view.residentCount; i++) if (!marked.has(i)) view.setMark(i, null);
+  }
+  /** Cloud accounts: the server issues the mission sets with its own clock; adopt its set and what's done on other devices. */
+  let syncingSet = false;
+  async function syncMissions(): Promise<void> {
+    if (!isCloud() || syncingSet) return;
+    syncingSet = true;
+    try {
+      const r = await api<{ now: number; set: A.MissionSet; done: Record<string, A.DoneEntry> }>('data', 'adventure.set');
+      if (Number.isFinite(r.now)) clockOffset = r.now - Date.now();
+      const before = A.adventures(s, now()).set?.key;
+      A.adoptSet(s, r, now());
+      save();
+      daily.update(A.setStatus(s, now()), hostNameOf(A.featured(s, now()).id));
+      paintMarks();
+      if (before && before !== r.set.key) toast('New missions have arrived — three Fuzzies are waiting!', 'fuzzy');
+    } catch { /* offline: the saved set stays playable; claims wait in `pending` */ }
+    finally { syncingSet = false; }
+  }
+  /** DEV/tests: force a set (e.g. [{ id: 'forest', variant: 'deep' }]) */
+  const devSet = (list: A.SetEntry[]) => { A.issueSet(s, now(), list); save(); paintDaily(); };
 
   /** Leave the town for a mini-game (the town keeps running its clocks; the 3D view pauses to give the game the GPU). */
   function startAdventure(adv: A.Adventure): void {
     if (playing || !view) return;
     if (!adv.playable) { toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); return; }
     // once a day: when it's done it's complete — no replays (the owner's rule); it comes back when its turn comes round
-    if (A.adventures(s, now()).done[adv.id]) { toast(`✓ ${adv.short} is complete for today — back ${A.inDays(A.nextIn(adv.id, now()))}.`, 'info'); return; }
+    const st = A.setStatus(s, now());
+    if (!A.inSet(s, adv.id, now())) { toast(`${adv.short} isn’t one of your missions right now — check the compass.`, 'info'); return; }
+    if (A.adventures(s, now()).done[adv.id]) { toast(st.ready ? `✓ ${adv.short} is done — new missions are ready, tap the compass!` : `✓ ${adv.short} is done — new missions in ${A.countdown(st.unlockIn)}.`, 'info'); return; }
     playing = true;
     endTalk();
     openPanel(null);
@@ -1485,8 +1523,8 @@ export function landScreen(): Screen {
     const pause = () => { view?.stop(); music.stop(); };
     const deluxe = accounts.current?.settings.fuzzyLook !== 'classic';
     const model = deluxe ? Promise.race([import('../../game/fuzzyGlb').then((m) => m.loadFuzzyGlb()), new Promise<null>((r) => setTimeout(() => r(null), 6000))]) : Promise.resolve(null);
-    const variant = A.variantOf(adv.id, now())?.key ?? null;
-    const seed = A.daySeed(now());
+    const variant = A.variantOf(s, adv.id, now())?.key ?? null;
+    const seed = A.setSeed(s, adv.id, now());
     const you = { name: accounts.current?.name?.split(' ')[0] || 'You', skin: ['#ff86bb', '#b8235f'] as [string, string] };
     const hostOf = (id: string) => { const i = hostIndexOf(id); const info = view?.residentInfo(i); return { index: i, name: info?.name ?? A.character(i).name, skin: info?.skin ?? (['#b8f28a', '#4f9e2f'] as [string, string]) }; };
     if (adv.id === 'boatrace') {
@@ -1536,10 +1574,12 @@ export function landScreen(): Screen {
   }
   /** A finished mini-game: record it, pay the reward once per day (cloud accounts: only after the server agrees), show the results. */
   function finishAdventure(adv: A.Adventure, res: AdvResult): void {
-    const cloud = !!accounts.current?.cloud && cloudEnabled;
+    const cloud = isCloud();
     let payout: A.Payout | null = null, pending = false;
     const show = () => {
-      const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, onBack: () => { screen.remove(); backToTown(); } }; // no "play again": once done, it's done for the day
+      const st = A.setStatus(s, now());
+      const next = st.allDone ? (st.ready ? 'New missions are ready — tap the compass in town.' : `All three done — new missions in ${A.countdown(st.unlockIn)}.`) : `${st.total - st.doneCount} mission${st.total - st.doneCount === 1 ? '' : 's'} to go.`;
+      const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, next, best: res.score !== undefined ? (A.adventures(s, now()).bestScore[adv.id] ?? null) : null, onBack: () => { screen.remove(); backToTown(); } }; // no "play again": a mission pays once
       const screen: HTMLElement = res.vacuum
         ? scoreResults({ ...common, score: res.vacuum.score, tier: res.vacuum.tier, hostPortrait: res.vacuum.hostPortrait, stats: [{ label: 'Hairballs', value: String(res.vacuum.collected) }, { label: 'Golden', value: String(res.vacuum.count.gold) }, { label: 'Big ones', value: String(res.vacuum.count.large) }, { label: 'Best chain', value: `×${res.vacuum.bestCombo}` }] })
         : res.forest
@@ -1550,19 +1590,19 @@ export function landScreen(): Screen {
     };
     try {
       payout = A.finish(s, { id: adv.id, place: res.place, timeMs: res.timeMs, score: res.score }, now(), !cloud);
-      // wood from the forest is a resource for the town (first run of the day only — practice chops don't stock the barn)
+      // wood from the forest is a resource for the town (the mission run only — practice chops don't stock the barn)
       if (res.forest && !payout.practice) A.adventures(s, now()).wood += res.forest.wood;
     } catch (e) { toast((e as Error).message, 'bad'); backToTown(); return; }
     if (!payout.practice && cloud) {
-      // the server decides whether today's reward was already collected (a refresh can't claim twice)
-      const day = A.adventures(s, now()).day;
-      api<{ ok: boolean; coins: number; xp: number }>('data', 'adventure.claim', { day, id: adv.id, place: res.place }).then((r) => {
+      // the server decides whether this mission's reward was already collected (a refresh can't claim twice)
+      const key = A.currentSet(s, now()).key;
+      api<{ ok: boolean; coins: number; xp: number }>('data', 'adventure.claim', { set: key, id: adv.id, place: res.place, ...(res.score !== undefined ? { score: res.score } : {}) }).then((r) => {
         if (r.ok) { const p = A.payout(s, r.coins, r.xp); payout = { ...payout!, coins: r.coins, xp: r.xp, levelUps: p.levelUps }; }
         else payout = { ...payout!, practice: true, coins: 0, xp: 0 };
         save(); show();
       }).catch(() => {
         // offline: remember it and try again next time the town opens
-        A.adventures(s, now()).pending.push(`${day}:${adv.id}:${res.place}`);
+        A.adventures(s, now()).pending.push(`${key}:${adv.id}:${res.place}`);
         pending = true; save(); show();
       });
     } else { save(); show(); }
@@ -1573,8 +1613,8 @@ export function landScreen(): Screen {
     if (!a.pending.length || !accounts.current?.cloud || !cloudEnabled) return;
     const list = a.pending.splice(0);
     for (const key of list) {
-      const [day, id, place] = key.split(':');
-      api<{ ok: boolean; coins: number; xp: number }>('data', 'adventure.claim', { day, id, place: Number(place) }).then((r) => {
+      const [setKey, id, place] = key.split(':');
+      api<{ ok: boolean; coins: number; xp: number }>('data', 'adventure.claim', { set: setKey, id, place: Number(place) }).then((r) => {
         if (r.ok) { A.payout(s, r.coins, r.xp); toast(`+${r.coins} coins from your ${A.adventure(id)?.short ?? 'adventure'} — welcome back!`, 'fuzzy'); save(); }
       }).catch(() => { A.adventures(s, now()).pending.push(key); save(); });
     }
@@ -1846,13 +1886,14 @@ export function landScreen(): Screen {
       applySeason();
       paintDaily();
       retryPending();
+      void syncMissions();
       // the owner's 3D Fuzzy model: swapped in once it has loaded (off in Settings → Deluxe 3D Fuzzies)
       if (accounts.current?.settings.fuzzyLook !== 'classic') void import('../../game/fuzzyGlb').then((m) => m.loadFuzzyGlb()).then((g) => { if (g && alive && view) view.useDeluxe(true); });
       try {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
       } catch { /* first visit */ }
-      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), adv: A, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, talking: () => !!talk, playing: () => playing }; // for tests
+      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), adv: A, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, devSet, syncMissions, setStatus: () => A.setStatus(s, now()), talking: () => !!talk, playing: () => playing }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
       setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in

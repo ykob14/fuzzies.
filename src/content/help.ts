@@ -155,16 +155,16 @@ overlap. Seasonal effects can be switched off in Settings.`,
   },
   {
     id: 'adventures', title: 'Fuzzies Adventures (daily missions & mini-games)', screens: ['land'],
-    keywords: ['adventure', 'adventures', 'mission', 'daily mission', 'boat', 'race', 'boat race', 'forest', 'chop', 'tree', 'wood', 'hairball', 'vacuum', 'hairballs', 'festival', 'talk', 'character', 'personality', 'pom', 'host', 'reward', 'practice', 'complete', 'contest', 'rival', 'lumberjack', 'laps', 'checkpoint', 'steer', 'joystick', 'combo', 'tier', 'golden'],
+    keywords: ['adventure', 'adventures', 'mission', 'daily mission', 'boat', 'race', 'boat race', 'forest', 'chop', 'tree', 'wood', 'hairball', 'vacuum', 'hairballs', 'festival', 'talk', 'character', 'personality', 'pom', 'host', 'reward', 'complete', 'completed', 'contest', 'rival', 'lumberjack', 'five hours', 'new missions', 'set', 'laps', 'checkpoint', 'steer', 'joystick', 'combo', 'tier', 'golden'],
     body: `Every Fuzzy walking around your town is a character with a name and a personality (Adventurer, Farmer, Builder, Explorer, Fisher,
 Decorator, Nature keeper, Baker). Tap one: the camera glides in, it says hello and a card shows who it is, its adventure (objective, time
-limit, rewards) and Start Adventure / Maybe later. Adventures rotate day by day from a pool (the pill under the level badge and the
-Adventures sheet say what's on): Boat Race, Forest Challenge, Hairball Vacuum Challenge, then the same three with a twist (Wild Water:
-hazards from lap 1; Deep Woods: denser, bigger trees; Golden Day: twice the golden hairballs), then the Fuzzy Festival when all three are
-on and each one pays. Each adventure has its own host Fuzzy (Adventurer or Fisher for the race, Nature keeper or Builder for the forest,
-Decorator or Baker for the vacuum). Everything resets at midnight (the countdown is shown); each adventure pays town coins and XP once a
-day — when you've done it, the card and the pill say ✓ Complete, the pill slips away, and that adventure comes back when its turn in
-the rotation comes round (every few days; the card and the sheet say when). There is no second run the same day. Boat Race: three laps
+limit, rewards) and Start Adventure / Maybe later. MISSIONS COME IN SETS OF THREE: three different Fuzzies each have a mission (the
+pill under the level badge says how many are done, the compass side button opens the Adventures panel with all three, who has them,
+the rewards and a Find button that flies the camera to that Fuzzy). Finish them in any order, there is no deadline, and a finished one
+shows a green Completed mark over its Fuzzy. A NEW SET ARRIVES FIVE HOURS after the last set was issued, and only once all three are
+done (an unfinished mission is never lost; sets don't pile up). For accounts the server's clock decides, so changing the phone's time
+doesn't bring missions sooner. Each mission pays town coins and XP once; some come with a twist (Wild Water race, Deep Woods forest,
+Golden Day vacuum). Boat Race: three laps
 around Palm Island through the numbered gates in order; steer with A/D or the arrows (W accelerates, S brakes) or hold the left/right
 side of the screen on a phone; if you miss a gate the screen says MISSED CHECKPOINT and the arrow points back — go through it again;
 stay inside the buoys; later laps add barrels, boost pads, currents, logs and waves; 1st = 100 coins, 2nd 60, 3rd 30. Forest Challenge
@@ -178,7 +178,7 @@ Vacuum Challenge (2 minutes): walk around the garden with the vacuum — hairbal
 ones 25, golden 100), quick pick-ups chain into a multiplier, the canister empties itself with a bonus. The vacuum pays by tier:
 top tier 100 coins, then 65, 35, 15. Every adventure can be paused and restarted mid-run. Rewards are town coins only — never Fuzzies tokens
 or crypto.`,
-    asks: ['How do I start an adventure?', 'How do I steer the boat?', 'Why didn’t I get coins for the race?', 'Which Fuzzy has today’s mission?', 'How does the hairball vacuum work?', 'Can I cut any tree in the forest?', 'Why can’t I play the challenge again today?', 'What is the Fuzzy Festival?'],
+    asks: ['How do I start an adventure?', 'How do I steer the boat?', 'Why didn’t I get coins for the race?', 'Which Fuzzy has today’s mission?', 'How does the hairball vacuum work?', 'Can I cut any tree in the forest?', 'When do I get new missions?', 'Why can’t I play the challenge again?'],
   },
   {
     id: 'wallets', title: 'Crypto wallets & wallet log-in', screens: ['profile', 'login', 'signup', 'welcome'],

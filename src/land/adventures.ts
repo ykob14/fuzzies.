@@ -1,10 +1,10 @@
 /**
  * Fuzzies Adventures — RULES only (no DOM, no Three.js): who the Fuzzies are (names, personalities, what they say),
- * the daily mission (a configurable rotation — `SCHEDULE` — of adventures and their variants, a festival day with all of them,
- * reset at local midnight, each adventure hosted by its own Fuzzy),
- * progress and rewards (one reward per adventure per day — once it's done it's complete for the day and comes back when its turn
- * in the rotation comes round; `nextIn()` says when), saved inside the town (`LandState.adventures`).
- * New mini-games register in `ADVENTURES`; the screen finds the scene by `id`. Checked without a browser by `adv/rules.ts`.
+ * the mission sets (THREE different missions at a time, each hosted by its own Fuzzy; a new set FIVE HOURS after the last one
+ * was issued, and only once all three are done — an unfinished mission is never lost, sets never stack), progress and rewards
+ * (one reward per mission per set), saved inside the town (`LandState.adventures`). For accounts the SERVER issues the sets with
+ * its own clock (`api/data.ts` → `adventure.set`), so a device clock can't hurry them; guests use the device clock.
+ * New mini-games register in `ADVENTURES`; the screen finds the scene by `id`. Checked without a browser by `adv/sets-check.ts`.
  */
 import { NAMES, addXp, type LandState } from './rules';
 
@@ -110,134 +110,171 @@ export const ADVENTURES: Adventure[] = [
 export const adventure = (id: string): Adventure | undefined => ADVENTURES.find((a) => a.id === id);
 export const playable = (): Adventure[] => ADVENTURES.filter((a) => a.playable);
 
-// ---------- the daily mission ----------
+// ---------- mission sets ----------
+export const SET_SIZE = 3;
+/** a new set this long after the previous one was issued (and once it's finished) */
+export const CYCLE_MS = 5 * 60 * 60 * 1000;
+
+export interface SetEntry { id: string; variant: string | null }
+export interface MissionSet { key: string; issuedAt: number; seed: number; n: number; list: SetEntry[] }
+export interface DoneEntry { place: number; coins: number; xp: number; at: number; score?: number }
 export interface AdvState {
-  day: string;
-  /** rewards collected today: adventure id → result */
-  done: Record<string, { place: number; coins: number; xp: number; at: number }>;
-  /** total plays per adventure (all days) */
+  /** the current set of missions (null until the first visit issues one) */
+  set: MissionSet | null;
+  /** rewards collected in the current set: adventure id → result */
+  done: Record<string, DoneEntry>;
+  /** how many whole sets have been finished */
+  setsDone: number;
+  /** total plays per adventure (all time) */
   plays: Record<string, number>;
-  /** best finishing place / tier per adventure (1 = won) and best times (ms) */
+  /** best finishing place / tier per adventure (1 = won), best times (ms) and best scores */
   best: Record<string, number>;
   bestTime: Record<string, number>;
-  /** best score per score-based adventure */
   bestScore: Record<string, number>;
   /** wood from the forest adventure (kept for the expansion mission) */
   wood: number;
-  /** rewards the server hasn't confirmed yet (cloud accounts, offline at the time): day:id */
+  /** rewards the server hasn't confirmed yet (cloud accounts, offline at the time): setKey:id:place[:score] */
   pending: string[];
   /** recent results, newest last (kept short) */
   log: { day: string; id: string; place: number; coins: number }[];
+  /** the old one-a-day field, kept so older saves read cleanly */
+  day: string;
 }
 
-export const freshAdventures = (now = Date.now()): AdvState => ({ day: dayKey(now), done: {}, plays: {}, best: {}, bestTime: {}, bestScore: {}, wood: 0, pending: [], log: [] });
+export const freshAdventures = (now = Date.now()): AdvState => ({ set: null, done: {}, setsDone: 0, plays: {}, best: {}, bestTime: {}, bestScore: {}, wood: 0, pending: [], log: [], day: dayKey(now) });
 
-/** The local calendar day (missions reset at the player's midnight, shown as a countdown). */
+/** The local calendar day (for the log). */
 export function dayKey(now = Date.now()): string {
   const d = new Date(now);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-/** Milliseconds until the next local midnight. */
-export function untilReset(now = Date.now()): number {
-  const d = new Date(now);
-  const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0).getTime();
-  return Math.max(0, next - now);
 }
 export function countdown(ms: number): string {
   const h = Math.floor(ms / 3_600_000), m = Math.floor((ms % 3_600_000) / 60_000);
   return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : m > 0 ? `${m} min` : 'less than a minute';
 }
-const dayNumber = (key: string): number => { const [y, m, d] = key.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86_400_000); };
-/** A number that is the same for everyone on the same local day — seeds the day's layouts (hairball scatter, tree layout). */
-export const daySeed = (now = Date.now()): number => dayNumber(dayKey(now)) * 7919 + 13;
 
-/** The adventures state for today (yesterday's rewards are cleared, totals are kept). */
-export function adventures(s: LandState, now = Date.now()): AdvState {
-  const a = (s.adventures ??= freshAdventures(now));
-  const today = dayKey(now);
-  if (a.day !== today) { a.day = today; a.done = {}; }
-  return a;
+/** The adventures state (created on the first look; nothing else is touched). */
+export function adventures(s: LandState, _now = Date.now()): AdvState {
+  return (s.adventures ??= freshAdventures(_now));
 }
 
-// ---------- the rotation ----------
+/** A small deterministic random source for picking sets (the same seed → the same set on every device). */
+const rng = (seed: number) => { let a = (seed >>> 0) || 1; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+
 /**
- * The mission pool: one entry per day, cycled by the day number. Edit freely — add days, repeat adventures, pick variants;
- * `festival` is the special day when every playable adventure is on and each one pays. Nothing else is hard-coded to this list.
+ * Pick a set of `SET_SIZE` DIFFERENT playable adventures from a seed. `prev` (the previous set's ids) are avoided where the
+ * library is big enough, so two sets in a row never look the same; now and then an adventure comes with its twist.
  */
-export const SCHEDULE: { id: string; variant?: string }[] = [
-  { id: 'boatrace' },
-  { id: 'forest' },
-  { id: 'vacuum' },
-  { id: 'boatrace', variant: 'wild' },
-  { id: 'forest', variant: 'deep' },
-  { id: 'vacuum', variant: 'golden' },
-  { id: 'festival' },
-];
-export const FESTIVAL = { title: 'Fuzzy Festival', note: 'Every adventure is on today — and every one of them pays!' };
+export function pickSet(seed: number, prev: string[] = [], pool: Adventure[] = playable()): SetEntry[] {
+  const r = rng(seed);
+  const size = Math.min(SET_SIZE, pool.length);
+  // avoid last time's picks when there is room to (keep at least `size` candidates)
+  let cands = pool.filter((a) => !prev.includes(a.id));
+  if (cands.length < size) cands = pool.slice();
+  const out: SetEntry[] = [];
+  while (out.length < size && cands.length) {
+    const i = Math.floor(r() * cands.length);
+    const a = cands.splice(i, 1)[0];
+    const keys = a.variants ? Object.keys(a.variants) : [];
+    const variant = keys.length && r() < 0.3 ? keys[Math.floor(r() * keys.length)] : null;
+    out.push({ id: a.id, variant });
+  }
+  return out;
+}
+
+const seedFrom = (now: number, n: number): number => ((Math.floor(now / 1000) * 2654435761) ^ (n * 40503) ^ 0x5bd1e995) >>> 0;
+
+/** Issue a new set now (local accounts; the server does the same for cloud accounts). */
+export function issueSet(s: LandState, now = Date.now(), force?: SetEntry[]): MissionSet {
+  const a = adventures(s, now);
+  const n = (a.set?.n ?? 0) + 1;
+  const seed = seedFrom(now, n);
+  const list = force && force.length ? force : pickSet(seed, a.set?.list.map((e) => e.id) ?? []);
+  a.set = { key: String(now), issuedAt: now, seed, n, list };
+  a.done = {};
+  return a.set;
+}
+
+export const allDone = (a: AdvState): boolean => !!a.set && a.set.list.every((e) => !!a.done[e.id]);
+
+/** The set to play now: the current one, or a fresh one when the last is finished and the five hours are up. */
+export function currentSet(s: LandState, now = Date.now(), force?: SetEntry[]): MissionSet {
+  const a = adventures(s, now);
+  if (!a.set) return issueSet(s, now, force);
+  if (allDone(a) && now >= a.set.issuedAt + CYCLE_MS) { a.setsDone++; return issueSet(s, now, force); }
+  return a.set;
+}
+
+export interface SetStatus { set: MissionSet; doneCount: number; total: number; allDone: boolean; nextAt: number; unlockIn: number; ready: boolean }
+/** Where the player is in the current set and when the next one comes. */
+export function setStatus(s: LandState, now = Date.now()): SetStatus {
+  const set = currentSet(s, now);
+  const a = adventures(s, now);
+  const doneCount = set.list.filter((e) => !!a.done[e.id]).length;
+  const all = doneCount >= set.list.length;
+  const nextAt = set.issuedAt + CYCLE_MS;
+  return { set, doneCount, total: set.list.length, allDone: all, nextAt, unlockIn: Math.max(0, nextAt - now), ready: all && now >= nextAt };
+}
+
+/** Adopt the set the server issued (cloud accounts): its list, clock and what's already done on other devices. */
+export function adoptSet(s: LandState, r: { set: MissionSet; done: Record<string, DoneEntry> }, now = Date.now()): void {
+  const a = adventures(s, now);
+  if (a.set && a.set.key !== r.set.key && allDone(a)) a.setsDone++;
+  a.set = { key: String(r.set.key), issuedAt: Number(r.set.issuedAt), seed: Number(r.set.seed), n: Number(r.set.n) || 1, list: r.set.list.map((e) => ({ id: String(e.id), variant: e.variant ? String(e.variant) : null })) };
+  a.done = { ...(r.done ?? {}) };
+}
 
 export interface TodaysAdventure { adventure: Adventure; variant: Variant | null }
 export interface Today { day: string; special: boolean; title: string; list: TodaysAdventure[] }
-/** What's on today: usually one adventure (maybe with a twist), on festival days all of them. */
-export function today(now = Date.now()): Today {
-  const day = dayKey(now);
-  const entry = SCHEDULE[dayNumber(day) % SCHEDULE.length];
-  if (entry.id === 'festival') return { day, special: true, title: FESTIVAL.title, list: playable().map((adventure) => ({ adventure, variant: null })) };
-  const adv = adventure(entry.id);
-  // a schedule entry that doesn't exist or isn't playable never leaves the day empty
-  if (!adv || !adv.playable) { const list = playable(); const a = list[dayNumber(day) % list.length]; return { day, special: false, title: a.name, list: [{ adventure: a, variant: null }] }; }
-  const variant = entry.variant ? adv.variants?.[entry.variant] ?? null : null;
-  return { day, special: false, title: variant ? `${adv.name} — ${variant.name}` : adv.name, list: [{ adventure: adv, variant }] };
+/** The current set in the shape the screens use (the name stayed from the one-a-day days). */
+export function today(s: LandState, now = Date.now()): Today {
+  const set = currentSet(s, now);
+  const list = set.list.map((e) => { const adventure = ADVENTURES.find((a) => a.id === e.id)!; return { adventure, variant: e.variant ? adventure.variants?.[e.variant] ?? null : null }; }).filter((x) => !!x.adventure);
+  return { day: set.key, special: false, title: 'Your missions', list };
 }
-/** Today's headline adventure (the first of today's list; kept for the HUD and old callers). */
-export function featured(now = Date.now()): Adventure { return today(now).list[0].adventure; }
-/** Is this adventure part of today's rotation (so a run pays)? */
-export const isToday = (id: string, now = Date.now()): boolean => today(now).list.some((x) => x.adventure.id === id);
-export const variantOf = (id: string, now = Date.now()): Variant | null => today(now).list.find((x) => x.adventure.id === id)?.variant ?? null;
-/** Days until this adventure is in the rotation again after today (1 = tomorrow). */
-export function nextIn(id: string, now = Date.now()): number {
-  for (let n = 1; n <= SCHEDULE.length * 2; n++) { const d = new Date(now); d.setDate(d.getDate() + n); d.setHours(12, 0, 0, 0); if (isToday(id, d.getTime())) return n; }
-  return SCHEDULE.length;
-}
-export const inDays = (n: number): string => (n <= 1 ? 'tomorrow' : `in ${n} days`);
+/** The headline mission (the first one not yet done, else the first). */
+export function featured(s: LandState, now = Date.now()): Adventure { const t = today(s, now); const a = adventures(s, now); return (t.list.find((x) => !a.done[x.adventure.id]) ?? t.list[0]).adventure; }
+/** Is this adventure part of the current set (so a run pays)? */
+export const inSet = (s: LandState, id: string, now = Date.now()): boolean => currentSet(s, now).list.some((e) => e.id === id);
+export const variantOf = (s: LandState, id: string, now = Date.now()): Variant | null => { const e = currentSet(s, now).list.find((x) => x.id === id); const adv = e && adventure(e.id); return e && adv && e.variant ? adv.variants?.[e.variant] ?? null : null; };
+/** The layout seed for a mission in this set (every device sees the same garden / forest). */
+export const setSeed = (s: LandState, id: string, now = Date.now()): number => { const set = currentSet(s, now); const i = Math.max(0, set.list.findIndex((e) => e.id === id)); return (set.seed + i * 7919 + 13) >>> 0; };
 
-export interface Mission { adventure: Adventure; variant: Variant | null; special: boolean; day: string; done: AdvState['done'][string] | null; resetsIn: number; /** days until this adventure comes round again */ nextIn: number; plays: number; best: number | null; bestTime: number | null; bestScore: number | null }
-/** The mission card data for an adventure (today's headline one by default). */
+export interface Mission { adventure: Adventure; variant: Variant | null; special: boolean; day: string; done: DoneEntry | null; resetsIn: number; plays: number; best: number | null; bestTime: number | null; bestScore: number | null }
+/** The mission card data for an adventure (the headline one by default). `resetsIn` = time to the next set. */
 export function mission(s: LandState, now = Date.now(), id?: string): Mission {
+  const st = setStatus(s, now);
   const a = adventures(s, now);
-  const t = today(now);
-  const adv = (id && adventure(id)) || t.list[0].adventure;
-  return { adventure: adv, variant: variantOf(adv.id, now), special: t.special, day: a.day, done: a.done[adv.id] ?? null, resetsIn: untilReset(now), nextIn: nextIn(adv.id, now), plays: a.plays[adv.id] ?? 0, best: a.best[adv.id] ?? null, bestTime: a.bestTime[adv.id] ?? null, bestScore: a.bestScore[adv.id] ?? null };
+  const adv = (id && adventure(id)) || featured(s, now);
+  return { adventure: adv, variant: variantOf(s, adv.id, now), special: false, day: st.set.key, done: a.done[adv.id] ?? null, resetsIn: st.unlockIn, plays: a.plays[adv.id] ?? 0, best: a.best[adv.id] ?? null, bestTime: a.bestTime[adv.id] ?? null, bestScore: a.bestScore[adv.id] ?? null };
 }
 
-/** Which present resident offers an adventure (the first with a fitting personality, else the first Fuzzy). */
+/** Which present resident offers an adventure (the first with a fitting personality, else the first free Fuzzy). */
 export function hostIndex(adv: Adventure, residents: number, taken: number[] = []): number {
   for (let i = 0; i < residents; i++) if (adv.hosts.includes(character(i).role) && !taken.includes(i)) return i;
   for (let i = 0; i < residents; i++) if (!taken.includes(i)) return i;
   return 0;
 }
-/** Today's hosts: adventure id → resident index, each adventure with its own Fuzzy where the town has enough of them. */
-export function hosts(residents: number, now = Date.now()): Record<string, number> {
+/** The set's hosts: adventure id → resident index, a different Fuzzy for each mission where the town has enough of them. */
+export function hosts(s: LandState, residents: number, now = Date.now()): Record<string, number> {
   const out: Record<string, number> = {};
   const taken: number[] = [];
-  for (const { adventure: adv } of today(now).list) { const i = hostIndex(adv, residents, taken); out[adv.id] = i; taken.push(i); }
+  for (const { adventure: adv } of today(s, now).list) { const i = hostIndex(adv, residents, taken); out[adv.id] = i; taken.push(i); }
   return out;
 }
-/** The adventure a resident offers today (null = none, they just chat). */
-export function hostedBy(index: number, residents: number, now = Date.now()): Adventure | null {
-  const h = hosts(residents, now);
+/** The adventure a resident offers right now (null = none, they just chat). */
+export function hostedBy(s: LandState, index: number, residents: number, now = Date.now()): Adventure | null {
+  const h = hosts(s, residents, now);
   for (const id in h) if (h[id] === index) return adventure(id) ?? null;
   return null;
 }
-
-/** Can a reward still be collected for this adventure today? */
-export const rewardLeft = (s: LandState, id: string, now = Date.now()): boolean => !adventures(s, now).done[id];
 
 export interface Result { id: string; place: number; timeMs?: number; score?: number }
 export interface Payout { coins: number; xp: number; first: boolean; levelUps: number[]; practice: boolean }
 
 /**
- * A finished run: counts the play and the best, and pays the reward ONCE per adventure per day (the screens don't offer a
- * second run any more; if one happens anyway it is practice and pays nothing).
+ * A finished run: counts the play and the records, and pays the reward ONCE per mission per set (a run of something that
+ * isn't in the set, or is already done, is practice and pays nothing — the screens don't offer those any more).
  * `pay` = false records the run without paying (the screen pays after the server confirms, for cloud accounts).
  */
 export function finish(s: LandState, r: Result, now = Date.now(), pay = true): Payout {
@@ -249,12 +286,12 @@ export function finish(s: LandState, r: Result, now = Date.now(), pay = true): P
   if (a.best[r.id] === undefined || r.place < a.best[r.id]) a.best[r.id] = r.place;
   if (r.timeMs && (a.bestTime[r.id] === undefined || r.timeMs < a.bestTime[r.id])) a.bestTime[r.id] = r.timeMs;
   if (r.score !== undefined && (a.bestScore[r.id] === undefined || r.score > a.bestScore[r.id])) a.bestScore[r.id] = r.score;
-  const practice = !!a.done[r.id] || !isToday(r.id, now);
+  const practice = !!a.done[r.id] || !inSet(s, r.id, now);
   const coins = practice ? 0 : adv.coins[Math.min(r.place, adv.coins.length) - 1];
   const xp = practice ? 0 : adv.xp;
-  a.log = [...a.log, { day: a.day, id: r.id, place: r.place, coins }].slice(-30);
+  a.log = [...a.log, { day: dayKey(now), id: r.id, place: r.place, coins }].slice(-30);
   if (practice) return { coins: 0, xp: 0, first: false, levelUps: [], practice: true };
-  a.done[r.id] = { place: r.place, coins, xp, at: now };
+  a.done[r.id] = { place: r.place, coins, xp, at: now, ...(r.score !== undefined ? { score: r.score } : {}) };
   if (!pay) return { coins, xp, first: true, levelUps: [], practice: false };
   return { ...payout(s, coins, xp), coins, xp, first: true, practice: false };
 }
@@ -272,5 +309,7 @@ export const medal = (p: number): string => (p === 1 ? '🥇' : p === 2 ? '🥈'
 export const migrateAdventures = (a: Partial<AdvState> | undefined, now = Date.now()): AdvState => {
   const f = freshAdventures(now);
   if (!a || typeof a !== 'object') return f;
-  return { ...f, ...a, done: { ...(a.done ?? {}) }, plays: { ...(a.plays ?? {}) }, best: { ...(a.best ?? {}) }, bestTime: { ...(a.bestTime ?? {}) }, bestScore: { ...(a.bestScore ?? {}) }, pending: [...(a.pending ?? [])], log: [...(a.log ?? [])].slice(-30), wood: Number(a.wood) || 0, day: typeof a.day === 'string' ? a.day : f.day };
+  const raw = a as Partial<AdvState> & { set?: unknown };
+  const set = raw.set && typeof raw.set === 'object' && Array.isArray((raw.set as MissionSet).list) && (raw.set as MissionSet).list.length ? raw.set as MissionSet : null;
+  return { ...f, ...a, set, done: set ? { ...(a.done ?? {}) } : {}, setsDone: Number(a.setsDone) || 0, plays: { ...(a.plays ?? {}) }, best: { ...(a.best ?? {}) }, bestTime: { ...(a.bestTime ?? {}) }, bestScore: { ...(a.bestScore ?? {}) }, pending: [...(a.pending ?? [])].filter((k) => typeof k === 'string' && k.split(':').length >= 3 && !/^\d{4}-\d{2}-\d{2}$/.test(k.split(':')[0])), log: [...(a.log ?? [])].slice(-30), wood: Number(a.wood) || 0, day: typeof a.day === 'string' ? a.day : f.day };
 };

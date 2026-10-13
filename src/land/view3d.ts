@@ -51,6 +51,8 @@ interface Resident {
   pos: THREE.Vector2; path: THREE.Vector2[]; facing: number; targetFacing: number; goal: Goal | null;
   mode: 'walk' | 'idle' | 'hop' | 'enter' | 'inside' | 'exit' | 'work' | 'sit' | 'chat' | 'greet'; timer: number; phase: number; blinkIn: number; blinking: number;
   lookIn: number; look: THREE.Vector2; hop: number; bubble?: HTMLElement; bubbleT: number; seed: number; mood: 'normal' | 'happy' | 'sleepy'; y: number; wave: number;
+  /** a lasting badge over the head ("Completed" once its mission is done) */
+  mark?: HTMLElement;
 }
 interface Floater { el: HTMLElement; pos: THREE.Vector3; t: number }
 interface Puff { s: THREE.Sprite; v: THREE.Vector3; life: number; max: number; grow: number }
@@ -387,7 +389,7 @@ export class LandView {
     if (next === this.deluxe) return;
     this.deluxe = next;
     const keep = this.residents.map((r) => ({ pos: r.pos.clone(), facing: r.facing }));
-    while (this.residents.length) { const r = this.residents.pop()!; r.model.group.removeFromParent(); r.shadow.removeFromParent(); r.bubble?.remove(); }
+    while (this.residents.length) { const r = this.residents.pop()!; r.model.group.removeFromParent(); r.shadow.removeFromParent(); r.bubble?.remove(); r.mark?.remove(); }
     this.thumbs.forEach((_, k) => { if (k.startsWith('fuzzy:')) this.thumbs.delete(k); });
     if (this.state) this.syncResidents(population(this.state));
     this.residents.forEach((r, i) => { if (keep[i]) { r.pos.copy(keep[i].pos); r.facing = r.targetFacing = keep[i].facing; } });
@@ -399,7 +401,7 @@ export class LandView {
 
   private syncResidents(pop: number): void {
     const want = Math.max(2, Math.min(14, Math.round(pop / 3)));
-    while (this.residents.length > want) { const r = this.residents.pop()!; r.model.group.removeFromParent(); r.shadow.removeFromParent(); r.bubble?.remove(); }
+    while (this.residents.length > want) { const r = this.residents.pop()!; r.model.group.removeFromParent(); r.shadow.removeFromParent(); r.bubble?.remove(); r.mark?.remove(); }
     while (this.residents.length < want) {
       const i = this.residents.length;
       const skin = i % SKINS.length;
@@ -1038,6 +1040,22 @@ export class LandView {
   }
   get focused(): number | null { return this.focus; }
 
+  /** A lasting badge over a resident's head — a drawn tick and a word ("Completed"); `null` removes it. */
+  setMark(i: number, text: string | null): void {
+    const r = this.residents[i];
+    if (!r) return;
+    if (!text) { r.mark?.remove(); r.mark = undefined; return; }
+    if (r.mark && r.mark.dataset.text === text) return;
+    r.mark?.remove();
+    const el = document.createElement('div');
+    el.className = 'land-mark';
+    el.dataset.text = text;
+    el.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#2a7d3f"/><path d="M6.5 12.5l3.6 3.5L17.5 8.5" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    el.append(document.createTextNode(text));
+    this.overlay.append(el);
+    r.mark = el;
+  }
+
   /** A little wave / happy hop from a resident (reactions during a conversation). */
   react(i: number, how: 'wave' | 'hop' | 'cheer'): void {
     const r = this.residents[i];
@@ -1424,6 +1442,7 @@ export class LandView {
       this.toScreen(r.bubble, new THREE.Vector3(r.pos.x, 0.78 + bob + r.y, r.pos.y));
       if (r.bubbleT <= 0 || hidden) { r.bubble.remove(); r.bubble = undefined; }
     }
+    if (r.mark) { if (hidden) r.mark.hidden = true; else { r.mark.hidden = false; this.toScreen(r.mark, new THREE.Vector3(r.pos.x, (r.bubble ? 1.2 : 0.8) + bob + r.y, r.pos.y)); } }
   }
 
   /** Reached the end of a walk: do what we came for. */
