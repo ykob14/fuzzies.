@@ -10,7 +10,8 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // ---------- small helpers ----------
-export const rng = (seed: number): (() => number) => { let s = (seed * 9301 + 49297) % 233280 || 1; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
+// negative seeds wrap into range
+export const rng = (seed: number): (() => number) => { let s = (((Math.round(seed) * 9301 + 49297) % 233280) + 233280) % 233280 || 1; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
 export const C = (h: string) => new THREE.Color(h);
 /** smooth pseudo-noise in 3D (cheap, deterministic, good enough for lumps and colour variation) */
 export const noise3 = (x: number, y: number, z: number) => (Math.sin(x * 1.7 + y * 2.3) * Math.cos(z * 1.9 - x * 0.7) + Math.sin(y * 3.1 - z * 1.3 + 1.7) * 0.5 + Math.cos(x * 2.9 + z * 2.2) * 0.35) / 1.85;

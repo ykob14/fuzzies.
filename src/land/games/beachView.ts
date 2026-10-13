@@ -24,7 +24,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   // ---- the sea, moving with the tide ----
   const sea = water(BEACH.hw * 2 + 60, 40, { shallow: '#7fe0d4', deep: '#1f7fc4', depth: (_x, z) => (20 - z) / 14, waves: 0.05 }, time);
   sea.position.set(0, 0.03, -BEACH.hd - 20); scene.add(sea);
-  const foam = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 0.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.75 })); foam.position.y = 0.04; scene.add(foam);
+  const foam = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 0.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.75 })); foam.position.y = 0.16; scene.add(foam);
   const wet = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 4).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#d2b67c', roughness: 0.9, transparent: true, opacity: 0.8 })); wet.position.y = 0.02; scene.add(wet);
   // furniture from the rules
   const wood = std('#a97c50', 0.9), white = std('#f3f0e6', 0.8), rockMat = std('#9a948a', 0.95);

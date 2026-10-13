@@ -25,12 +25,15 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sea = water(BEACH.hw * 2 + 60, 40, { shallow: '#7fe0d4', deep: '#1f7fc4', depth: (_x, z) => (20 - z) / 14, waves: 0.05 }, time);
   sea.position.set(0, 0.03, -BEACH.hd - 20.5); scene.add(sea);
   const foam = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 0.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.7 }));
-  foam.position.set(0, 0.04, -BEACH.hd - 0.6); scene.add(foam);
+  foam.position.set(0, 0.16, -BEACH.hd - 0.6); scene.add(foam);
   const wet = new THREE.Mesh(new THREE.PlaneGeometry(BEACH.hw * 2 + 60, 1.6).rotateX(-Math.PI / 2), std('#d9bf86', 0.9)); wet.position.set(0, 0.02, -BEACH.hd + 0.3); scene.add(wet);
   // ---- furniture from the rules: palms (r 0.5), rocks (other circles), the boat (box) ----
   const trunkMat = std('#a97c50', 0.9);
+  // palms between the camera and the Fuzzy turn see-through so they never hide the player
+  const palms: { x: number; z: number; mats: THREE.Material[]; k: number }[] = [];
+  const fadeable = (g: THREE.Object3D) => { const mats = new Set<THREE.Material>(); g.traverse((m) => { if ((m as THREE.Mesh).isMesh) { const mt = (m as THREE.Mesh).material as THREE.Material; mt.transparent = true; mats.add(mt); } }); return { x: g.position.x, z: g.position.z, mats: [...mats], k: 1 }; };
   for (const o of sim.obstacles) {
-    if (o.kind === 'circle' && o.r === 0.5) { const p = palm(Math.round(o.x * 7 + o.z * 3), 4.6); p.position.set(o.x, 0, o.z); scene.add(p); }
+    if (o.kind === 'circle' && o.r === 0.5) { const p = palm(Math.round(o.x * 7 + o.z * 3), 4.4); p.scale.setScalar(0.8); p.position.set(o.x, 0, o.z); scene.add(p); palms.push(fadeable(p)); }
     else if (o.kind === 'circle') { const r = rock(Math.round(o.x * 5 + o.z), o.r * 1.05, 'sand'); r.position.x = o.x; r.position.z = o.z; scene.add(r); }
     else { const b = rowboat(o.hw * 2.1, o.hd * 2.1); b.position.set(o.x, 0, o.z); b.rotation.y = 0.08; scene.add(b); }
   }
@@ -89,6 +92,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     me.group.position.set(p.x, 0, p.z); me.group.rotation.y = sim.you.heading;
     a.walk(me, Math.min(1, sim.you.speed / MOVE.max), dt);
     a.camTarget.lerp(new THREE.Vector3(p.x, 0, p.z), Math.min(1, dt * 6));
+    { const c = a.camera.position, dx = p.x - c.x, dz = p.z - c.z, L2 = dx * dx + dz * dz || 1;
+      for (const pm of palms) { const t = ((pm.x - c.x) * dx + (pm.z - c.z) * dz) / L2; const near = t > 0 && t < 1.05 && Math.hypot(c.x + dx * t - pm.x, c.z + dz * t - pm.z) < 2.6; const k = pm.k + ((near ? 0.28 : 1) - pm.k) * Math.min(1, dt * 6); if (Math.abs(k - pm.k) > 0.001) { pm.k = k; for (const m of pm.mats) { m.opacity = k; m.depthWrite = k > 0.95; } } } }
     // digging: the spade swings, sand flies, the Fuzzy bobs
     if (sim.digging > 0) { digFx -= dt; spade.rotation.z = -0.5 + Math.sin(time.value * 18) * 0.9; spade.rotation.x = -0.6; me.squash = 0.25 + Math.sin(time.value * 18) * 0.15; if (Math.random() < dt * 14) a.chips(new THREE.Vector3(p.x + Math.sin(sim.you.heading) * 0.4, 0.2, p.z + Math.cos(sim.you.heading) * 0.4), 2, '#e6c98f'); }
     else { spade.rotation.z = lerp(spade.rotation.z, -0.5, Math.min(1, dt * 8)); spade.rotation.x = lerp(spade.rotation.x, 0, Math.min(1, dt * 8)); }

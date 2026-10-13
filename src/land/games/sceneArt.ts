@@ -37,13 +37,14 @@ export function groundTex(kind: GroundKind): THREE.CanvasTexture {
   if (kind === 'grass') t = grassTex().clone();
   else {
     const { c, g } = canvas(512, 512); const r = rng(kind.length * 17 + 3);
-    const blotch = (n: number, cols: string[], min: number, max: number) => { for (let i = 0; i < n; i++) { const x = r() * 512, y = r() * 512, rad = min + r() * (max - min); const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, cols[(r() * cols.length) | 0]); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); } };
+    // blotches are drawn again across the edges so the tile wraps without visible seams
+    const blotch = (n: number, cols: string[], min: number, max: number) => { for (let i = 0; i < n; i++) { const x0 = r() * 512, y0 = r() * 512, rad = min + r() * (max - min), col = cols[(r() * cols.length) | 0]; for (const ox of [-512, 0, 512]) for (const oy of [-512, 0, 512]) { const x = x0 + ox, y = y0 + oy; if (x + rad < 0 || x - rad > 512 || y + rad < 0 || y - rad > 512) continue; const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, col); gr.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); } } };
     const pebbles = (n: number, cols: string[], smin: number, smax: number) => { for (let i = 0; i < n; i++) { const x = r() * 512, y = r() * 512, w = smin + r() * (smax - smin), h = w * (0.6 + r() * 0.35); g.fillStyle = cols[(r() * cols.length) | 0]; g.beginPath(); g.ellipse(x, y, w, h, r() * 3, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.3)'; g.beginPath(); g.ellipse(x - w * 0.3, y - h * 0.3, w * 0.35, h * 0.3, 0, 0, 7); g.fill(); } };
     if (kind === 'sand') {
       g.fillStyle = '#ecd3a0'; g.fillRect(0, 0, 512, 512);
-      blotch(60, ['rgba(255,236,190,0.45)', 'rgba(205,170,110,0.35)'], 30, 90);
-      for (let y = 0; y < 512; y += 9) { g.strokeStyle = y % 18 ? 'rgba(190,150,90,0.18)' : 'rgba(255,244,214,0.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= 512; x += 16) g.lineTo(x, y + Math.sin(x * 0.03 + y * 0.2) * 3); g.stroke(); }
-      for (let i = 0; i < 2500; i++) { g.fillStyle = r() < 0.5 ? 'rgba(160,120,70,0.35)' : 'rgba(255,250,235,0.6)'; g.fillRect(r() * 512, r() * 512, 1.4, 1.4); }
+      blotch(60, ['rgba(255,240,205,0.4)', 'rgba(222,190,135,0.2)'], 30, 90);
+      for (let y = 0; y < 512; y += 9) { g.strokeStyle = y % 18 ? 'rgba(200,165,110,0.1)' : 'rgba(255,246,222,0.28)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= 512; x += 16) g.lineTo(x, y + Math.sin(x * 0.03 + y * 0.2) * 3); g.stroke(); }
+      for (let i = 0; i < 2500; i++) { g.fillStyle = r() < 0.5 ? 'rgba(175,140,90,0.22)' : 'rgba(255,250,235,0.55)'; g.fillRect(r() * 512, r() * 512, 1.4, 1.4); }
       pebbles(40, ['#f6efe4', '#e9c9b0', '#d9b8a8'], 2, 4);
     } else if (kind === 'dirt') {
       g.fillStyle = '#86715b'; g.fillRect(0, 0, 512, 512);
@@ -53,9 +54,9 @@ export function groundTex(kind: GroundKind): THREE.CanvasTexture {
       g.strokeStyle = 'rgba(50,40,30,0.35)'; g.lineWidth = 1.2; for (let i = 0; i < 18; i++) { let x = r() * 512, y = r() * 512; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 40; y += (r() - 0.5) * 40; g.lineTo(x, y); } g.stroke(); }
     } else if (kind === 'snow') {
       g.fillStyle = '#f2f6fb'; g.fillRect(0, 0, 512, 512);
-      blotch(50, ['rgba(200,215,235,0.45)', 'rgba(255,255,255,0.7)'], 40, 120);
+      blotch(40, ['rgba(214,226,242,0.3)', 'rgba(255,255,255,0.6)'], 40, 120);
       for (let i = 0; i < 1800; i++) { g.fillStyle = r() < 0.8 ? 'rgba(255,255,255,0.95)' : 'rgba(170,200,235,0.6)'; const s = r() < 0.9 ? 1.2 : 2.2; g.fillRect(r() * 512, r() * 512, s, s); }
-      for (let i = 0; i < 30; i++) { const x = r() * 512, y = r() * 512; g.strokeStyle = 'rgba(180,200,225,0.35)'; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 18 + r() * 30, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+      for (let i = 0; i < 30; i++) { const x = r() * 512, y = r() * 512; g.strokeStyle = 'rgba(190,208,230,0.25)'; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 18 + r() * 30, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
     } else if (kind === 'gravel') {
       g.fillStyle = '#d6c7a2'; g.fillRect(0, 0, 512, 512);
       blotch(50, ['rgba(190,172,132,0.45)', 'rgba(236,226,200,0.5)'], 30, 80);
@@ -246,6 +247,7 @@ export function water(w: number, d: number, o: WaterOpts, time: { value: number 
   const sh = C(o.shallow ?? '#7fd6d0'), dp = C(o.deep ?? '#2a86c4'); const depth = o.depth ?? (() => 1);
   paint(geo, (p, _n, c) => c.copy(sh).lerp(dp, THREE.MathUtils.clamp(depth(p.x, p.z), 0, 1)));
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.12, metalness: 0.15, transparent: true, opacity: o.opacity ?? 0.9 });
+  // waves only rise above the mesh's height, so a flat ground under the sea never pokes through the troughs
   const amp = o.waves ?? 0.06;
   mat.onBeforeCompile = (s) => {
     s.uniforms.uTime = time;
@@ -256,7 +258,7 @@ export function water(w: number, d: number, o: WaterOpts, time: { value: number 
         float dz = ${amp.toFixed(3)} * (0.7 * -sin(wz * 1.1 - uTime * 1.1) * 1.1 + 0.6 * cos((wx + wz) * 1.7 + uTime * 2.1) * 1.7);
         objectNormal = normalize(vec3(-dx, 1.0, -dz));`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        transformed.y += ${amp.toFixed(3)} * (0.9 * sin(wx * 0.9 + uTime * 1.3) + 0.7 * cos(wz * 1.1 - uTime * 1.1) + 0.6 * sin((wx + wz) * 1.7 + uTime * 2.1));`);
+        transformed.y += ${amp.toFixed(3)} * (2.2 + 0.9 * sin(wx * 0.9 + uTime * 1.3) + 0.7 * cos(wz * 1.1 - uTime * 1.1) + 0.6 * sin((wx + wz) * 1.7 + uTime * 2.1));`);
   };
   const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; return m;
 }
