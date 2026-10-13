@@ -126,7 +126,7 @@ export const ADVENTURES: Adventure[] = [
     tip: 'Walk in a line and watch which way the meter cools — it points you back.' },
   { id: 'obstacle', name: 'Fuzzy Obstacle Run', short: 'Obstacle Run', emoji: '🏃', hosts: ['adventurous', 'explorer'], kind: 'score', limit: 90,
     pitch: 'Three lanes, one speedy Fuzzy, and a course full of logs, puddles and stars. Jump, dodge and collect as many stars as you can!',
-    objective: 'Run the course — dodge, jump, collect stars', coins: [100, 65, 35, 15], xp: 25, playable: false,
+    objective: 'Run the course — dodge, jump, collect stars', coins: [100, 65, 35, 15], xp: 25, playable: true,
     howTo: ['Swap lanes to dodge things', 'Jump over logs', 'Collect every star you can'],
     controls: { desktop: '← → change lane · Space / ↑ jump', mobile: 'Swipe left / right · swipe up to jump' },
     scoring: 'A star 10, a golden star 50, every 100 m of running 20; stars in a row ×1.5 / ×2 / ×3; a bump costs 40 and the chain. Gold 2,300, silver 1,500, bronze 1,000 points.',
