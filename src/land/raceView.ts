@@ -18,6 +18,8 @@ import { race as snd, engine as makeEngine } from '../game/sound';
 import { RaceSim, LAPS, ISLAND_R, OUTER_R, EDGE_R, GATE_W, waveHeight, waveGrad, type Boat, type Hazard } from './race';
 import { PAL, std, add } from './models';
 import { buildSky } from './environment';
+import * as O from './games/orchardArt';
+import { palm as palmArt } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import { adventure } from './adventures';
@@ -128,31 +130,6 @@ function rock(seed: number, r: number): THREE.Mesh {
 }
 
 /** A palm: a leaning trunk from a curve, a crown of drooping fronds and a couple of coconuts. */
-function palm(seed: number, h: number, leaf: THREE.Material): THREE.Group {
-  const rr = T.rng(seed);
-  const g = new THREE.Group();
-  const lean = new THREE.Vector3((rr() - 0.5) * 0.9, 0, (rr() - 0.5) * 0.9);
-  const pts = [0, 0.25, 0.5, 0.75, 1].map((k) => new THREE.Vector3(lean.x * k * k * h, k * h, lean.z * k * k * h));
-  const curve = new THREE.CatmullRomCurve3(pts);
-  const trunk = new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.13, 8, false), new THREE.MeshStandardMaterial({ color: '#b58a5a', roughness: 0.95 }));
-  trunk.castShadow = true;
-  g.add(trunk);
-  const top = pts[4];
-  const frondGeo = new THREE.PlaneGeometry(0.5, 2.2, 1, 6);
-  const fp = frondGeo.attributes.position;
-  for (let i = 0; i < fp.count; i++) { const y = fp.getY(i); fp.setZ(i, -Math.pow((y + 1.1) / 2.2, 2) * 0.9); fp.setX(i, fp.getX(i) * (1 - Math.abs(y + 1.1) / 2.6)); }
-  frondGeo.translate(0, 1.1, 0).rotateX(-Math.PI / 2);
-  frondGeo.computeVertexNormals();
-  const n = 7 + Math.floor(rr() * 3);
-  for (let i = 0; i < n; i++) {
-    const f = new THREE.Mesh(frondGeo, leaf);
-    f.position.copy(top);
-    f.rotation.set(-0.25 - rr() * 0.3, (i / n) * Math.PI * 2 + rr() * 0.3, 0, 'YXZ');
-    g.add(f);
-  }
-  for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), std('#8a5a30', 0.9)); c.position.copy(top).add(new THREE.Vector3((rr() - 0.5) * 0.3, -0.15, (rr() - 0.5) * 0.3)); g.add(c); }
-  return g;
-}
 
 /**
  * The lagoon: a big plane with its own shader — deep blue to turquoise near the island and the reef, the swell (same formula as
@@ -260,16 +237,16 @@ function island(leaf: THREE.Material, mobile: boolean): THREE.Group {
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + rr() * 0.5, r = 4 + rr() * 5;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    const pm = palm(i * 13 + 1, 2.2 + rr() * 1.6 + (1 - r / 9) * 1.2, leaf);
+    const pm = palmArt(i * 13 + 1, 2.2 + rr() * 1.6 + (1 - r / 9) * 1.2);
     pm.position.set(x, heightAt(x, z, R) - 0.05, z);
     g.add(pm);
   }
   // bushes and rocks
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < (mobile ? 6 : 10); i++) {
     const a = rr() * Math.PI * 2, r = 2 + rr() * 8, x = Math.cos(a) * r, z = Math.sin(a) * r;
-    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.35 + rr() * 0.35, 1), std(i % 3 ? '#5fb75d' : '#ff8fb4', 0.9));
-    b.position.set(x, heightAt(x, z, R) + 0.15, z); b.scale.y = 0.7; g.add(b);
+    const b = O.bush(i * 7 + 3, 0.45 + rr() * 0.3, !mobile); b.position.set(x, heightAt(x, z, R) - 0.05, z); g.add(b);
   }
+
   for (let i = 0; i < 8; i++) { const a = rr() * Math.PI * 2, r = R - 0.4 - rr() * 1.5; const k = rock(i * 5 + 2, 0.45 + rr() * 0.5); k.position.set(Math.cos(a) * r, k.position.y + 0.15, Math.sin(a) * r); g.add(k); }
   // a little beach hut with a straw roof + a flag (the race HQ)
   const hut = new THREE.Group();
@@ -428,7 +405,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   pauseOverlay.append(pbox);
   const adv = adventure('boatrace')!;
   const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.rivals[0]?.name ?? 'Pom', mobile, buttonLabel: 'To the start line!', onStart: () => start() });
-  root.append(canvas, touch, hud, intro, pauseOverlay); // the HUD's buttons sit above the steering zones
+  root.append(canvas, el('div', 'mg-vignette'), touch, hud, intro, pauseOverlay); // the HUD's buttons sit above the steering zones
   stage.append(root);
   const tips = makeCoach(root);
   let started = false;
@@ -439,7 +416,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
-  renderer.shadowMap.enabled = !mobile;
+  renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -450,9 +427,11 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   const baseFov = camera.fov;
   const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
   sun.position.set(-30, 40, 20);
-  sun.castShadow = !mobile;
+  sun.castShadow = true;
   Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 5, far: 120 });
-  sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  // a warm rim light from behind lifts the boats and riders off the water
+  const rim = new THREE.DirectionalLight(0xffe2b8, 0.7); rim.position.set(14, 12, -28); scene.add(rim);
   scene.add(sun, sun.target, new THREE.HemisphereLight(0xdff0ff, 0x3c7f9a, 0.75));
   const sky = buildSky(); sky.position.set(0, 0, 0); scene.add(sky);
   scene.fog = new THREE.Fog('#cfe6ee', 90, 220);

@@ -10,7 +10,9 @@ import * as T from '../game/textures3d';
 import { race as snd, vac, vacuumHum, sfx } from '../game/sound';
 import { VacuumSim, LIMIT, ARENA, SUCTION, type Hairball } from './vacuumGame';
 import { PAL, std, add } from './models';
-import { buildSky, treeModel } from './environment';
+import { buildSky } from './environment';
+import * as O from './games/orchardArt';
+import { groundTex, treeRing, hedgeWalls, soilTex } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls } from '../ui/joystick';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
@@ -87,14 +89,16 @@ function garden(scene: THREE.Scene, sim: VacuumSim, time: { value: number }, mob
   // lawn with a soft colour variation and a dip of darker grass under the beds
   const lawn = new THREE.PlaneGeometry(90, 90, 80, 80).rotateX(-Math.PI / 2);
   const lp = lawn.attributes.position, lc = new Float32Array(lp.count * 3);
-  const g1 = new THREE.Color('#7fcc70'), g2 = new THREE.Color('#5fb35a'), c = new THREE.Color();
-  for (let i = 0; i < lp.count; i++) { const x = lp.getX(i), z = lp.getZ(i); const n = Math.sin(x * 0.7) * Math.cos(z * 0.5) * 0.5 + 0.5; c.copy(g1).lerp(g2, n * 0.8); lc.set([c.r, c.g, c.b], i * 3); lp.setY(i, Math.abs(x) > hw + 1 || Math.abs(z) > hd + 1 ? Math.sin(x * 0.3) * Math.cos(z * 0.25) * 0.5 - 0.02 : 0); }
+  for (let i = 0; i < lp.count; i++) { const x = lp.getX(i), z = lp.getZ(i); const k = 0.92 + Math.sin(x * 0.21 + 1) * Math.cos(z * 0.17) * 0.06 + Math.sin(x * 0.7) * Math.cos(z * 0.5) * 0.03; lc.set([k * 1.02, k, k * 0.96], i * 3); lp.setY(i, Math.abs(x) > hw + 1 || Math.abs(z) > hd + 1 ? Math.sin(x * 0.3) * Math.cos(z * 0.25) * 0.5 - 0.02 : 0); }
   lawn.setAttribute('color', new THREE.BufferAttribute(lc, 3)); lawn.computeVertexNormals();
-  const lawnMesh = new THREE.Mesh(lawn, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })); lawnMesh.receiveShadow = !mobile; scene.add(lawnMesh);
+  const gTex = groundTex('grass'); gTex.repeat.set(22, 22);
+  const lawnMesh = new THREE.Mesh(lawn, new THREE.MeshStandardMaterial({ map: gTex, vertexColors: true, roughness: 0.95 })); lawnMesh.receiveShadow = true; scene.add(lawnMesh);
   // paths: a cross + a ring round the fountain, in warm paving
-  const pave = std('#e6d6b8', 0.9);
-  for (const [w, d] of [[hw * 2, 2.6], [2.6, hd * 2]]) add(scene, new THREE.BoxGeometry(w, 0.06, d), pave, 0, 0.03, 0, false).receiveShadow = !mobile;
-  add(scene, new THREE.RingGeometry(2.6, 4.2, 40).rotateX(-Math.PI / 2), pave, 0, 0.035, 0, false);
+  // world-space UVs so the gravel keeps one scale on every piece
+  const worldUV = (g: THREE.BufferGeometry, k: number) => { const p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / k, p.getZ(i) / k); return g; };
+  const pave = new THREE.MeshStandardMaterial({ map: groundTex('gravel'), roughness: 0.95 });
+  for (const [w, d] of [[hw * 2, 2.6], [2.6, hd * 2]]) add(scene, worldUV(new THREE.BoxGeometry(w, 0.06, d), 3), pave, 0, 0.03, 0, false).receiveShadow = true;
+  add(scene, worldUV(new THREE.RingGeometry(2.6, 4.2, 40).rotateX(-Math.PI / 2), 3), pave, 0, 0.035, 0, false).receiveShadow = true;
   // the fountain (an obstacle): stone basin, water, a spout
   const stone = std(PAL.stone, 0.85);
   add(scene, new THREE.CylinderGeometry(2.3, 2.45, 0.5, 36), stone, 0, 0.25, 0);
@@ -104,21 +108,20 @@ function garden(scene: THREE.Scene, sim: VacuumSim, time: { value: number }, mob
   add(scene, new THREE.CylinderGeometry(0.7, 0.75, 0.12, 20), stone, 0, 1.55, 0);
   add(scene, new THREE.SphereGeometry(0.2, 12, 10), paint(PAL.raspberry), 0, 1.75, 0, false);
   // flower beds: a low hedge border, dark soil, flowers
-  const hedge = std('#4f9e4a', 0.9), soil = std('#6b4a2e', 1), petal = ['#ff8fb4', '#ffc94a', '#ff6f91', '#b48cff', '#fff4e3'];
+  const soil = new THREE.MeshStandardMaterial({ map: soilTex(), roughness: 1 }), petal = ['#ff8fb4', '#ffc94a', '#ff6f91', '#b48cff', '#fff4e3'];
   for (const ob of sim.obstacles) {
     if (ob.kind === 'box' && ob.hw > 1.5) {
-      add(scene, new THREE.BoxGeometry(ob.hw * 2 + 0.3, 0.42, ob.hd * 2 + 0.3), hedge, ob.x, 0.21, ob.z);
-      add(scene, new THREE.BoxGeometry(ob.hw * 2 - 0.2, 0.44, ob.hd * 2 - 0.2), soil, ob.x, 0.22, ob.z, false);
+      scene.add(hedgeWalls([{ x: ob.x, z: ob.z, w: ob.hw * 2 + 0.3, d: ob.hd * 2 + 0.3 }], 0.42));
+      add(scene, worldUV(new THREE.BoxGeometry(ob.hw * 2 - 0.2, 0.44, ob.hd * 2 - 0.2), 2), soil, ob.x, 0.22, ob.z, false).receiveShadow = true;
       const rr = T.rng(Math.round(ob.x * 3 + ob.z));
       for (let i = 0; i < (mobile ? 10 : 16); i++) { const fx = ob.x + (rr() - 0.5) * (ob.hw * 2 - 0.6), fz = ob.z + (rr() - 0.5) * (ob.hd * 2 - 0.6); add(scene, new THREE.CylinderGeometry(0.02, 0.02, 0.3, 5), std('#3f8a3a', 0.9), fx, 0.55, fz, false); const f = add(scene, new THREE.SphereGeometry(0.11, 8, 6), std(petal[i % petal.length], 0.6), fx, 0.72, fz, false); f.scale.y = 0.6; }
     } else if (ob.kind === 'box') {
       // a bench: two slats and legs
-      for (const dz of [-0.14, 0.14]) add(scene, new THREE.BoxGeometry(ob.hw * 2, 0.06, 0.22), std(PAL.wood, 0.8), ob.x, 0.46, ob.z + dz);
-      add(scene, new THREE.BoxGeometry(ob.hw * 2, 0.3, 0.05), std(PAL.wood, 0.8), ob.x, 0.72, ob.z - 0.3, false).rotation.x = -0.15;
+      for (const dz of [-0.14, 0.14]) add(scene, O.shadeBox(ob.hw * 2, 0.06, 0.22), O.woodMat(), ob.x, 0.46, ob.z + dz);
+      add(scene, O.shadeBox(ob.hw * 2, 0.3, 0.05), O.woodMat(), ob.x, 0.72, ob.z - 0.3, false).rotation.x = -0.15;
       for (const sx of [-1, 1]) add(scene, new THREE.BoxGeometry(0.08, 0.44, 0.5), std('#5c6068', 0.6, 0.3), ob.x + sx * (ob.hw - 0.15), 0.22, ob.z, false);
     } else if (ob.r > 0.5 && ob.r < 2) { // bushes (the fountain is its own build above)
-      const b = add(scene, new THREE.IcosahedronGeometry(ob.r, 2), std(ob.r > 0.85 ? '#5fb75d' : '#4f9e4a', 0.95), ob.x, ob.r * 0.65, ob.z); b.scale.y = 0.8;
-      if (ob.r > 0.85) for (let i = 0; i < 4; i++) add(scene, new THREE.SphereGeometry(0.08, 8, 6), std(i % 2 ? '#ff8fb4' : '#fff4e3', 0.6), ob.x + Math.cos(i * 1.6) * ob.r * 0.7, ob.r * 0.9, ob.z + Math.sin(i * 1.6) * ob.r * 0.7, false);
+      const b = O.bush(Math.round(ob.x * 7 + ob.z * 3), ob.r * 0.95); b.position.set(ob.x, 0, ob.z); scene.add(b);
     }
   }
   // lamp posts
@@ -127,13 +130,18 @@ function garden(scene: THREE.Scene, sim: VacuumSim, time: { value: number }, mob
     add(scene, new THREE.CylinderGeometry(0.07, 0.1, 2.6, 8), std('#3a3f4a', 0.6, 0.3), x, 1.3, z);
     lamps.push(add(scene, new THREE.SphereGeometry(0.22, 12, 10), new THREE.MeshStandardMaterial({ color: '#fff4c2', emissive: '#ffd27a', emissiveIntensity: 0.6, roughness: 0.4 }), x, 2.75, z, false));
   }
-  // picket fence round the arena
-  const picket = std('#fffaf0', 0.8);
-  const post = new THREE.BoxGeometry(0.12, 0.9, 0.12), rail = new THREE.BoxGeometry(1, 0.08, 0.06);
-  for (let x = -hw; x <= hw; x += 1) for (const z of [-hd, hd]) { add(scene, post, picket, x, 0.45, z, false); add(scene, rail, picket, x + 0.5, 0.65, z, false); add(scene, rail, picket, x + 0.5, 0.3, z, false); }
-  for (let z = -hd; z <= hd; z += 1) for (const x of [-hw, hw]) { add(scene, post, picket, x, 0.45, z, false); add(scene, rail.clone().rotateY(Math.PI / 2), picket, x, 0.65, z + 0.5, false); add(scene, rail.clone().rotateY(Math.PI / 2), picket, x, 0.3, z + 0.5, false); }
-  // trees beyond the fence
-  for (let i = 0; i < (mobile ? 18 : 30); i++) { const a = (i / 30) * Math.PI * 2; const t = treeModel(200 + i, time, 1 + (i % 3) * 0.25); t.position.set(Math.cos(a) * (hw + 5 + (i % 4) * 2), 0, Math.sin(a) * (hd + 5 + (i % 3) * 2)); scene.add(t); }
+  // picket fence round the arena, the shared tree line beyond it, swaying tufts outside, clouds and hills
+  for (const sz of [-1, 1]) scene.add(O.fence(-hw, hw, sz * hd));
+  for (const sx of [-1, 1]) { const f = O.fence(-hd, hd, 0); f.rotation.y = Math.PI / 2; f.position.x = sx * hw; scene.add(f); }
+  const rr = T.rng(77);
+  {
+    const n = mobile ? 26 : 40; const spots: { x: number; z: number; s: number }[] = [];
+    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + (rr() - 0.5) * 0.12; const r = 1 + (i % 4) * 0.25 + rr() * 0.15; spots.push({ x: Math.cos(a) * (hw + 5) * r, z: Math.sin(a) * (hd + 5) * r, s: 1 + (i % 3) * 0.22 + rr() * 0.15 }); }
+    scene.add(treeRing(spots.filter((_, i) => i % 4 !== 3), 'leafy', { leaves: mobile ? 40 : 60 }), treeRing(spots.filter((_, i) => i % 4 === 3), 'pine'));
+  }
+  { const tf: { x: number; z: number; s: number }[] = []; for (let i = 0; tf.length < (mobile ? 150 : 260) && i < 3000; i++) { const x = (rr() - 0.5) * (hw * 2 + 16), z = (rr() - 0.5) * (hd * 2 + 16); if (Math.abs(x) < hw + 0.3 && Math.abs(z) < hd + 0.3) continue; tf.push({ x, z, s: 0.6 + rr() * 0.6 }); } scene.add(O.grassTufts(tf, time)); }
+  for (let i = 0; i < 5; i++) { const c = O.cloud(i + 11); c.position.set((i - 2) * 22 + (rr() - 0.5) * 8, 16 + (i % 3) * 3, -55 - (i % 2) * 10); c.scale.multiplyScalar(1.5 + (i % 3) * 0.3); scene.add(c); }
+  scene.add(O.hills());
   return { water, lamps };
 }
 
@@ -164,7 +172,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
   const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'The hairballs aren’t going anywhere.'), resume, restart, quit);
   pauseOverlay.append(pbox);
-  root.append(canvas, hud, intro, pauseOverlay);
+  root.append(canvas, el('div', 'mg-vignette'), hud, intro, pauseOverlay);
   stage.append(root);
   const tips = makeCoach(root);
 
@@ -173,16 +181,18 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
-  renderer.shadowMap.enabled = !mobile; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
   const env = pmrem.fromScene(new RoomEnvironment(), 0.04);
-  scene.environment = env.texture; scene.environmentIntensity = 0.3;
+  scene.environment = env.texture; scene.environmentIntensity = 0.4; renderer.toneMappingExposure = 1.05;
   const camera = new THREE.PerspectiveCamera(mobile ? 46 : 38, 1, 0.3, 300);
   const sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
-  sun.position.set(-14, 24, 10); sun.castShadow = !mobile;
+  sun.position.set(-14, 24, 10); sun.castShadow = true;
   Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 20, bottom: -20, near: 2, far: 80 });
-  sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  // a warm rim light from behind lifts the Fuzzy, the vacuum and the hairballs off the lawn
+  const rim = new THREE.DirectionalLight(0xffe2b8, 0.8); rim.position.set(7, 8, -14); scene.add(rim);
   scene.add(sun, sun.target, new THREE.HemisphereLight(0xdff0ff, 0x6a8a4a, 0.75));
   const sky = buildSky(); sky.position.set(0, 0, 0); sky.scale.setScalar(0.6); scene.add(sky); // the dome is built for the island; re-centre it and keep it inside the far plane
   scene.fog = new THREE.Fog('#cfe6ee', 45, 130);

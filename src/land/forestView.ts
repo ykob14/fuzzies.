@@ -10,7 +10,9 @@ import * as T from '../game/textures3d';
 import { race as snd, vac, sfx } from '../game/sound';
 import { ForestSim, LIMIT, SWEET, SCORING, type Tree, type Wood, type Jack, type RivalSetup, type Standing } from './forestGame';
 import { PAL, std, add } from './models';
-import { buildSky, treeModel } from './environment';
+import { buildSky, treeModel, leafMaterial } from './environment';
+import * as O from './games/orchardArt';
+import { groundTex, treeRing } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls } from '../ui/joystick';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
@@ -92,7 +94,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
   const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'The trees aren’t going anywhere.'), resume, restart, quit);
   pauseOverlay.append(pbox);
-  root.append(canvas, hud, meterWrap, intro, pauseOverlay);
+  root.append(canvas, el('div', 'mg-vignette'), hud, meterWrap, intro, pauseOverlay);
   stage.append(root);
   const tips = makeCoach(root);
 
@@ -101,16 +103,18 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
-  renderer.shadowMap.enabled = !mobile; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
   const env = pmrem.fromScene(new RoomEnvironment(), 0.04);
-  scene.environment = env.texture; scene.environmentIntensity = 0.3;
+  scene.environment = env.texture; scene.environmentIntensity = 0.4; renderer.toneMappingExposure = 1.05;
   const camera = new THREE.PerspectiveCamera(mobile ? 44 : 36, 1, 0.3, 300);
   const sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
-  sun.position.set(-14, 22, 12); sun.castShadow = !mobile;
+  sun.position.set(-14, 22, 12); sun.castShadow = true;
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 2, far: 80 });
-  sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  // a warm rim light from behind lifts the Fuzzies and trunks off the grass
+  const rim = new THREE.DirectionalLight(0xffe2b8, 0.8); rim.position.set(7, 8, -14); scene.add(rim);
   const hemi = new THREE.HemisphereLight(0xdff0ff, 0x6a8a4a, 0.75);
   scene.add(sun, sun.target, hemi);
   const sky = buildSky(); sky.position.set(0, 0, 0); sky.scale.setScalar(0.6); scene.add(sky); // the dome is built for the island; re-centre it and keep it inside the far plane
@@ -118,33 +122,37 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const skyTop0 = (skyMat.uniforms.uTop.value as THREE.Color).clone(), skyHor0 = (skyMat.uniforms.uHorizon.value as THREE.Color).clone();
   scene.fog = new THREE.Fog('#cfe6ee', 45, 130);
   const time = { value: 0 };
-  // ground: a grassy clearing with a dirt path across the start and a darker tree line all round
-  const ground = new THREE.PlaneGeometry(100, 100, 80, 80).rotateX(-Math.PI / 2);
+  // ground: a painted lawn (soft light/shade baked into vertex colours, flat so nothing pokes through), a dirt path across
+  // the start, the shared tree line beyond the clearing (never part of the game), a picket fence, flowers and swaying tufts
+  const { hw, hd } = sim.you.o.bounds;
+  const ground = new THREE.PlaneGeometry(100, 100, 50, 50).rotateX(-Math.PI / 2);
   const gp = ground.attributes.position, gc = new Float32Array(gp.count * 3);
-  const g1 = new THREE.Color('#79c86b'), g2 = new THREE.Color('#5fb35a'), dirt = new THREE.Color('#c9a06b');
-  const cc = new THREE.Color();
   for (let i = 0; i < gp.count; i++) {
     const x = gp.getX(i), z = gp.getZ(i);
-    const n = Math.sin(x * 0.8) * Math.cos(z * 0.6) * 0.5 + 0.5;
-    const path = Math.exp(-Math.pow((z - 6) / 1.3, 2)) * (Math.abs(x) < 7 ? 1 : 0);
-    cc.copy(g1).lerp(g2, n).lerp(dirt, path * 0.9);
-    gc.set([cc.r, cc.g, cc.b], i * 3);
-    gp.setY(i, Math.sin(x * 0.5) * Math.cos(z * 0.4) * 0.06);
+    const k = 0.9 + Math.sin(x * 0.21 + 1) * Math.cos(z * 0.17) * 0.07 + Math.sin(x * 0.07 - z * 0.05) * 0.05;
+    gc.set([k * 1.02, k, k * 0.96], i * 3);
   }
   ground.setAttribute('color', new THREE.BufferAttribute(gc, 3)); ground.computeVertexNormals();
-  const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
-  groundMesh.receiveShadow = !mobile; scene.add(groundMesh);
-  // the tree line beyond the clearing (never part of the game) + a low rail fence at the clearing's edge
-  for (let i = 0; i < (mobile ? 30 : 48); i++) { const a = (i / 48) * Math.PI * 2; const r = 1 + (i % 5) * 0.35; const t = treeModel(100 + i, time, 1.2 + (i % 3) * 0.3); t.position.set(Math.cos(a) * (sim.you.o.bounds.hw + 3) * r, 0, Math.sin(a) * (sim.you.o.bounds.hd + 3) * r); scene.add(t); }
-  const rail = std('#b58a5a', 0.9);
-  const { hw, hd } = sim.you.o.bounds;
-  for (let x = -hw; x <= hw; x += 2) for (const z of [-hd, hd]) { add(scene, new THREE.CylinderGeometry(0.06, 0.07, 0.8, 8), rail, x, 0.4, z, false); add(scene, new THREE.BoxGeometry(2, 0.07, 0.07), rail, x + 1, 0.6, z, false); }
-  for (let z = -hd; z <= hd; z += 2) for (const x of [-hw, hw]) { add(scene, new THREE.CylinderGeometry(0.06, 0.07, 0.8, 8), rail, x, 0.4, z, false); add(scene, new THREE.BoxGeometry(0.07, 0.07, 2), rail, x, 0.6, z + 1, false); }
-  // flowers, mushrooms, rocks
+  const gTex = groundTex('grass'); gTex.repeat.set(25, 25);
+  const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ map: gTex, vertexColors: true, roughness: 0.95 }));
+  groundMesh.receiveShadow = true; scene.add(groundMesh);
+  { const pt = O.pathTex(); pt.repeat.set(5, 1); const lane = new THREE.Mesh(new THREE.PlaneGeometry(15, 2.6).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: pt, transparent: true, depthWrite: false, roughness: 0.95 })); lane.position.set(0, 0.012, 6); lane.receiveShadow = true; scene.add(lane); }
   const rr = T.rng(setup.seed);
-  for (let i = 0; i < (mobile ? 16 : 30); i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), std(i % 3 ? '#ff8fb4' : '#ffc94a', 0.6)); f.position.set((rr() - 0.5) * hw * 2, 0.1, (rr() - 0.5) * hd * 2); f.scale.y = 0.6; scene.add(f); }
+  {
+    const n = mobile ? 28 : 44; const spots: { x: number; z: number; s: number }[] = [];
+    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + (rr() - 0.5) * 0.12; const r = 1 + (i % 5) * 0.3 + rr() * 0.15; spots.push({ x: Math.cos(a) * (hw + 4) * r, z: Math.sin(a) * (hd + 4) * r, s: 1.05 + (i % 3) * 0.25 + rr() * 0.15 }); }
+    scene.add(treeRing(spots.filter((_, i) => i % 3 !== 2), 'leafy', { leaves: mobile ? 40 : 60 }), treeRing(spots.filter((_, i) => i % 3 === 2), 'pine'));
+  }
+  for (const sz of [-1, 1]) scene.add(O.fence(-hw, hw, sz * hd));
+  for (const sx of [-1, 1]) { const f = O.fence(-hd, hd, 0); f.rotation.y = Math.PI / 2; f.position.x = sx * hw; scene.add(f); }
+  { const tf: { x: number; z: number; s: number }[] = []; for (let i = 0; tf.length < (mobile ? 150 : 260) && i < 3000; i++) { const x = (rr() - 0.5) * (hw * 2 + 16), z = (rr() - 0.5) * (hd * 2 + 16); if (Math.abs(x) < hw + 0.3 && Math.abs(z) < hd + 0.3) continue; tf.push({ x, z, s: 0.6 + rr() * 0.6 }); } scene.add(O.grassTufts(tf, time)); }
+  for (let i = 0; i < 5; i++) { const c = O.cloud(i + 11); c.position.set((i - 2) * 22 + (rr() - 0.5) * 8, 16 + (i % 3) * 3, -55 - (i % 2) * 10); c.scale.multiplyScalar(1.5 + (i % 3) * 0.3); scene.add(c); }
+  scene.add(O.hills());
+  // flowers and mushrooms
+  { const fl: { x: number; z: number; kind: number }[] = []; for (let i = 0; i < (mobile ? 16 : 30); i++) fl.push({ x: (rr() - 0.5) * hw * 2, z: (rr() - 0.5) * hd * 2, kind: (rr() * 3) | 0 }); scene.add(O.flowers(fl)); }
   for (let i = 0; i < 8; i++) { const m = new THREE.Group(); add(m, new THREE.CylinderGeometry(0.06, 0.08, 0.22, 8), std('#fff4e3', 0.9), 0, 0.11, 0, false); add(m, new THREE.SphereGeometry(0.16, 10, 8), std(PAL.raspberry, 0.7), 0, 0.26, 0, false).scale.y = 0.6; m.position.set((rr() - 0.5) * hw * 1.8, 0, (rr() - 0.5) * hd * 1.8); scene.add(m); }
   // the game trees
+  const fadeLeaf = leafMaterial(time).clone(); fadeLeaf.onBeforeCompile = leafMaterial(time).onBeforeCompile; fadeLeaf.transparent = true; fadeLeaf.opacity = 0.3; fadeLeaf.depthWrite = false;
   type Node = { tree: Tree; g: THREE.Group; ring?: THREE.Mesh; glow?: THREE.Sprite; spark?: THREE.Sprite; falling: number; fallDir: number; stump?: THREE.Mesh; rib?: THREE.Mesh; rise: number };
   const ringGeo = new THREE.TorusGeometry(1, 0.07, 10, 48).rotateX(-Math.PI / 2);
   const ringMat = new THREE.MeshBasicMaterial({ color: PAL.raspberry, transparent: true, opacity: 0.9 });
@@ -378,6 +386,12 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     camTarget.lerp(new THREE.Vector3(you.pos.x + you.vel.x * 0.25, 0, you.pos.z + you.vel.z * 0.25), Math.min(1, dt * 4));
     camera.position.set(camTarget.x, CAM.up, camTarget.z + CAM.back);
     camera.lookAt(camTarget.x, 0.6, camTarget.z - 0.5);
+    // trees standing between the camera and your Fuzzy turn see-through (their crowns swap to a faded copy of the leaf material)
+    for (const n of nodes) {
+      const crown = n.g.children[1] as THREE.Mesh | undefined; if (!crown || !crown.isMesh) continue;
+      const d = n.tree.z - camTarget.z, block = n.falling < 0 && d > 0.4 && d < CAM.back && Math.abs(n.tree.x - camTarget.x) < 1.4 + n.tree.scale;
+      const want = block ? fadeLeaf : leafMaterial(time); if (crown.material !== want) crown.material = want;
+    }
     sun.target.position.copy(camTarget);
     // HUD
     if (scoreN.textContent !== String(sim.score)) { scoreN.textContent = String(sim.score); scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump'); }
