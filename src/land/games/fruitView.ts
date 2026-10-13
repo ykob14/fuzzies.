@@ -27,6 +27,8 @@ interface Player {
   group: THREE.Group;
   /** where the basket's rim is (world y, standing) */
   rimY: number;
+  /** the rim's centre in the world right now (it moves with every hop and squash) */
+  rimWorld: (out: THREE.Vector3) => THREE.Vector3;
   basket: { group: THREE.Group; fill: (kinds: O.FruitArtKind[]) => void; glow: (k: number) => void };
   frame(dt: number, s: { speed: number; vx: number; t: number; stun: boolean; lean: number; yaw: number; look: THREE.Vector3 | null }): void;
   catch(gold: boolean): void;
@@ -38,10 +40,10 @@ interface Player {
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
   const adv = adventure('fruit')!;
   // the camera is framed for the screen: on a portrait phone it stands back with a wider lens and the lane narrows so every
-  // drop stays on screen; the Fuzzy is drawn big (≈ 1.5 m with the basket on top) so you always see its face
+  // drop stays on screen (from the lane to the treetops where fruit appears); the Fuzzy is drawn big so you always see its face
   const aspect = innerWidth / Math.max(1, innerHeight);
   const portrait = aspect < 0.9;
-  const cam = portrait ? { fov: 52, back: 16, up: 4.4, lookDy: 0, lookY: 3.7, lead: 0 } : { fov: 36, back: 14, up: 4.1, lookDy: 0, lookY: 2.9, lead: 0 };
+  const cam = portrait ? { fov: 52, back: 16, up: 7.4, lookDy: 0, lookY: 3.5, lead: 0 } : { fov: 36, back: 15, up: 4.4, lookDy: 0, lookY: 3.6, lead: 0 };
   const tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * aspect;
   const halfWAt = (z: number) => (cam.back - z) * tanH;
   const hw = Math.min(ARENA.hw, Math.max(3.2, halfWAt(0) - 0.9));
@@ -56,7 +58,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     cls: 'fruit', setup, adv, hooks, buttonLabel: 'Catch!',
     hud: { count: 'CAUGHT' },
     camera: cam,
-    world: { size: { hw: 14, hd: 8 }, path: false, fence: false, treeLine: false, flowers: 0, clouds: false, tufts: false, fog: ['#e3eedb', portrait ? 34 : 28, portrait ? 100 : 85], sun: 2.6 },
+    world: { size: { hw: 14, hd: 8 }, path: false, fence: false, treeLine: false, flowers: 0, clouds: false, tufts: false, fog: ['#e4ead2', portrait ? 24 : 20, portrait ? 88 : 74], sun: 2.6 },
     controls: { touch: false, mouseSteer: false }, onStart: () => { if (built) sim.start(); else void ready.then(() => sim.start()); },
   });
   const { scene, time, renderer, sun, hemi, camera } = a;
@@ -65,25 +67,27 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMappingExposure = 1.08;
   sun.castShadow = true; sun.color.set('#fff0d6');
   sun.shadow.mapSize.set(lite ? 1024 : 2048, lite ? 1024 : 2048);
-  Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 15, bottom: -12, near: 4, far: 70 }); sun.shadow.camera.updateProjectionMatrix();
+  Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 11, bottom: -9, near: 4, far: 60 }); sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05;
-  hemi.color.set('#d6eaff'); hemi.groundColor.set('#7f9c56'); hemi.intensity = 1.0;
+  hemi.color.set('#d9e9fb'); hemi.groundColor.set('#8a9a5a'); hemi.intensity = 0.95;
   scene.environmentIntensity = 0.45;
   const skyU = (a.sky.material as THREE.ShaderMaterial).uniforms; (skyU.uTop.value as THREE.Color).set('#5aaae4'); (skyU.uHorizon.value as THREE.Color).set('#fcefd4');
 
   // ---- ground: painted lawn (large-scale variation baked into vertex colours) + a soft-edged dirt lane ----
   const grass = O.grassTex(); grass.repeat.set(30, 30);
   { const g = a.ground.geometry as THREE.BufferGeometry; const p = g.attributes.position, c = g.attributes.color as THREE.BufferAttribute;
-    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); const k = 0.88 + Math.sin(x * 0.21 + 1) * Math.cos(z * 0.17) * 0.08 + Math.sin(x * 0.07 - z * 0.05) * 0.06; c.setXYZ(i, k * 1.02, k, k * 0.92); p.setY(i, 0); }
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); const k = 0.88 + Math.sin(x * 0.21 + 1) * Math.cos(z * 0.17) * 0.08 + Math.sin(x * 0.07 - z * 0.05) * 0.06; c.setXYZ(i, k * 0.97, k * 0.98, k * 0.8); p.setY(i, 0); }
     c.needsUpdate = true; p.needsUpdate = true; g.computeVertexNormals(); }
   a.ground.material = new THREE.MeshStandardMaterial({ map: grass, vertexColors: true, roughness: 0.96 }); a.ground.receiveShadow = true;
   const laneTex = O.pathTex(); laneTex.repeat.set(9, 1);
-  const lane = new THREE.Mesh(new THREE.PlaneGeometry(60, 2.6).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: laneTex, transparent: true, depthWrite: false, roughness: 0.95 }));
+  const lane = new THREE.Mesh(new THREE.PlaneGeometry(60, 2.6).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: laneTex, color: '#eadcc4', transparent: true, depthWrite: false, roughness: 0.95 }));
   lane.position.set(0, 0.012, 0.15); lane.receiveShadow = true; scene.add(lane);
   const span = hw + 1.4;
   const rr = O.rng(setup.seed + 3);
   /** may this spot hold ground cover? (never on the lane or the fence line) */
   const free = (x: number, z: number) => Math.abs(z - 0.15) > 1.5 && !(z < -1.0 && z > -1.7) && Math.abs(x) < halfWAt(z) + 2.5;
+  /** tall cover (flowers, wispy grass) also stays out of the strip just in front of the lane */
+  const clear = (x: number, z: number) => free(x, z) && !(z > 0 && z < 3.6);
 
   // shared scene state the two builders fill in
   type Shaker = { g: THREE.Object3D; x: number; v: number; a: number; update?: (t: number, dt: number) => void };
@@ -95,14 +99,17 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   /** You: the owner's Fuzzy exactly as it is (or the drawn one if the model isn't loaded), drawn big — on a phone it's about
    * a fifth of the screen's height with the basket — with a basket balanced on its head; hops on a catch, leans into the run. */
   const figurePlayer = (b: { group: THREE.Object3D; topY: number; width: number; fill: (kinds: O.FruitArtKind[]) => void; glow: (v: number) => void }): Player => {
-    const R = portrait ? 0.78 : 0.62;
+    const R = portrait ? 0.95 : 0.72;
     const fig = a.figure(setup.you.skin, R);
     fig.group.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
     const bs = R * 1.05 / b.width; // the basket about as wide as the Fuzzy
-    const holder = new THREE.Group(); holder.position.y = R * 0.95; holder.scale.setScalar(bs); holder.add(b.group); fig.fuzzy.group.add(holder);
-    let hopY = 0, hopV = 0, tilt = 0, tiltV = 0, sq = 0;
+    // the basket sits in the fur on top of the head and is a child of the body, so it rides every squash, sway and hop
+    const headY = fig.fuzzy.radius * 0.86;
+    const holder = new THREE.Group(); holder.position.y = headY; holder.scale.setScalar(bs); holder.add(b.group); fig.fuzzy.body.add(holder);
+    let hopY = 0, hopV = 0, tilt = 0, tiltV = 0, sq = 0, wiggle = 0, bounce = 0;
     return {
-      group: fig.group, rimY: fig.base + R * 0.95 + b.topY * bs * 0.85,
+      group: fig.group, rimY: fig.base + headY + b.topY * bs * 0.8,
+      rimWorld: (out) => holder.localToWorld(out.set(0, b.topY * 0.8, 0)),
       basket: { group: holder, fill: b.fill, glow: b.glow },
       frame(dt, s) {
         hopV -= 15 * dt; hopY = Math.max(0, hopY + hopV * dt); if (hopY === 0 && hopV < 0) { if (hopV < -1.5) fig.squash = Math.max(fig.squash, 0.35); hopV = 0; }
@@ -110,11 +117,16 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
         fig.fuzzy.group.rotation.x = lerp(fig.fuzzy.group.rotation.x, s.speed < 0.15 ? -0.1 + Math.sin(s.t * 2) * 0.03 : 0.05, Math.min(1, dt * 4)); // looks up for fruit when standing
         if (s.stun) fig.fuzzy.group.rotation.z += Math.sin(s.t * 28) * 0.12;
         a.walk(fig, s.speed, dt);
-        tiltV += ((s.vx * 0.045) - tilt) * 90 * dt - tiltV * 9 * dt; tilt += tiltV * dt; sq = Math.max(0, sq - dt * 5);
-        holder.rotation.z = tilt; holder.scale.set(bs * (1 + Math.sin(sq * 3) * 0.06 * sq), bs * (1 - 0.12 * sq), bs * (1 + Math.sin(sq * 3) * 0.06 * sq));
+        // a happy wiggle after a catch (on top of the walk's sway)
+        wiggle = Math.max(0, wiggle - dt * 2.4); fig.fuzzy.body.rotation.z += Math.sin(wiggle * 22) * 0.16 * wiggle;
+        // the basket: a damped spring that swings behind the run, squashes and bounces on a catch
+        tiltV += ((s.vx * 0.04) - tilt) * 90 * dt - tiltV * 9 * dt; tilt += tiltV * dt; sq = Math.max(0, sq - dt * 5); bounce = Math.max(0, bounce - dt * 6);
+        holder.rotation.z = tilt + Math.sin(sq * 9) * 0.05 * sq;
+        holder.position.y = headY + Math.sin(bounce * Math.PI) * R * 0.12;
+        holder.scale.set(bs * (1 + Math.sin(sq * 3) * 0.07 * sq), bs * (1 - 0.13 * sq), bs * (1 + Math.sin(sq * 3) * 0.07 * sq));
       },
-      catch() { if (hopY < 0.05) hopV = 2.3; sq = 1; },
-      cheer() { if (hopY < 0.05) hopV = 3; },
+      catch(gold) { if (hopY < 0.05) hopV = gold ? 3.2 : 2.4; sq = 1; bounce = 1; wiggle = gold ? 1 : 0.7; },
+      cheer() { if (hopY < 0.05) hopV = 3.2; wiggle = 1; },
       ouch() { fig.squash = 0.7; sq = 1.4; },
       miss() { fig.squash = Math.max(fig.squash, 0.2); },
     };
@@ -130,7 +142,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     for (let i = 0; i < nFront; i++) {
       const x = -span + (i / (nFront - 1)) * span * 2;
       const pivot = new THREE.Group(); pivot.position.set(x, 0, -2.9 - (i % 2) * 0.35); scene.add(pivot);
-      const t = k.clone(fruitTrees[i % fruitTrees.length]); t.scale.setScalar(portrait ? 0.95 : 0.82); t.rotation.y = i * 1.9 + 0.4; pivot.add(t);
+      const t = k.clone(fruitTrees[i % fruitTrees.length]); t.scale.setScalar(portrait ? 1.1 : 0.95); t.rotation.y = i * 1.9 + 0.4; pivot.add(t);
       front.push({ g: pivot, x, v: 0, a: 0 });
     }
     // second row, the far tree line, the farmhouse with its wagon, hills and clouds
@@ -149,17 +161,17 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     scene.add(k.scatter('fence', fence, { shadow: true }));
     put('crate_apples', -(hw + 1.15), 1.0, 0.72, 0.5); put('crate_pears', hw + 1.15, 0.9, 0.72, -0.4); put('crate_apples', hw + 1.8, -0.4, 0.66, 0.2);
     // ground cover: grass, clover, flowers, ferns and mushrooms under the trees, pebbles by the lane, bushes framing the view
-    const many = (n: number, zmin: number, zmax: number, smin: number, smax: number, xpad = 2) => { const out: { x: number; z: number; s: number; rot: number }[] = []; for (let i = 0; out.length < n && i < n * 30; i++) { const z = zmin + Math.pow(rr(), 0.8) * (zmax - zmin), x = (rr() - 0.5) * 2 * (halfWAt(z) + xpad); if (free(x, z)) out.push({ x, z, s: smin + rr() * (smax - smin), rot: rr() * 6.28 }); } return out; };
+    const many = (n: number, zmin: number, zmax: number, smin: number, smax: number, xpad = 2, tall = false) => { const out: { x: number; z: number; s: number; rot: number }[] = []; for (let i = 0; out.length < n && i < n * 30; i++) { const z = zmin + Math.pow(rr(), 0.8) * (zmax - zmin), x = (rr() - 0.5) * 2 * (halfWAt(z) + xpad); if (tall ? clear(x, z) : free(x, z)) out.push({ x, z, s: smin + rr() * (smax - smin), rot: rr() * 6.28 }); } return out; };
     const q = lite ? 0.6 : 1;
-    scene.add(k.scatter('grass_short', many(Math.round(170 * q), -14, 9.5, 0.26, 0.42)));
-    scene.add(k.scatter('grass_wispy', many(Math.round(40 * q), -12, 9, 0.3, 0.45)));
+    scene.add(k.scatter('grass_short', many(Math.round(140 * q), -14, 9.5, 0.24, 0.38)));
+    scene.add(k.scatter('grass_wispy', many(Math.round(30 * q), -12, 9, 0.3, 0.42, 2, true)));
     scene.add(k.scatter('grass_tall', many(Math.round(40 * q), -14, -2, 0.25, 0.36)));
-    scene.add(k.scatter('clover', many(Math.round(40 * q), -8, 8, 0.28, 0.4)));
-    scene.add(k.scatter('flowers_a', many(Math.round(30 * q), -9, 7, 0.2, 0.28)));
-    scene.add(k.scatter('flowers_b', many(Math.round(12 * q), -9, 7, 0.18, 0.25))); // 1.7k triangles each — keep them few
+    scene.add(k.scatter('clover', many(Math.round(30 * q), -8, 8, 0.26, 0.36)));
+    scene.add(k.scatter('flowers_a', many(Math.round(22 * q), -9, 7, 0.2, 0.26, 2, true)));
+    scene.add(k.scatter('flowers_b', many(Math.round(10 * q), -9, 7, 0.18, 0.24, 2, true))); // 1.7k triangles each — keep them few
     scene.add(k.scatter('fern', many(12, -6, -2, 0.38, 0.5, 1)));
     scene.add(k.scatter('mushroom', many(10, -5, -1.9, 0.4, 0.6, 0)));
-    const pebbles: { x: number; z: number; s: number; rot: number }[] = []; for (let i = 0; i < 30; i++) { const x = (rr() - 0.5) * 2 * (hw + 3), z = 0.15 + (rr() < 0.5 ? -1 : 1) * (1.25 + rr() * 0.4); pebbles.push({ x, z, s: 0.6 + rr() * 0.6, rot: rr() * 6.28 }); }
+    const pebbles: { x: number; z: number; s: number; rot: number }[] = []; for (let i = 0; i < 20; i++) { const x = (rr() - 0.5) * 2 * (hw + 3), z = 0.15 + (rr() < 0.5 ? -1 : 1) * (1.25 + rr() * 0.4); pebbles.push({ x, z, s: 0.6 + rr() * 0.6, rot: rr() * 6.28 }); }
     scene.add(k.scatter('pebble', pebbles));
     scene.add(k.scatter('rock_1', [{ x: -halfWAt(-6) * 0.9, z: -6, s: 0.4, rot: 1 }, { x: halfWAt(-10) * 0.8, z: -10, s: 0.5, rot: 2 }], { shadow: true }));
     scene.add(k.scatter('bush_flowers', [-0.7, 0.35, 0.95].map((f, i) => ({ x: f * span, z: -1.95 - (i % 2) * 0.3, s: 0.55, rot: i * 2 })), { shadow: true }));
@@ -210,17 +222,26 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const starMat = new THREE.SpriteMaterial({ map: O.starTex(), transparent: true, depthWrite: false });
   const dizzy = new THREE.Group(); for (let i = 0; i < 3; i++) { const s = new THREE.Sprite(starMat); s.scale.setScalar(0.24); dizzy.add(s); } dizzy.visible = false; scene.add(dizzy);
   const aim = new THREE.Mesh(new THREE.RingGeometry(0.32, 0.42, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false })); aim.position.y = 0.03; scene.add(aim);
-  const flies = ['#ffffff', '#ffcf4a', '#ff8fb4'].map((c, i) => { const b = O.butterfly(c); b.group.scale.setScalar(1.4); scene.add(b.group); return { ...b, ph: i * 2.1 }; });
+  const flies = ['#ffcf4a'].map((c, i) => { const b = O.butterfly(c); b.group.scale.setScalar(1.4); scene.add(b.group); return { ...b, ph: i * 2.1 }; });
   const pollenMat = new THREE.SpriteMaterial({ map: O.softDotTex(), color: '#fff6d0', transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
-  const pollen = Array.from({ length: lite ? 14 : 26 }, (_, i) => { const s = new THREE.Sprite(pollenMat); s.scale.setScalar(0.07 + (i % 3) * 0.03); s.position.set((rr() - 0.5) * hw * 2.4, 0.5 + rr() * 5, -1 + rr() * 3); scene.add(s); return { s, ph: rr() * 10 }; });
+  const pollen = Array.from({ length: lite ? 8 : 14 }, (_, i) => { const s = new THREE.Sprite(pollenMat); s.scale.setScalar(0.07 + (i % 3) * 0.03); s.position.set((rr() - 0.5) * hw * 2.6, 0.5 + rr() * 4, -3 - rr() * 4); scene.add(s); return { s, ph: rr() * 10 }; });
   const caughtKinds: O.FruitArtKind[] = [];
-  const FS = portrait ? 1.35 : 1.15;
+  const FS = portrait ? 1.45 : 1.2;
   let VOFF = 0;
   const afterBuild = () => { VOFF = Math.max(0, me.rimY - BASKET.y - 0.1); };
 
   // ---- falling things ----
   const shadowMat = new THREE.MeshBasicMaterial({ map: O.softDotTex(), color: '#2a3a1a', transparent: true, depthWrite: false, opacity: 0.4 });
   const haloMat = new THREE.SpriteMaterial({ map: O.softDotTex(), color: '#ffd34a', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.75 });
+  // a soft glow behind every falling fruit in its own colour, so it reads against leaves, sky and the farmhouse alike
+  const GLOW: Partial<Record<FruitKind, string>> = { apple: '#fff1d6', pear: '#f4ffb0', berry: '#ffc2dc' };
+  const glowMats = Object.fromEntries(Object.entries(GLOW).map(([k, c]) => [k, new THREE.SpriteMaterial({ map: O.softDotTex(), color: c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 })])) as Partial<Record<FruitKind, THREE.SpriteMaterial>>;
+  // pinecones mark where they'll land in red — a warning to step aside
+  const coneMarkMat = new THREE.MeshBasicMaterial({ map: O.softDotTex(), color: '#c8323a', transparent: true, depthWrite: false, opacity: 0.5 });
+  // catch flashes: a quick bright bloom at the basket rim
+  const flashMat = new THREE.SpriteMaterial({ map: O.softDotTex(), color: '#fff6dc', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.9 });
+  const flashes: { s: THREE.Sprite; t: number; big: number }[] = [];
+  const flash = (at: THREE.Vector3, big: number, color?: string) => { const m = flashMat.clone(); if (color) m.color.set(color); const sp = new THREE.Sprite(m); sp.position.copy(at); scene.add(sp); flashes.push({ s: sp, t: 0, big }); };
   type Node = { it: Falling; m: THREE.Object3D; sh: THREE.Mesh; age: number; got: number; from: THREE.Vector3; ground: number; p: THREE.Vector3; v: THREE.Vector3; spin: THREE.Vector3; extra: THREE.Object3D[]; k: number };
   const nodes = new Map<number, Node>();
   const make = (it: Falling): Node => {
@@ -228,8 +249,9 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     const m: THREE.Object3D = k0 ? k0.clone(FRUIT_NODE[it.kind], { shadow: true }) : O.fruitModel(it.kind as O.FruitArtKind, true);
     const sizeK = k0 ? it.r * FRUIT_K[it.kind] : 1;
     const extra: THREE.Object3D[] = [];
-    if (it.kind === 'gold') { const h = new THREE.Sprite(haloMat); h.scale.setScalar(k0 ? 1.3 / sizeK : 1.3); m.add(h); for (let i = 0; i < 2; i++) { const s = new THREE.Sprite(starMat); s.scale.setScalar(k0 ? 0.16 / sizeK : 0.16); m.add(s); extra.push(s); } }
-    const sh = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9).rotateX(-Math.PI / 2), shadowMat.clone()); sh.position.y = 0.025; scene.add(sh);
+    if (it.kind === 'gold') { const h = new THREE.Sprite(haloMat); h.scale.setScalar(k0 ? 1.5 / sizeK : 1.5); m.add(h); for (let i = 0; i < 2; i++) { const s = new THREE.Sprite(starMat); s.scale.setScalar(k0 ? 0.16 / sizeK : 0.16); m.add(s); extra.push(s); } }
+    else if (glowMats[it.kind]) { const h = new THREE.Sprite(glowMats[it.kind]); h.scale.setScalar(k0 ? 1.15 / sizeK : 1.15); h.renderOrder = -1; m.add(h); }
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9).rotateX(-Math.PI / 2), it.kind === 'cone' ? coneMarkMat.clone() : shadowMat.clone()); sh.position.y = 0.025; scene.add(sh);
     m.scale.setScalar(0.001); scene.add(m);
     const n: Node = { it, m, sh, age: 0, got: -1, from: new THREE.Vector3(), ground: -1, p: new THREE.Vector3(it.x, it.y, 0), v: new THREE.Vector3(), spin: new THREE.Vector3(), extra, k: sizeK * FS };
     nodes.set(it.id, n); return n;
@@ -238,7 +260,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   // falling leaves when a crown lets go of a fruit
   const leafMat = new THREE.SpriteMaterial({ map: O.leafCardTex(), transparent: true, depthWrite: false });
   const leaves: { s: THREE.Sprite; v: THREE.Vector3; life: number; ph: number }[] = [];
-  const shed = (x: number, y: number) => { for (let i = 0; i < 2; i++) { const s = new THREE.Sprite(leafMat.clone()); s.scale.setScalar(0.28); s.position.set(x + (Math.random() - 0.5) * 0.8, y + 0.2, -0.3 + Math.random() * 0.4); scene.add(s); leaves.push({ s, v: new THREE.Vector3((Math.random() - 0.5) * 0.6, -0.9, 0), life: 0, ph: Math.random() * 6 }); } };
+  const shed = (x: number, y: number) => { for (let i = 0; i < 1; i++) { const s = new THREE.Sprite(leafMat.clone()); s.scale.setScalar(0.28); s.position.set(x + (Math.random() - 0.5) * 0.8, y + 0.2, -0.3 + Math.random() * 0.4); scene.add(s); leaves.push({ s, v: new THREE.Vector3((Math.random() - 0.5) * 0.6, -0.9, 0), life: 0, ph: Math.random() * 6 }); } };
   const nearestTree = (x: number) => front.reduce((b, t) => (Math.abs(t.x - x) < Math.abs(b.x - x) ? t : b), front[0]);
   const shake = (t: Shaker | undefined, k: number) => { if (!t) return; const f = (t as Shaker & { shakeFn?: (k: number) => void }).shakeFn; if (f) f(k); else t.v += (Math.random() < 0.5 ? -1 : 1) * k * 0.6; };
 
@@ -274,10 +296,10 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     sim.step(dt, steer(input));
     if (!built) return;
     for (const e of sim.events) {
-      if (e.kind === 'spawn' && e.item) { shake(nearestTree(e.item.x), 0.6); if (Math.random() < 0.6) shed(e.item.x, e.item.y); }
+      if (e.kind === 'spawn' && e.item) { shake(nearestTree(e.item.x), 0.6); if (Math.random() < 0.4) shed(e.item.x, e.item.y); }
       else if (e.kind === 'catch' && e.item) {
         const n = nodes.get(e.item.id); if (n) { n.got = 0; n.from.copy(n.m.position); }
-        a.float(sim.x, me.rimY + 0.9, 0, `+${e.value}${(e.mult ?? 1) > 1 ? ` ×${e.mult}` : ''}`, e.item.kind === 'gold' ? 'gold' : '');
+        a.float(sim.x, me.rimY + 0.9, 0, `+${e.value}${(e.mult ?? 1) > 1 ? ` ×${e.mult}` : ''}`, e.item.kind === 'gold' ? 'gold' : `fz-${e.item.kind}`);
         a.play(e.item.kind === 'gold' ? sfx.gold : sfx.collect);
         me.catch(e.item.kind === 'gold');
         if (e.item.kind === 'gold') a.tip('gold', 'Golden fruit! Worth 50 — and more with a chain', 3000);
@@ -305,7 +327,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     me.frame(dt, { speed: speedK, vx: sim.vx, t, stun: sim.stun > 0, lean, yaw: yaw + (spinT > 0 ? (1 - spinT / 0.55) * Math.PI * 2 : 0), look: watch ? lookAt.set(watch.x, watch.y + VOFF, 0) : null });
     glow = lerp(glow, sim.combo.mult > 1 ? 0.25 + Math.sin(t * 8) * 0.12 : 0, Math.min(1, dt * 6)); me.basket.glow(glow);
     dizzy.visible = sim.stun > 0; if (dizzy.visible) dizzy.children.forEach((s, i) => { const an = t * 6 + (i / 3) * Math.PI * 2; s.position.set(sim.x + Math.cos(an) * 0.5, me.rimY + 0.35 + Math.sin(an * 2) * 0.05, Math.sin(an) * 0.5); });
-    me.basket.group.getWorldPosition(basketWorld); basketWorld.y = me.rimY + (me.group.position.y);
+    me.rimWorld(basketWorld);
     const am = aim.material as THREE.MeshBasicMaterial; am.opacity = lerp(am.opacity, targetX !== null ? 0.55 : 0, Math.min(1, dt * 10)); if (targetX !== null) aim.position.x = targetX;
     // ---- fruit ----
     for (const it of sim.items) {
@@ -319,8 +341,10 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
         n.m.scale.setScalar(n.k * (1 - k * 0.3)); n.sh.visible = false;
         if (k >= 1) {
           drop(n); caughtKinds.push(it.kind as O.FruitArtKind); if (caughtKinds.length > 12) caughtKinds.shift(); me.basket.fill(caughtKinds);
+          // the landing: a bloom at the rim, a burst of juice in the fruit's colour, a few sparkles (a shower for gold)
+          flash(basketWorld.clone().setY(basketWorld.y + 0.1), it.kind === 'gold' ? 2.4 : 1.4, it.kind === 'gold' ? '#ffe08a' : undefined);
           a.puff(basketWorld.clone().setY(basketWorld.y + 0.2), it.kind === 'gold' ? 8 : 5, JUICE[it.kind]);
-          if (it.kind === 'gold') a.sparks(basketWorld.clone(), 14);
+          a.sparks(basketWorld.clone().setY(basketWorld.y + 0.15), it.kind === 'gold' ? 16 : 4);
         }
         continue;
       }
@@ -341,13 +365,14 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
       n.m.rotation.y += it.spin * dt; n.m.rotation.z = Math.sin(t * 3 + it.id) * 0.35; n.m.rotation.x = Math.cos(t * 2.4 + it.id) * 0.2;
       n.extra.forEach((s, i) => { const an = t * 4 + i * Math.PI; s.position.set(Math.cos(an) * 0.42 / n!.k * FS, Math.sin(an * 1.3) * 0.2 / n!.k * FS, Math.sin(an) * 0.42 / n!.k * FS); });
       const near = Math.max(0, 1 - it.y / 6.5);
-      n.sh.position.set(it.x, 0.025, 0); n.sh.scale.setScalar(0.45 + near * 0.55); (n.sh.material as THREE.MeshBasicMaterial).opacity = 0.12 + near * 0.45;
+      n.sh.position.set(it.x, 0.025, 0); n.sh.scale.setScalar(0.45 + near * 0.55); (n.sh.material as THREE.MeshBasicMaterial).opacity = it.kind === 'cone' ? 0.2 + near * 0.55 : 0.12 + near * 0.45;
     }
     for (const n of [...nodes.values()]) if (n.got < 0 && n.ground < 0 && !sim.items.includes(n.it)) drop(n);
+    for (let i = flashes.length - 1; i >= 0; i--) { const f = flashes[i]; f.t += dt; const k = f.t / 0.32; f.s.scale.setScalar(0.3 + f.big * Math.sqrt(Math.min(1, k))); (f.s.material as THREE.SpriteMaterial).opacity = 0.9 * Math.max(0, 1 - k); if (k >= 1) { scene.remove(f.s); (f.s.material as THREE.Material).dispose(); flashes.splice(i, 1); } }
     // ---- the world breathes: trees spring back after a shake, leaves flutter down, butterflies, pollen, clouds ----
     for (const tr of front) { if (tr.update) tr.update(t, dt); else { tr.v += (-tr.a * 60 - tr.v * 6) * dt; tr.a += tr.v * dt; tr.g.rotation.z = tr.a * 0.05 + Math.sin(t * 0.8 + tr.x) * 0.006; } }
     for (let i = leaves.length - 1; i >= 0; i--) { const l = leaves[i]; l.life += dt; l.s.position.x += (l.v.x + Math.sin(t * 3 + l.ph) * 0.5) * dt; l.s.position.y += l.v.y * dt; (l.s.material as THREE.SpriteMaterial).rotation = Math.sin(t * 4 + l.ph); if (l.s.position.y < 0.05 || l.life > 6) { scene.remove(l.s); leaves.splice(i, 1); } }
-    flies.forEach((b, i) => { const ph = t * (0.35 + i * 0.07) + b.ph; b.group.position.set(Math.sin(ph) * (hw * 0.8), 1.8 + Math.sin(ph * 2.3) * 0.6 + i * 0.4, -0.6 + Math.cos(ph * 1.7) * 0.9); b.group.rotation.y = Math.atan2(Math.cos(ph), -Math.sin(ph * 1.7) * 0.5); b.update(t + i); });
+    flies.forEach((b, i) => { const ph = t * (0.35 + i * 0.07) + b.ph; b.group.position.set(Math.sin(ph) * (hw * 0.9), 0.6 + Math.sin(ph * 2.3) * 0.25, 4.6 + Math.cos(ph * 1.7) * 0.8); b.group.rotation.y = Math.atan2(Math.cos(ph), -Math.sin(ph * 1.7) * 0.5); b.update(t + i); });
     pollen.forEach((p) => { p.s.position.y += Math.sin(t * 0.7 + p.ph) * 0.003; p.s.position.x += Math.cos(t * 0.4 + p.ph) * 0.002; });
     clouds.forEach((c, i) => { c.position.x += dt * (0.25 + i * 0.05); if (c.position.x > 60) c.position.x = -60; });
     // ---- HUD ----

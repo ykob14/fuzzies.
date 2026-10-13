@@ -2459,6 +2459,10 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .mg-floats { position: absolute; inset: 0; overflow: hidden; }
 .mg-float { position: absolute; transform: translate(-50%, -50%); font: 700 20px/1 var(--brand); color: #fff; animation: mgFloat .9s ease-out both; }
 .mg-float.big { color: #8fe3ea; font-size: 24px; } .mg-float.gold { color: #ffc94a; font-size: 30px; }
+/* Fruit Catcher: score pop-ups in the fruit's own colour, outlined so they read over leaves and sky */
+.mg-float.fz-apple, .mg-float.fz-pear, .mg-float.fz-berry { font-size: 24px; text-shadow: 0 2px 0 rgba(60, 30, 20, .55), 0 0 6px rgba(60, 30, 20, .35); }
+.mg-float.fz-apple { color: #ffe1d8; } .mg-float.fz-pear { color: #f6f7b8; } .mg-float.fz-berry { color: #ffd2e2; }
+.mg-float.gold { text-shadow: 0 2px 0 rgba(90, 50, 0, .55), 0 0 10px rgba(255, 200, 80, .6); }
 @keyframes mgFloat { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -160%) scale(1); } }
 .race-banner.combo { background: rgba(255, 201, 74, .95); color: #3b2a1a; text-shadow: none; }
 .race-banner.warn { background: rgba(214, 51, 108, .92); }

@@ -87,18 +87,19 @@ def fruit_tree(name, rel, kinds, n, seed, s=1.0):
     for i, c in enumerate(chosen):
         kind = kinds[i % len(kinds)]
         tmpl = lo[kind][i % len(lo[kind])]
-        out = Vector((c.x, c.y, 0)).normalized() * 0.18
-        m = Matrix.Translation(c + out - Vector((0, 0, 0.32 * s))) @ Matrix.Rotation(rnd.random() * 6.28, 4, 'Z') @ Matrix.Rotation(rnd.uniform(-0.25, 0.25), 4, 'X') @ Matrix.Scale(0.4 * s, 4)
+        out = Vector((c.x, c.y, 0)).normalized() * 0.02
+        m = Matrix.Translation(c + out - Vector((0, 0, 0.32 * s))) @ Matrix.Rotation(rnd.random() * 6.28, 4, 'Z') @ Matrix.Rotation(rnd.uniform(-0.25, 0.25), 4, 'X') @ Matrix.Scale(0.34 * s, 4)
         stamp(tree, tmpl, m)
     tree.name = name + '_mesh'
     roots.append(g)
     return g
 
 
-fruit_tree('tree_apple_1', N + 'CommonTree_1.gltf', ['apple'], 16, 1)
-fruit_tree('tree_apple_2', N + 'CommonTree_2.gltf', ['apple'], 16, 2)
-fruit_tree('tree_apple_3', N + 'CommonTree_5.gltf', ['apple', 'apple', 'pear'], 14, 3)
-fruit_tree('tree_pear_1', N + 'CommonTree_1.gltf', ['pear'], 14, 4)
+# a few fruit per tree, tucked into the crown — enough to read as an orchard, never mistaken for fruit that is falling
+fruit_tree('tree_apple_1', N + 'CommonTree_1.gltf', ['apple'], 7, 1)
+fruit_tree('tree_apple_2', N + 'CommonTree_2.gltf', ['apple'], 7, 2)
+fruit_tree('tree_apple_3', N + 'CommonTree_5.gltf', ['apple', 'apple', 'pear'], 6, 3)
+fruit_tree('tree_pear_1', N + 'CommonTree_1.gltf', ['pear'], 6, 4)
 
 for nm, rel in [('tree_1', 'CommonTree_3'), ('tree_2', 'CommonTree_4'), ('tree_3', 'CommonTree_5'), ('pine_1', 'Pine_1'), ('pine_2', 'Pine_3'),
                 ('bush', 'Bush_Common'), ('bush_flowers', 'Bush_Common_Flowers'), ('fern', 'Fern_1'), ('flowers_a', 'Flower_3_Group'),
