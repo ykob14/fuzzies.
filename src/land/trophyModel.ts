@@ -18,9 +18,10 @@ const gloss = (c: string, rough = 0.4) => mat(`trg${c}${rough}`, () => new THREE
 const glow = (c: string) => mat(`trglow${c}`, () => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.6, roughness: 0.5 }));
 
 /** each game's plaque colour and emblem */
+// plain colours here, not PAL: models.ts imports this file, so PAL isn't ready while this module loads
 const LOOK: Record<string, { plaque: string; emblem: string }> = {
-  boatrace: { plaque: PAL.sky, emblem: 'boat' }, forest: { plaque: '#4f9a5a', emblem: 'tree' }, vacuum: { plaque: PAL.teal, emblem: 'hairball' },
-  fruit: { plaque: PAL.coral, emblem: 'apple' }, maze: { plaque: '#5f8f4e', emblem: 'key' }, balloon: { plaque: PAL.raspberry, emblem: 'balloon' },
+  boatrace: { plaque: '#5aa2e6', emblem: 'boat' }, forest: { plaque: '#4f9a5a', emblem: 'tree' }, vacuum: { plaque: '#33ab9b', emblem: 'hairball' },
+  fruit: { plaque: '#f2785c', emblem: 'apple' }, maze: { plaque: '#5f8f4e', emblem: 'key' }, balloon: { plaque: '#e45a78', emblem: 'balloon' },
   treasure: { plaque: '#c98b55', emblem: 'chest' }, fishing: { plaque: '#3f86c6', emblem: 'fish' }, obstacle: { plaque: '#f2a03c', emblem: 'star' },
   harvest: { plaque: '#d9822b', emblem: 'carrot' }, garden: { plaque: '#c7517a', emblem: 'tulip' }, delivery: { plaque: '#9c6638', emblem: 'parcel' },
   mining: { plaque: '#5b6b8c', emblem: 'gem' }, fire: { plaque: '#d9472b', emblem: 'flame' }, snowball: { plaque: '#7fa9d6', emblem: 'snowman' },
