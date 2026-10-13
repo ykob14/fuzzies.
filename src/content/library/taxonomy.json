@@ -4689,6 +4689,51 @@
       "kind": "education",
       "subcategories": [
         {
+          "id": "residence-life",
+          "label": "Residence Life",
+          "emoji": "🏠",
+          "keywords": [
+            "resident assistant",
+            "resident assistants",
+            "ra",
+            "ras",
+            "reslife",
+            "res life",
+            "residence life",
+            "residence",
+            "residence hall",
+            "dorm",
+            "dorms",
+            "housing",
+            "meet the team",
+            "meet your ra",
+            "meet the staff",
+            "student staff",
+            "staff",
+            "team",
+            "college",
+            "university",
+            "campus",
+            "welcome week",
+            "orientation",
+            "don",
+            "house fellow"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Meet Your Resident Assistants",
+              "kicker": "ResLife",
+              "details": [
+                "Your College Name",
+                ""
+              ],
+              "cta": "Here to help you feel at home",
+              "occasion": "announcement"
+            }
+          ]
+        },
+        {
           "id": "school-event",
           "label": "School Events",
           "emoji": "🏫",
