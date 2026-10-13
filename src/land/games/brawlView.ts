@@ -117,7 +117,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
         const g = new THREE.Group(); const nx = Math.max(1, Math.round(b.hw * 2 / 0.95)), nz = Math.max(1, Math.round(b.hd * 2 / 0.95));
         for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
           const x = b.x - b.hw + (i + 0.5) * (b.hw * 2 / nx), z = b.z - b.hd + (j + 0.5) * (b.hd * 2 / nz);
-          let o: THREE.Object3D; if (k) { const name = (i + j) % 3 === 0 && k.has('bush_flowers') ? 'bush_flowers' : 'bush'; o = fit(k.clone(name, { shadow: false }), k, name, 1.25, 1.15); }
+          let o: THREE.Object3D; if (k) { const name = k.has('bush_flowers') ? 'bush_flowers' : 'bush'; /* the plain kit bush is a red-leaf one */ o = fit(k.clone(name, { shadow: false }), k, name, 1.25, 1.15); }
           else { o = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 1), std('#4f9e3f', 0.85)); o.position.y = 0.5; o.scale.y = 0.85; }
           const holder = new THREE.Group(); holder.add(o); holder.position.set(x + Math.sin(i * 3 + j) * 0.1, 0, z + Math.cos(i + j * 2) * 0.1); holder.rotation.y = i * 1.7 + j; g.add(holder);
         }
