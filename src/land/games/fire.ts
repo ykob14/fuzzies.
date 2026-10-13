@@ -2,8 +2,8 @@
  * Firefighter Fuzzy — RULES only (no DOM, no Three.js): a campsite by a pond with four cottages. Flames grow and spread (and
  * towards the cottages); walk up to a fire and HOLD SPRAY until it's out (small 20, big 50). A cottage that catches fire
  * burns down in 25 s (−50) unless you put its flames out (+100 the first time it's saved). The tank empties as you spray —
- * refill at the pond. The embers keep flaring up for the first 45 s; after that, every fire out = the seconds left as a
- * bonus. Two minutes. Checked by `adv/fire-check.ts`.
+ * refill at the pond. The embers keep flaring up for the first 38 s; after that, every fire out = the seconds left as a
+ * bonus. 100 seconds. Checked by `adv/fire-check.ts`.
  */
 import { Clock, Mover, seeded, tierPlace, freeSpot, type Obstacle, type Vec2 } from '../arcade';
 
@@ -13,16 +13,16 @@ export interface FireEvent { kind: 'spray' | 'out' | 'spread' | 'flare' | 'catch
 
 export const SCORING = {
   small: 20, big: 50, saved: 100, lost: 50, timeLeft: 1,
-  tiers: [650, 400, 150] as [number, number, number],
+  tiers: [490, 330, 120] as [number, number, number],
   tierNames: ['Fire chief', 'Brave firefighter', 'Bucket helper', 'Still looking for the hose'],
 };
-export const LIMIT = 120;
+export const LIMIT = 100;
 export const CAMP = { hw: 11, hd: 8 };
 export const POND: Vec2 = { x: -CAMP.hw + 3.2, z: CAMP.hd - 3 };
 export const POND_R = 2.2;
 export const CAMPFIRE: Vec2 = { x: -1, z: -0.5 };
 /** the embers keep flaring up until this many seconds have passed; only after that can the fire be truly out */
-export const EMBERS = 45;
+export const EMBERS = 38;
 export const TANK = 100;
 export const SPRAY = { use: 16, rate: 0.5, range: 2.6, cone: 0.55 };
 export const REFILL = 50;

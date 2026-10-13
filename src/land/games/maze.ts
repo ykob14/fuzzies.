@@ -8,17 +8,17 @@ import { Clock, Mover, seeded, tierPlace, type Obstacle, type Vec2 } from '../ar
 
 export const SCORING = {
   exit: 200, key: 40, star: 15, timeLeft: 3,
-  tiers: [620, 420, 200] as [number, number, number],
+  tiers: [520, 350, 170] as [number, number, number],
   tierNames: ['Maze master', 'Pathfinder', 'Wanderer', 'Lost in the hedges'],
 };
-export const LIMIT = 120;
+export const LIMIT = 100;
 export const N = 9;
 export const CELL = 2.6;
 export const WALL = 0.36;
 export const KEYS = 3;
 export const STARS = 12;
 export const PICK = 0.8;
-export const MOVE = { accel: 32, max: 5.4, friction: 6, turn: 11, radius: 0.32 };
+export const MOVE = { accel: 34, max: 6.0, friction: 6, turn: 11, radius: 0.32 };
 
 export type Side = 'n' | 's' | 'e' | 'w';
 export interface Pickup { id: number; kind: 'key' | 'star'; x: number; z: number; got: boolean; cell: number }

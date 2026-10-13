@@ -3,7 +3,7 @@
  * the bottom. Pull the little cart (it has momentum — it slides and swings) to the depot to load up to three parcels, then
  * to each parcel's house (the door glows). A delivery is 40, a fast one (within 14 s of loading) 60. Crashing into the things
  * standing in the street (the flower bed, the lamp posts) knocks a parcel off the cart — walk over it to pick it up again; houses,
- * the depot counter and the edge of the square only stop the cart. New orders keep arriving. Two minutes.
+ * the depot counter and the edge of the square only stop the cart. New orders keep arriving. 100 seconds.
  * Checked without a browser by `adv/delivery-check.ts`.
  */
 import { Clock, Mover, seeded, tierPlace, type Obstacle, type Vec2 } from '../arcade';
@@ -14,10 +14,10 @@ export interface DeliveryEvent { kind: 'load' | 'deliver' | 'drop' | 'pickup' | 
 
 export const SCORING = {
   delivery: 40, fast: 60, fastWithin: 14,
-  tiers: [1400, 900, 400] as [number, number, number],
+  tiers: [1150, 750, 330] as [number, number, number],
   tierNames: ['Express legend', 'Reliable courier', 'Part-time postie', 'Lost the map'],
 };
-export const LIMIT = 120;
+export const LIMIT = 100;
 export const SQUARE = { hw: 12, hd: 9 };
 export const CART = { accel: 18, max: 5.6, friction: 2.0, turn: 5.5, radius: 0.5 };
 export const CAPACITY = 3;

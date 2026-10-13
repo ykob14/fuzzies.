@@ -8,10 +8,10 @@ import { Clock, Mover, seeded, tierPlace, freeSpot, type Obstacle, type Vec2 } f
 
 export const SCORING = {
   chest: 100, gem: 30, shell: 10, timeLeft: 1,
-  tiers: [560, 360, 180] as [number, number, number],
+  tiers: [470, 300, 150] as [number, number, number],
   tierNames: ['Treasure legend', 'Map reader', 'Beachcomber', 'Sandy paws'],
 };
-export const LIMIT = 120;
+export const LIMIT = 100;
 export const BEACH = { hw: 16, hd: 11 };
 export const CHESTS = 5;
 export const GEMS = 6;

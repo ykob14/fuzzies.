@@ -168,13 +168,13 @@ Golden Day vacuum). Boat Race: three laps
 around Palm Island through the numbered gates in order; steer with A/D or the arrows (W accelerates, S brakes) or hold the left/right
 side of the screen on a phone; if you miss a gate the screen says MISSED CHECKPOINT and the arrow points back — go through it again;
 stay inside the buoys; later laps add barrels, boost pads, currents, logs and waves; 1st = 100 coins, 2nd 60, 3rd 30. Forest Challenge
-(2 minutes, a lumberjack contest against three town Fuzzies): tap any tree and your Fuzzy walks there by itself (or walk with
+(100 seconds, a lumberjack contest against three town Fuzzies): tap any tree and your Fuzzy walks there by itself (or walk with
 WASD/arrows, the mouse, or the on-screen joystick on a phone), then tap CHOP (or Space, or the tree itself) when the marker is in the
 green; EVERY tree can be cut — bigger ones take more hits and score more, trees with a glowing ring pay ×1.5, sparkly ones hide a
 bonus, walk over the wood that flies out for +5 each, perfect hits in a row multiply; the other Fuzzies cut trees too and a tree someone
 is already on is theirs; the live standings are in the corner; most points when the sun sets wins — 1st 100 coins, 2nd 65, 3rd 35,
 4th 15. Hairball
-Vacuum Challenge (2 minutes): walk around the garden with the vacuum — hairballs in front of the nozzle are pulled in (10 points, big
+Vacuum Challenge (100 seconds): walk around the garden with the vacuum — hairballs in front of the nozzle are pulled in (10 points, big
 ones 25, golden 100), quick pick-ups chain into a multiplier, the canister empties itself with a bonus. The vacuum pays by tier:
 top tier 100 coins, then 65, 35, 15. THE LIBRARY HAS 17 PLAYABLE MINI-GAMES (each set of three is drawn from it, never the same game
 twice in a set): Boat Race, Forest Challenge, Hairball Vacuum, Fruit Catcher (catch the falling fruit in your basket, dodge the pine

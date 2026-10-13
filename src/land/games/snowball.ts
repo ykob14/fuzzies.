@@ -2,7 +2,7 @@
  * Snowball Challenge — RULES only (no DOM, no Three.js): you stand at the yard fence; snowman-and-board targets pop up near,
  * far and sliding sideways, and duck again after a few seconds. Tap / click where to throw: the snowball flies in an arc
  * (further = longer in the air, so lead the sliding ones) and hits whatever is up where it lands. Near 10, far 25, moving
- * 40, a bullseye (dead centre) ×2. 90 seconds, busier as it goes. Checked by `adv/snowball-check.ts`.
+ * 40, a bullseye (dead centre) ×2. 70 seconds, busier as it goes. Checked by `adv/snowball-check.ts`.
  */
 import { Clock, seeded, tierPlace, type Vec2 } from '../arcade';
 
@@ -14,10 +14,10 @@ export interface SnowEvent { kind: 'throw' | 'hit' | 'bullseye' | 'miss' | 'pop'
 export const SCORING = {
   points: { near: 10, far: 25, moving: 40 } as Record<TargetKind, number>,
   bullseye: 2,
-  tiers: [1600, 850, 350] as [number, number, number],
+  tiers: [1250, 700, 270] as [number, number, number],
   tierNames: ['Snowball sniper', 'Sharp shot', 'Yard thrower', 'Snow angel'],
 };
-export const LIMIT = 90;
+export const LIMIT = 70;
 export const YARD = { hw: 7.5, near: 3.5, far: 13 };
 export const YOU: Vec2 = { x: 0, z: 0 };
 export const TARGET_R = 0.85;

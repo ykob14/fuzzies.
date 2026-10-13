@@ -4,7 +4,7 @@
  * dodge, vines to duck under, puddles / buckets / sprinklers that splash you, mud that slows you, mushrooms that bounce you up to
  * high stars, bridges (stay in the middle), hills and STAR RUSH bonus stretches. Power-ups: a shield (one free bump), a star magnet
  * and a speed boost that smashes through everything. Stars in a row grow a multiplier; a bump costs 40, breaks the chain and slows
- * you for a moment; every 100 m pays 20. 90 seconds. Every row of the course leaves a way through (a free lane, a jump or a duck),
+ * you for a moment; every 100 m pays 20. 70 seconds. Every row of the course leaves a way through (a free lane, a jump or a duck),
  * spaced so a lane change fits — checked without a browser by `adv/obstacle-check.ts`.
  */
 import { Clock, Combo, seeded, tierPlace, type Vec2 } from '../arcade';
@@ -26,10 +26,10 @@ export const SCORING = {
   star: 10, gold: 50, super: 150, power: 25, hundred: 20, bump: 40, fall: 20, smash: 15, starMile: 25,
   ladder: [{ at: 0, mult: 1 }, { at: 5, mult: 1.5 }, { at: 12, mult: 2 }, { at: 24, mult: 3 }, { at: 40, mult: 4 }],
   window: 2.0,
-  tiers: [6000, 4200, 2500] as [number, number, number],
+  tiers: [4650, 3250, 1950] as [number, number, number],
   tierNames: ['Speed legend', 'Star sprinter', 'Trail runner', 'Warming up'],
 };
-export const LIMIT = 90;
+export const LIMIT = 70;
 export const LANES = [-2.2, 0, 2.2];
 export const SPEED: [number, number] = [7.5, 13];
 export const JUMP = { v0: 6.4, g: 18.5, bounce: 10.2, drop: -11 };
@@ -48,7 +48,7 @@ export const CART = { v: 1.5, at: 24 }; // lanes per second
 export const BRANCH = { at: 16, fall: 0.45, y0: 3.2 };
 export const LANE_RATE = 11;
 /** when each new thing may first appear (seconds into the run, judged when you'll reach it) */
-export const UNLOCK = { mushroom: 8, bucket: 12, mud: 17, branch: 22, bar: 27, sprinkler: 32, boulder: 37, bridge: 42, rush: 47, cart: 52, hill: 60 };
+export const UNLOCK = { mushroom: 8, bucket: 12, mud: 15, branch: 19, bar: 23, sprinkler: 27, boulder: 31, bridge: 35, rush: 39, cart: 43, hill: 49 };
 /** sprinklers spray 1.2 s on, 1.2 s off */
 export function sprayOn(time: number, phase: number): boolean { return ((time + phase) % 2.4 + 2.4) % 2.4 < 1.2; }
 /** ground height at distance d (hills) */

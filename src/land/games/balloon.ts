@@ -1,7 +1,7 @@
 /**
  * Balloon Pop — RULES only (no DOM, no Three.js): balloons rise from the town square and drift away over the rooftops; tap them
  * before they're gone. Plain balloons 10, big slow ones 20, shiny fast ones 50; a spiky one breaks your chain. Quick pops in a
- * row grow a multiplier; the square gets busier as the 90 seconds go by (never more than `MAX_LIVE` at once), with a party burst at the end. The view does the
+ * row grow a multiplier; the square gets busier as the 70 seconds go by (never more than `MAX_LIVE` at once), with a party burst at the end. The view does the
  * picking (what's under a finger) and calls `pop(id)`. Checked without a browser by `adv/balloon-check.ts`.
  */
 import { Clock, Combo, seeded, tierPlace } from '../arcade';
@@ -14,10 +14,10 @@ export const SCORING = {
   points: { plain: 10, big: 20, shiny: 50, spiky: 0 } as Record<BalloonKind, number>,
   ladder: [{ at: 0, mult: 1 }, { at: 5, mult: 1.5 }, { at: 10, mult: 2 }, { at: 20, mult: 3 }],
   window: 2.5,
-  tiers: [2800, 1700, 900] as [number, number, number],
+  tiers: [2200, 1300, 700] as [number, number, number],
   tierNames: ['Party legend', 'Pop star', 'Party helper', 'Still inflating'],
 };
-export const LIMIT = 90;
+export const LIMIT = 70;
 export const SQUARE = { hw: 6.5, hd: 4 };
 export const TOP = 8.5;
 export const RADIUS: Record<BalloonKind, number> = { plain: 0.42, big: 0.62, shiny: 0.4, spiky: 0.44 };
@@ -103,7 +103,7 @@ export class BalloonSim {
       if (b.y > TOP) { b.state = 'gone'; if (b.kind !== 'spiky') { this.gone++; this.events.push({ kind: 'gone', item: b }); } }
     }
     // the square gets busier: gaps 1.3 s → 0.75 s, but never more than `maxLive` in the air (a phone screen stays readable);
-    // a party burst at 60 s may go up to four over
+    // a party burst at 45 s may go up to four over
     this.spawnT -= dt;
     if (this.spawnT <= 0) {
       const room = this.maxLive - this.live.length;
@@ -114,7 +114,7 @@ export class BalloonSim {
         this.spawnT = 1.3 - this.k * 0.55 + (this.rnd() - 0.5) * 0.3;
       }
     }
-    if (!this.burstDone && this.clock.time >= 60) { this.burstDone = true; const n = Math.min(6, Math.max(3, this.maxLive + 4 - this.live.length)); for (let i = 0; i < n; i++) this.spawn(i === 0 ? 'shiny' : 'plain'); this.events.push({ kind: 'burst' }); }
+    if (!this.burstDone && this.clock.time >= 45) { this.burstDone = true; const n = Math.min(6, Math.max(3, this.maxLive + 4 - this.live.length)); for (let i = 0; i < n; i++) this.spawn(i === 0 ? 'shiny' : 'plain'); this.events.push({ kind: 'burst' }); }
     if (this.items.length > 90) this.items = this.items.filter((i) => i.state === 'up').concat(this.items.filter((i) => i.state !== 'up').slice(-20));
   }
 

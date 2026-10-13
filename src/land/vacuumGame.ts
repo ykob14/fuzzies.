@@ -1,6 +1,6 @@
 /**
  * Hairball Vacuum Challenge — RULES only (no DOM, no Three.js): a garden full of fluffy hairballs, a Fuzzy pushing a
- * cartoon vacuum, two minutes. Hairballs inside the nozzle's reach are pulled in by real distance (no random scoring);
+ * cartoon vacuum, 100 seconds. Hairballs inside the nozzle's reach are pulled in by real distance (no random scoring);
  * small / large / golden ones are worth different points (see `SCORING`), chains of quick pick-ups multiply, the canister
  * fills and empties with a bonus, new hairballs keep appearing. The score becomes a tier (1st–4th) that pays through the
  * adventure's `coins[]`. Shared infrastructure (clock, combo, mover, seeded random) comes from land/arcade.ts.
@@ -20,10 +20,10 @@ export const SCORING = {
   /** canister: how many hairballs fill it, and the bonus when it empties itself */
   capacity: 40, fullBonus: 60,
   /** score → tier thresholds (1st, 2nd, 3rd) */
-  tiers: [2400, 1500, 750] as [number, number, number],
+  tiers: [2000, 1250, 620] as [number, number, number],
   tierNames: ['Legendary cleaner', 'Super sucker', 'Tidy Fuzzy', 'Dust bunny'],
 };
-export const LIMIT = 120;
+export const LIMIT = 100;
 export const ARENA = { hw: 16, hd: 11 };
 /** the nozzle's reach: distance ahead of the Fuzzy and the half-angle of the cone; a short all-round reach right at the mouth */
 export const SUCTION = { range: 2.6, cone: 1.0, mouth: 0.75, ahead: 0.95 };
