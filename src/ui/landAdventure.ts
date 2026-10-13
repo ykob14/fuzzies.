@@ -156,12 +156,12 @@ export function resultsScreen(o: ResultOpts): HTMLElement {
       h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), ...(o.onAgain ? [btn('Race again', { kind: 'soft', onClick: o.onAgain })] : []))));
 }
 
-export interface ScoreResultOpts { adv: A.Adventure; place: number; score: number; tier: string; stats: { label: string; value: string }[]; hostPortrait?: string; /** a contest against others: the final standings */ standings?: { name: string; score: number; you: boolean; place: number }[]; payout: A.Payout | null; pending: boolean; onAgain?: () => void; onBack: () => void; next?: string; best?: number | null }
+export interface ScoreResultOpts { adv: A.Adventure; place: number; /** a game's own headline (Victory! / Defeat) */ title?: string; score: number; tier: string; stats: { label: string; value: string }[]; hostPortrait?: string; /** a contest against others: the final standings */ standings?: { name: string; score: number; you: boolean; place: number }[]; payout: A.Payout | null; pending: boolean; onAgain?: () => void; onBack: () => void; next?: string; best?: number | null }
 /** The results screen for a score-based challenge: the score, the tier (or the contest standings), a few numbers and what you earned. */
 export function scoreResults(o: ScoreResultOpts): HTMLElement {
   const won = o.place === 1;
   const contest = !!o.standings?.length;
-  const title = contest
+  const title = o.title ? o.title : contest
     ? won ? 'You won the contest!' : o.place === 2 ? 'Second place — so close!' : o.place === 3 ? 'Third place!' : 'Fourth place — next time!'
     : won ? 'Gold!' : o.place === 2 ? 'Silver!' : o.place === 3 ? 'Bronze!' : 'Time’s up!';
   const newBest = o.best !== undefined && o.best !== null && o.score >= o.best && o.score > 0;

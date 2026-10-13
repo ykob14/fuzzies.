@@ -25,7 +25,7 @@ import type { Adventure, Variant } from './adventures';
 export interface Figure { group: THREE.Group; fuzzy: ReturnType<typeof M.makeFuzzy>; squash: number; base: number }
 export interface Stat { label: string; value: string }
 /** What every score-based mini-game hands back (the screen turns it into the results card and the reward). */
-export interface MiniResult { place: number; score: number; timeMs: number; tier: string; stats: Stat[]; standings?: { name: string; score: number; you: boolean; place: number }[] }
+export interface MiniResult { place: number; score: number; timeMs: number; tier: string; title?: string; stats: Stat[]; standings?: { name: string; score: number; you: boolean; place: number }[] }
 export interface MiniHooks { onFinish: (r: MiniResult) => void; onQuit: () => void; onRestart?: () => void }
 export interface MiniSetup { mobile: boolean; sound: boolean; deluxe?: boolean; you: { name: string; skin: [string, string] }; host: string; variant?: string | null; seed: number }
 

@@ -1575,7 +1575,7 @@ export function landScreen(): Screen {
       }).catch(fail);
     } else { playing = false; toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); }
   }
-  interface AdvResult { place: number; timeMs: number; score?: number; mini?: { score: number; tier: string; stats: { label: string; value: string }[]; standings?: { name: string; score: number; you: boolean; place: number }[]; hostPortrait: string }; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { score: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string; hostPortrait: string; standings: { name: string; score: number; you: boolean; place: number; cleared: number }[] }; vacuum?: { score: number; collected: number; count: { small: number; large: number; gold: number }; bestCombo: number; tier: string; hostPortrait: string } }
+  interface AdvResult { place: number; timeMs: number; score?: number; mini?: { score: number; tier: string; title?: string; stats: { label: string; value: string }[]; standings?: { name: string; score: number; you: boolean; place: number }[]; hostPortrait: string }; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { score: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string; hostPortrait: string; standings: { name: string; score: number; you: boolean; place: number; cleared: number }[] }; vacuum?: { score: number; collected: number; count: { small: number; large: number; gold: number }; bestCombo: number; tier: string; hostPortrait: string } }
   function backToTown(): void {
     playing = false;
     stage.querySelector('.adv-results')?.remove();
@@ -1593,7 +1593,7 @@ export function landScreen(): Screen {
       const next = st.allDone ? (st.ready ? 'New missions are ready — tap the compass in town.' : `All three done — new missions in ${A.countdown(st.unlockIn)}.`) : `${st.total - st.doneCount} mission${st.total - st.doneCount === 1 ? '' : 's'} to go.`;
       const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, next, best: res.score !== undefined ? (A.adventures(s, now()).bestScore[adv.id] ?? null) : null, onBack: () => { screen.remove(); backToTown(); } }; // no "play again": a mission pays once
       const screen: HTMLElement = res.mini
-        ? scoreResults({ ...common, score: res.mini.score, tier: res.mini.tier, hostPortrait: res.mini.hostPortrait, standings: res.mini.standings, stats: res.mini.stats })
+        ? scoreResults({ ...common, score: res.mini.score, tier: res.mini.tier, title: res.mini.title, hostPortrait: res.mini.hostPortrait, standings: res.mini.standings, stats: res.mini.stats })
         : res.vacuum
         ? scoreResults({ ...common, score: res.vacuum.score, tier: res.vacuum.tier, hostPortrait: res.vacuum.hostPortrait, stats: [{ label: 'Hairballs', value: String(res.vacuum.collected) }, { label: 'Golden', value: String(res.vacuum.count.gold) }, { label: 'Big ones', value: String(res.vacuum.count.large) }, { label: 'Best chain', value: `×${res.vacuum.bestCombo}` }] })
         : res.forest
