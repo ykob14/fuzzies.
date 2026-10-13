@@ -3,7 +3,7 @@
 > **For AI agents:** read this whole file before changing anything, then follow `AGENTS.md`.
 > When you finish a session, update **Status**, **Build log** and **Next up** below, and commit it with your work.
 
-_Last updated: 2026-10-13 · by Claude Code · branch ahead of the go-live commit with the Fruit Catcher art overhaul (not live). Go-live target **`main` = `554d383` (owner: "Check to make sure it all works and no errors and go live"): the 20-game adventure system — missions in sets of three every five hours (server-issued for accounts), 17 playable 3D mini-games on the shared kit, Completed marks, no duplicate rewards.** Rollback point: `6c91f51` (before mission sets and the game library). Earlier rollback points: `533e9a3`, `95b5b89`_
+_Last updated: 2026-10-13 · by Claude Code · `main` = `6c91f51` (live). **Ready to go live: `554d383`** (the 20-game adventure system) — fully re-verified on a frozen copy (all 14 new games' smokes computer + phone, forest flow 30/30 both, race flow 34/34, vacuum flow 30/30, panel 10/10, sets API 15/15, production build + production smoke computer + phone, no errors); the push to `main` was refused by the session's permission settings (production deploy), so it waits for the owner: fast-forward `main` to `554d383`. **On the branch after that, not live:** the Fruit Catcher art overhaul (`3d4b41c`) and the forest tap-to-walk targeting fix (`fad04be`) — ask the owner before `main`. Rollback point: `6c91f51`._
 
 ---
 
