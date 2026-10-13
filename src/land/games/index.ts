@@ -18,4 +18,5 @@ export const GAME_LOADERS: Record<string, () => Promise<{ run: GameRun }>> = {
   delivery: () => import('./deliveryView'),
   mining: () => import('./miningView'),
   fire: () => import('./fireView'),
+  snowball: () => import('./snowballView'),
 };
