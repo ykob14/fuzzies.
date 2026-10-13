@@ -9,6 +9,7 @@ import * as GT from '../game/textures3d';
 import * as M from '../game/models3d';
 import * as ENV from './environment';
 import { seasonalModel } from './seasonal';
+import { trophyModel } from './trophyModel';
 
 const mats = new Map<string, THREE.Material>();
 let base: M.Mats | null = null;
@@ -698,6 +699,6 @@ export function modelFor(itemId: string, seed: number): THREE.Group {
     case 'fountain': return fountain();
     case 'statue': return goldenStatue();
     case 'rainbow': return rainbowArch();
-    default: return seasonalModel(itemId) ?? new THREE.Group();
+    default: return seasonalModel(itemId) ?? trophyModel(itemId) ?? new THREE.Group();
   }
 }

@@ -18,6 +18,7 @@ import * as GT from '../game/textures3d';
 import * as LM from './models';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { MAP, NAMES, bounds, cropProgress, finished, item, footprint, good, population, walkway, type LandState, type Placed } from './rules';
+import { trophyLook } from './trophies';
 
 const PITCH = THREE.MathUtils.degToRad(50);
 const YAW = THREE.MathUtils.degToRad(45);
@@ -318,7 +319,7 @@ export class LandView {
     const seen = new Set<number>();
     for (const p of s.buildings) {
       seen.add(p.id);
-      const key = `${p.item}:${p.x}:${p.z}:${p.rot}:${p.doneAt ? 'site' : 'built'}`;
+      const key = `${p.item}:${p.x}:${p.z}:${p.rot}:${p.doneAt ? 'site' : 'built'}${trophyLook(p.item)}`; // a trophy rebuilds when its metal changes
       let b = this.built.get(p.id);
       if (b && b.key !== key) { b.node.removeFromParent(); b.bubble?.remove(); b = undefined; }
       if (!b) {
@@ -561,7 +562,8 @@ export class LandView {
    * town's own renderer into a corner of the canvas and copied out before the next frame is shown.
    */
   thumbnail(itemId: string): string {
-    const hit = this.thumbs.get(itemId);
+    const key = itemId + trophyLook(itemId); // a trophy's picture follows its metal
+    const hit = this.thumbs.get(key);
     if (hit) return hit;
     if (!this.thumbRig) {
       const scene = new THREE.Scene();
@@ -572,7 +574,7 @@ export class LandView {
       scene.environmentIntensity = 0.6;
       this.thumbRig = { scene, cam: new THREE.PerspectiveCamera(28, 1, 0.1, 100) };
     }
-    return this.snap(LM.modelFor(itemId, 3), itemId, THREE.MathUtils.degToRad(56), YAW, 0.9);
+    return this.snap(LM.modelFor(itemId, 3), key, THREE.MathUtils.degToRad(56), YAW, 0.9);
   }
 
   /** Photograph any node with the thumbnail rig: `polar` = how high the camera sits, `azimuth` = from which side, `fit` = how tightly framed. */

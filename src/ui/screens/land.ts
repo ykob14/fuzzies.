@@ -6,6 +6,7 @@ import type { Screen } from '../app';
 import { openShop } from '../shop';
 import * as L from '../../land/rules';
 import * as E from '../../land/events';
+import * as TR from '../../land/trophies';
 import * as A from '../../land/adventures';
 import { conversation, dailyPill, adventuresBody, resultsScreen, scoreResults } from '../landAdventure';
 import { GAME_LOADERS } from '../../land/games/index';
@@ -41,6 +42,8 @@ export function landScreen(): Screen {
   const lastVisit = s.savedAt;
   L.refillOrders(s);
   E.decorateOrders(s, now()); // orders made during a holiday pay event tokens too
+  const oldTrophies = TR.syncTrophies(s); // a trophy for every mini-game already played (towns from before trophies too)
+  if (oldTrophies.length) setTimeout(() => { save(); toast(`🏆 ${oldTrophies.length === 1 ? 'A trophy' : `${oldTrophies.length} trophies`} for the mini-games you’ve played — place ${oldTrophies.length === 1 ? 'it' : 'them'} from Build → Decor`, 'good', 5000); }, 2500);
 
   const wrap = h('div', { class: 'land-stage' });
   const overlay = h('div', { class: 'land-overlay', 'aria-hidden': 'true' });
@@ -152,6 +155,7 @@ export function landScreen(): Screen {
     if (!remote || remote.savedAt <= s.savedAt) return;
     for (const k of Object.keys(s)) delete (s as unknown as Record<string, unknown>)[k];
     Object.assign(s, JSON.parse(JSON.stringify(remote)));
+    TR.syncTrophies(s);
     // a different copy of the town: the layout kept for "Cancel editing" no longer applies
     if (session) { session = null; persistSession(); undoStack.length = 0; redoStack.length = 0; sel.clear(); if (selMode) paintSel(); }
     view?.sync(s);
@@ -394,7 +398,7 @@ export function landScreen(): Screen {
       const sp = E.spare(s, it.id), own = E.owned(s, it.id);
       const card = h('button', { class: `land-card land-card-col ${sp ? '' : 'off'}`, type: 'button', title: sp ? `Place (${sp} to place)` : 'All copies are already on the map or in storage', 'data-item': it.id },
         h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), h('i', { class: 'land-store-n' }, `×${own}`)),
-        h('b', null, it.name), h('small', null, E.collectionOf(it.id)?.name ?? ''),
+        h('b', null, it.name), h('small', null, TR.isTrophy(it.id) ? `${TR.METAL_NAMES[TR.trophyMetal(it.id)]} trophy` : E.collectionOf(it.id)?.name ?? ''),
         h('span', { class: 'land-price owned' }, landIcon('festival', 16), sp ? `${sp} to place` : 'All placed'));
       card.addEventListener('click', () => { if (!sp) { toast('Every copy is already in your town — move one, or store it from Edit town.', 'info', 3500); return; } startPlacing(it.id); });
       return card;
@@ -1587,11 +1591,14 @@ export function landScreen(): Screen {
   /** A finished mini-game: record it, pay the reward once per day (cloud accounts: only after the server agrees), show the results. */
   function finishAdventure(adv: A.Adventure, res: AdvResult): void {
     const cloud = isCloud();
-    let payout: A.Payout | null = null, pending = false;
+    let payout: A.Payout | null = null, pending = false, trophy: TR.Award | null = null;
+    const metalBefore = TR.hasTrophy(s, adv.id) ? TR.metalOf(s, adv.id) : null;
     const show = () => {
       const st = A.setStatus(s, now());
       const next = st.allDone ? (st.ready ? 'New missions are ready — tap the compass in town.' : `All three done — new missions in ${A.countdown(st.unlockIn)}.`) : `${st.total - st.doneCount} mission${st.total - st.doneCount === 1 ? '' : 's'} to go.`;
-      const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, next, best: res.score !== undefined ? (A.adventures(s, now()).bestScore[adv.id] ?? null) : null, onBack: () => { screen.remove(); backToTown(); } }; // no "play again": a mission pays once
+      let img: string | undefined; try { img = trophy && (trophy.isNew || trophy.upgraded) ? view?.thumbnail(trophy.id) : undefined; } catch { /* no picture */ }
+      const trophyNote = trophy ? { name: trophy.name, metal: TR.METAL_NAMES[trophy.metal], isNew: trophy.isNew, upgraded: trophy.upgraded, img } : null;
+      const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, next, trophy: trophyNote, best: res.score !== undefined ? (A.adventures(s, now()).bestScore[adv.id] ?? null) : null, onBack: () => { screen.remove(); backToTown(); } }; // no "play again": a mission pays once
       const screen: HTMLElement = res.mini
         ? scoreResults({ ...common, score: res.mini.score, tier: res.mini.tier, title: res.mini.title, hostPortrait: res.mini.hostPortrait, standings: res.mini.standings, stats: res.mini.stats })
         : res.vacuum
@@ -1606,6 +1613,8 @@ export function landScreen(): Screen {
       payout = A.finish(s, { id: adv.id, place: res.place, timeMs: res.timeMs, score: res.score }, now(), !cloud);
       // wood from the forest is a resource for the town (the mission run only — practice chops don't stock the barn)
       if (res.forest && !payout.practice) A.adventures(s, now()).wood += res.forest.wood;
+      // every finished mini-game has its own trophy for the town; its metal follows your best result
+      trophy = TR.award(s, adv.id, metalBefore);
     } catch (e) { toast((e as Error).message, 'bad'); backToTown(); return; }
     if (!payout.practice && cloud) {
       // the server decides whether this mission's reward was already collected (a refresh can't claim twice)

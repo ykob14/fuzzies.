@@ -133,7 +133,14 @@ const rewardLine = (payout: A.Payout | null, pending: boolean): HTMLElement | nu
   : pending ? h('p', { class: 'adv-reward practice' }, 'You’re offline — your reward will be added when you’re back online.')
     : payout ? h('p', { class: 'adv-reward' }, landIcon('coin', 22), h('b', null, `+${payout.coins} coins`), h('span', null, `+${payout.xp} XP`), ...(payout.levelUps.length ? [h('span', { class: 'adv-lvl' }, `Level ${payout.levelUps[payout.levelUps.length - 1]}!`)] : [])) : null;
 
-export interface ResultOpts { adv: A.Adventure; place: number; timeMs: number; order: { name: string; portrait: string; place: number; you: boolean }[]; payout: A.Payout | null; pending: boolean; onAgain?: () => void; onBack: () => void; next?: string }
+/** a trophy earned or upgraded by this run (see land/trophies.ts) */
+export interface TrophyNote { name: string; metal: string; isNew: boolean; upgraded: boolean; img?: string }
+const trophyLine = (t: TrophyNote | null | undefined): HTMLElement | null => !t || (!t.isNew && !t.upgraded) ? null
+  : h('div', { class: `adv-trophy m-${t.metal.toLowerCase()}` },
+    t.img ? h('img', { src: t.img, alt: '' }) : h('span', { class: 'adv-trophy-cup' }, '🏆'),
+    h('span', null, h('small', null, t.isNew ? 'New trophy!' : 'Trophy upgraded!'), h('b', null, `${t.name} · ${t.metal}`), h('i', null, t.isNew ? 'Place it in your town: Build → Decor' : 'It shines in your town already')));
+
+export interface ResultOpts { adv: A.Adventure; place: number; timeMs: number; order: { name: string; portrait: string; place: number; you: boolean }[]; payout: A.Payout | null; pending: boolean; onAgain?: () => void; onBack: () => void; next?: string; trophy?: TrophyNote | null }
 /** The results screen after a race: the podium, the real finishing order and what you earned. */
 export function resultsScreen(o: ResultOpts): HTMLElement {
   const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}.${String(Math.floor((ms % 1000) / 100))}`;
@@ -152,11 +159,12 @@ export function resultsScreen(o: ResultOpts): HTMLElement {
       h('ol', { class: 'adv-order' }, ...o.order.sort((a, b) => a.place - b.place).map((x) => h('li', { class: x.you ? 'you' : '' }, h('span', null, A.medal(x.place)), h('b', null, x.you ? `${x.name} (you)` : x.name), h('small', null, A.placeWord(x.place))))),
       h('p', { class: 'adv-time' }, `Your time ${fmt(o.timeMs)}`),
       rewardLine(o.payout, o.pending),
+      trophyLine(o.trophy),
       h('p', { class: 'adv-next' }, o.payout && !o.payout.practice ? `✓ ${o.adv.short} completed. ${o.next ?? ''}` : null),
       h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), ...(o.onAgain ? [btn('Race again', { kind: 'soft', onClick: o.onAgain })] : []))));
 }
 
-export interface ScoreResultOpts { adv: A.Adventure; place: number; /** a game's own headline (Victory! / Defeat) */ title?: string; score: number; tier: string; stats: { label: string; value: string }[]; hostPortrait?: string; /** a contest against others: the final standings */ standings?: { name: string; score: number; you: boolean; place: number }[]; payout: A.Payout | null; pending: boolean; onAgain?: () => void; onBack: () => void; next?: string; best?: number | null }
+export interface ScoreResultOpts { adv: A.Adventure; place: number; /** a game's own headline (Victory! / Defeat) */ title?: string; score: number; tier: string; stats: { label: string; value: string }[]; hostPortrait?: string; /** a contest against others: the final standings */ standings?: { name: string; score: number; you: boolean; place: number }[]; payout: A.Payout | null; pending: boolean; onAgain?: () => void; onBack: () => void; next?: string; best?: number | null; trophy?: TrophyNote | null }
 /** The results screen for a score-based challenge: the score, the tier (or the contest standings), a few numbers and what you earned. */
 export function scoreResults(o: ScoreResultOpts): HTMLElement {
   const won = o.place === 1;
@@ -175,6 +183,7 @@ export function scoreResults(o: ScoreResultOpts): HTMLElement {
       contest ? h('ol', { class: 'adv-order adv-standings' }, ...o.standings!.map((x) => h('li', { class: x.you ? 'you' : '' }, h('span', null, A.medal(x.place)), h('b', null, x.you ? `${x.name} (you)` : x.name), h('small', null, `${x.score} pts`)))) : null,
       h('div', { class: 'land-adv-grid adv-stats' }, ...o.stats.map((x) => h('span', null, h('small', null, x.label), h('b', null, x.value)))),
       rewardLine(o.payout, o.pending),
+      trophyLine(o.trophy),
       h('p', { class: 'adv-next' }, o.payout && !o.payout.practice ? `✓ ${o.adv.short} completed. ${o.next ?? ''}` : null),
       h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), ...(o.onAgain ? [btn('Play again', { kind: 'soft', onClick: o.onAgain })] : []))));
 }
