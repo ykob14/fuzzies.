@@ -2536,3 +2536,23 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .friend-row { display: flex; flex-wrap: wrap; gap: 4px; max-height: 134px; overflow-y: auto; padding: 2px; margin-bottom: 6px; }
 .emo.friend { width: 40px; height: 40px; padding: 2px; }
 .emo.friend img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* ---- Forest Challenge contest + "done for the day" (Polish v2) ---- */
+.forest-board { position: absolute; top: calc(78px + var(--safe-t, 0px)); left: 12px; display: grid; gap: 3px; pointer-events: none; }
+.forest-board[hidden] { display: none; }
+.forest-row { display: flex; align-items: center; gap: 6px; min-width: 136px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(20, 30, 50, .42); backdrop-filter: blur(6px); font: 700 12.5px var(--ui); }
+.forest-row small { width: 14px; font: 700 10.5px var(--ui); opacity: .8; text-align: center; }
+.forest-row i { width: 11px; height: 11px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, .7); }
+.forest-row b { flex: 1; font: 700 13px var(--brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.forest-row span { font-variant-numeric: tabular-nums; }
+.forest-row.you { background: rgba(214, 51, 108, .8); }
+.mg-float.rival { color: #ffd6e7; font-size: 15px; opacity: .9; }
+@media (max-width: 760px) { .forest-board { top: calc(66px + var(--safe-t, 0px)); left: 8px; gap: 2px; } .forest-row { min-width: 110px; padding: 3px 8px 3px 6px; font-size: 11.5px; } .forest-row b { font-size: 12px; } }
+.land-daily { transition: opacity .45s, transform .45s var(--ease); }
+.land-daily.done .land-daily-t { color: #2a7d3f; }
+.land-daily.gone { opacity: 0; transform: translateX(-14px) scale(.92); pointer-events: none; }
+.land-talk.complete .land-talk-tag { color: #2a7d3f; }
+.land-adv-featured.is-done .land-adv-kicker { color: #2a7d3f; }
+.adv-standings { margin: 2px 0 10px; }
+.adv-next { margin: 0 0 10px; font: 700 13px var(--ui); color: #2a7d3f; }
+.adv-next:empty { display: none; }

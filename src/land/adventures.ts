@@ -2,7 +2,8 @@
  * Fuzzies Adventures — RULES only (no DOM, no Three.js): who the Fuzzies are (names, personalities, what they say),
  * the daily mission (a configurable rotation — `SCHEDULE` — of adventures and their variants, a festival day with all of them,
  * reset at local midnight, each adventure hosted by its own Fuzzy),
- * progress and rewards (one reward per adventure per day — replays are practice), saved inside the town (`LandState.adventures`).
+ * progress and rewards (one reward per adventure per day — once it's done it's complete for the day and comes back when its turn
+ * in the rotation comes round; `nextIn()` says when), saved inside the town (`LandState.adventures`).
  * New mini-games register in `ADVENTURES`; the screen finds the scene by `id`. Checked without a browser by `adv/rules.ts`.
  */
 import { NAMES, addXp, type LandState } from './rules';
@@ -84,14 +85,14 @@ export const ADVENTURES: Adventure[] = [
     controls: { desktop: '← → steer · W go · S brake', mobile: 'Hold left or right to steer' },
     scoring: 'Three gates skipped = no lap. Later laps add barrels, boost rings, currents and waves. 1st 100 coins, 2nd 60, 3rd 30, once a day.',
     tip: 'Ride the gold boost rings and brake a touch before the tight bend!' },
-  { id: 'forest', name: 'Forest Challenge', short: 'Forest Challenge', emoji: '🪓', hosts: ['nature', 'builder'], kind: 'score', limit: 120,
-    pitch: 'The woods need thinning and the town needs timber! Grab the axe — cut the marked trees and collect the wood. Two minutes, go for the big ones!',
-    objective: 'Cut the ringed trees — 2 minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
-    variants: { deep: { key: 'deep', name: 'Deep Woods', note: 'Denser woods, bigger trees, more bonus trees hidden among them' } },
-    howTo: ['Walk to a ringed tree', 'Tap CHOP in the green', 'Pick up the wood'],
-    controls: { desktop: 'WASD walk · Space chop', mobile: 'Drag to walk · tap CHOP' },
-    scoring: 'Small / medium / large trees = 20 / 45 / 90 points (2 / 4 / 7 perfect hits), sparkly bonus trees +60. Top tier 100 coins, then 65, 35, 15 (+25 XP), once a day.',
-    tip: 'Big trees pay best — but pick a route, the clock is ticking!' },
+  { id: 'forest', name: 'Forest Challenge', short: 'Forest Challenge', emoji: '🪓', hosts: ['nature', 'builder'], kind: 'race', limit: 120,
+    pitch: 'Lumberjack contest! You, me and two more Fuzzies, two minutes, every tree on the hill is fair game — whoever scores the most points wins. Grab an axe!',
+    objective: 'Cut the most trees — 2 minutes, against 3 Fuzzies', coins: [100, 65, 35, 15], xp: 25, playable: true,
+    variants: { deep: { key: 'deep', name: 'Deep Woods', note: 'Denser woods, bigger trees, sharper rivals' } },
+    howTo: ['Tap any tree — you walk there', 'Tap CHOP in the green', 'Most points when the sun sets wins'],
+    controls: { desktop: 'Click a tree or WASD · Space chops', mobile: 'Tap a tree or drag · tap CHOP' },
+    scoring: 'Every tree counts: small / medium / large = 20 / 45 / 90 points, ringed trees ×1.5, sparkly bonus trees +60, wood pieces +5 each. Three town Fuzzies cut too — a tree someone is on is theirs. 1st 100 coins, 2nd 65, 3rd 35, 4th 15 (+25 XP), once a day.',
+    tip: 'Tap a far tree and your Fuzzy walks there by itself — grab the big ringed ones before the others do!' },
   { id: 'vacuum', name: 'Hairball Vacuum Challenge', short: 'Hairball Vacuum', emoji: '🧹', hosts: ['creative', 'baker'], kind: 'score', limit: 120,
     pitch: 'It was Big Brushing Day and there are hairballs EVERYWHERE! Take my vacuum and clean up the garden — two minutes, suck up as many as you can!',
     objective: 'Vacuum up the hairballs — 2 minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
@@ -192,14 +193,20 @@ export function featured(now = Date.now()): Adventure { return today(now).list[0
 /** Is this adventure part of today's rotation (so a run pays)? */
 export const isToday = (id: string, now = Date.now()): boolean => today(now).list.some((x) => x.adventure.id === id);
 export const variantOf = (id: string, now = Date.now()): Variant | null => today(now).list.find((x) => x.adventure.id === id)?.variant ?? null;
+/** Days until this adventure is in the rotation again after today (1 = tomorrow). */
+export function nextIn(id: string, now = Date.now()): number {
+  for (let n = 1; n <= SCHEDULE.length * 2; n++) { const d = new Date(now); d.setDate(d.getDate() + n); d.setHours(12, 0, 0, 0); if (isToday(id, d.getTime())) return n; }
+  return SCHEDULE.length;
+}
+export const inDays = (n: number): string => (n <= 1 ? 'tomorrow' : `in ${n} days`);
 
-export interface Mission { adventure: Adventure; variant: Variant | null; special: boolean; day: string; done: AdvState['done'][string] | null; resetsIn: number; plays: number; best: number | null; bestTime: number | null; bestScore: number | null }
+export interface Mission { adventure: Adventure; variant: Variant | null; special: boolean; day: string; done: AdvState['done'][string] | null; resetsIn: number; /** days until this adventure comes round again */ nextIn: number; plays: number; best: number | null; bestTime: number | null; bestScore: number | null }
 /** The mission card data for an adventure (today's headline one by default). */
 export function mission(s: LandState, now = Date.now(), id?: string): Mission {
   const a = adventures(s, now);
   const t = today(now);
   const adv = (id && adventure(id)) || t.list[0].adventure;
-  return { adventure: adv, variant: variantOf(adv.id, now), special: t.special, day: a.day, done: a.done[adv.id] ?? null, resetsIn: untilReset(now), plays: a.plays[adv.id] ?? 0, best: a.best[adv.id] ?? null, bestTime: a.bestTime[adv.id] ?? null, bestScore: a.bestScore[adv.id] ?? null };
+  return { adventure: adv, variant: variantOf(adv.id, now), special: t.special, day: a.day, done: a.done[adv.id] ?? null, resetsIn: untilReset(now), nextIn: nextIn(adv.id, now), plays: a.plays[adv.id] ?? 0, best: a.best[adv.id] ?? null, bestTime: a.bestTime[adv.id] ?? null, bestScore: a.bestScore[adv.id] ?? null };
 }
 
 /** Which present resident offers an adventure (the first with a fitting personality, else the first Fuzzy). */
@@ -229,7 +236,8 @@ export interface Result { id: string; place: number; timeMs?: number; score?: nu
 export interface Payout { coins: number; xp: number; first: boolean; levelUps: number[]; practice: boolean }
 
 /**
- * A finished run: counts the play and the best, and pays the reward ONCE per adventure per day (later runs are practice).
+ * A finished run: counts the play and the best, and pays the reward ONCE per adventure per day (the screens don't offer a
+ * second run any more; if one happens anyway it is practice and pays nothing).
  * `pay` = false records the run without paying (the screen pays after the server confirms, for cloud accounts).
  */
 export function finish(s: LandState, r: Result, now = Date.now(), pay = true): Payout {

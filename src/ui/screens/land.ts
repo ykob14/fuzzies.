@@ -1421,6 +1421,8 @@ export function landScreen(): Screen {
   function startAdventure(adv: A.Adventure): void {
     if (playing || !view) return;
     if (!adv.playable) { toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); return; }
+    // once a day: when it's done it's complete — no replays (the owner's rule); it comes back when its turn comes round
+    if (A.adventures(s, now()).done[adv.id]) { toast(`✓ ${adv.short} is complete for today — back ${A.inDays(A.nextIn(adv.id, now()))}.`, 'info'); return; }
     playing = true;
     endTalk();
     openPanel(null);
@@ -1455,10 +1457,14 @@ export function landScreen(): Screen {
         });
       }).catch(fail);
     } else if (adv.id === 'forest') {
+      // a lumberjack contest: the host plus two more town Fuzzies cut trees against you (the host is the sharpest)
       const host = hostOf('forest');
+      const others = Array.from({ length: view.residentCount }, (_, i) => i).filter((i) => i !== host.index).slice(0, 2);
+      const skills = [0.8, 0.65, 0.45];
+      const rivals = [host.index, ...others].map((i, k) => { const info = view!.residentInfo(i); return { index: i, name: info?.name ?? A.character(i).name, skin: info?.skin ?? (['#b8f28a', '#4f9e2f'] as [string, string]), skill: skills[k] + (variant === 'deep' ? 0.08 : 0) }; });
       void Promise.all([import('../../land/forestView'), model]).then(([{ runForest }]) => {
         pause();
-        runForest(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed }, {
+        runForest(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed, rivals }, {
           onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, score: res.score, forest: { ...res, hostPortrait: safePortrait(host.index) } }),
           onQuit: () => backToTown(),
           onRestart: () => { playing = false; startAdventure(adv); },
@@ -1466,7 +1472,7 @@ export function landScreen(): Screen {
       }).catch(fail);
     } else { playing = false; toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); }
   }
-  interface AdvResult { place: number; timeMs: number; score?: number; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { score: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string; hostPortrait: string }; vacuum?: { score: number; collected: number; count: { small: number; large: number; gold: number }; bestCombo: number; tier: string; hostPortrait: string } }
+  interface AdvResult { place: number; timeMs: number; score?: number; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { score: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string; hostPortrait: string; standings: { name: string; score: number; you: boolean; place: number; cleared: number }[] }; vacuum?: { score: number; collected: number; count: { small: number; large: number; gold: number }; bestCombo: number; tier: string; hostPortrait: string } }
   function backToTown(): void {
     playing = false;
     stage.querySelector('.adv-results')?.remove();
@@ -1480,11 +1486,11 @@ export function landScreen(): Screen {
     const cloud = !!accounts.current?.cloud && cloudEnabled;
     let payout: A.Payout | null = null, pending = false;
     const show = () => {
-      const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, onAgain: () => { screen.remove(); playing = false; startAdventure(adv); }, onBack: () => { screen.remove(); backToTown(); } };
+      const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, onBack: () => { screen.remove(); backToTown(); } }; // no "play again": once done, it's done for the day
       const screen: HTMLElement = res.vacuum
         ? scoreResults({ ...common, score: res.vacuum.score, tier: res.vacuum.tier, hostPortrait: res.vacuum.hostPortrait, stats: [{ label: 'Hairballs', value: String(res.vacuum.collected) }, { label: 'Golden', value: String(res.vacuum.count.gold) }, { label: 'Big ones', value: String(res.vacuum.count.large) }, { label: 'Best chain', value: `×${res.vacuum.bestCombo}` }] })
         : res.forest
-        ? scoreResults({ ...common, score: res.forest.score, tier: res.forest.tier, hostPortrait: res.forest.hostPortrait, stats: [{ label: 'Trees cut', value: `${res.forest.cleared}/${res.forest.total}` }, { label: 'Wood', value: String(res.forest.wood) }, { label: 'Perfect hits', value: String(res.forest.perfect) }, { label: 'Best chain', value: `×${res.forest.bestCombo}` }] })
+        ? scoreResults({ ...common, score: res.forest.score, tier: res.forest.tier, hostPortrait: res.forest.hostPortrait, standings: res.forest.standings, stats: [{ label: 'Trees cut', value: String(res.forest.cleared) }, { label: 'Wood', value: String(res.forest.wood) }, { label: 'Perfect hits', value: String(res.forest.perfect) }, { label: 'Best chain', value: `×${res.forest.bestCombo}` }] })
         : resultsScreen({ ...common, order: (res.race ?? []).map((o) => ({ name: o.name, place: o.place, you: o.you, portrait: o.you ? '' : safePortrait(o.index) })) });
       stage.append(screen);
       try { if (res.place === 1) sfx.gold(); else sfx.home(); } catch { /* */ }

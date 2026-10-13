@@ -38,13 +38,15 @@ export function mountControls(root: HTMLElement, opts: { touch: boolean; mouseSt
     if (stick) return;
     stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: 0, y: 0 };
     root.setPointerCapture(e.pointerId);
-    pad.hidden = false; pad.style.left = `${e.clientX}px`; pad.style.top = `${e.clientY}px`; knob.style.transform = 'translate(-50%, -50%)';
+    // the pad shows once the thumb really moves, so a plain tap (tap-to-walk in the forest) doesn't flash it
+    pad.style.left = `${e.clientX}px`; pad.style.top = `${e.clientY}px`; knob.style.transform = 'translate(-50%, -50%)';
   };
   const onMove = (e: PointerEvent) => {
     if (mouse && e.pointerType === 'mouse') { mouse.x = e.clientX; mouse.y = e.clientY; return; }
     if (!stick || e.pointerId !== stick.id) return;
     let dx = e.clientX - stick.ox, dy = e.clientY - stick.oy;
     const l = Math.hypot(dx, dy);
+    if (pad.hidden && l > 6) pad.hidden = false;
     if (l > R) { dx *= R / l; dy *= R / l; }
     stick.x = dx / R; stick.y = dy / R;
     knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;

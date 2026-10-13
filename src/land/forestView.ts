@@ -1,14 +1,14 @@
 /**
- * Forest Challenge — the 3D clearing, the walking Fuzzy with its axe, the chop meter, wood pick-ups and the HUD.
- * Rules live in land/forestGame.ts; shared controls in ui/joystick.ts. A separate scene over the town (the town's own
- * forest is never touched); cleans up completely when it ends. Art follows ART.md.
+ * Forest Challenge — the 3D clearing, you and three town Fuzzies with axes, tap-to-walk, the chop meter, wood pick-ups,
+ * the live standings and the HUD. Rules live in land/forestGame.ts; shared controls in ui/joystick.ts. A separate scene over
+ * the town (the town's own forest is never touched); cleans up completely when it ends. Art follows ART.md.
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import * as M from '../game/models3d';
 import * as T from '../game/textures3d';
 import { race as snd, vac, sfx } from '../game/sound';
-import { ForestSim, LIMIT, SWEET, SCORING, type Tree, type Wood } from './forestGame';
+import { ForestSim, LIMIT, SWEET, SCORING, type Tree, type Wood, type Jack, type RivalSetup, type Standing } from './forestGame';
 import { PAL, std, add } from './models';
 import { buildSky, treeModel } from './environment';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
@@ -16,8 +16,8 @@ import { mountControls } from '../ui/joystick';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import { adventure } from './adventures';
 
-export interface ForestSetup { mobile: boolean; sound: boolean; deluxe?: boolean; you: { name: string; skin: [string, string] }; host: string; variant?: string | null; seed: number }
-export interface ForestResult { place: number; score: number; timeMs: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string }
+export interface ForestSetup { mobile: boolean; sound: boolean; deluxe?: boolean; you: { name: string; skin: [string, string] }; host: string; variant?: string | null; seed: number; rivals?: RivalSetup[] }
+export interface ForestResult { place: number; score: number; timeMs: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string; standings: Standing[] }
 export interface ForestHooks { onFinish: (r: ForestResult) => void; onQuit: () => void; onRestart?: () => void }
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] => { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e; };
@@ -34,9 +34,26 @@ function axeModel(): THREE.Group {
   return g;
 }
 
+/** A little name pill floating over a lumberjack's head. */
+function nameLabel(text: string, color: string): THREE.Sprite {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 72;
+  const g = c.getContext('2d')!;
+  g.font = '700 34px Fredoka, "Arial Rounded MT Bold", system-ui, sans-serif';
+  const w = Math.min(240, g.measureText(text).width + 40);
+  g.fillStyle = 'rgba(255,250,240,0.94)';
+  g.beginPath(); g.roundRect((256 - w) / 2, 8, w, 56, 28); g.fill();
+  g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, 128, 37);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sp.scale.set(1.7, 0.48, 1);
+  return sp;
+}
+
 export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestHooks): void {
   const mobile = setup.mobile;
-  const sim = new ForestSim(setup.variant === 'deep' ? 'deep' : 'classic', setup.seed);
+  const sim = new ForestSim(setup.variant === 'deep' ? 'deep' : 'classic', setup.seed, setup.rivals ?? []);
+  const contest = sim.rivals.length > 0;
 
   // ---- DOM ----
   const root = el('div', 'forest mg');
@@ -50,10 +67,16 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const banner = el('div', 'race-banner');
   const count = el('div', 'race-count');
   const floats = el('div', 'mg-floats');
-  const hint = el('div', 'race-hint', mobile ? 'Drag to walk up to a ringed tree, then tap CHOP when the marker is in the green' : 'WASD / arrows to walk up to a ringed tree, then Space when the marker is in the green');
-  hud.append(scoreEl, woodEl, timeEl, comboEl, pauseBtn, banner, count, hint, floats);
+  const hint = el('div', 'race-hint', mobile ? 'Tap any tree to walk there · tap CHOP when the marker is in the green' : 'Click any tree to walk there (or WASD) · Space when the marker is in the green');
+  // the live standings
+  const board = el('div', 'forest-board'); board.hidden = !contest;
+  const rows = new Map<number, { el: HTMLElement; pl: HTMLElement; sc: HTMLElement }>();
+  for (const j of sim.jacks) { const r = el('div', `forest-row ${j.you ? 'you' : ''}`); const pl = el('small', '', '1'); const dot = el('i', ''); dot.style.background = j.skin[0]; const nm = el('b', '', j.you ? 'You' : j.name); const sc = el('span', '', '0'); r.append(pl, dot, nm, sc); board.append(r); rows.set(j.id, { el: r, pl, sc }); }
+  hud.append(scoreEl, woodEl, timeEl, comboEl, board, pauseBtn, banner, count, hint, floats);
   const adv = adventure('forest')!;
-  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Let’s chop!', onStart: () => start() });
+  const rivalNames = sim.rivals.map((r) => r.name);
+  const against = rivalNames.length ? `You’re up against ${rivalNames.length === 1 ? rivalNames[0] : rivalNames.slice(0, -1).join(', ') + ' and ' + rivalNames[rivalNames.length - 1]} — most points when the sun sets wins.` : undefined;
+  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Let’s chop!', onStart: () => start(), extra: against });
   // the chop meter + button
   const meterWrap = el('div', 'forest-meter'); meterWrap.hidden = true;
   const meterBar = el('div', 'forest-meter-bar'); const sweet = el('i', 'forest-meter-sweet'); const marker = el('b', 'forest-meter-marker');
@@ -144,17 +167,29 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     if (rise) n.rise = 0;
   };
   for (const n of nodes) if (n.tree.marked) markNode(n);
-  // the Fuzzy with its axe
+  // the gold ring under whatever tree you'd chop now (any tree), the tap marker, and a small ring per rival on its tree
+  const targetRing = new THREE.Mesh(ringGeo, ringTargetMat); targetRing.position.y = 0.06; targetRing.visible = false; scene.add(targetRing);
+  const tapMark = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9 })); tapMark.position.y = 0.04; tapMark.visible = false; scene.add(tapMark);
+  let tapLife = -1;
+  // ---- the lumberjacks: you + the rivals ----
   const mats = { fur: T.furStrands() } as unknown as M.Mats;
   const real = !!setup.deluxe && glbReady();
-  const fuzzy = real ? glbFuzzy(setup.you.skin, 0.34, { shadow: !mobile }) : M.makeFuzzy(mats, setup.you.skin, 0.3, 0.09, mobile ? 6 : 9);
-  const player = new THREE.Group();
-  fuzzy.group.position.y = real ? 0.4 : 0.34;
-  const axe = axeModel(); axe.scale.setScalar(0.9); axe.position.set(0.3, 0.22, -0.12); axe.rotation.set(-0.75, 0, -0.45); // carried over the shoulder
-  player.add(fuzzy.group, axe);
-  const pShadow = new THREE.Mesh(new THREE.CircleGeometry(0.5, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: T.glow('rgba(0,0,0,0.45)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false })); pShadow.position.y = 0.02; player.add(pShadow);
-  scene.add(player);
-  let swing = -1;
+  type Figure = { jack: Jack; group: THREE.Group; fuzzy: ReturnType<typeof M.makeFuzzy>; axe: THREE.Group; swing: number; squash: number; claim: THREE.Mesh };
+  const makeFigure = (jack: Jack, skin: [string, string]): Figure => {
+    const fuzzy = real ? glbFuzzy(skin, 0.34, { shadow: !mobile }) : M.makeFuzzy(mats, skin, 0.3, 0.09, mobile ? 6 : 9);
+    const group = new THREE.Group();
+    fuzzy.group.position.y = real ? 0.4 : 0.34;
+    const axe = axeModel(); axe.scale.setScalar(0.9); axe.position.set(0.3, 0.22, -0.12); axe.rotation.set(-0.75, 0, -0.45); // carried over the shoulder
+    group.add(fuzzy.group, axe);
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.5, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: T.glow('rgba(0,0,0,0.45)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false })); shadow.position.y = 0.02; group.add(shadow);
+    const label = nameLabel(jack.you ? 'You' : jack.name, jack.you ? PAL.raspberry : skin[1]); label.position.y = 1.55; group.add(label);
+    scene.add(group);
+    const claim = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: skin[0], transparent: true, opacity: 0.85 })); claim.position.y = 0.07; claim.visible = false; scene.add(claim);
+    return { jack, group, fuzzy, axe, swing: -1, squash: 0, claim };
+  };
+  const figures = sim.jacks.map((j) => makeFigure(j, j.you ? setup.you.skin : j.skin));
+  const me = figures[0];
+  const fuzzy = me.fuzzy, player = me.group, axe = me.axe;
   // chips, wood pieces, sparkles
   const chipMat = std('#d9b27a', 0.9);
   const chips: { m: THREE.Mesh; v: THREE.Vector3; life: number }[] = [];
@@ -165,6 +200,12 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const sparkMat = new THREE.SpriteMaterial({ map: sparkTex, transparent: true, depthWrite: false, opacity: 0.9 });
   const sparks: { s: THREE.Sprite; v: THREE.Vector3; life: number }[] = [];
   const spark = (at: THREE.Vector3, n: number) => { for (let i = 0; i < n; i++) { const s = new THREE.Sprite(sparkMat); s.position.copy(at); s.scale.setScalar(0.3); scene.add(s); sparks.push({ s, v: new THREE.Vector3((Math.random() - 0.5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 3), life: 0 }); } };
+  /** a tree starts falling (away from whoever cut it) and loses its decorations */
+  const fellNode = (n: Node, fromX: number) => {
+    n.falling = 0; n.fallDir = Math.sign(n.tree.x - fromX) || 1;
+    for (const o of [n.ring, n.glow, n.rib, n.spark]) if (o) scene.remove(o);
+    n.ring = undefined; n.glow = undefined; n.rib = undefined; n.spark = undefined;
+  };
 
   // ---- camera: a fixed three-quarter view following the Fuzzy ----
   const camTarget = new THREE.Vector3(sim.you.pos.x, 0, sim.you.pos.z);
@@ -177,6 +218,23 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const ctl = mountControls(root, { touch: mobile, mouseSteer: !mobile });
   ctl.onAction = () => { if (!intro.hidden) start(); else doChop(); };
   chopBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); doChop(); });
+  // tap-to-walk: a short tap (no drag) on the clearing sends the Fuzzy to that tree or spot; tapping the tree you're at chops it
+  const ray = new THREE.Raycaster(), groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), trunkPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.3), hit = new THREE.Vector3();
+  let tap: { x: number; y: number; t: number; id: number } | null = null;
+  const tapAt = (cx: number, cy: number): void => {
+    const r = canvas.getBoundingClientRect();
+    ray.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
+    // a tap lands on the ground — or on a trunk/canopy, so try a plane at trunk height too
+    let tree: Tree | null = null, gx = 0, gz = 0;
+    if (ray.ray.intersectPlane(trunkPlane, hit)) tree = sim.treeAt(hit.x, hit.z);
+    if (ray.ray.intersectPlane(groundPlane, hit)) { gx = hit.x; gz = hit.z; tree = tree ?? sim.treeAt(gx, gz); } else if (!tree) return;
+    if (tree) { if (tree.id === sim.target) { doChop(); return; } sim.goToTree(tree.id); play(sfx.hop); }
+    else sim.goTo(gx, gz);
+  };
+  const onTapDown = (e: PointerEvent) => { if ((e.target as HTMLElement).closest('button, .forest-meter, .race-paused, .mg-intro, .joy')) return; tap = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; };
+  const onTapUp = (e: PointerEvent) => { if (!tap || e.pointerId !== tap.id) return; const moved = Math.hypot(e.clientX - tap.x, e.clientY - tap.y), held = performance.now() - tap.t; tap = null; if (moved > 12 || held > 500 || paused || sim.state !== 'playing' || !intro.hidden) return; tapAt(e.clientX, e.clientY); };
+  root.addEventListener('pointerdown', onTapDown);
+  root.addEventListener('pointerup', onTapUp);
   const floatText = (x: number, y: number, z: number, text: string, cls = '') => {
     const v = new THREE.Vector3(x, y, z).project(camera);
     const d = el('span', `mg-float ${cls}`, text);
@@ -188,7 +246,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     const r = sim.chop();
     if (!r) return;
     const n = nodes[r.tree.id];
-    swing = 0;
+    me.swing = 0;
     hitEl.textContent = r.hit === 'perfect' ? 'PERFECT!' : r.hit === 'good' ? 'Nice hit' : 'Weak…';
     hitEl.className = `forest-hit on ${r.hit}`; setTimeout(() => hitEl.classList.remove('on'), 650);
     const trunkAt = new THREE.Vector3(n.tree.x, 0.6 * n.tree.scale, n.tree.z);
@@ -196,9 +254,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     play(() => { sfx.build(); if (r.hit === 'perfect') sfx.collect(); });
     n.g.userData.shake = r.hit === 'perfect' ? 0.12 : 0.06;
     if (r.felled) {
-      n.falling = 0; n.fallDir = Math.sign(n.tree.x - sim.you.pos.x) || 1;
-      for (const o of [n.ring, n.glow, n.rib, n.spark]) if (o) scene.remove(o);
-      n.ring = undefined; n.glow = undefined; n.rib = undefined; n.spark = undefined;
+      fellNode(n, sim.you.pos.x);
       play(() => { snd.bump(); setTimeout(() => sfx.gold(), 500); });
       if (n.tree.bonus) { spark(new THREE.Vector3(n.tree.x, 1.5, n.tree.z), 14); play(vac.gold); }
     }
@@ -211,7 +267,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   resume.addEventListener('click', togglePause);
   quit.addEventListener('click', () => { destroy(); hooks.onQuit(); });
   restart.addEventListener('click', () => { destroy(); if (hooks.onRestart) hooks.onRestart(); else hooks.onQuit(); });
-  const start = () => { if (!intro.hidden) { intro.hidden = true; sim.start(); play(snd.go); count.textContent = 'GO!'; count.className = 'race-count go'; setTimeout(() => { count.textContent = ''; count.className = 'race-count'; }, 900); setTimeout(() => hint.classList.add('fade'), 4000); setTimeout(() => tips.say('walk', mobile ? 'Drag to walk up to a tree with a glowing ring' : 'Walk up to a tree with a glowing ring'), 1200); } };
+  const start = () => { if (!intro.hidden) { intro.hidden = true; sim.start(); play(snd.go); count.textContent = 'GO!'; count.className = 'race-count go'; setTimeout(() => { count.textContent = ''; count.className = 'race-count'; }, 900); setTimeout(() => hint.classList.add('fade'), 4000); setTimeout(() => tips.say('walk', mobile ? 'Tap any tree and your Fuzzy walks there — ringed ones pay extra' : 'Click any tree and your Fuzzy walks there — ringed ones pay extra'), 1200); } };
   const onKey = (e: KeyboardEvent) => { if (e.repeat) return; const k = e.key.toLowerCase(); if (k === 'escape' || k === 'p') togglePause(); };
   addEventListener('keydown', onKey);
   const onVis = () => { if (document.hidden && !paused && sim.state === 'playing') togglePause(); };
@@ -220,7 +276,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const flashBanner = (t: string, cls = '') => { banner.textContent = t; banner.className = `race-banner ${cls}`; void banner.offsetWidth; banner.classList.add('on'); setTimeout(() => banner.classList.remove('on'), 1500); };
 
   // ---- loop ----
-  let raf = 0, last = performance.now(), acc = 0, squash = 0, lastSec = -1, lastCombo = 1, lastTarget: number | null = null;
+  let raf = 0, last = performance.now(), acc = 0, lastSec = -1, lastCombo = 1, lastTarget: number | null = null, lastOrder = '';
   const dusk = new THREE.Color('#ff9f6a'), duskHor = new THREE.Color('#ffd1a6'), night = new THREE.Color('#5a4b8a');
   const tick = (now: number) => {
     raf = requestAnimationFrame(tick);
@@ -233,13 +289,18 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
       sim.step(1 / 120, { x: input.x, z: input.z });
       acc -= 1 / 120;
       for (const e of sim.events) {
-        if (e.kind === 'felled' && e.tree) { tips.say('wood', 'Timber! Walk over the wood pieces to collect them'); floatText(e.tree.x, 2.2 * e.tree.scale, e.tree.z, `+${e.value}${(e.mult ?? 1) > 1 ? ` ×${e.mult}` : ''}`, e.tree.bonus ? 'gold' : 'big'); flashBanner(e.tree.bonus ? `Bonus tree! +${SCORING.bonusPoints}` : sim.remaining ? `Timber! ${sim.remaining} marked left` : 'Timber!', e.tree.bonus ? 'combo' : ''); }
-        else if (e.kind === 'pick' && e.wood) { floatText(e.wood.x, 0.8, e.wood.z, `+${e.value}`, e.wood.gold ? 'gold' : ''); const n = woods.get(e.wood.id); if (n) n.got = 0; play(e.wood.gold ? sfx.gold : sfx.collect); squash = 0.4; }
-        else if (e.kind === 'wave') { flashBanner(`New trees marked — wave ${e.n}!`, 'combo'); tips.say('wave', 'New rings further out — bigger trees score more, pick a good route!'); play(sfx.level); for (const n of nodes) if (n.tree.marked && !n.ring && !n.tree.felled) markNode(n, true); }
+        if (e.kind === 'felled' && e.tree) { tips.say('wood', 'Timber! Walk over the wood pieces to collect them'); floatText(e.tree.x, 2.2 * e.tree.scale, e.tree.z, `+${e.value}${(e.mult ?? 1) > 1 ? ` ×${e.mult}` : ''}`, e.tree.bonus ? 'gold' : 'big'); flashBanner(e.tree.bonus ? `Bonus tree! +${SCORING.bonusPoints}` : e.tree.marked ? 'Timber! Ringed tree ×1.5' : 'Timber!', e.tree.bonus || e.tree.marked ? 'combo' : ''); }
+        else if (e.kind === 'pick' && e.wood) { floatText(e.wood.x, 0.8, e.wood.z, `+${e.value}`, e.wood.gold ? 'gold' : ''); const n = woods.get(e.wood.id); if (n) n.got = 0; play(e.wood.gold ? sfx.gold : sfx.collect); me.squash = 0.4; }
+        else if (e.kind === 'wave') { flashBanner(`New rings — wave ${e.n}!`, 'combo'); tips.say('wave', 'New rings further out — ringed trees pay ×1.5, big ones score most'); play(sfx.level); for (const n of nodes) if (n.tree.marked && !n.ring && !n.tree.felled) markNode(n, true); }
         else if (e.kind === 'combo') { flashBanner(`×${e.mult} PERFECT CHAIN!`, 'combo'); play(() => vac.combo(e.n ?? 1)); }
         else if (e.kind === 'warn') { if (e.n === 30) flashBanner('30 seconds — the sun is setting!'); else if (e.n === 10) flashBanner('10 seconds!', 'warn'); else if (e.n! <= 3) { count.textContent = String(e.n); count.className = 'race-count'; void count.offsetWidth; count.classList.add('pop'); } play(e.n! <= 3 ? snd.count : vac.tick); }
-        else if (e.kind === 'bump') { play(vac.bump); squash = 0.5; }
-        else if (e.kind === 'target' && e.tree) { play(sfx.hop); tips.say('chop', mobile ? 'Tap CHOP when the marker is in the green — the big ones take more hits' : 'Press Space (or CHOP) when the marker is in the green — the big ones take more hits'); }
+        else if (e.kind === 'bump') { play(vac.bump); me.squash = 0.5; }
+        else if (e.kind === 'target' && e.tree) { play(sfx.hop); tips.say('chop', mobile ? 'Tap CHOP (or the tree) when the marker is in the green — big ones take more hits' : 'Press Space (or click the tree) when the marker is in the green — big ones take more hits'); }
+        else if (e.kind === 'goal' && e.at) { tapMark.position.set(e.at.x, 0.04, e.at.z); tapMark.visible = true; tapLife = 0; }
+        else if (e.kind === 'taken' && e.who) { tips.say('taken', `${e.who.name}’s already on that one — pick another tree`, 2600); flashBanner(`${e.who.name} got there first!`, 'warn'); }
+        else if (e.kind === 'rivalChop' && e.who && e.tree) { const f = figures[e.who.id]; if (f) f.swing = 0; const n = nodes[e.tree.id]; n.g.userData.shake = 0.07; chip(new THREE.Vector3(e.tree.x, 0.6 * e.tree.scale, e.tree.z), 3); }
+        else if (e.kind === 'rivalFell' && e.who && e.tree) { fellNode(nodes[e.tree.id], e.who.mover.pos.x); floatText(e.tree.x, 2.2 * e.tree.scale, e.tree.z, `${e.who.name} +${e.value}`, 'rival'); play(snd.bump); }
+        else if (e.kind === 'lead' && e.who) { flashBanner(e.who.you ? 'You take the lead!' : `${e.who.name} takes the lead!`, e.who.you ? 'combo' : ''); if (!e.who.you) tips.say('lead', 'Ringed and big trees are the quickest way back to the top'); }
       }
     }
     // the day goes by: the sun sinks and warms, the sky turns to dusk
@@ -250,23 +311,31 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     (skyMat.uniforms.uHorizon.value as THREE.Color).copy(skyHor0).lerp(duskHor, k * 0.9);
     hemi.intensity = 0.75 - k * 0.25;
     sunIc.style.transform = `translateY(${k * 6}px)`;
-    // the Fuzzy: waddles while walking, squashes on bumps, swings the axe
-    const you = sim.you;
-    squash = lerp(squash, 0, Math.min(1, dt * 8));
-    player.position.set(you.pos.x, 0, you.pos.z);
-    player.rotation.y = you.heading;
-    const spK = you.speed / you.o.max;
-    fuzzy.group.position.y = (real ? 0.4 : 0.34) + Math.abs(Math.sin(time.value * 11)) * 0.08 * spK;
-    fuzzy.body.rotation.z = Math.sin(time.value * 11) * 0.1 * spK;
-    fuzzy.body.scale.set(1 + squash * 0.18, 1 - squash * 0.22, 1 + squash * 0.18);
-    if (swing >= 0) { swing += dt; const k2 = Math.min(1, swing / 0.28); axe.rotation.x = -0.75 + Math.sin(k2 * Math.PI) * 2.1; axe.rotation.z = -0.45 - Math.sin(k2 * Math.PI) * 0.5; if (swing > 0.5) swing = -1; }
-    else { axe.rotation.x = -0.75 + Math.sin(time.value * 2) * 0.05 + (sim.target !== null ? 0.5 : 0); axe.rotation.z = -0.45; }
+    // the lumberjacks: waddle while walking, squash on bumps, swing the axe
+    for (const f of figures) {
+      const m = f.jack.mover;
+      f.squash = lerp(f.squash, 0, Math.min(1, dt * 8));
+      f.group.position.set(m.pos.x, 0, m.pos.z);
+      f.group.rotation.y = m.heading;
+      const spK = m.speed / m.o.max;
+      f.fuzzy.group.position.y = (real ? 0.4 : 0.34) + Math.abs(Math.sin(time.value * 11 + f.jack.id)) * 0.08 * spK;
+      f.fuzzy.body.rotation.z = Math.sin(time.value * 11 + f.jack.id) * 0.1 * spK;
+      f.fuzzy.body.scale.set(1 + f.squash * 0.18, 1 - f.squash * 0.22, 1 + f.squash * 0.18);
+      const busy = f.jack.you ? sim.target !== null : f.jack.target !== null && sim.trees[f.jack.target]?.by === f.jack.id;
+      if (f.swing >= 0) { f.swing += dt; const k2 = Math.min(1, f.swing / 0.28); f.axe.rotation.x = -0.75 + Math.sin(k2 * Math.PI) * 2.1; f.axe.rotation.z = -0.45 - Math.sin(k2 * Math.PI) * 0.5; if (f.swing > 0.5) f.swing = -1; }
+      else { f.axe.rotation.x = -0.75 + Math.sin(time.value * 2 + f.jack.id) * 0.05 + (busy ? 0.5 : 0); f.axe.rotation.z = -0.45; }
+      // a rival's ring sits under the tree it's cutting
+      if (!f.jack.you) { const tid = f.jack.target; const t = tid !== null ? sim.trees[tid] : null; const on = !!t && t.by === f.jack.id && !t.felled; f.claim.visible = on; if (on && t) { f.claim.position.set(t.x, 0.07, t.z); const s = 0.75 + t.scale * 0.3; f.claim.scale.set(s, 1, s); } }
+    }
     // face the target tree while in reach
-    if (sim.target !== null) { const t = sim.trees[sim.target]; const want = Math.atan2(t.x - you.pos.x, t.z - you.pos.z); if (you.speed < 1) player.rotation.y = lerp(player.rotation.y, player.rotation.y + Math.atan2(Math.sin(want - player.rotation.y), Math.cos(want - player.rotation.y)), Math.min(1, dt * 8)); }
-    // trees: rings pulse, the target glows gold, new waves rise, shakes, falling
+    if (sim.target !== null) { const t = sim.trees[sim.target]; const want = Math.atan2(t.x - sim.you.pos.x, t.z - sim.you.pos.z); if (sim.you.speed < 1) player.rotation.y = lerp(player.rotation.y, player.rotation.y + Math.atan2(Math.sin(want - player.rotation.y), Math.cos(want - player.rotation.y)), Math.min(1, dt * 8)); }
+    // the gold ring under your target, the tap marker
+    if (sim.target !== null) { const t = sim.trees[sim.target]; targetRing.visible = true; targetRing.position.set(t.x, 0.06, t.z); const s = (0.9 + t.scale * 0.3) * (1 + Math.sin(time.value * 5) * 0.05); targetRing.scale.set(s, 1, s); } else targetRing.visible = false;
+    if (tapLife >= 0) { tapLife += dt; const s = 0.5 + tapLife * 1.2; tapMark.scale.set(s, 1, s); (tapMark.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.9 - tapLife * 1.1); if (tapLife > 0.85) { tapLife = -1; tapMark.visible = false; } }
+    // trees: rings pulse, new waves rise, shakes, falling
     for (const n of nodes) {
       if (n.rise < 1) { n.rise = Math.min(1, n.rise + dt * 2); const s = n.rise; if (n.ring) n.ring.scale.setScalar((0.9 + n.tree.scale * 0.3) * s); }
-      if (n.ring) { const s = (0.9 + n.tree.scale * 0.3) * (1 + Math.sin(time.value * 3 + n.tree.id) * 0.06) * n.rise; n.ring.scale.set(s, 1, s); n.ring.material = n.tree.id === sim.target ? ringTargetMat : ringMat; }
+      if (n.ring) { const s = (0.9 + n.tree.scale * 0.3) * (1 + Math.sin(time.value * 3 + n.tree.id) * 0.06) * n.rise; n.ring.scale.set(s, 1, s); n.ring.visible = n.tree.id !== sim.target; }
       if (n.glow) (n.glow.material as THREE.SpriteMaterial).opacity = 0.45 + Math.sin(time.value * 3 + n.tree.id) * 0.2;
       if (n.spark) { n.spark.position.y = 1.6 * n.tree.scale + Math.sin(time.value * 4 + n.tree.id) * 0.15; (n.spark.material as THREE.SpriteMaterial).opacity = 0.6 + Math.sin(time.value * 7 + n.tree.id) * 0.35; }
       const sh = (n.g.userData.shake as number) ?? 0;
@@ -284,6 +353,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
       }
     }
     // wood pieces: fly out with the rules, lie on the ground, fly to the Fuzzy when picked up
+    const you = sim.you;
     for (const w of sim.woods) {
       let n = woods.get(w.id);
       if (!n) { if (w.state === 'got') continue; const m = new THREE.Mesh(logGeo, w.gold ? goldLog : logMat); m.castShadow = !mobile; scene.add(m); n = { m, w, got: -1 }; if (w.gold) { const gl = new THREE.Sprite(sparkMat.clone()); gl.scale.setScalar(0.9); scene.add(gl); n.glow = gl; } woods.set(w.id, n); }
@@ -312,12 +382,18 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     // HUD
     if (scoreN.textContent !== String(sim.score)) { scoreN.textContent = String(sim.score); scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump'); }
     woodN.textContent = String(sim.wood);
-    treesN.textContent = `${sim.cleared} tree${sim.cleared === 1 ? '' : 's'} · ${sim.remaining} marked`;
+    treesN.textContent = `${sim.cleared} tree${sim.cleared === 1 ? '' : 's'} · ${sim.standing} standing`;
+    if (contest) {
+      const st = sim.standings();
+      const order = st.map((x) => x.id).join(',');
+      for (const x of st) { const r = rows.get(x.id)!; if (r.sc.textContent !== String(x.score)) r.sc.textContent = String(x.score); const pl = `${x.place}`; if (r.pl.textContent !== pl) r.pl.textContent = pl; }
+      if (order !== lastOrder) { lastOrder = order; for (const x of st) board.append(rows.get(x.id)!.el); }
+    }
     const left = Math.ceil(sim.clock.left);
     if (left !== lastSec) { lastSec = left; timeN.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`; timeEl.classList.toggle('warn', left <= 10 && sim.state === 'playing'); }
     const showMeter = sim.target !== null && sim.state === 'playing';
     if (meterWrap.hidden === showMeter) { meterWrap.hidden = !showMeter; }
-    if (showMeter) { marker.style.left = `${sim.meter.value * 100}%`; const t = sim.trees[sim.target!]; hpFill.style.transform = `scaleX(${t.hp / t.maxHp})`; if (sim.target !== lastTarget) { chopBtn.textContent = `CHOP ${t.size === 'large' ? 'the big one' : t.size === 'medium' ? 'it' : 'the little one'}!`; } }
+    if (showMeter) { marker.style.left = `${sim.meter.value * 100}%`; const t = sim.trees[sim.target!]; hpFill.style.transform = `scaleX(${t.hp / t.maxHp})`; if (sim.target !== lastTarget) { chopBtn.textContent = `CHOP ${t.size === 'large' ? 'the big one' : t.size === 'medium' ? 'it' : 'the little one'}!${t.marked ? ' ×1.5' : ''}`; } }
     lastTarget = sim.target;
     const mult = sim.combo.mult;
     if (sim.combo.chain > 1) { comboEl.classList.add('on'); comboN.textContent = `×${mult}`; const nx = sim.combo.next; comboS.textContent = nx ? `${sim.combo.chain} perfect · ${nx.at - sim.combo.chain} more for ×${nx.mult}` : `${sim.combo.chain} perfect · MAX`; if (mult !== lastCombo) { comboEl.classList.remove('bump'); void comboEl.offsetWidth; comboEl.classList.add('bump'); } }
@@ -325,8 +401,8 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     lastCombo = mult;
     // end
     if (sim.state === 'done' && !done) {
-      if (!finishedAt) { finishedAt = now; meterWrap.hidden = true; count.textContent = 'TIME!'; count.className = 'race-count go'; play(snd.finish); }
-      if (now - finishedAt > 1800) { done = true; const r = sim.result(); destroy(); hooks.onFinish(r); return; }
+      if (!finishedAt) { finishedAt = now; meterWrap.hidden = true; count.textContent = 'TIME!'; count.className = 'race-count go'; play(snd.finish); if (contest) { const w = sim.standings()[0]; setTimeout(() => flashBanner(w.you ? 'You win the contest!' : `${w.name} wins the contest!`, w.you ? 'combo' : ''), 700); } }
+      if (now - finishedAt > (contest ? 2400 : 1800)) { done = true; const r = sim.result(); destroy(); hooks.onFinish(r); return; }
     }
     renderer.render(scene, camera);
   };
@@ -336,12 +412,13 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     cancelAnimationFrame(raf);
     removeEventListener('keydown', onKey);
     document.removeEventListener('visibilitychange', onVis);
+    root.removeEventListener('pointerdown', onTapDown); root.removeEventListener('pointerup', onTapUp);
     ro.disconnect(); ctl.destroy(); tips.destroy();
     scene.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
     env.dispose(); pmrem.dispose(); renderer.dispose(); renderer.forceContextLoss();
     root.remove();
   };
   requestAnimationFrame(() => { last = performance.now(); raf = requestAnimationFrame(tick); });
-  if (import.meta.env.DEV) (window as unknown as { __forest: unknown }).__forest = { sim, start, chop: doChop, ctl, finishNow: () => { (sim as unknown as { state: string }).state = 'done'; }, destroy };
-  void LIMIT;
+  if (import.meta.env.DEV) (window as unknown as { __forest: unknown }).__forest = { sim, start, chop: doChop, ctl, tapAt, screenOf: (x: number, z: number) => { const v = new THREE.Vector3(x, 0.4, z).project(camera); const r = canvas.getBoundingClientRect(); return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height }; }, finishNow: () => { (sim as unknown as { state: string }).state = 'done'; }, destroy };
+  void LIMIT; void axe; void fuzzy;
 }
