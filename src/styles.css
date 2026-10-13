@@ -2635,3 +2635,38 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .obstacle .ob-mute.off { background: rgba(20, 30, 50, .62); }
 .obstacle .mg-coach, .obstacle .mg-coach.on { top: calc(168px + var(--safe-t, 0px)); bottom: auto; }
 :root[data-motion='reduce'] .obstacle .ob-power.ending { animation: none; }
+
+/* ---- Fuzzie Brawl Arena: role picker, special button, ring status, sticks, hurt flash ---- */
+.br-roles { display: grid; gap: 8px; margin: 2px 0 6px; }
+.br-roles > b { font: 700 13px/1.2 var(--ui); color: #6b5a44; text-align: center; }
+.br-role-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.br-role { display: grid; justify-items: center; gap: 2px; padding: 8px 4px 7px; border: 2px solid #eadfcb; border-radius: 14px; background: #fffaf2; color: #3b2a1a; cursor: pointer; font: inherit; transition: transform .15s var(--ease), border-color .15s; }
+.br-role span { font-size: 22px; line-height: 1.1; }
+.br-role b { font: 700 12px/1.15 var(--ui); }
+.br-role small { font: 500 10.5px/1.25 var(--ui); color: #7a6a55; text-align: center; }
+.br-role.on { border-color: var(--rc); background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--rc) 30%, transparent); transform: translateY(-1px); }
+@media (max-width: 760px) { .br-role-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .br-role small { display: none; } }
+.brawl .br-special { position: absolute; right: 22px; bottom: calc(150px + var(--safe-b, 0px)); width: 74px; height: 74px; border: 0; border-radius: 50%; background: rgba(20, 30, 50, .55); color: #fff; pointer-events: auto; cursor: pointer; display: grid; place-items: center; z-index: 6; }
+.brawl .br-special i { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(#ffd34a calc(var(--k, 0) * 360deg), transparent 0); -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%); mask: radial-gradient(circle, transparent 58%, #000 60%); }
+.brawl .br-special span { font-size: 28px; line-height: 1; filter: grayscale(.8); opacity: .65; }
+.brawl .br-special small { position: absolute; bottom: -18px; font: 800 10px/1 var(--ui); letter-spacing: .06em; opacity: .8; }
+.brawl .br-special.ready { background: rgba(255, 176, 46, .92); box-shadow: 0 0 0 4px rgba(255, 211, 74, .5), 0 6px 18px rgba(0, 0, 0, .3); animation: br-ready .9s ease-in-out infinite; }
+.brawl .br-special.ready span { filter: none; opacity: 1; }
+@keyframes br-ready { 50% { transform: scale(1.07); } }
+@media (pointer: fine) { .brawl .br-special { width: 60px; height: 60px; bottom: calc(26px + var(--safe-b, 0px)); } .brawl .br-special small { content: ''; } .brawl .br-special small::after { content: ' · SPACE'; } }
+.brawl .br-mute { top: calc(118px + var(--safe-t, 0px)); }
+.brawl .br-ring { position: absolute; left: 50%; top: calc(84px + var(--safe-t, 0px)); transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(20, 30, 50, .5); color: #fff; font: 700 13px/1 var(--ui); white-space: nowrap; pointer-events: none; }
+.brawl .br-ring.ours { background: rgba(74, 168, 240, .9); }
+.brawl .br-ring.theirs { background: rgba(255, 107, 154, .92); }
+.brawl .br-ring.contest { background: rgba(255, 196, 40, .95); color: #3b2a1a; }
+.brawl .br-first { position: absolute; left: 50%; top: calc(62px + var(--safe-t, 0px)); transform: translateX(-50%); color: #fff; font: 700 11px/1 var(--ui); opacity: .85; text-shadow: 0 1px 3px rgba(0, 0, 0, .4); pointer-events: none; }
+.brawl .br-down { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); padding: 12px 22px; border-radius: 18px; background: rgba(20, 30, 50, .62); color: #fff; font: 700 22px/1 var(--brand); pointer-events: none; }
+.brawl .br-hurt { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 90px 30px rgba(214, 51, 108, .55); opacity: 0; z-index: 4; }
+.brawl .br-hurt.on { animation: br-hurt .45s ease-out; }
+@keyframes br-hurt { 0% { opacity: 1; } 100% { opacity: 0; } }
+.brawl .br-joy.aim .joy-knob { background: rgba(255, 211, 74, .92); }
+.brawl .br-sticks { position: absolute; left: 0; right: 0; bottom: calc(40px + var(--safe-b, 0px)); display: flex; justify-content: space-between; padding: 0 34px; pointer-events: none; z-index: 4; transition: opacity .4s; }
+.brawl .br-sticks span { padding: 7px 12px; border-radius: 999px; background: rgba(20, 30, 50, .42); color: #fff; font: 700 12px/1 var(--ui); }
+.brawl .br-sticks.gone { opacity: 0; }
+.brawl .mg-coach, .brawl .mg-coach.on { top: calc(124px + var(--safe-t, 0px)); bottom: auto; }
+:root[data-motion='reduce'] .brawl .br-special.ready, :root[data-motion='reduce'] .brawl .br-hurt.on { animation: none; }

@@ -73,6 +73,7 @@ export class BrawlSim {
   time = 0;
   /** tests / demo: the player's Fuzzy is driven by the computer too */
   autopilot = false;
+  private flip = false;
   private rnd: () => number;
   private nid = 0;
   private grid = new Uint8Array(GW * GD);
@@ -237,8 +238,9 @@ export class BrawlSim {
       if (this.time - f.hurtAt > REGEN.wait && this.time - f.shotAt > REGEN.wait * 0.7 && f.hp < f.maxHp) f.hp = Math.min(f.maxHp, f.hp + REGEN.rate * dt);
       f.hidden = !!this.bushAt(f.x, f.z);
     }
-    // control: you, then the computer Fuzzies
-    for (const f of this.fighters) {
+    // control: you, then the computer Fuzzies (the order flips every step so neither team always acts first)
+    this.flip = !this.flip; const order = this.flip ? this.fighters : [...this.fighters].reverse();
+    for (const f of order) {
       if (!f.alive) continue;
       let move: Vec2 = { x: 0, z: 0 };
       if (f.you && !this.autopilot) { if (you) { move = you.move; if (you.fire && you.aim) this.fire(f, you.aim.x, you.aim.z); if (you.special) this.special(f, you.aim?.x ?? Math.sin(f.face), you.aim?.z ?? Math.cos(f.face)); } }
@@ -265,7 +267,7 @@ export class BrawlSim {
     this.events.push({ kind: 'respawn', f });
   }
   private walk(f: Fighter, move: Vec2, dt: number): void {
-    if (f.dash > 0) { f.dash -= dt; this.moveBy(f, f.dashX * dt, f.dashZ * dt); f.vx = f.dashX; f.vz = f.dashZ; return; }
+    if (f.dash > 0) { const t = Math.min(dt, f.dash); f.dash -= dt; this.moveBy(f, f.dashX * t, f.dashZ * t); const k = f.dash > 0 ? 1 : 0.12; f.vx = f.dashX * k; f.vz = f.dashZ * k; return; }
     let mx = move.x || 0, mz = move.z || 0; const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; }
     const sp = ROLES[f.role].speed; const tx = mx * sp, tz = mz * sp; const k = Math.min(1, dt * 14);
     f.vx += (tx - f.vx) * k; f.vz += (tz - f.vz) * k;

@@ -18,14 +18,14 @@ const env = (a: AudioContext, g: GainNode, t: number, vol: number, attack: numbe
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
 };
 /** an oscillator note with an optional pitch slide (to a frequency) */
-function note(freq: number, dur: number, type: OscillatorType = 'sine', vol = 0.12, to = 0, delay = 0, attack = 0.008): void {
+export function note(freq: number, dur: number, type: OscillatorType = 'sine', vol = 0.12, to = 0, delay = 0, attack = 0.008): void {
   const a = ctx(); if (!a) return; const t = a.currentTime + delay;
   const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.setValueAtTime(freq, t);
   if (to) o.frequency.exponentialRampToValueAtTime(Math.max(30, to), t + dur);
   env(a, g, t, vol, attack, dur); o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.03);
 }
 /** filtered noise (band / low / high pass), the filter sweeping from → to */
-function hiss(dur: number, type: BiquadFilterType, from: number, to: number, vol: number, delay = 0, q = 1, attack = 0.01): void {
+export function hiss(dur: number, type: BiquadFilterType, from: number, to: number, vol: number, delay = 0, q = 1, attack = 0.01): void {
   const a = ctx(); if (!a) return; const t = a.currentTime + delay;
   const s = a.createBufferSource(); s.buffer = white(a); const off = Math.random() * 0.4;
   const f = a.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(from, t); f.frequency.exponentialRampToValueAtTime(Math.max(30, to), t + dur);

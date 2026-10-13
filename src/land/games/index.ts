@@ -21,4 +21,5 @@ export const GAME_LOADERS: Record<string, () => Promise<{ run: GameRun }>> = {
   snowball: () => import('./snowballView'),
   beach: () => import('./beachView'),
   skate: () => import('./skateView'),
+  brawl: () => import('./brawlView'),
 };
