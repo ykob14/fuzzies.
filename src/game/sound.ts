@@ -195,6 +195,13 @@ export const race = {
   splash: () => noise(0.5, 1400, 260, 0.12),
   finish: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.28, 'triangle', 0.12, 0, i * 0.09)); },
   wrong: () => tone(220, 0.2, 'square', 0.05, -40),
+  missed: () => { tone(330, 0.16, 'square', 0.07, -30); tone(262, 0.26, 'square', 0.07, -30, 0.16); },
+  recovered: () => { tone(784, 0.1, 'triangle', 0.09); tone(1175, 0.18, 'triangle', 0.08, 0, 0.09); },
+  boost: () => { tone(420, 0.35, 'sawtooth', 0.06, 900); noise(0.3, 600, 2400, 0.08); },
+  edge: () => tone(300, 0.14, 'triangle', 0.06, 40),
+  wave: () => noise(0.35, 900, 300, 0.08),
+  splashBig: () => noise(0.7, 1800, 200, 0.14),
+  cheer: () => { [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.22, 'triangle', 0.1, 0, i * 0.07)); },
 };
 
 /** A running boat engine: a soft purr that rises with speed. Call `set()` every frame and `stop()` when the race ends. */

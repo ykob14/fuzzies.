@@ -1434,6 +1434,7 @@ export function landScreen(): Screen {
         runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound, deluxe, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
           onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, race: res.order }),
           onQuit: () => backToTown(),
+          onRestart: () => { playing = false; startAdventure(adv); },
         });
       }).catch(fail);
     } else if (adv.id === 'forest') {
