@@ -183,7 +183,7 @@ before they float over the roofs; shiny 50, dark spiky ones break the chain), Is
 WARM then HOT near treasure, then DIG), Fishing Frenzy (tap the water to cast, HOOK on the bite, hold REEL but let go when the line
 goes red), Obstacle Run (three lanes: swipe or A/D to change lane, swipe up / ↑ to jump logs and puddles, swipe down / ↓ to duck under vines, go round rocks, rolling boulders and carts, bounce on mushrooms for high stars, grab a shield, star magnet or speed boost; the 🔊 button mutes it), Fuzzie Brawl Arena (3 vs 3: pick a power — Energy Burst, Bubble Shield, Zoom Dash or Bloom Heal — then WASD + mouse or two thumb sticks; knockouts and holding the Sunflower ring score, first to 20 wins; hide in bushes), Farm Harvest Rush
 (pick the ripe plants before they wilt), Garden Cleanup (hold PULL on the weeds, never trample the flower beds), Package Delivery
-(a cart: load at the depot, bring parcels to the glowing doors, don't bump into things), Mining Adventure (dig the gem piles, step
+(a cart: load at the depot, bring parcels to the glowing doors, steer round the lamp posts and the flower bed — crashing into them knocks a parcel off), Mining Adventure (dig the gem piles, step
 away when the ceiling rumbles), Firefighter Fuzzy (hold SPRAY at the flames, refill the tank at the pond, save the cottages), Snowball
 Challenge (tap a target to throw, moving and far targets pay more), Beach Cleanup (pick up the litter before the tide takes it, drop
 a full bag in the bin, hop over the crabs) and Ice Skating (lean left/right to steer on the sliding ice, glide through the lit gates

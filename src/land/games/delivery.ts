@@ -1,19 +1,20 @@
 /**
  * Package Delivery — RULES only (no DOM, no Three.js): a town square with six coloured houses round the edge and the depot at
  * the bottom. Pull the little cart (it has momentum — it slides and swings) to the depot to load up to three parcels, then
- * to each parcel's house (the door glows). A delivery is 40, a fast one (within 14 s of loading) 60. Bumping into things
- * knocks a parcel off the cart — walk over it to pick it up again. New orders keep arriving. Two minutes.
+ * to each parcel's house (the door glows). A delivery is 40, a fast one (within 14 s of loading) 60. Crashing into the things
+ * standing in the street (the flower bed, the lamp posts) knocks a parcel off the cart — walk over it to pick it up again; houses,
+ * the depot counter and the edge of the square only stop the cart. New orders keep arriving. Two minutes.
  * Checked without a browser by `adv/delivery-check.ts`.
  */
 import { Clock, Mover, seeded, tierPlace, type Obstacle, type Vec2 } from '../arcade';
 
 export interface House { id: number; x: number; z: number; door: Vec2; color: number; hw: number; hd: number }
 export interface Parcel { id: number; house: number; loadedAt: number; droppedAt: number; state: 'waiting' | 'cart' | 'ground' | 'done'; x: number; z: number }
-export interface DeliveryEvent { kind: 'load' | 'deliver' | 'drop' | 'pickup' | 'order' | 'bump' | 'warn' | 'timeup'; parcel?: Parcel; house?: House; value?: number; fast?: boolean; n?: number }
+export interface DeliveryEvent { kind: 'load' | 'deliver' | 'drop' | 'pickup' | 'order' | 'bump' | 'warn' | 'timeup'; parcel?: Parcel; house?: House; value?: number; fast?: boolean; n?: number; soft?: boolean }
 
 export const SCORING = {
   delivery: 40, fast: 60, fastWithin: 14,
-  tiers: [1300, 900, 400] as [number, number, number],
+  tiers: [1400, 900, 400] as [number, number, number],
   tierNames: ['Express legend', 'Reliable courier', 'Part-time postie', 'Lost the map'],
 };
 export const LIMIT = 120;
@@ -72,6 +73,11 @@ export class DeliverySim {
     this.parcels.push(p); this.events.push({ kind: 'order', parcel: p });
     return p;
   }
+  /** touching something standing in the street (the flower bed or a lamp post) — only those knock a parcel off */
+  private onStreetThing(): boolean {
+    const { x, z } = this.you.pos;
+    return this.obstacles.some((o) => o.kind === 'circle' && Math.hypot(x - o.x, z - o.z) < o.r + CART.radius + 0.12);
+  }
   near(p: Vec2, r = REACH): boolean { return Math.hypot(p.x - this.you.pos.x, p.z - this.you.pos.z) < r; }
 
   step(dt: number, input: Vec2): void {
@@ -85,7 +91,10 @@ export class DeliverySim {
     this.you.step(dt, this.stun > 0 ? { x: 0, z: 0 } : { x: input.x || 0, z: input.z || 0 });
     // a hard bump (a sudden loss of speed against something — sliding along a wall is fine) knocks a parcel off
     const lost = Math.hypot(this.you.vel.x - vx0, this.you.vel.z - vz0);
-    if (this.you.blocked && lost > BUMP.speed && this.bumpCool <= 0) {
+    if (this.you.blocked && lost > BUMP.speed && this.bumpCool <= 0 && !this.onStreetThing()) {
+      // a house, the depot counter or the edge of the square just stops the cart — no parcel falls off
+      this.bumpCool = BUMP.cool; this.events.push({ kind: 'bump', soft: true });
+    } else if (this.you.blocked && lost > BUMP.speed && this.bumpCool <= 0) {
       this.bumpCool = BUMP.cool; this.bumps++; this.stun = BUMP.stun;
       const onCart = this.cart;
       if (onCart.length) { // it tumbles off the back of the cart and can be picked up again in a moment (no longer a fast delivery)

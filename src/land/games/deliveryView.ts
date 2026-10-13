@@ -1,7 +1,7 @@
 /**
  * Package Delivery — the 3D town square: cobbles, six colour-coded cottages with awnings and door mats that glow when you're
  * carrying their parcel, the depot counter with its parcel stack, lamp posts, a flower bed; your Fuzzy pulling a two-wheel
- * cart that swings on the corners, parcels stacked on it (and tumbling off on a crash), a floating arrow to the next door, and
+ * cart that swings on the corners, parcels stacked on it (and tumbling off on a crash into a lamp or the flower bed), glowing mats at the doors (and the depot), and
  * a row of parcel chips in the HUD. Rules: games/delivery.ts; scene, HUD, loop and chrome: land/mgScene.ts.
  */
 import * as THREE from 'three';
@@ -75,8 +75,10 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   // parcels on the ground and the ones tumbling off
   type Ground = { p: Parcel; m: THREE.Mesh; t: number; from: THREE.Vector3 };
   const groundNodes = new Map<number, Ground>();
-  // arrow to the next door
-  const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.6, 8).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ffd34a', emissive: '#7a5200', emissiveIntensity: 0.5 })); arrow.position.y = 1.9; scene.add(arrow);
+  // when the cart is empty the depot's mat glows (the doors' mats glow for the parcels on board) — no floating arrow: from above it
+  // looked like a yellow parcel lying on the ground
+  const depotGlow = new THREE.MeshBasicMaterial({ color: '#d6336c', transparent: true, opacity: 0, depthWrite: false });
+  const depotMat = new THREE.Mesh(new THREE.RingGeometry(0.6, 1.3, 32).rotateX(-Math.PI / 2), depotGlow); depotMat.position.set(DEPOT.x, 0.03, DEPOT.z); scene.add(depotMat);
   // HUD: the parcels on the cart as coloured chips
   const chips = document.createElement('div'); chips.className = 'mg-chips'; a.hud.append(chips);
   const repaintChips = () => { chips.replaceChildren(...sim.cart.map((p) => { const s = document.createElement('i'); s.style.background = HOUSE_COLORS[sim.houses[p.house].color]; return s; })); chips.hidden = sim.cart.length === 0; };
@@ -91,7 +93,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
       else if (e.kind === 'deliver' && e.house) { repaintCart(); repaintChips(); a.float(e.house.door.x, 1.6, e.house.door.z, `+${e.value}${e.fast ? ' FAST!' : ''}`, e.fast ? 'gold' : ''); a.sparks(new THREE.Vector3(e.house.door.x, 0.8, e.house.door.z), e.fast ? 14 : 6); a.play(e.fast ? sfx.gold : sfx.collect); me.squash = 0.35; if (sim.delivered === 1) a.tip('fast', 'Deliver within 14 s of loading for 60 instead of 40', 3600); }
       else if (e.kind === 'drop' && e.parcel) { repaintCart(); repaintChips(); const m = parcelMesh(e.parcel); const from = new THREE.Vector3(); cart.getWorldPosition(from); from.y = 0.8; m.position.copy(from); scene.add(m); groundNodes.set(e.parcel.id, { p: e.parcel, m, t: 0, from }); a.banner('Oops — a parcel fell off!', 'warn'); a.play(vac.bump); me.squash = 0.6; a.tip('drop', 'A hard bump knocks a parcel off — roll over it to pick it up', 3600); }
       else if (e.kind === 'pickup' && e.parcel) { const n = groundNodes.get(e.parcel.id); if (n) { scene.remove(n.m); groundNodes.delete(e.parcel.id); } repaintCart(); repaintChips(); a.play(sfx.collect); a.float(sim.you.pos.x, 1.2, sim.you.pos.z, 'got it!'); }
-      else if (e.kind === 'bump') { me.squash = Math.max(me.squash, 0.4); a.puff(new THREE.Vector3(sim.you.pos.x, 0.5, sim.you.pos.z), 4, '#d9cfbd'); }
+      else if (e.kind === 'bump') { me.squash = Math.max(me.squash, e.soft ? 0.2 : 0.4); a.puff(new THREE.Vector3(sim.you.pos.x, 0.5, sim.you.pos.z), e.soft ? 2 : 4, '#d9cfbd'); }
       else if (e.kind === 'warn') a.warn(e.n!);
     }
   }, (dt) => {
@@ -105,12 +107,10 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     cart.rotation.z = swing; cart.rotation.y = swing * 0.6;
     for (const w of wheels) w.rotation.x += sim.you.speed * dt / 0.3;
     a.camTarget.lerp(new THREE.Vector3(p.x, 0, p.z), Math.min(1, dt * 6));
-    // door mats glow for the parcels on the cart; the arrow points at the nearest of them (or the depot when empty)
+    // door mats glow for the parcels on the cart; the depot's mat glows when the cart is empty
     const targets = new Set(sim.cart.map((q) => q.house));
-    let best: THREE.Vector3 | null = null, bd = Infinity;
-    for (const n of houseNodes) { const on = targets.has(n.h.id); n.glow.opacity = on ? 0.45 + Math.sin(time.value * 5) * 0.25 : 0; n.mat.scale.setScalar(on ? 1 + Math.sin(time.value * 5) * 0.08 : 1); if (on) { const d = Math.hypot(n.h.door.x - p.x, n.h.door.z - p.z); if (d < bd) { bd = d; best = new THREE.Vector3(n.h.door.x, 0, n.h.door.z); } } }
-    if (!best) best = new THREE.Vector3(DEPOT.x, 0, DEPOT.z);
-    arrow.position.set(p.x, 1.9 + Math.sin(time.value * 4) * 0.08, p.z); arrow.lookAt(best.x, 1.9, best.z); arrow.visible = bd > 2.5 || !sim.cart.length;
+    for (const n of houseNodes) { const on = targets.has(n.h.id); n.glow.opacity = on ? 0.45 + Math.sin(time.value * 5) * 0.25 : 0; n.mat.scale.setScalar(on ? 1 + Math.sin(time.value * 5) * 0.08 : 1); }
+    const empty = !sim.cart.length; depotGlow.opacity = empty ? 0.4 + Math.sin(time.value * 5) * 0.2 : 0; depotMat.scale.setScalar(empty ? 1 + Math.sin(time.value * 5) * 0.08 : 1);
     // parcels on the ground: tumble, then sit and bob
     for (const [id, n] of groundNodes) {
       if (n.p.state !== 'ground') { scene.remove(n.m); groundNodes.delete(id); continue; }
