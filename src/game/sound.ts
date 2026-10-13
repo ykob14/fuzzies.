@@ -204,6 +204,34 @@ export const race = {
   cheer: () => { [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.22, 'triangle', 0.1, 0, i * 0.07)); },
 };
 
+/** The vacuum cleaner's whirr: a soft hum that rises while it's pulling something in. Call `set()` every frame, `stop()` at the end. */
+export function vacuumHum(): { set(on: number, pull: number): void; stop(): void } {
+  const a = ctx();
+  if (!a) return { set() { /* no audio */ }, stop() { /* no audio */ } };
+  const g = a.createGain(); g.gain.value = 0;
+  const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.2;
+  const o1 = a.createOscillator(), o2 = a.createOscillator();
+  o1.type = 'sawtooth'; o2.type = 'square'; o1.frequency.value = 160; o2.frequency.value = 81;
+  const g2 = a.createGain(); g2.gain.value = 0.35;
+  o1.connect(bp); o2.connect(g2).connect(bp); bp.connect(g).connect(a.destination);
+  o1.start(); o2.start();
+  let stopped = false;
+  return {
+    set(on, pull) { if (stopped) return; const t = a.currentTime; g.gain.setTargetAtTime(on * (0.025 + pull * 0.03), t, 0.08); o1.frequency.setTargetAtTime(160 + pull * 140 + on * 30, t, 0.1); o2.frequency.setTargetAtTime(81 + pull * 60, t, 0.1); bp.frequency.setTargetAtTime(900 + pull * 900, t, 0.1); },
+    stop() { if (stopped) return; stopped = true; const t = a.currentTime; g.gain.setTargetAtTime(0, t, 0.1); setTimeout(() => { try { o1.stop(); o2.stop(); } catch { /* */ } }, 400); },
+  };
+}
+export const vac = {
+  slurp: () => { tone(380, 0.12, 'sine', 0.08, 520); noise(0.12, 1800, 600, 0.05); },
+  big: () => { tone(220, 0.22, 'sine', 0.1, 420); noise(0.2, 1200, 400, 0.07); },
+  gold: () => { [784, 988, 1319, 1568].forEach((f, i) => tone(f, 0.16, 'triangle', 0.1, 0, i * 0.06)); },
+  combo: (n: number) => { [660, 880, 1100].slice(0, Math.min(3, n)).forEach((f, i) => tone(f * (1 + n * 0.02), 0.12, 'square', 0.06, 0, i * 0.05)); },
+  full: () => { noise(0.5, 400, 2400, 0.08); tone(523, 0.3, 'triangle', 0.1, 0, 0.3); tone(784, 0.3, 'triangle', 0.1, 0, 0.42); },
+  bump: () => tone(120, 0.12, 'triangle', 0.07, -40),
+  tick: () => tone(1200, 0.06, 'square', 0.05),
+  timeup: () => { tone(880, 0.2, 'square', 0.08); tone(660, 0.5, 'square', 0.08, 0, 0.2); },
+};
+
 /** A running boat engine: a soft purr that rises with speed. Call `set()` every frame and `stop()` when the race ends. */
 export function engine(): { set(speed: number, throttle: number): void; stop(): void } {
   const a = ctx();

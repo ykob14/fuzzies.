@@ -155,18 +155,26 @@ overlap. Seasonal effects can be switched off in Settings.`,
   },
   {
     id: 'adventures', title: 'Fuzzies Adventures (daily missions & mini-games)', screens: ['land'],
-    keywords: ['adventure', 'adventures', 'mission', 'daily mission', 'boat', 'race', 'boat race', 'forest', 'chop', 'tree', 'wood', 'talk', 'character', 'personality', 'pom', 'host', 'reward', 'practice', 'laps', 'checkpoint', 'steer'],
+    keywords: ['adventure', 'adventures', 'mission', 'daily mission', 'boat', 'race', 'boat race', 'forest', 'chop', 'tree', 'wood', 'hairball', 'vacuum', 'hairballs', 'festival', 'talk', 'character', 'personality', 'pom', 'host', 'reward', 'practice', 'laps', 'checkpoint', 'steer', 'joystick', 'combo', 'tier', 'golden'],
     body: `Every Fuzzy walking around your town is a character with a name and a personality (Adventurer, Farmer, Builder, Explorer, Fisher,
-Decorator, Nature keeper, Baker). Tap one: the camera glides in, it says hello and a card shows who it is. One Fuzzy has today's adventure
-(the pill under the level badge and the compass side button say who): Start Adventure plays it, Maybe later closes the card, and other
-Fuzzies point you to the host. A new adventure comes every day at midnight (the countdown is shown) and each adventure pays town coins
-and XP once a day — playing again the same day is practice. Boat Race: three laps around Palm Island through the gates in order
-(a lap only counts with every gate); steer with A/D or the arrows (W accelerates, S brakes) or hold the left/right side of the screen on
-a phone; the arrow at the top points to the next gate; 1st = 100 coins, 2nd 60, 3rd 30. Forest Expansion: tap a tree with a glowing ring,
-then tap CHOP when the marker is in the green (perfect hits give extra wood); only marked trees fall, finish before sunset; wood is kept in
-your records. More adventures (fishing, treasure hunt, harvest rush, delivery, garden contest) are coming. Rewards are town coins only —
-never Fuzzies tokens or crypto.`,
-    asks: ['How do I start an adventure?', 'How do I steer the boat?', 'Why didn’t I get coins for the race?', 'Which Fuzzy has today’s mission?'],
+Decorator, Nature keeper, Baker). Tap one: the camera glides in, it says hello and a card shows who it is, its adventure (objective, time
+limit, rewards) and Start Adventure / Maybe later. Adventures rotate day by day from a pool (the pill under the level badge and the
+Adventures sheet say what's on): Boat Race, Forest Challenge, Hairball Vacuum Challenge, then the same three with a twist (Wild Water:
+hazards from lap 1; Deep Woods: denser, bigger trees; Golden Day: twice the golden hairballs), then the Fuzzy Festival when all three are
+on and each one pays. Each adventure has its own host Fuzzy (Adventurer or Fisher for the race, Nature keeper or Builder for the forest,
+Decorator or Baker for the vacuum). Everything resets at midnight (the countdown is shown); each adventure pays town coins and XP once a
+day — playing again the same day is practice, but records (best place/tier, best score, best time) still count. Boat Race: three laps
+around Palm Island through the numbered gates in order; steer with A/D or the arrows (W accelerates, S brakes) or hold the left/right
+side of the screen on a phone; if you miss a gate the screen says MISSED CHECKPOINT and the arrow points back — go through it again;
+stay inside the buoys; later laps add barrels, boost pads, currents, logs and waves; 1st = 100 coins, 2nd 60, 3rd 30. Forest Challenge
+(2 minutes): walk with WASD/arrows, the mouse, or the on-screen joystick on a phone, up to a tree with a glowing ring, then tap CHOP
+(or Space) when the marker is in the green; bigger trees take more hits and score more, sparkly ones hide a bonus, walk over the wood
+that flies out to collect it, perfect hits in a row multiply; new trees get marked as you go; only ringed trees can be cut. Hairball
+Vacuum Challenge (2 minutes): walk around the garden with the vacuum — hairballs in front of the nozzle are pulled in (10 points, big
+ones 25, golden 100), quick pick-ups chain into a multiplier, the canister empties itself with a bonus. Score games pay by tier:
+top tier 100 coins, then 65, 35, 15. Every adventure can be paused and restarted. Rewards are town coins only — never Fuzzies tokens
+or crypto.`,
+    asks: ['How do I start an adventure?', 'How do I steer the boat?', 'Why didn’t I get coins for the race?', 'Which Fuzzy has today’s mission?', 'How does the hairball vacuum work?', 'What is the Fuzzy Festival?'],
   },
   {
     id: 'wallets', title: 'Crypto wallets & wallet log-in', screens: ['profile', 'login', 'signup', 'welcome'],

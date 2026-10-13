@@ -14,6 +14,8 @@ export interface TalkOpts {
   onStart: () => void; onLater: () => void; onFindHost: () => void; onChat: (line: string) => void; onClose: () => void;
 }
 
+export const limitWord = (sec: number): string => (sec % 60 === 0 ? `${sec / 60} min` : `${sec} s`);
+
 /** The conversation card. Returns the element and a `say(text)` that types new words into the bubble. */
 export function conversation(o: TalkOpts): { el: HTMLElement; say: (t: string) => void; destroy: () => void } {
   const c = A.character(o.index);
@@ -32,7 +34,7 @@ export function conversation(o: TalkOpts): { el: HTMLElement; say: (t: string) =
   const adv = o.mission.adventure;
   const done = o.mission.done;
   const actions = o.isHost
-    ? [btn(done ? 'Race again (practice)' : 'Start Adventure', { kind: 'primary', class: 'land-talk-go', onClick: o.onStart }), btn('Maybe later', { kind: 'ghost', onClick: o.onLater })]
+    ? [btn(done ? 'Play again (practice)' : 'Start Adventure', { kind: 'primary', class: 'land-talk-go', onClick: o.onStart }), btn('Maybe later', { kind: 'ghost', onClick: o.onLater })]
     : [btn('Chat', { kind: 'soft', onClick: () => { const line = c.chat[Math.floor(Math.random() * c.chat.length)]; say(line); o.onChat(line); } }),
       btn(`Find ${o.hostName}`, { kind: 'primary', icon: undefined, class: 'land-talk-find', onClick: o.onFindHost })];
   const el = h('div', { class: `land-talk ${o.isHost ? 'is-host' : ''}`, role: 'dialog', 'aria-label': `Talking to ${o.name}` },
@@ -42,9 +44,10 @@ export function conversation(o: TalkOpts): { el: HTMLElement; say: (t: string) =
       h('div', { class: 'land-talk-id' }, h('b', null, o.name), h('span', { class: 'land-talk-role' }, `${c.emoji} ${c.title}`), h('small', null, c.bio))),
     h('div', { class: 'land-talk-bubble' }, speech,
       o.isHost ? h('div', { class: 'land-talk-mission' },
-        h('span', { class: 'land-talk-tag' }, landIcon('compass', 18), 'Today’s adventure'),
-        h('b', null, `${adv.emoji} ${adv.name}`),
-        h('small', null, adv.objective),
+        h('span', { class: 'land-talk-tag' }, landIcon('compass', 18), o.mission.special ? 'Fuzzy Festival' : 'Today’s adventure'),
+        h('b', null, `${adv.emoji} ${adv.name}${o.mission.variant ? ` — ${o.mission.variant.name}` : ''}`),
+        h('small', null, adv.objective + (adv.limit ? ` · ⏱ ${limitWord(adv.limit)}` : '')),
+        o.mission.variant ? h('small', { class: 'land-talk-twist' }, `Today’s twist: ${o.mission.variant.note}`) : null,
         h('div', { class: 'land-talk-reward' },
           ...adv.coins.slice(0, 3).map((n, i) => h('span', null, A.medal(i + 1), ' ', landIcon('coin', 16), String(n))),
           done ? h('em', null, `Done today · ${A.placeWord(done.place)} · resets in ${A.countdown(o.mission.resetsIn)}`) : h('em', null, `+${adv.xp} XP · resets in ${A.countdown(o.mission.resetsIn)}`))) : null),
@@ -55,42 +58,56 @@ export function conversation(o: TalkOpts): { el: HTMLElement; say: (t: string) =
 }
 
 /** The small HUD pill: today's adventure, who has it, status and the reset countdown. Call `update()` each minute. */
-export function dailyPill(onTap: () => void): { el: HTMLElement; update: (m: A.Mission, hostName: string) => void } {
+export function dailyPill(onTap: () => void): { el: HTMLElement; update: (m: A.Mission, hostName: string, today: A.Today, doneCount: number) => void } {
   const text = h('span', { class: 'land-daily-t' });
   const sub = h('small', { class: 'land-daily-s' });
   const el = h('button', { class: 'land-daily', type: 'button', onclick: onTap, title: 'Today’s adventure' }, h('span', { class: 'land-daily-ic' }, landIcon('compass', 26)), h('span', null, text, sub));
   return {
     el,
-    update(m, hostName) {
-      text.textContent = `${m.adventure.emoji} ${m.adventure.short}${m.done ? ` · ${A.medal(m.done.place)} done` : ''}`;
+    update(m, hostName, today, doneCount) {
+      if (today.special) {
+        const all = doneCount >= today.list.length;
+        text.textContent = `🎪 ${today.title} · ${doneCount}/${today.list.length}`;
+        sub.textContent = all ? `All done! New day in ${A.countdown(m.resetsIn)}` : `${today.list.length} adventures, each one pays · ${A.countdown(m.resetsIn)} left`;
+        el.classList.toggle('done', all);
+        return;
+      }
+      text.textContent = `${m.adventure.emoji} ${m.adventure.short}${m.variant ? ` · ${m.variant.name}` : ''}${m.done ? ` · ${A.medal(m.done.place)} done` : ''}`;
       sub.textContent = m.done ? `New adventure in ${A.countdown(m.resetsIn)}` : `${hostName} is waiting · ${A.countdown(m.resetsIn)} left`;
       el.classList.toggle('done', !!m.done);
     },
   };
 }
 
-/** The Adventures sheet body. */
-export function adventuresBody(s: LandState, now: number, hostName: string, onPlay: () => void, onFind: () => void): HTMLElement {
-  const m = A.mission(s, now);
+/** The Adventures sheet body: today's adventure(s) with their hosts, your records, what else is in the pool. */
+export function adventuresBody(s: LandState, now: number, hostNameOf: (id: string) => string, onPlay: (adv: A.Adventure) => void, onFind: (adv: A.Adventure) => void): HTMLElement {
+  const t = A.today(now);
   const a = A.adventures(s, now);
-  const adv = m.adventure;
   const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
-  const featured = h('div', { class: 'land-adv-featured' },
-    h('div', { class: 'land-adv-head' }, h('span', { class: 'land-adv-emoji' }, adv.emoji), h('div', null, h('span', { class: 'land-adv-kicker' }, 'Today’s adventure'), h('b', null, adv.name), h('small', null, adv.objective))),
-    h('div', { class: 'land-adv-rewards' }, ...adv.coins.slice(0, 3).map((n, i) => h('div', { class: 'land-adv-place' }, h('span', null, A.medal(i + 1)), h('b', null, landIcon('coin', 18), String(n)), h('small', null, A.placeWord(i + 1)))), h('div', { class: 'land-adv-place' }, h('span', null, '✨'), h('b', null, `+${adv.xp}`), h('small', null, 'XP'))),
-    m.done
-      ? h('p', { class: 'land-adv-status done' }, `${A.medal(m.done.place)} Finished ${A.placeWord(m.done.place)} today · +${m.done.coins} coins collected. Play again for practice — a new adventure arrives in ${A.countdown(m.resetsIn)}.`)
-      : h('p', { class: 'land-adv-status' }, `${hostName} has this adventure today · resets in ${A.countdown(m.resetsIn)} (at midnight).`),
-    h('div', { class: 'btn-row' }, btn(m.done ? 'Play again' : 'Start Adventure', { kind: 'primary', onClick: onPlay }), btn(`Find ${hostName}`, { kind: 'soft', onClick: onFind })));
-  const records = h('div', { class: 'land-adv-records' }, h('b', null, 'Your records'),
-    h('div', { class: 'land-adv-grid' },
+  const cards = t.list.map(({ adventure: adv, variant }) => {
+    const m = A.mission(s, now, adv.id);
+    const hostName = hostNameOf(adv.id);
+    return h('div', { class: 'land-adv-featured' },
+      h('div', { class: 'land-adv-head' }, h('span', { class: 'land-adv-emoji' }, adv.emoji), h('div', null, h('span', { class: 'land-adv-kicker' }, t.special ? '🎪 Fuzzy Festival' : 'Today’s adventure'), h('b', null, adv.name + (variant ? ` — ${variant.name}` : '')), h('small', null, adv.objective + (adv.limit ? ` · ⏱ ${limitWord(adv.limit)}` : '')), variant ? h('small', { class: 'land-adv-twist' }, variant.note) : null)),
+      h('div', { class: 'land-adv-rewards' }, ...adv.coins.slice(0, 3).map((n, i) => h('div', { class: 'land-adv-place' }, h('span', null, A.medal(i + 1)), h('b', null, landIcon('coin', 18), String(n)), h('small', null, adv.kind === 'score' ? ['Top tier', '2nd tier', '3rd tier'][i] : A.placeWord(i + 1)))), h('div', { class: 'land-adv-place' }, h('span', null, '✨'), h('b', null, `+${adv.xp}`), h('small', null, 'XP'))),
+      m.done
+        ? h('p', { class: 'land-adv-status done' }, `${A.medal(m.done.place)} Finished ${A.placeWord(m.done.place)} today · +${m.done.coins} coins collected. Play again for practice — a new adventure arrives in ${A.countdown(m.resetsIn)}.`)
+        : h('p', { class: 'land-adv-status' }, `${hostName} has this adventure today · resets in ${A.countdown(m.resetsIn)} (at midnight).`),
+      h('div', { class: 'btn-row' }, btn(m.done ? 'Play again' : 'Start Adventure', { kind: 'primary', onClick: () => onPlay(adv) }), btn(`Find ${hostName}`, { kind: 'soft', onClick: () => onFind(adv) })));
+  });
+  const recordRows = A.playable().map((adv) => {
+    const m = A.mission(s, now, adv.id);
+    return h('div', { class: 'land-adv-rec' }, h('span', { class: 'land-adv-emoji sm' }, adv.emoji), h('div', { class: 'land-adv-grid' },
       h('span', null, h('small', null, 'Plays'), h('b', null, String(m.plays))),
-      h('span', null, h('small', null, 'Best place'), h('b', null, m.best ? `${A.medal(m.best)} ${A.placeWord(m.best)}` : '—')),
-      h('span', null, h('small', null, 'Best time'), h('b', null, m.bestTime ? fmt(m.bestTime) : '—')),
-      h('span', null, h('small', null, 'Wood'), h('b', null, String(a.wood)))));
-  const others = h('div', { class: 'land-adv-more' }, h('b', null, 'More adventures'),
-    ...A.ADVENTURES.filter((x) => x.id !== adv.id).map((x) => h('div', { class: `land-adv-row ${x.playable ? '' : 'soon'}` }, h('span', { class: 'land-adv-emoji sm' }, x.emoji), h('div', null, h('b', null, x.name), h('small', null, x.playable ? 'Comes round in the daily rotation' : 'Coming soon — not playable yet')))));
-  return h('div', { class: 'land-adv' }, featured, records, others);
+      h('span', null, h('small', null, adv.kind === 'score' ? 'Best tier' : 'Best place'), h('b', null, m.best ? `${A.medal(m.best)} ${A.placeWord(m.best)}` : '—')),
+      h('span', null, h('small', null, adv.kind === 'score' ? 'Best score' : 'Best time'), h('b', null, adv.kind === 'score' ? (m.bestScore !== null ? String(m.bestScore) : '—') : (m.bestTime ? fmt(m.bestTime) : '—'))),
+      h('span', null, h('small', null, 'Today'), h('b', null, m.done ? `+${m.done.coins}` : A.isToday(adv.id, now) ? 'open' : '—'))));
+  });
+  const records = h('div', { class: 'land-adv-records' }, h('b', null, 'Your records'), ...recordRows, h('p', { class: 'land-adv-wood' }, `🪵 Wood in the barn: ${a.wood}`));
+  const pool = h('div', { class: 'land-adv-more' }, h('b', null, 'The adventure pool'),
+    ...A.ADVENTURES.filter((x) => !t.list.some((y) => y.adventure.id === x.id)).map((x) => h('div', { class: `land-adv-row ${x.playable ? '' : 'soon'}` }, h('span', { class: 'land-adv-emoji sm' }, x.emoji), h('div', null, h('b', null, x.name), h('small', null, x.playable ? `Comes round in the daily rotation${x.variants ? ` · twists: ${Object.values(x.variants).map((v) => v.name).join(', ')}` : ''}` : 'Coming soon — not playable yet')))),
+    h('div', { class: 'land-adv-row' }, h('span', { class: 'land-adv-emoji sm' }, '🎪'), h('div', null, h('b', null, A.FESTIVAL.title), h('small', null, A.FESTIVAL.note))));
+  return h('div', { class: 'land-adv' }, ...cards, records, pool);
 }
 
 export interface ResultOpts { adv: A.Adventure; place: number; timeMs: number; order: { name: string; portrait: string; place: number; you: boolean }[]; payout: A.Payout | null; pending: boolean; onAgain: () => void; onBack: () => void }
@@ -119,27 +136,24 @@ export function resultsScreen(o: ResultOpts): HTMLElement {
       h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), btn('Race again', { kind: 'soft', onClick: o.onAgain }))));
 }
 
-export interface ForestResultOpts { adv: A.Adventure; place: number; timeMs: number; wood: number; cleared: number; total: number; perfect: number; hostPortrait: string; payout: A.Payout | null; pending: boolean; onAgain: () => void; onBack: () => void }
-/** The results screen after the forest mission: trees cleared, wood, time and what you earned. */
-export function forestResults(o: ForestResultOpts): HTMLElement {
-  const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
-  const all = o.cleared >= o.total;
-  const title = !all ? 'The sun set first…' : o.place === 1 ? 'Lightning fast!' : o.place === 2 ? 'Nicely cleared!' : 'Cleared before sunset!';
+export interface ScoreResultOpts { adv: A.Adventure; place: number; score: number; tier: string; stats: { label: string; value: string }[]; hostPortrait?: string; payout: A.Payout | null; pending: boolean; onAgain: () => void; onBack: () => void }
+/** The results screen for a score-based challenge: the score, the tier, a few numbers and what you earned. */
+export function scoreResults(o: ScoreResultOpts): HTMLElement {
+  const won = o.place === 1;
+  const title = won ? 'Top tier!' : o.place === 2 ? 'Great run!' : o.place === 3 ? 'Nicely done!' : 'Time’s up!';
   const reward = o.payout?.practice
     ? h('p', { class: 'adv-reward practice' }, 'Practice run — today’s reward was already collected. Come back tomorrow for a new adventure!')
     : o.pending ? h('p', { class: 'adv-reward practice' }, 'You’re offline — your reward will be added when you’re back online.')
       : o.payout ? h('p', { class: 'adv-reward' }, landIcon('coin', 22), h('b', null, `+${o.payout.coins} coins`), h('span', null, `+${o.payout.xp} XP`), ...(o.payout.levelUps.length ? [h('span', { class: 'adv-lvl' }, `Level ${o.payout.levelUps[o.payout.levelUps.length - 1]}!`)] : [])) : null;
-  return h('div', { class: `adv-results ${all && o.place === 1 ? 'won' : ''}` },
+  return h('div', { class: `adv-results ${won ? 'won' : ''}` },
     h('div', { class: 'adv-results-card' },
       h('span', { class: 'adv-kicker' }, `${o.adv.emoji} ${o.adv.name}`),
       h('h2', null, title),
-      h('div', { class: 'adv-forest-host' }, o.hostPortrait ? h('img', { src: o.hostPortrait, alt: '' }) : null, h('span', { class: 'adv-forest-trees' }, ...Array.from({ length: o.total }, (_, i) => h('i', { class: i < o.cleared ? 'cut' : '' }, i < o.cleared ? '🪵' : '🌳')))),
-      h('div', { class: 'land-adv-grid adv-forest-grid' },
-        h('span', null, h('small', null, 'Trees'), h('b', null, `${o.cleared}/${o.total}`)),
-        h('span', null, h('small', null, 'Wood'), h('b', null, `+${o.wood}`)),
-        h('span', null, h('small', null, 'Perfect hits'), h('b', null, String(o.perfect))),
-        h('span', null, h('small', null, 'Time'), h('b', null, fmt(o.timeMs)))),
-      h('p', { class: 'adv-time' }, `${A.medal(o.place)} ${A.placeWord(o.place)} tier · wood goes towards the town’s expansion`),
+      o.hostPortrait ? h('div', { class: 'adv-forest-host' }, h('img', { src: o.hostPortrait, alt: '' })) : null,
+      h('div', { class: 'adv-score' }, String(o.score)),
+      h('span', { class: 'adv-tier' }, `${A.medal(o.place)} ${o.tier}`),
+      h('div', { class: 'land-adv-grid adv-stats' }, ...o.stats.map((x) => h('span', null, h('small', null, x.label), h('b', null, x.value)))),
       reward,
-      h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), btn('Try again', { kind: 'soft', onClick: o.onAgain }))));
+      h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), btn('Play again', { kind: 'soft', onClick: o.onAgain }))));
 }
+

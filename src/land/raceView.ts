@@ -29,6 +29,8 @@ export interface RaceSetup {
   deluxe?: boolean;
   /** which boat is a resident (index into the town's Fuzzies) — rivals keep their town index, the player is -1 */
   portrait: (index: number) => string;
+  /** the day's twist (`wild` = Wild Water) */
+  variant?: string | null;
 }
 export interface RaceResult { place: number; timeMs: number; order: { name: string; place: number; you: boolean; index: number }[] }
 export interface RaceHooks { onFinish: (r: RaceResult) => void; onQuit: () => void; onRestart?: () => void }
@@ -388,7 +390,7 @@ function birdModel(body: string, wing: string, tip: string): { g: THREE.Group; w
 export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks): void {
   const mobile = setup.mobile;
   const racers = [{ name: setup.you.name, you: true }, ...setup.rivals.map((r) => ({ name: r.name, you: false, skill: r.skill }))];
-  const sim = new RaceSim(racers);
+  const sim = new RaceSim(racers, Math.random, setup.variant === 'wild');
 
   // ---- DOM ----
   const root = el('div', 'race');
@@ -579,7 +581,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   // ---- sound ----
   const eng = setup.sound ? makeEngine() : { set() { /* off */ }, stop() { /* off */ } };
   const play = (f: () => void) => { if (setup.sound) try { f(); } catch { /* no audio */ } };
-  let lastCount = 4, lastStage = sim.stage;
+  let lastCount = 4, lastStage = sim.stage, wildSaid = false;
 
   // ---- loop ----
   let raf = 0, last = performance.now(), acc = 0, frames = 0, slow = 0, lastMap = 0;
@@ -621,6 +623,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
     }
     // the stage changed (leader on a new lap): the sea picks up, new furniture rises
     if (sim.stage !== lastStage) { lastStage = sim.stage; if (sim.stage === 1) flashBanner('Barrels & boost pads ahead!'); else flashBanner('Big waves & logs — hold on!'); play(snd.wave); }
+    if (sim.wild && sim.state === 'racing' && !wildSaid) { wildSaid = true; flashBanner('Wild Water: hazards from the start!'); }
     swell.value = lerp(swell.value, sim.swell, Math.min(1, dt * 0.5));
     // countdown numbers
     if (sim.state === 'countdown') {

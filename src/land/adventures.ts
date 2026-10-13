@@ -1,6 +1,7 @@
 /**
  * Fuzzies Adventures — RULES only (no DOM, no Three.js): who the Fuzzies are (names, personalities, what they say),
- * the daily mission (one featured adventure a day, rotating through the playable ones, reset at local midnight),
+ * the daily mission (a configurable rotation — `SCHEDULE` — of adventures and their variants, a festival day with all of them,
+ * reset at local midnight, each adventure hosted by its own Fuzzy),
  * progress and rewards (one reward per adventure per day — replays are practice), saved inside the town (`LandState.adventures`).
  * New mini-games register in `ADVENTURES`; the screen finds the scene by `id`. Checked without a browser by `adv/rules.ts`.
  */
@@ -45,6 +46,8 @@ export function character(index: number): Character {
 export const roleTitle = (r: Role): string => ROLE_INFO[r].title;
 
 // ---------- the adventures (mini-games) ----------
+/** A twist on an adventure for some days of the rotation (a rougher race, denser woods, more golden hairballs…). */
+export interface Variant { key: string; name: string; note: string }
 export interface Adventure {
   id: string; name: string; short: string; emoji: string;
   /** which personalities host it (the first present resident with one of these roles offers it) */
@@ -52,25 +55,36 @@ export interface Adventure {
   /** what the host says when offering it */
   pitch: string;
   objective: string;
-  /** town coins by finishing place (1st, 2nd, 3rd…); other places get the last entry (the forest's 4th tier = sunset came first) */
+  /** town coins by finishing place / tier (1st, 2nd, 3rd…); other places get the last entry */
   coins: number[];
   xp: number;
   /** false = designed and listed as "coming soon", not playable yet */
   playable: boolean;
+  /** `race` = a finishing place against others; `score` = points in a time limit, turned into a tier (1st…4th) */
+  kind: 'race' | 'score';
+  /** the time limit in seconds (shown on the mission card) */
+  limit?: number;
+  variants?: Record<string, Variant>;
 }
 
 export const ADVENTURES: Adventure[] = [
-  { id: 'boatrace', name: 'Fuzzies Boat Race', short: 'Boat Race', emoji: '⛵', hosts: ['adventurous', 'fisher'],
+  { id: 'boatrace', name: 'Fuzzies Boat Race', short: 'Boat Race', emoji: '⛵', hosts: ['adventurous', 'fisher'], kind: 'race',
     pitch: 'I’m planning an exciting boat race around the island today! Three laps, three boats, one winner. Wanna join me?',
-    objective: 'Race three laps around Palm Island and finish first', coins: [100, 60, 30], xp: 25, playable: true },
-  { id: 'forest', name: 'Forest Expansion', short: 'Forest Clearing', emoji: '🪓', hosts: ['nature', 'builder'],
-    pitch: 'The town wants to grow! Help me clear the marked trees at the forest edge — we’ll keep the wood for building.',
-    objective: 'Clear the six marked trees before the sun sets', coins: [80, 50, 30, 15], xp: 20, playable: true },
-  { id: 'fishing', name: 'Fishing Contest', short: 'Fishing', emoji: '🎣', hosts: ['fisher'], pitch: 'The big one is out there. Fancy a fishing contest?', objective: 'Catch the most fish in three minutes', coins: [80, 50, 30], xp: 20, playable: false },
-  { id: 'treasure', name: 'Island Treasure Hunt', short: 'Treasure Hunt', emoji: '🗺️', hosts: ['explorer'], pitch: 'My map has an X on it. Shall we find out why?', objective: 'Follow the clues to the hidden chest', coins: [90, 60, 30], xp: 20, playable: false },
-  { id: 'harvest', name: 'Harvest Rush', short: 'Harvest Rush', emoji: '🌾', hosts: ['farmer'], pitch: 'The crops are all ready at once! Help me bring them in?', objective: 'Harvest the fields before the timer runs out', coins: [70, 45, 25], xp: 15, playable: false },
-  { id: 'delivery', name: 'Delivery Dash', short: 'Delivery', emoji: '📦', hosts: ['baker'], pitch: 'Fresh buns, hungry Fuzzies, one little cart. Help me deliver?', objective: 'Deliver every parcel while it’s warm', coins: [70, 45, 25], xp: 15, playable: false },
-  { id: 'garden', name: 'Garden Contest', short: 'Garden Contest', emoji: '🌷', hosts: ['creative'], pitch: 'A decorating contest! Make the prettiest garden on the island.', objective: 'Decorate the garden plot to win the judges over', coins: [70, 45, 25], xp: 15, playable: false },
+    objective: 'Race three laps around Palm Island and finish first', coins: [100, 60, 30], xp: 25, playable: true,
+    variants: { wild: { key: 'wild', name: 'Wild Water', note: 'Barrels, boost pads and rolling waves from the very first lap' } } },
+  { id: 'forest', name: 'Forest Challenge', short: 'Forest Challenge', emoji: '🪓', hosts: ['nature', 'builder'], kind: 'score', limit: 120,
+    pitch: 'The woods need thinning and the town needs timber! Grab the axe — cut the marked trees and collect the wood. Two minutes, go for the big ones!',
+    objective: 'Cut and collect as many marked trees as you can in two minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
+    variants: { deep: { key: 'deep', name: 'Deep Woods', note: 'Denser woods, bigger trees, more bonus trees hidden among them' } } },
+  { id: 'vacuum', name: 'Hairball Vacuum Challenge', short: 'Hairball Vacuum', emoji: '🧹', hosts: ['creative', 'baker'], kind: 'score', limit: 120,
+    pitch: 'It was Big Brushing Day and there are hairballs EVERYWHERE! Take my vacuum and clean up the garden — two minutes, suck up as many as you can!',
+    objective: 'Vacuum up as many Fuzzy hairballs as you can in two minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
+    variants: { golden: { key: 'golden', name: 'Golden Day', note: 'Twice the golden hairballs — and they keep coming back' } } },
+  { id: 'fishing', name: 'Fishing Contest', short: 'Fishing', emoji: '🎣', hosts: ['fisher'], pitch: 'The big one is out there. Fancy a fishing contest?', objective: 'Catch the most fish in three minutes', coins: [80, 50, 30], xp: 20, playable: false, kind: 'score' },
+  { id: 'treasure', name: 'Island Treasure Hunt', short: 'Treasure Hunt', emoji: '🗺️', hosts: ['explorer'], pitch: 'My map has an X on it. Shall we find out why?', objective: 'Follow the clues to the hidden chest', coins: [90, 60, 30], xp: 20, playable: false, kind: 'score' },
+  { id: 'harvest', name: 'Harvest Rush', short: 'Harvest Rush', emoji: '🌾', hosts: ['farmer'], pitch: 'The crops are all ready at once! Help me bring them in?', objective: 'Harvest the fields before the timer runs out', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score' },
+  { id: 'delivery', name: 'Delivery Dash', short: 'Delivery', emoji: '📦', hosts: ['baker'], pitch: 'Fresh buns, hungry Fuzzies, one little cart. Help me deliver?', objective: 'Deliver every parcel while it’s warm', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score' },
+  { id: 'garden', name: 'Garden Contest', short: 'Garden Contest', emoji: '🌷', hosts: ['creative'], pitch: 'A decorating contest! Make the prettiest garden on the island.', objective: 'Decorate the garden plot to win the judges over', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score' },
 ];
 export const adventure = (id: string): Adventure | undefined => ADVENTURES.find((a) => a.id === id);
 export const playable = (): Adventure[] => ADVENTURES.filter((a) => a.playable);
@@ -82,9 +96,11 @@ export interface AdvState {
   done: Record<string, { place: number; coins: number; xp: number; at: number }>;
   /** total plays per adventure (all days) */
   plays: Record<string, number>;
-  /** best finishing place per adventure (1 = won) and best times (ms) */
+  /** best finishing place / tier per adventure (1 = won) and best times (ms) */
   best: Record<string, number>;
   bestTime: Record<string, number>;
+  /** best score per score-based adventure */
+  bestScore: Record<string, number>;
   /** wood from the forest adventure (kept for the expansion mission) */
   wood: number;
   /** rewards the server hasn't confirmed yet (cloud accounts, offline at the time): day:id */
@@ -93,7 +109,7 @@ export interface AdvState {
   log: { day: string; id: string; place: number; coins: number }[];
 }
 
-export const freshAdventures = (now = Date.now()): AdvState => ({ day: dayKey(now), done: {}, plays: {}, best: {}, bestTime: {}, wood: 0, pending: [], log: [] });
+export const freshAdventures = (now = Date.now()): AdvState => ({ day: dayKey(now), done: {}, plays: {}, best: {}, bestTime: {}, bestScore: {}, wood: 0, pending: [], log: [] });
 
 /** The local calendar day (missions reset at the player's midnight, shown as a countdown). */
 export function dayKey(now = Date.now()): string {
@@ -111,6 +127,8 @@ export function countdown(ms: number): string {
   return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : m > 0 ? `${m} min` : 'less than a minute';
 }
 const dayNumber = (key: string): number => { const [y, m, d] = key.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86_400_000); };
+/** A number that is the same for everyone on the same local day — seeds the day's layouts (hairball scatter, tree layout). */
+export const daySeed = (now = Date.now()): number => dayNumber(dayKey(now)) * 7919 + 13;
 
 /** The adventures state for today (yesterday's rewards are cleared, totals are kept). */
 export function adventures(s: LandState, now = Date.now()): AdvState {
@@ -120,29 +138,74 @@ export function adventures(s: LandState, now = Date.now()): AdvState {
   return a;
 }
 
-/** Today's featured adventure: rotates through the playable ones, one per day. */
-export function featured(now = Date.now()): Adventure {
-  const list = playable();
-  return list[dayNumber(dayKey(now)) % list.length];
-}
+// ---------- the rotation ----------
+/**
+ * The mission pool: one entry per day, cycled by the day number. Edit freely — add days, repeat adventures, pick variants;
+ * `festival` is the special day when every playable adventure is on and each one pays. Nothing else is hard-coded to this list.
+ */
+export const SCHEDULE: { id: string; variant?: string }[] = [
+  { id: 'boatrace' },
+  { id: 'forest' },
+  { id: 'vacuum' },
+  { id: 'boatrace', variant: 'wild' },
+  { id: 'forest', variant: 'deep' },
+  { id: 'vacuum', variant: 'golden' },
+  { id: 'festival' },
+];
+export const FESTIVAL = { title: 'Fuzzy Festival', note: 'Every adventure is on today — and every one of them pays!' };
 
-export interface Mission { adventure: Adventure; day: string; done: AdvState['done'][string] | null; resetsIn: number; plays: number; best: number | null; bestTime: number | null }
-export function mission(s: LandState, now = Date.now()): Mission {
+export interface TodaysAdventure { adventure: Adventure; variant: Variant | null }
+export interface Today { day: string; special: boolean; title: string; list: TodaysAdventure[] }
+/** What's on today: usually one adventure (maybe with a twist), on festival days all of them. */
+export function today(now = Date.now()): Today {
+  const day = dayKey(now);
+  const entry = SCHEDULE[dayNumber(day) % SCHEDULE.length];
+  if (entry.id === 'festival') return { day, special: true, title: FESTIVAL.title, list: playable().map((adventure) => ({ adventure, variant: null })) };
+  const adv = adventure(entry.id);
+  // a schedule entry that doesn't exist or isn't playable never leaves the day empty
+  if (!adv || !adv.playable) { const list = playable(); const a = list[dayNumber(day) % list.length]; return { day, special: false, title: a.name, list: [{ adventure: a, variant: null }] }; }
+  const variant = entry.variant ? adv.variants?.[entry.variant] ?? null : null;
+  return { day, special: false, title: variant ? `${adv.name} — ${variant.name}` : adv.name, list: [{ adventure: adv, variant }] };
+}
+/** Today's headline adventure (the first of today's list; kept for the HUD and old callers). */
+export function featured(now = Date.now()): Adventure { return today(now).list[0].adventure; }
+/** Is this adventure part of today's rotation (so a run pays)? */
+export const isToday = (id: string, now = Date.now()): boolean => today(now).list.some((x) => x.adventure.id === id);
+export const variantOf = (id: string, now = Date.now()): Variant | null => today(now).list.find((x) => x.adventure.id === id)?.variant ?? null;
+
+export interface Mission { adventure: Adventure; variant: Variant | null; special: boolean; day: string; done: AdvState['done'][string] | null; resetsIn: number; plays: number; best: number | null; bestTime: number | null; bestScore: number | null }
+/** The mission card data for an adventure (today's headline one by default). */
+export function mission(s: LandState, now = Date.now(), id?: string): Mission {
   const a = adventures(s, now);
-  const adv = featured(now);
-  return { adventure: adv, day: a.day, done: a.done[adv.id] ?? null, resetsIn: untilReset(now), plays: a.plays[adv.id] ?? 0, best: a.best[adv.id] ?? null, bestTime: a.bestTime[adv.id] ?? null };
+  const t = today(now);
+  const adv = (id && adventure(id)) || t.list[0].adventure;
+  return { adventure: adv, variant: variantOf(adv.id, now), special: t.special, day: a.day, done: a.done[adv.id] ?? null, resetsIn: untilReset(now), plays: a.plays[adv.id] ?? 0, best: a.best[adv.id] ?? null, bestTime: a.bestTime[adv.id] ?? null, bestScore: a.bestScore[adv.id] ?? null };
 }
 
-/** Which present resident offers today's mission (the first with a fitting personality, else the first Fuzzy). */
-export function hostIndex(adv: Adventure, residents: number): number {
-  for (let i = 0; i < residents; i++) if (adv.hosts.includes(character(i).role)) return i;
+/** Which present resident offers an adventure (the first with a fitting personality, else the first Fuzzy). */
+export function hostIndex(adv: Adventure, residents: number, taken: number[] = []): number {
+  for (let i = 0; i < residents; i++) if (adv.hosts.includes(character(i).role) && !taken.includes(i)) return i;
+  for (let i = 0; i < residents; i++) if (!taken.includes(i)) return i;
   return 0;
+}
+/** Today's hosts: adventure id → resident index, each adventure with its own Fuzzy where the town has enough of them. */
+export function hosts(residents: number, now = Date.now()): Record<string, number> {
+  const out: Record<string, number> = {};
+  const taken: number[] = [];
+  for (const { adventure: adv } of today(now).list) { const i = hostIndex(adv, residents, taken); out[adv.id] = i; taken.push(i); }
+  return out;
+}
+/** The adventure a resident offers today (null = none, they just chat). */
+export function hostedBy(index: number, residents: number, now = Date.now()): Adventure | null {
+  const h = hosts(residents, now);
+  for (const id in h) if (h[id] === index) return adventure(id) ?? null;
+  return null;
 }
 
 /** Can a reward still be collected for this adventure today? */
 export const rewardLeft = (s: LandState, id: string, now = Date.now()): boolean => !adventures(s, now).done[id];
 
-export interface Result { id: string; place: number; timeMs?: number }
+export interface Result { id: string; place: number; timeMs?: number; score?: number }
 export interface Payout { coins: number; xp: number; first: boolean; levelUps: number[]; practice: boolean }
 
 /**
@@ -157,7 +220,8 @@ export function finish(s: LandState, r: Result, now = Date.now(), pay = true): P
   a.plays[r.id] = (a.plays[r.id] ?? 0) + 1;
   if (a.best[r.id] === undefined || r.place < a.best[r.id]) a.best[r.id] = r.place;
   if (r.timeMs && (a.bestTime[r.id] === undefined || r.timeMs < a.bestTime[r.id])) a.bestTime[r.id] = r.timeMs;
-  const practice = !!a.done[r.id] || adv.id !== featured(now).id;
+  if (r.score !== undefined && (a.bestScore[r.id] === undefined || r.score > a.bestScore[r.id])) a.bestScore[r.id] = r.score;
+  const practice = !!a.done[r.id] || !isToday(r.id, now);
   const coins = practice ? 0 : adv.coins[Math.min(r.place, adv.coins.length) - 1];
   const xp = practice ? 0 : adv.xp;
   a.log = [...a.log, { day: a.day, id: r.id, place: r.place, coins }].slice(-30);
@@ -180,5 +244,5 @@ export const medal = (p: number): string => (p === 1 ? '🥇' : p === 2 ? '🥈'
 export const migrateAdventures = (a: Partial<AdvState> | undefined, now = Date.now()): AdvState => {
   const f = freshAdventures(now);
   if (!a || typeof a !== 'object') return f;
-  return { ...f, ...a, done: { ...(a.done ?? {}) }, plays: { ...(a.plays ?? {}) }, best: { ...(a.best ?? {}) }, bestTime: { ...(a.bestTime ?? {}) }, pending: [...(a.pending ?? [])], log: [...(a.log ?? [])].slice(-30), wood: Number(a.wood) || 0, day: typeof a.day === 'string' ? a.day : f.day };
+  return { ...f, ...a, done: { ...(a.done ?? {}) }, plays: { ...(a.plays ?? {}) }, best: { ...(a.best ?? {}) }, bestTime: { ...(a.bestTime ?? {}) }, bestScore: { ...(a.bestScore ?? {}) }, pending: [...(a.pending ?? [])], log: [...(a.log ?? [])].slice(-30), wood: Number(a.wood) || 0, day: typeof a.day === 'string' ? a.day : f.day };
 };

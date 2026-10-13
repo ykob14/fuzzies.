@@ -149,7 +149,10 @@ export class RaceSim {
   events: { kind: 'gate' | 'lap' | 'bump' | 'finish' | 'go' | 'missed' | 'recovered' | 'boost' | 'edge'; boat: number }[] = [];
   private finishedCount = 0;
 
-  constructor(racers: { name: string; you: boolean; skill?: number }[], rnd: () => number = Math.random) {
+  /** `wild` (the Wild Water day): the furniture and the swell start one stage up — barrels and boosts from lap 1, logs from lap 2 */
+  readonly wild: boolean;
+  constructor(racers: { name: string; you: boolean; skill?: number }[], rnd: () => number = Math.random, wild = false) {
+    this.wild = wild;
     const g0 = this.course.gates[0];
     // the grid is drawn by lot every race: no lane is a free win; everybody starts on the same line (up to 4 abreast)
     const slots = racers.map((_, i) => i);
@@ -173,7 +176,7 @@ export class RaceSim {
   get player(): Boat { return this.boats.find((b) => b.you) ?? this.boats[0]; }
   get gates(): number { return this.course.gates.length; }
   /** Which lap the leader is on (0-based): the sea gets livelier and more furniture switches on as the race goes */
-  get stage(): number { return Math.min(LAPS - 1, Math.max(0, ...this.boats.map((b) => (b.finished ? LAPS - 1 : b.lap)))); }
+  get stage(): number { return Math.min(LAPS - 1, (this.wild ? 1 : 0) + Math.max(0, ...this.boats.map((b) => (b.finished ? LAPS - 1 : b.lap)))); }
   get swell(): number { return SWELL_BY_STAGE[this.stage]; }
   active(f: { fromLap: number }): boolean { return f.fromLap <= this.stage + 1; }
 

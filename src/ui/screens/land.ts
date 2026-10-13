@@ -7,7 +7,7 @@ import { openShop } from '../shop';
 import * as L from '../../land/rules';
 import * as E from '../../land/events';
 import * as A from '../../land/adventures';
-import { conversation, dailyPill, adventuresBody, resultsScreen, forestResults } from '../landAdventure';
+import { conversation, dailyPill, adventuresBody, resultsScreen, scoreResults } from '../landAdventure';
 import { api, cloudEnabled } from '../../core/api';
 import type { LandView, Pick } from '../../land/view3d';
 import { accounts } from '../../core/account';
@@ -284,7 +284,7 @@ export function landScreen(): Screen {
     else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', `${L.barnUsed(s)} / ${L.barnCap(s.level)} spaces used`, landIcon('barn', 34)), barnBody());
     else if (panel.kind === 'adventures') {
       const m = A.mission(s, now());
-      sheet.replaceChildren(head('Adventures', `A new mission every day · resets in ${A.countdown(m.resetsIn)}`, landIcon('compass', 34)), adventuresBody(s, now(), hostName(), () => { openPanel(null); startAdventure(m.adventure); }, () => { openPanel(null); findHost(); }));
+      sheet.replaceChildren(head('Adventures', `${A.today(now()).special ? 'Fuzzy Festival — every adventure pays today' : 'A new mission every day'} · resets in ${A.countdown(m.resetsIn)}`, landIcon('compass', 34)), adventuresBody(s, now(), (id) => hostNameOf(id), (adv) => { openPanel(null); startAdventure(adv); }, (adv) => { openPanel(null); findHost(adv); }));
     }
     else if (panel.kind === 'events') {
       const tab = panel.tab, live = E.activeEvents(now()), ev = live.find((e) => e.key === tab) ?? live[0], mine = tab === 'mine' || !ev;
@@ -1362,8 +1362,11 @@ export function landScreen(): Screen {
   // ---------- Fuzzies Adventures: talk to a Fuzzy, today's mission, mini-games ----------
   let talk: { index: number; el: HTMLElement; destroy: () => void } | null = null;
   let playing = false; // a mini-game is on screen
-  const hostIndex = () => A.hostIndex(A.featured(now()), view?.residentCount ?? 2);
-  const hostName = () => view?.residentInfo(hostIndex())?.name ?? A.character(hostIndex()).name;
+  /** today's hosts: each adventure has its own Fuzzy (the headline one when no id is given) */
+  const hostIndexOf = (id?: string) => A.hosts(view?.residentCount ?? 2, now())[id ?? A.featured(now()).id] ?? 0;
+  const hostIndex = () => hostIndexOf();
+  const hostNameOf = (id?: string) => { const i = hostIndexOf(id); return view?.residentInfo(i)?.name ?? A.character(i).name; };
+  const hostName = () => hostNameOf();
   /** Tap a Fuzzy: the camera glides in, it turns to you and says hello, and the conversation card opens. */
   function talkTo(index: number): void {
     if (!view || playing) return;
@@ -1374,14 +1377,15 @@ export function landScreen(): Screen {
     if (panel) { panel = null; sheet.hidden = true; }
     document.querySelector('.land-away')?.remove();
     talk?.destroy();
-    const m = A.mission(s, now());
-    const isHost = index === hostIndex();
+    const hosted = A.hostedBy(index, view.residentCount, now());
+    const m = A.mission(s, now(), hosted?.id);
+    const isHost = !!hosted;
     const c = A.character(index);
     view.focusResident(index, c.hello[Math.floor(Math.random() * c.hello.length)].split(' ').slice(0, 3).join(' ') + '…');
     try { sfx.giggle(); } catch { /* no sound */ }
     const card = conversation({
       index, name: info.name, portrait: safePortrait(index), mission: m, isHost, hostName: hostName(),
-      onStart: () => { const adv = m.adventure; endTalk(); startAdventure(adv); },
+      onStart: () => { const adv = hosted ?? m.adventure; endTalk(); startAdventure(adv); },
       onLater: () => { view?.react(index, 'wave'); endTalk(); },
       onFindHost: () => { endTalk(); findHost(); },
       onChat: () => { view?.react(index, Math.random() < 0.5 ? 'hop' : 'wave'); },
@@ -1401,9 +1405,9 @@ export function landScreen(): Screen {
     stage.classList.remove('talking');
     view?.focusResident(null);
   }
-  /** Fly to the Fuzzy who has today's adventure and start talking. */
-  function findHost(): void {
-    const i = hostIndex();
+  /** Fly to the Fuzzy who has today's adventure (or a given one) and start talking. */
+  function findHost(adv?: A.Adventure): void {
+    const i = hostIndexOf(adv?.id);
     if (!view) return;
     const info = view.residentInfo(i);
     if (!info) return;
@@ -1411,7 +1415,7 @@ export function landScreen(): Screen {
     talkTo(i);
   }
   const daily = dailyPill(() => { if (panel?.kind === 'adventures') openPanel(null); else openPanel({ kind: 'adventures' }); });
-  function paintDaily(): void { daily.update(A.mission(s, now()), hostName()); }
+  function paintDaily(): void { const t = A.today(now()); const a = A.adventures(s, now()); daily.update(A.mission(s, now()), hostName(), t, t.list.filter((x) => !!a.done[x.adventure.id]).length); }
 
   /** Leave the town for a mini-game (the town keeps running its clocks; the 3D view pauses to give the game the GPU). */
   function startAdventure(adv: A.Adventure): void {
@@ -1426,30 +1430,43 @@ export function landScreen(): Screen {
     const pause = () => { view?.stop(); music.stop(); };
     const deluxe = accounts.current?.settings.fuzzyLook !== 'classic';
     const model = deluxe ? Promise.race([import('../../game/fuzzyGlb').then((m) => m.loadFuzzyGlb()), new Promise<null>((r) => setTimeout(() => r(null), 6000))]) : Promise.resolve(null);
+    const variant = A.variantOf(adv.id, now())?.key ?? null;
+    const seed = A.daySeed(now());
+    const you = { name: accounts.current?.name?.split(' ')[0] || 'You', skin: ['#ff86bb', '#b8235f'] as [string, string] };
+    const hostOf = (id: string) => { const i = hostIndexOf(id); const info = view?.residentInfo(i); return { index: i, name: info?.name ?? A.character(i).name, skin: info?.skin ?? (['#b8f28a', '#4f9e2f'] as [string, string]) }; };
     if (adv.id === 'boatrace') {
       const racers = Array.from({ length: Math.min(view.residentCount, 3) }, (_, i) => view!.residentInfo(i)!).filter(Boolean);
-      const you = { name: accounts.current?.name?.split(' ')[0] || 'You', skin: ['#ff86bb', '#b8235f'] as [string, string] };
       void Promise.all([import('../../land/raceView'), model]).then(([{ runRace }]) => {
         pause();
-        runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound, deluxe, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
+        runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound, deluxe, variant, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
           onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, race: res.order }),
           onQuit: () => backToTown(),
           onRestart: () => { playing = false; startAdventure(adv); },
         });
       }).catch(fail);
+    } else if (adv.id === 'vacuum') {
+      const host = hostOf('vacuum');
+      void Promise.all([import('../../land/vacuumView'), model]).then(([{ runVacuum }]) => {
+        pause();
+        runVacuum(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed }, {
+          onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, score: res.score, vacuum: { ...res, hostPortrait: safePortrait(host.index) } }),
+          onQuit: () => backToTown(),
+          onRestart: () => { playing = false; startAdventure(adv); },
+        });
+      }).catch(fail);
     } else if (adv.id === 'forest') {
-      const hi = hostIndex();
-      const info = view.residentInfo(hi);
+      const host = hostOf('forest');
       void Promise.all([import('../../land/forestView'), model]).then(([{ runForest }]) => {
         pause();
-        runForest(stage, { mobile: isTouch(), sound, deluxe, host: { name: info?.name ?? A.character(hi).name, skin: info?.skin ?? ['#b8f28a', '#4f9e2f'] } }, {
-          onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, forest: { ...res, hostPortrait: safePortrait(hi) } }),
+        runForest(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed }, {
+          onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, score: res.score, forest: { ...res, hostPortrait: safePortrait(host.index) } }),
           onQuit: () => backToTown(),
+          onRestart: () => { playing = false; startAdventure(adv); },
         });
       }).catch(fail);
     } else { playing = false; toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); }
   }
-  interface AdvResult { place: number; timeMs: number; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { wood: number; cleared: number; total: number; perfect: number; hostPortrait: string } }
+  interface AdvResult { place: number; timeMs: number; score?: number; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { score: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string; hostPortrait: string }; vacuum?: { score: number; collected: number; count: { small: number; large: number; gold: number }; bestCombo: number; tier: string; hostPortrait: string } }
   function backToTown(): void {
     playing = false;
     stage.querySelector('.adv-results')?.remove();
@@ -1464,14 +1481,16 @@ export function landScreen(): Screen {
     let payout: A.Payout | null = null, pending = false;
     const show = () => {
       const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, onAgain: () => { screen.remove(); playing = false; startAdventure(adv); }, onBack: () => { screen.remove(); backToTown(); } };
-      const screen: HTMLElement = res.forest
-        ? forestResults({ ...common, ...res.forest })
+      const screen: HTMLElement = res.vacuum
+        ? scoreResults({ ...common, score: res.vacuum.score, tier: res.vacuum.tier, hostPortrait: res.vacuum.hostPortrait, stats: [{ label: 'Hairballs', value: String(res.vacuum.collected) }, { label: 'Golden', value: String(res.vacuum.count.gold) }, { label: 'Big ones', value: String(res.vacuum.count.large) }, { label: 'Best chain', value: `×${res.vacuum.bestCombo}` }] })
+        : res.forest
+        ? scoreResults({ ...common, score: res.forest.score, tier: res.forest.tier, hostPortrait: res.forest.hostPortrait, stats: [{ label: 'Trees cut', value: `${res.forest.cleared}/${res.forest.total}` }, { label: 'Wood', value: String(res.forest.wood) }, { label: 'Perfect hits', value: String(res.forest.perfect) }, { label: 'Best chain', value: `×${res.forest.bestCombo}` }] })
         : resultsScreen({ ...common, order: (res.race ?? []).map((o) => ({ name: o.name, place: o.place, you: o.you, portrait: o.you ? '' : safePortrait(o.index) })) });
       stage.append(screen);
       try { if (res.place === 1) sfx.gold(); else sfx.home(); } catch { /* */ }
     };
     try {
-      payout = A.finish(s, { id: adv.id, place: res.place, timeMs: res.timeMs }, now(), !cloud);
+      payout = A.finish(s, { id: adv.id, place: res.place, timeMs: res.timeMs, score: res.score }, now(), !cloud);
       // wood from the forest is a resource for the town (first run of the day only — practice chops don't stock the barn)
       if (res.forest && !payout.practice) A.adventures(s, now()).wood += res.forest.wood;
     } catch (e) { toast((e as Error).message, 'bad'); backToTown(); return; }
@@ -1774,7 +1793,7 @@ export function landScreen(): Screen {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
       } catch { /* first visit */ }
-      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), adv: A, talkTo, endTalk, findHost, startAdventure, hostIndex, talking: () => !!talk, playing: () => playing }; // for tests
+      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), adv: A, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, talking: () => !!talk, playing: () => playing }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
       setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
