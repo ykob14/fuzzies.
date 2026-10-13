@@ -3,7 +3,7 @@
  * forward all the time; LEAN left / right turns you, but the ice slides — the skates follow your heading only slowly. Glide
  * through the lit gate (30; 45 when you take it cleanly near the middle without a crash since the last one), the next one
  * lights up, round and round. SPIN once between gates for 15 style points (you can't steer while spinning). Snowmen stand on the
- * ice: a crash costs 20 and your speed. 100 seconds. Checked by `adv/skate-check.ts`.
+ * ice: a crash costs 20 and your speed. 70 seconds. Checked by `adv/skate-check.ts`.
  */
 import { Clock, seeded, tierPlace, type Vec2 } from '../arcade';
 const wrapAngle = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
@@ -14,10 +14,10 @@ export interface SkateEvent { kind: 'gate' | 'clean' | 'missed' | 'spin' | 'spin
 
 export const SCORING = {
   gate: 30, clean: 45, spin: 15, crash: 20,
-  tiers: [2000, 1250, 420] as [number, number, number],
+  tiers: [1400, 880, 290] as [number, number, number],
   tierNames: ['Ice princess', 'Smooth skater', 'Wobbly wonder', 'Penguin'],
 };
-export const LIMIT = 100;
+export const LIMIT = 70;
 export const RINK = { hw: 12, hd: 7.5 };
 export const GATE_HW = 1.4;
 export const CLEAN_R = 0.55;

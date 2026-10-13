@@ -17,10 +17,10 @@ export const SCORING = {
   weed: 10, flower: 40, rare: 90, trample: 15,
   ladder: [{ at: 0, mult: 1 }, { at: 3, mult: 1.5 }, { at: 7, mult: 2 }],
   window: 4,
-  tiers: [920, 540, 210] as [number, number, number],
+  tiers: [640, 380, 150] as [number, number, number],
   tierNames: ['Garden angel', 'Green fingers', 'Weekend weeder', 'Still in the shed'],
 };
-export const LIMIT = 100;
+export const LIMIT = 70;
 export const GARDEN = { hw: 10, hd: 7 };
 export const PULL: Record<WeedKind, number> = { small: 1.2, big: 2.2 };
 export const REACH = 1.1;

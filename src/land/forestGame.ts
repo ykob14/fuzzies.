@@ -1,6 +1,6 @@
 /**
  * Forest Challenge — RULES only (no DOM, no Three.js): a clearing full of trees and FOUR lumberjacks — you and three town
- * Fuzzies — with 100 seconds to score the most points. EVERY standing tree can be cut: walk up to one (or tap it and the Fuzzy
+ * Fuzzies — with 70 seconds to score the most points. EVERY standing tree can be cut: walk up to one (or tap it and the Fuzzy
  * walks there by itself) and chop with timing: a marker swings along a meter and a tap in the sweet spot is a strong hit.
  * Small / medium / large trees take 2 / 4 / 7 "perfect" points of damage and are worth more the bigger they are; trees with a
  * glowing ring pay ×1.5 and sparkly ones hide a bonus (new rings appear as the ringed ones fall). A felled tree throws out wood
@@ -30,12 +30,12 @@ export const SCORING = {
   ringMult: 1.5,
   ladder: [{ at: 0, mult: 1 }, { at: 3, mult: 1.5 }, { at: 6, mult: 2 }, { at: 10, mult: 3 }], window: 4,
   /** score → tier when there are no rivals (solo practice / tests); with rivals the standings decide the place */
-  tiers: [1250, 790, 400] as [number, number, number],
+  tiers: [880, 550, 280] as [number, number, number],
   tierNames: ['Champion lumberjack', 'Sharp axe', 'Steady chopper', 'Sawdust'],
   /** the rivals: a chop every `interval` seconds, each doing `damage` (skill 0–1 scales both), and a breather after a tree */
   rival: { interval: (skill: number) => 1.75 - skill * 0.75, damage: (skill: number) => 0.85 + skill * 0.9, pause: (skill: number) => 2.2 - skill * 1.2, speed: (skill: number) => 3.9 + skill * 1.5 },
 };
-export const LIMIT = 100;
+export const LIMIT = 70;
 export const SWEET = { lo: 0.68, hi: 0.9 }; // the meter's sweet spot (perfect), 'good' is just outside it
 export const CHOP_RANGE = 2.3;
 export const ARENA = { hw: 21, hd: 14 };

@@ -2,7 +2,7 @@
  * Fruit Catcher — RULES only (no DOM, no Three.js): an orchard drops fruit from the trees above; the Fuzzy runs left and right
  * along the orchard path with a basket and catches what falls. Apples, pears and strawberries are worth more in that order, a
  * golden fruit is rare and worth a lot, and pinecones must be dodged (they knock the basket and break the chain). Catches in a
- * row grow a multiplier. The orchard speeds up as the 100 seconds go by (shorter gaps, faster falls). Score → gold / silver /
+ * row grow a multiplier. The orchard speeds up as the 70 seconds go by (shorter gaps, faster falls). Score → gold / silver /
  * bronze tier. Checked without a browser by `adv/games-check.ts`.
  */
 import { Clock, Combo, seeded, tierPlace } from '../arcade';
@@ -14,10 +14,10 @@ export interface FruitEvent { kind: 'spawn' | 'catch' | 'miss' | 'cone' | 'combo
 export const SCORING = {
   points: { apple: 10, pear: 15, berry: 20, gold: 50, cone: -20 } as Record<FruitKind, number>,
   ladder: [{ at: 0, mult: 1 }, { at: 5, mult: 1.5 }, { at: 10, mult: 2 }, { at: 20, mult: 3 }],
-  tiers: [1400, 750, 340] as [number, number, number],
+  tiers: [1000, 520, 380] as [number, number, number],
   tierNames: ['Gold basket', 'Silver basket', 'Bronze basket', 'Keep practising'],
 };
-export const LIMIT = 100;
+export const LIMIT = 70;
 export const ARENA = { hw: 7 };
 export const BASKET = { hw: 1.05, y: 0.9, accel: 34, max: 9.5, friction: 7 };
 export const DROP_Y = 6.4;
@@ -71,8 +71,8 @@ export class FruitSim {
     const w = this.clock.step(dt);
     if (w === 'timeup') { this.state = 'done'; this.events.push({ kind: 'timeup' }); return; }
     if (typeof w === 'number') this.events.push({ kind: 'warn', n: w });
-    // waves: a speed-up at 40 s and 80 s
-    const wave = Math.floor(this.clock.time / 40);
+    // waves: a speed-up at 25 s and 50 s
+    const wave = Math.floor(this.clock.time / 25);
     if (wave > this.wave) { this.wave = wave; this.events.push({ kind: 'wave', n: wave }); }
     if (this.combo.step(dt)) this.events.push({ kind: 'comboEnd' });
     // the basket: run left / right

@@ -2,7 +2,7 @@
  * Mining Adventure — RULES only (no DOM, no Three.js): the old mine floor is dotted with sparkling rock piles. Walk up to one
  * and DIG (each pile takes 2–4 swings) and the gem inside pops into your bag: quartz 10, emerald 25, ruby 40, diamond 80 (the
  * sparkle's colour hints at it). Every so often the ceiling rumbles over a spot and a rock drops a moment later — step away
- * or it knocks your helmet (−20, a short daze). New piles keep sparkling up. 100 seconds. Checked by `adv/mining-check.ts`.
+ * or it knocks your helmet (−20, a short daze). New piles keep sparkling up. 70 seconds. Checked by `adv/mining-check.ts`.
  */
 import { Clock, Mover, seeded, tierPlace, freeSpot, type Obstacle, type Vec2 } from '../arcade';
 
@@ -14,10 +14,10 @@ export interface MiningEvent { kind: 'swing' | 'crack' | 'gem' | 'rumble' | 'fal
 export const SCORING = {
   points: { quartz: 10, emerald: 25, ruby: 40, diamond: 80 } as Record<Gem, number>,
   knock: 20,
-  tiers: [740, 500, 210] as [number, number, number],
+  tiers: [520, 350, 150] as [number, number, number],
   tierNames: ['Diamond digger', 'Gem hunter', 'Rock hound', 'Helmet on backwards'],
 };
-export const LIMIT = 100;
+export const LIMIT = 70;
 export const MINE = { hw: 10, hd: 7 };
 export const HP: Record<Gem, number> = { quartz: 2, emerald: 3, ruby: 3, diamond: 4 };
 export const SWING = 0.4;
