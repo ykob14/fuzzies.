@@ -42,6 +42,7 @@ export function landScreen(): Screen {
   const lastVisit = s.savedAt;
   L.refillOrders(s);
   E.decorateOrders(s, now()); // orders made during a holiday pay event tokens too
+  A.serverIssuesSets(!!a.cloud && cloudEnabled); // cloud accounts get their next mission set from the server (10 min after the last mission)
   const oldTrophies = TR.syncTrophies(s); // a trophy for every mini-game already played (towns from before trophies too)
   if (oldTrophies.length) setTimeout(() => { save(); toast(`🏆 ${oldTrophies.length === 1 ? 'A trophy' : `${oldTrophies.length} trophies`} for the mini-games you’ve played — place ${oldTrophies.length === 1 ? 'it' : 'them'} from Build → Decor`, 'good', 5000); }, 2500);
 

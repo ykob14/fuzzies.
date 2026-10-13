@@ -161,8 +161,8 @@ Decorator, Nature keeper, Baker). Tap one: the camera glides in, it says hello a
 limit, rewards) and Start Adventure / Maybe later. MISSIONS COME IN SETS OF THREE: three different Fuzzies each have a mission (the
 pill under the level badge says how many are done, the compass side button opens the Adventures panel with all three, who has them,
 the rewards and a Find button that flies the camera to that Fuzzy). Finish them in any order, there is no deadline, and a finished one
-shows a green Completed mark over its Fuzzy. A NEW SET ARRIVES FIVE HOURS after the last set was issued, and only once all three are
-done (an unfinished mission is never lost; sets don't pile up). For accounts the server's clock decides, so changing the phone's time
+shows a green Completed mark over its Fuzzy. ONCE ALL THREE ARE DONE, A NEW SET ARRIVES TEN MINUTES LATER (the panel counts down; an
+unfinished mission is never lost; sets don't pile up). For accounts the server's clock decides, so changing the phone's time
 doesn't bring missions sooner. Each mission pays town coins and XP once; some come with a twist (Wild Water race, Deep Woods forest,
 Golden Day vacuum). Boat Race: three laps
 around Palm Island through the numbered gates in order; steer with A/D or the arrows (W accelerates, S brakes) or hold the left/right

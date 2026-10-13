@@ -234,8 +234,14 @@ export const playable = (): Adventure[] => ADVENTURES.filter((a) => a.playable);
 
 // ---------- mission sets ----------
 export const SET_SIZE = 3;
-/** a new set this long after the previous one was issued (and once it's finished) */
-export const CYCLE_MS = 5 * 60 * 60 * 1000;
+/** the next set arrives this long after the last mission of the current set was finished */
+export const REFILL_MS = 10 * 60 * 1000;
+/** When a set's last mission was finished (`done[id].at`), or null while one is still open. Shared with api/data.ts. */
+export function setFinishedAt(list: { id: string }[], done: Record<string, unknown>): number | null {
+  let last = 0;
+  for (const e of list) { const d = done[e.id] as { at?: unknown } | undefined; if (!d) return null; last = Math.max(last, Number(d.at) || 0); }
+  return last;
+}
 
 export interface SetEntry { id: string; variant: string | null }
 export interface MissionSet { key: string; issuedAt: number; seed: number; n: number; list: SetEntry[] }
@@ -319,11 +325,15 @@ export function issueSet(s: LandState, now = Date.now(), force?: SetEntry[]): Mi
 
 export const allDone = (a: AdvState): boolean => !!a.set && a.set.list.every((e) => !!a.done[e.id]);
 
-/** The set to play now: the current one, or a fresh one when the last is finished and the five hours are up. */
+/** Cloud accounts: the server issues the next set (the app shows "ready" and asks it); on-device accounts issue their own. */
+let localIssue = true;
+export const serverIssuesSets = (on: boolean): void => { localIssue = !on; };
+/** The set to play now: the current one, or a fresh one once all three are done and ten minutes have passed. */
 export function currentSet(s: LandState, now = Date.now(), force?: SetEntry[]): MissionSet {
   const a = adventures(s, now);
   if (!a.set) return issueSet(s, now, force);
-  if (allDone(a) && now >= a.set.issuedAt + CYCLE_MS) { a.setsDone++; return issueSet(s, now, force); }
+  const fin = setFinishedAt(a.set.list, a.done);
+  if (localIssue && fin !== null && now >= fin + REFILL_MS) { a.setsDone++; return issueSet(s, now, force); }
   return a.set;
 }
 
@@ -334,7 +344,8 @@ export function setStatus(s: LandState, now = Date.now()): SetStatus {
   const a = adventures(s, now);
   const doneCount = set.list.filter((e) => !!a.done[e.id]).length;
   const all = doneCount >= set.list.length;
-  const nextAt = set.issuedAt + CYCLE_MS;
+  const fin = setFinishedAt(set.list, a.done);
+  const nextAt = fin === null ? 0 : fin + REFILL_MS; // 0 while missions are still open: the next set waits for them
   return { set, doneCount, total: set.list.length, allDone: all, nextAt, unlockIn: Math.max(0, nextAt - now), ready: all && now >= nextAt };
 }
 

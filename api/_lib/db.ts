@@ -183,8 +183,8 @@ create index if not exists fz_signups_idx on fz_signups (ip, at);
 -- Fuzzy assistant messages per account / network address (rate limits only; chats are never stored)
 create table if not exists fz_assist (key text not null, at timestamptz not null default now());
 create index if not exists fz_assist_idx on fz_assist (key, at);
--- Fuzzies Adventures: the account's current mission set (three missions, a new set five hours after this one was issued and
--- once all three are done) — issued with the server's clock, so a device clock can't hurry it
+-- Fuzzies Adventures: the account's current mission set (three missions; a new set ten minutes after the last of them is
+-- done) — issued with the server's clock, so a device clock can't hurry it
 create table if not exists fz_adventure_sets (
   user_id uuid primary key references fz_users (id) on delete cascade,
   key text not null,

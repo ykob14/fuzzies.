@@ -93,7 +93,7 @@ export function adventuresBody(s: LandState, now: number, hostNameOf: (id: strin
   const next = h('p', { class: `land-adv-next ${st.ready ? 'ready' : ''}` }, landIcon('clock', 22),
     st.ready ? h('span', null, h('b', null, 'New missions are ready!'), ' Close this and look for the Fuzzies with a compass.')
       : st.allDone ? h('span', null, 'All three done — next set in ', h('b', null, A.countdown(st.unlockIn)))
-        : h('span', null, h('b', null, `${st.doneCount} of ${st.total} done`), ` · new missions ${st.unlockIn > 0 ? `in ${A.countdown(st.unlockIn)}` : 'as soon as these are done'}`));
+        : h('span', null, h('b', null, `${st.doneCount} of ${st.total} done`), ' · new missions 10 minutes after these are done'));
   const cards = t.list.map(({ adventure: adv, variant }, i) => {
     const m = A.mission(s, now, adv.id);
     const hostName = hostNameOf(adv.id);

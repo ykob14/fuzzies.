@@ -12,7 +12,7 @@
  *   adventure.claim { set, id, place, score } → { ok, coins, xp }  (ok = false when already collected)
  */
 import { randomInt } from 'node:crypto';
-import { adventure, pickSet, CYCLE_MS } from '../src/land/adventures.js';
+import { adventure, pickSet, REFILL_MS, setFinishedAt } from '../src/land/adventures.js';
 import { applyCredits } from './_lib/credits.js';
 import { guardBalance, type Guarded } from './_lib/balance.js';
 import { db, q } from './_lib/db.js';
@@ -35,15 +35,15 @@ export function POST(req: Request): Promise<Response> {
     const u = await requireUser(req);
     await db(); // connects and makes sure the tables exist
     switch (b.action) {
-      // Fuzzies Adventures: the account's current mission set — THREE missions, a new set five hours after the last one was
-      // issued and only once all three are done. The server's clock decides; the app only shows it.
+      // Fuzzies Adventures: the account's current mission set — THREE missions; once all three are done, a new set ten
+      // minutes after the last one was finished (its `done[id].at`, written by the server). The server's clock decides.
       case 'adventure.set': {
         const now = Date.now();
         const { rows } = await q('select key, (extract(epoch from issued_at) * 1000)::float8 as issued_at, seed, n, list, done from fz_adventure_sets where user_id = $1', [u.id]);
         let cur = rows[0] as { key: string; issued_at: number; seed: number; n: number; list: { id: string; variant: string | null }[]; done: Record<string, unknown> } | undefined;
         if (cur) cur = { ...cur, issued_at: Number(cur.issued_at), n: Number(cur.n) }; // numbers, whatever the driver hands back
-        const finished = (c: typeof cur) => !!c && c.list.every((e) => !!c!.done[e.id]);
-        if (!cur || (finished(cur) && now >= cur.issued_at + CYCLE_MS)) {
+        const fin = cur ? setFinishedAt(cur.list, cur.done) : null;
+        if (!cur || (fin !== null && now >= fin + REFILL_MS)) {
           const n = (cur?.n ?? 0) + 1;
           const seed = randomInt(1, 2_000_000_000);
           const list = pickSet(seed, cur?.list.map((e) => e.id) ?? []);
@@ -51,7 +51,7 @@ export function POST(req: Request): Promise<Response> {
                    on conflict (user_id) do update set key = excluded.key, issued_at = excluded.issued_at, seed = excluded.seed, n = excluded.n, list = excluded.list, done = excluded.done`, [u.id, String(now), now, seed, n, JSON.stringify(list)]);
           cur = { key: String(now), issued_at: now, seed, n, list, done: {} };
         }
-        return { now, set: { key: cur.key, issuedAt: cur.issued_at, seed: Number(cur.seed), n: cur.n, list: cur.list }, done: cur.done, nextAt: cur.issued_at + CYCLE_MS };
+        return { now, set: { key: cur.key, issuedAt: cur.issued_at, seed: Number(cur.seed), n: cur.n, list: cur.list }, done: cur.done, nextAt: (() => { const f = setFinishedAt(cur.list, cur.done); return f === null ? 0 : f + REFILL_MS; })() };
       }
       // the reward for a mission in the current set is granted once (the app pays only after this says ok)
       case 'adventure.claim': {
