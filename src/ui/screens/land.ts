@@ -61,6 +61,54 @@ export function landScreen(): Screen {
   dockHide.addEventListener('click', () => { prefs.dock = false; savePrefs(); paintDock(); });
   dockTab.addEventListener('click', () => { prefs.dock = true; savePrefs(); paintDock(); });
   const sheet = h('section', { class: 'land-sheet', hidden: true });
+  // The panel can be moved (owner: it was cut off at the bottom of a laptop screen). On computers and tablets it's a floating
+  // window in the middle of the screen that you drag by its top edge or title row; on phones it's a bottom sheet you pull up
+  // to make taller and pull down to close. Content always scrolls inside it, so nothing is ever off the screen.
+  const sheetPos = { x: 0, y: 0, moved: false };
+  const sheetFloat = () => matchMedia('(min-width: 761px)').matches;
+  const placeSheet = () => {
+    if (!sheetFloat() || !sheetPos.moved) { sheet.classList.remove('moved'); sheet.style.removeProperty('--sx'); sheet.style.removeProperty('--sy'); return; }
+    const host = sheet.parentElement; if (!host) return;
+    const W = host.clientWidth, H = host.clientHeight, w = sheet.offsetWidth, hh = sheet.offsetHeight;
+    sheetPos.x = Math.max(8, Math.min(Math.max(8, W - w - 8), sheetPos.x));
+    sheetPos.y = Math.max(8, Math.min(Math.max(8, H - hh - 8), sheetPos.y));
+    sheet.style.setProperty('--sx', `${sheetPos.x}px`); sheet.style.setProperty('--sy', `${sheetPos.y}px`);
+    sheet.classList.add('moved');
+  };
+  let sheetDrag: { id: number; sx: number; sy: number; ox: number; oy: number; h0: number; moved: boolean } | null = null;
+  sheet.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || sheetDrag) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('button, a, input, select, textarea, summary, .btn, .land-tab')) return;
+    const r = sheet.getBoundingClientRect();
+    if (!(t.closest('.land-sheet-top') || e.clientY - r.top < 30)) return; // the grip strip or the title row
+    // the resting spot (offsetLeft/Top ignore the entry animation that may still be running)
+    if (sheetFloat() && !sheetPos.moved) { sheetPos.x = sheet.offsetLeft - sheet.offsetWidth / 2; sheetPos.y = sheet.offsetTop - sheet.offsetHeight / 2; }
+    sheetDrag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: sheetPos.x, oy: sheetPos.y, h0: r.height, moved: false };
+    try { sheet.setPointerCapture(e.pointerId); } catch { /* synthetic events */ }
+    sheet.classList.add('dragging'); sheet.classList.remove('settle');
+    e.preventDefault();
+  });
+  sheet.addEventListener('pointermove', (e) => {
+    if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
+    const dx = e.clientX - sheetDrag.sx, dy = e.clientY - sheetDrag.sy;
+    if (!sheetDrag.moved && Math.hypot(dx, dy) < 4) return;
+    sheetDrag.moved = true;
+    if (sheetFloat()) { sheetPos.moved = true; sheetPos.x = sheetDrag.ox + dx; sheetPos.y = sheetDrag.oy + dy; placeSheet(); }
+    else if (dy > 0) { sheet.style.transform = `translate(-50%, ${dy}px)`; sheet.style.maxHeight = ''; }
+    else { const host = sheet.parentElement; sheet.style.transform = ''; sheet.style.maxHeight = `${Math.min((host?.clientHeight ?? innerHeight) * 0.92, sheetDrag.h0 - dy)}px`; }
+  });
+  const endSheetDrag = (e: PointerEvent) => {
+    if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
+    const dy = e.clientY - sheetDrag.sy, d = sheetDrag; sheetDrag = null;
+    sheet.classList.remove('dragging');
+    if (sheetFloat() || !d.moved) return;
+    sheet.classList.add('settle'); sheet.style.transform = ''; sheet.style.maxHeight = '';
+    if (dy > 110) openPanel(null);
+    else sheet.classList.toggle('tall', dy < -50 ? true : dy > 30 ? false : sheet.classList.contains('tall'));
+  };
+  sheet.addEventListener('pointerup', endSheetDrag);
+  sheet.addEventListener('pointercancel', endSheetDrag);
   const placeBar = h('div', { class: 'land-place', hidden: true });
   let view: LandView | null = null;
   let panel: Panel = null;
@@ -276,8 +324,10 @@ export function landScreen(): Screen {
   function renderPanel(): void {
     if (!panel) { sheet.hidden = true; return; }
     sheet.hidden = false;
+    placeSheet(); // keeps a moved window on the screen
     const close = btn(null, { icon: 'close', kind: 'plain', size: 'sm', title: 'Close', onClick: () => openPanel(null) });
-    const head = (title: string, sub = '', ic?: Node) => h('div', { class: 'land-sheet-head' }, ic ? h('span', { class: 'land-sheet-ic' }, ic) : null, h('div', null, h('h3', null, title), sub ? h('small', { class: 'muted' }, sub) : null), close);
+    // the grip strip + title row are the handle you drag the panel by (a real element so touch can't turn it into a scroll)
+    const head = (title: string, sub = '', ic?: Node) => h('div', { class: 'land-sheet-top' }, h('div', { class: 'land-sheet-grip', 'aria-hidden': 'true' }), h('div', { class: 'land-sheet-head' }, ic ? h('span', { class: 'land-sheet-ic' }, ic) : null, h('div', null, h('h3', null, title), sub ? h('small', { class: 'muted' }, sub) : null), close));
     sheet.dataset.kind = panel.kind;
     if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Tap something, then choose where it goes', landIcon('hammer', 34)), shopBody(panel.tab));
     else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Fuzzies ask for goods — deliver for coins & XP', landIcon('crate', 34)), ordersBody());

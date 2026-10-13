@@ -12,7 +12,7 @@ export function introCard(o: IntroOpts): HTMLElement {
   const box = h('div', { class: 'forest-intro-box mg-intro-box' },
     h('span', { class: 'adv-kicker' }, `${a.emoji} ${o.host} says`),
     h('h2', null, a.name + (o.variant ? ` — ${o.variant.name}` : '')),
-    h('p', { class: 'mg-goal' }, a.objective),
+    h('p', { class: 'mg-goal' }, a.objective + (a.limit ? ` · ⏱ ${a.limit % 60 === 0 ? `${a.limit / 60} min` : `${a.limit} s`}` : '')),
     h('ol', { class: 'mg-steps' }, ...a.howTo.map((t) => h('li', null, t))),
     h('p', { class: 'mg-ctl' }, o.mobile ? a.controls.mobile : a.controls.desktop),
     btn(o.buttonLabel, { kind: 'primary', size: 'lg', class: 'mg-start', onClick: o.onStart }),
