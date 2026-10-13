@@ -400,7 +400,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   words it; `Mission.nextIn` carries it. `finish()` still treats a second run as practice (safety net only). Dev hooks `__vac.sim/ctl/
   finishNow`, `__forest.sim/ctl/chop/finishNow`, `__land.hostIndexOf`. Tests (scratchpad `adv/`): `rotation-check.ts` (18), `vacuum-check.ts`
   (27, incl. the shared Mover/Clock/Combo), `forest-check.ts` (34: any tree, rings ×1.5, tap-to-walk, claims, rivals, standings, fairness bots), `vacuum-flow.cjs` (31, `PHONE=1`;
-  also festival + Wild Water days), `forest-flow.cjs` (28, `PHONE=1`: tap a tree on screen, rivals on the board, contest results, ✓ Complete, refused replay),
+  also festival + Wild Water days), `forest-flow.cjs` (29, `PHONE=1`: tap a tree on screen, rivals on the board, contest results, ✓ Complete, refused replay),
   `adv-check.ts` (20), `flow.cjs` (34). Copies for Node: `adv/sync.sh` in the scratchpad. A test picks a day with `localStorage fz.dev.now` (a number) **and reloads**. Every town Fuzzy is a character by index (`character(i)`: name from `NAMES`, personality
   from `ROLES`); tap one → `talkTo(i)` in `land.ts`: `view.focusResident(i, hello)` glides the camera in and puts the resident in
   mode `greet` (faces you, bounces, waves — `view.react(i, 'wave'|'hop'|'cheer')`), `conversation()` draws the card
