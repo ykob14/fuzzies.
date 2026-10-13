@@ -2608,3 +2608,14 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .mg-chips { position: absolute; top: calc(64px + var(--safe-t, 0px)); right: 14px; display: flex; gap: 6px; padding: 6px 8px; border-radius: 999px; background: rgba(0, 0, 0, .28); pointer-events: none; }
 .mg-chips i { display: block; width: 16px; height: 16px; border-radius: 4px; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .2), 0 1px 2px rgba(0, 0, 0, .3); }
 .mg-chips[hidden] { display: none; }
+
+/* ---- Fruit Catcher (orchard art pass): medal track under the score, soft vignette ---- */
+.mg-tierbar { position: absolute; left: 12px; top: calc(78px + var(--safe-t, 0px)); width: 150px; padding: 7px 10px 8px; border-radius: 12px; background: rgba(20, 30, 50, .42); backdrop-filter: blur(6px); }
+.mg-tierbar .track { position: relative; height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .22); }
+.mg-tierbar .track > i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 99px; background: linear-gradient(90deg, #ffd27a, #ffb347); box-shadow: 0 0 8px rgba(255, 200, 90, .55); transition: width .25s var(--ease, ease); }
+.mg-tierbar .track > b { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .85); background: rgba(40, 40, 50, .55); transition: transform .2s, background .2s; }
+.mg-tierbar .track > b.bronze.on { background: #d58a4a; } .mg-tierbar .track > b.silver.on { background: #dfe6ee; } .mg-tierbar .track > b.gold.on { background: #ffd34a; box-shadow: 0 0 10px #ffd34a; }
+.mg-tierbar .track > b.pop { animation: mgNotch .5s var(--ease, ease); }
+@keyframes mgNotch { 0% { transform: scale(1); } 45% { transform: scale(1.7); } 100% { transform: scale(1); } }
+.mg-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0, 0, 0, 0) 55%, rgba(40, 30, 10, .22) 100%); }
+@media (max-width: 760px) { .mg-tierbar { top: calc(68px + var(--safe-t, 0px)); width: 124px; padding: 6px 9px 7px; } }

@@ -39,9 +39,12 @@ export class FruitSim {
   private spawnT = 0.6;
   private wave = 0;
 
-  constructor(variant: 'classic' | 'golden' = 'classic', seed = 7) {
+  /** half the width of the orchard lane (portrait phones get a narrower lane so every drop stays on screen) */
+  readonly hw: number;
+  constructor(variant: 'classic' | 'golden' = 'classic', seed = 7, hw = ARENA.hw) {
     this.variant = variant;
     this.rnd = seeded(seed);
+    this.hw = Math.min(ARENA.hw, Math.max(3, hw));
   }
 
   start(): void { if (this.state === 'ready') this.state = 'playing'; }
@@ -55,7 +58,7 @@ export class FruitSim {
     const coneChance = 0.1 + this.k * 0.1;
     const kind: FruitKind = roll < goldChance ? 'gold' : roll < goldChance + coneChance ? 'cone' : roll < 0.62 ? 'apple' : roll < 0.84 ? 'pear' : 'berry';
     // never two in the very same spot; spread across the path
-    const x = (this.rnd() - 0.5) * 2 * (ARENA.hw - 0.6);
+    const x = (this.rnd() - 0.5) * 2 * (this.hw - 0.6);
     const item: Falling = { id: this.nextId++, kind, x, y: DROP_Y, vy: 0, spin: (this.rnd() - 0.5) * 6, r: kind === 'gold' ? 0.3 : kind === 'cone' ? 0.26 : 0.28, state: 'air' };
     this.items.push(item);
     this.events.push({ kind: 'spawn', item });
@@ -79,7 +82,7 @@ export class FruitSim {
     this.vx *= Math.exp(-BASKET.friction * (Math.abs(push) > 0.05 ? 0.35 : 1) * dt);
     this.vx = Math.max(-BASKET.max, Math.min(BASKET.max, this.vx));
     this.x += this.vx * dt;
-    if (this.x < -ARENA.hw) { this.x = -ARENA.hw; this.vx = 0; } else if (this.x > ARENA.hw) { this.x = ARENA.hw; this.vx = 0; }
+    if (this.x < -this.hw) { this.x = -this.hw; this.vx = 0; } else if (this.x > this.hw) { this.x = this.hw; this.vx = 0; }
     if (Math.abs(push) > 0.05) this.facing = push > 0 ? 1 : -1;
     // fruit falls faster as time goes by
     const g = 7 + this.k * 6;
