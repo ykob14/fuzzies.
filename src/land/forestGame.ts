@@ -188,9 +188,12 @@ export class ForestSim {
     if (this.you.blocked && !wasBlocked && this.you.speed > 2) this.events.push({ kind: 'bump' });
     if (this.combo.step(dt)) this.events.push({ kind: 'comboEnd' });
     // the nearest free standing tree in reach becomes the target (a tapped tree first); the meter swings while there is one
+    // while walking to a tapped tree, only that tree can become the target (trees you pass don't flash the gold ring or get claimed)
     let best: Tree | null = null, bd = CHOP_RANGE;
+    const heading = this.goal && this.goal.tree !== null ? this.goal.tree : null;
     for (const t of this.trees) {
       if (t.felled || (t.by !== null && t.by !== 0)) continue;
+      if (heading !== null && t.id !== heading) continue;
       const d = Math.hypot(t.x - this.you.pos.x, t.z - this.you.pos.z) - 0.3 * t.scale;
       if (d < CHOP_RANGE && t.id === this.want) { best = t; break; }
       if (d < bd) { bd = d; best = t; }
