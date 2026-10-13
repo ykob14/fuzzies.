@@ -2584,3 +2584,7 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .land-adv-next.ready { background: #fff3c4; }
 .land-adv-host { display: inline-flex; align-items: center; gap: 6px; font: 700 12px var(--ui); opacity: .85; }
 .land-adv-host i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+/* ---- mini-game minimap (Fuzzy Maze) ---- */
+.mg-map { position: absolute; right: 12px; bottom: 12px; width: 124px; height: 124px; pointer-events: none; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .18)); }
+@media (max-width: 760px) { .mg-map { width: 96px; height: 96px; right: 10px; bottom: calc(14px + var(--safe-b, 0px)); } }

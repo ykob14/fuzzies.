@@ -70,6 +70,8 @@ export interface Arcade {
   /** end the game: shows the flash, waits the outro, hands the result over and tears down */
   finish: (r: MiniResult, flashText?: string) => void;
   warn: (n: number) => void; onAction: (f: () => void) => void; destroy: () => void; start: () => void;
+  /** a short tap / click on the scene (not a drag): NDC coords for ray-casting + client coords */
+  onTap: (f: (ndc: { x: number; y: number }, client: { x: number; y: number }) => void) => void;
 }
 
 export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
@@ -200,6 +202,11 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     ? { read: () => ({ x: 0, z: 0 }), action: false, onAction: null, destroy: () => { /* nothing mounted */ } }
     : mountControls(root, { touch: o.controls?.touch ?? mobile, mouseSteer: o.controls?.mouseSteer ?? !mobile, actionKeys: o.controls?.actionKeys });
   let actionFn: (() => void) | null = null;
+  let tapFn: ((ndc: { x: number; y: number }, client: { x: number; y: number }) => void) | null = null;
+  let tapStart: { id: number; x: number; y: number; t: number } | null = null;
+  const onTapDown = (e: PointerEvent) => { if ((e.target as HTMLElement).closest('button, .mg-intro, .race-paused, .joy')) return; tapStart = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() }; };
+  const onTapUp = (e: PointerEvent) => { if (!tapStart || e.pointerId !== tapStart.id) return; const moved = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y), held = performance.now() - tapStart.t; tapStart = null; if (moved > 12 || held > 500 || paused || done || !startedFlag) return; const r = canvas.getBoundingClientRect(); tapFn?.({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, { x: e.clientX, y: e.clientY }); };
+  root.addEventListener('pointerdown', onTapDown); root.addEventListener('pointerup', onTapUp);
   ctl.onAction = () => { if (!intro.hidden) start(); else actionFn?.(); };
   const floatText = (x: number, y: number, z: number, text: string, cls = '') => {
     const v = new THREE.Vector3(x, y, z).project(camera);
@@ -260,6 +267,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     if (destroyed) return; destroyed = true;
     cancelAnimationFrame(raf);
     removeEventListener('keydown', onKey);
+    root.removeEventListener('pointerdown', onTapDown); root.removeEventListener('pointerup', onTapUp);
     document.removeEventListener('visibilitychange', onVis);
     ro.disconnect(); ctl.destroy(); tips.destroy();
     scene.traverse((obj) => { if (obj instanceof THREE.Mesh) obj.geometry.dispose(); });
@@ -269,7 +277,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   return {
     root, hud, scene, camera, renderer, time, ctl, mobile, real, mats, sun, hemi, sky, ground: groundMesh, camTarget, cam, intro,
     started: () => startedFlag, paused: () => paused, play, tip: (k, t, ms) => tips.say(k, t, ms), banner, flash, float: floatText,
-    setScore, setCount, setTime, setCombo, chips, sparks, puff, figure, walk, run, finish, warn, onAction: (f) => { actionFn = f; }, destroy, start,
+    setScore, setCount, setTime, setCombo, chips, sparks, puff, figure, walk, run, finish, warn, onAction: (f) => { actionFn = f; }, onTap: (f) => { tapFn = f; }, destroy, start,
   };
 }
 

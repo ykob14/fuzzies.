@@ -8,4 +8,5 @@ import type { MiniSetup, MiniHooks } from '../mgScene';
 export type GameRun = (stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks) => void;
 export const GAME_LOADERS: Record<string, () => Promise<{ run: GameRun }>> = {
   fruit: () => import('./fruitView'),
+  maze: () => import('./mazeView'),
 };
