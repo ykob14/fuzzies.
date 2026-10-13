@@ -223,24 +223,27 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const stickEl = (cls: string) => { const el = document.createElement('div'); el.className = `joy br-joy ${cls}`; el.hidden = true; const k = document.createElement('div'); k.className = 'joy-knob'; el.append(k); a.root.append(el); return { el, knob: k }; };
   const mEl = stickEl('move'), aEl = stickEl('aim');
   const homeHint = document.createElement('div'); homeHint.className = 'br-sticks'; homeHint.innerHTML = '<span>Move</span><span>Aim · shoot</span>'; if (touch) a.root.append(homeHint);
+  // the sticks are read in the capture phase and kept from the kit's own (hidden) touch stick
   a.root.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' || blocked(e) || !a.started() || a.paused()) return;
+    if (e.pointerType === 'mouse' || blocked(e)) return; e.stopPropagation(); if (!a.started() || a.paused()) return;
     const left = e.clientX < innerWidth / 2; const parts = left ? mEl : aEl;
     const st: Stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: 0, y: 0, t: e.timeStamp, el: parts.el, knob: parts.knob, dragged: false };
     if (left) { if (moveStick) return; moveStick = st; } else { if (aimStick) return; aimStick = st; }
     st.el.style.left = `${e.clientX}px`; st.el.style.top = `${e.clientY}px`; st.el.hidden = false; st.knob.style.transform = 'translate(-50%, -50%)'; homeHint.classList.add('gone');
     try { a.root.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-  });
+  }, true);
   a.root.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') return; if (moveStick || aimStick) e.stopPropagation();
     for (const st of [moveStick, aimStick]) { if (!st || st.id !== e.pointerId) continue; let dx = e.clientX - st.ox, dy = e.clientY - st.oy; const l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; } st.x = dx / R; st.y = dy / R; if (l > 16) st.dragged = true; st.knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; }
     if (moveStick) ctl.move = { x: moveStick.x, z: moveStick.y };
     if (aimStick && aimStick.dragged) ctl.aimStick = { x: aimStick.x, z: aimStick.y };
-  });
+  }, true);
   const release = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse') return; e.stopPropagation();
     if (moveStick && moveStick.id === e.pointerId) { moveStick.el.hidden = true; moveStick = null; ctl.move = { x: 0, z: 0 }; }
-    if (aimStick && aimStick.id === e.pointerId) { const st = aimStick; st.el.hidden = true; aimStick = null; if (st.dragged && Math.hypot(st.x, st.y) > 0.25) ctl.fireQ = { x: st.x, z: st.y }; else if (e.timeStamp - st.t < 350) ctl.autoQ = true; ctl.aimStick = null; }
+    if (aimStick && aimStick.id === e.pointerId) { const st = aimStick; st.el.hidden = true; aimStick = null; if (st.dragged && Math.hypot(st.x, st.y) > 0.25) ctl.fireQ = { x: st.x, z: st.y }; else ctl.autoQ = true; /* a touch that didn't move = a tap → auto-shoot */ ctl.aimStick = null; }
   };
-  a.root.addEventListener('pointerup', release); a.root.addEventListener('pointercancel', release);
+  a.root.addEventListener('pointerup', release, true); a.root.addEventListener('pointercancel', release, true);
   a.tip('go', touch ? 'Left thumb moves · right thumb aims — let go to shoot, tap to auto-shoot · ★ = special' : 'WASD to move · aim with the mouse · click to shoot (hold to keep firing) · Space or right-click = special', 5200);
 
   // ------------------------------------------------------------------ the match

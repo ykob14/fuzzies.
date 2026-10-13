@@ -226,16 +226,19 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const SWIPE = 24, TAP = 12;
   a.root.style.touchAction = 'none';
   const blocked = (e: Event) => !!(e.target as HTMLElement).closest('button, .race-pause, .mg-btn, .mg-intro, .race-paused, .adv-results');
-  a.root.addEventListener('pointerdown', (e) => { if (blocked(e) || !a.started() || a.paused() || sw) return; sw = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: e.timeStamp, fired: false, dir: null }; });
+  // swipes are read in the capture phase and kept from the kit's (hidden) touch stick, which would move a lane a second time
+  const own = (e: PointerEvent) => e.pointerType !== 'mouse' && !blocked(e);
+  a.root.addEventListener('pointerdown', (e) => { if (!own(e)) return; e.stopPropagation(); if (!a.started() || a.paused() || sw) return; sw = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: e.timeStamp, fired: false, dir: null }; }, true);
   a.root.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') return; if (sw) e.stopPropagation();
     if (!sw || e.pointerId !== sw.id) return; const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
     const dir: Act = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : dy < 0 ? 'J' : 'D';
     if (dir === sw.dir) { sw.x = e.clientX; sw.y = e.clientY; return; } // still going the same way: follow the finger, no repeat
     if (Math.hypot(dx, dy) < SWIPE) return;
     queue.push(dir); sw.x = e.clientX; sw.y = e.clientY; sw.fired = true; sw.dir = dir;
-  });
-  const up = (e: PointerEvent) => { if (!sw || e.pointerId !== sw.id) return; if (!sw.fired && Math.hypot(e.clientX - sw.x0, e.clientY - sw.y0) < TAP && e.timeStamp - sw.t < 400 && !blocked(e)) queue.push('J'); sw = null; };
-  a.root.addEventListener('pointerup', up); a.root.addEventListener('pointercancel', () => { sw = null; });
+  }, true);
+  const up = (e: PointerEvent) => { if (e.pointerType === 'mouse' || !sw || e.pointerId !== sw.id) return; e.stopPropagation(); if (!sw.fired && Math.hypot(e.clientX - sw.x0, e.clientY - sw.y0) < TAP) queue.push('J'); /* a touch that didn't move = a tap (however long: slow phones deliver late) */ sw = null; };
+  a.root.addEventListener('pointerup', up, true); a.root.addEventListener('pointercancel', (e) => { if (sw && e.pointerId === sw.id) { e.stopPropagation(); sw = null; } }, true);
   a.onAction(() => { if (a.started() && !a.paused()) queue.push('J'); });
   const ctlLine = a.mobile ? 'Swipe ← → to change lane · swipe ↑ or tap to jump · swipe ↓ to duck' : '← → change lane · ↑ or Space jump · ↓ duck';
   a.tip('go', ctlLine, 4200);

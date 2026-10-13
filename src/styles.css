@@ -2654,7 +2654,8 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .brawl .br-special.ready span { filter: none; opacity: 1; }
 @keyframes br-ready { 50% { transform: scale(1.07); } }
 @media (pointer: fine) { .brawl .br-special { width: 60px; height: 60px; bottom: calc(26px + var(--safe-b, 0px)); } .brawl .br-special small { content: ''; } .brawl .br-special small::after { content: ' · SPACE'; } }
-.brawl .br-mute { top: calc(118px + var(--safe-t, 0px)); }
+.brawl .br-mute { position: absolute; right: 12px; top: calc(118px + var(--safe-t, 0px)); width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(20, 30, 50, .42); color: #fff; font-size: 17px; line-height: 1; pointer-events: auto; cursor: pointer; z-index: 6; }
+.brawl .br-mute.off { background: rgba(20, 30, 50, .62); }
 .brawl .br-ring { position: absolute; left: 50%; top: calc(84px + var(--safe-t, 0px)); transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(20, 30, 50, .5); color: #fff; font: 700 13px/1 var(--ui); white-space: nowrap; pointer-events: none; }
 .brawl .br-ring.ours { background: rgba(74, 168, 240, .9); }
 .brawl .br-ring.theirs { background: rgba(255, 107, 154, .92); }
