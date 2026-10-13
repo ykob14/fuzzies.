@@ -179,7 +179,7 @@ export function scoreResults(o: ScoreResultOpts): HTMLElement {
       h('h2', null, title),
       o.hostPortrait && !contest ? h('div', { class: 'adv-forest-host' }, h('img', { src: o.hostPortrait, alt: '' })) : null,
       h('div', { class: 'adv-score' }, String(o.score)),
-      h('span', { class: 'adv-tier' }, `${A.medal(o.place)} ${contest ? `${A.placeWord(o.place)} · ` : ''}${o.tier}${newBest ? ' · new personal best!' : ''}`),
+      h('span', { class: 'adv-tier' }, `${A.medal(o.place)} ${contest ? `${A.placeWord(o.place)} place` : o.tier}${newBest ? ' · new personal best!' : ''}`),
       contest ? h('ol', { class: 'adv-order adv-standings' }, ...o.standings!.map((x) => h('li', { class: x.you ? 'you' : '' }, h('span', null, A.medal(x.place)), h('b', null, x.you ? `${x.name} (you)` : x.name), h('small', null, `${x.score} pts`)))) : null,
       h('div', { class: 'land-adv-grid adv-stats' }, ...o.stats.map((x) => h('span', null, h('small', null, x.label), h('b', null, x.value)))),
       rewardLine(o.payout, o.pending),
