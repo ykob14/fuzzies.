@@ -40,7 +40,7 @@ export interface ArcadeOpts {
   /** which controls to mount (default: joystick on touch + WASD, mouse steer on computers) */
   controls?: { touch?: boolean; mouseSteer?: boolean; actionKeys?: string[]; none?: boolean };
   hud?: { score?: string; count?: string; hint?: { desktop: string; mobile: string } };
-  camera?: { fov?: number; back?: number; up?: number; lookDy?: number; lead?: number };
+  camera?: { fov?: number; back?: number; up?: number; lookDy?: number; lead?: number; lookY?: number };
   /** the world: a grassy clearing by default; `size` = half extents of the fenced area */
   world?: { size?: { hw: number; hd: number }; ground?: [string, string]; path?: boolean; treeLine?: boolean; fence?: boolean; flowers?: number; sky?: 'day' | 'dusk' | 'snow' | 'night'; fog?: [string, number, number]; sun?: number };
   /** how long the end celebration lasts before the results (ms) */
@@ -254,7 +254,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
       for (let i = sparksArr.length - 1; i >= 0; i--) { const c = sparksArr[i]; c.life += dt; c.v.y -= 3 * dt; c.s.position.addScaledVector(c.v, dt); (c.s.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - c.life / c.max); if (c.life > c.max) { scene.remove(c.s); sparksArr.splice(i, 1); } }
       frame(dt, now);
       camera.position.set(camTarget.x, cam.up, camTarget.z + cam.back);
-      camera.lookAt(camTarget.x, 0.6, camTarget.z + cam.lookDy);
+      camera.lookAt(camTarget.x, o.camera?.lookY ?? 0.6, camTarget.z + cam.lookDy);
       sun.target.position.copy(camTarget);
       sun.position.set(camTarget.x - 14, 22, camTarget.z + 12);
       if (pendingResult && now - finishedAt > (o.outro ?? 1800)) { done = true; const r = pendingResult; destroy(); hooks.onFinish(r); return; }
