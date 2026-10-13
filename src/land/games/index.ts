@@ -15,4 +15,5 @@ export const GAME_LOADERS: Record<string, () => Promise<{ run: GameRun }>> = {
   obstacle: () => import('./obstacleView'),
   harvest: () => import('./harvestView'),
   garden: () => import('./gardenView'),
+  delivery: () => import('./deliveryView'),
 };

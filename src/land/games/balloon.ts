@@ -37,7 +37,9 @@ export class BalloonSim {
   private spawnT = 0.5;
   private burstDone = false;
 
-  constructor(_variant: string | null | undefined, seed = 7) { this.rnd = seeded(seed); }
+  /** how wide the square is for this screen (phones in portrait see a narrower slice) */
+  readonly hw: number;
+  constructor(_variant: string | null | undefined, seed = 7, hw = SQUARE.hw) { this.rnd = seeded(seed); this.hw = Math.min(SQUARE.hw, hw); }
 
   start(): void { if (this.state === 'ready') this.state = 'playing'; }
   get k(): number { return this.clock.k; }
@@ -48,7 +50,7 @@ export class BalloonSim {
     const k: BalloonKind = kind ?? (roll < 0.06 ? 'shiny' : roll < 0.06 + 0.1 + this.k * 0.08 ? 'spiky' : roll < 0.45 ? 'big' : 'plain');
     const [a, b] = RISE[k];
     const item: Balloon = {
-      id: this.nextId++, kind: k, x: (this.rnd() - 0.5) * 2 * (SQUARE.hw - 0.6), y: -0.3, z: (this.rnd() - 0.5) * 2 * (SQUARE.hd - 0.5),
+      id: this.nextId++, kind: k, x: (this.rnd() - 0.5) * 2 * (this.hw - 0.6), y: -0.3, z: (this.rnd() - 0.5) * 2 * (SQUARE.hd - 0.5),
       vy: a + this.rnd() * (b - a), sway: 0.25 + this.rnd() * 0.45, phase: this.rnd() * 6.28, r: RADIUS[k], color: Math.floor(this.rnd() * COLORS), state: 'up',
     };
     this.items.push(item);

@@ -12,11 +12,13 @@ const PALETTE = ['#ff5c8a', '#ffc94a', '#4fa3ff', '#6fd36a', '#ff8c42'];
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
   const adv = adventure('balloon')!;
-  const sim = new BalloonSim(setup.variant, setup.seed);
+  // on a portrait phone the camera sits further back with a wider lens, and balloons rise in a narrower band so none drift off-screen
+  const portrait = setup.mobile && innerHeight > innerWidth;
+  const sim = new BalloonSim(setup.variant, setup.seed, portrait ? 4.2 : SQUARE.hw);
   const a = createArcade(stage, {
     cls: 'balloon', setup, adv, hooks, buttonLabel: 'Let’s pop!',
     hud: { count: 'POPPED' },
-    camera: { fov: 46, back: 13, up: 4.5, lookDy: -13, lookY: 3.6, lead: 0 },
+    camera: portrait ? { fov: 60, back: 16, up: 4.8, lookDy: -16, lookY: 4, lead: 0 } : { fov: 46, back: 13, up: 4.5, lookDy: -13, lookY: 3.6, lead: 0 },
     world: { size: { hw: 10, hd: 8 }, path: false, fence: false, flowers: 10 },
     controls: { none: true },
     onStart: () => sim.start(),
