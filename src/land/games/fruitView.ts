@@ -152,11 +152,11 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     const many = (n: number, zmin: number, zmax: number, smin: number, smax: number, xpad = 2) => { const out: { x: number; z: number; s: number; rot: number }[] = []; for (let i = 0; out.length < n && i < n * 30; i++) { const z = zmin + Math.pow(rr(), 0.8) * (zmax - zmin), x = (rr() - 0.5) * 2 * (halfWAt(z) + xpad); if (free(x, z)) out.push({ x, z, s: smin + rr() * (smax - smin), rot: rr() * 6.28 }); } return out; };
     const q = lite ? 0.6 : 1;
     scene.add(k.scatter('grass_short', many(Math.round(170 * q), -14, 9.5, 0.26, 0.42)));
-    scene.add(k.scatter('grass_wispy', many(Math.round(60 * q), -12, 9, 0.3, 0.45)));
+    scene.add(k.scatter('grass_wispy', many(Math.round(40 * q), -12, 9, 0.3, 0.45)));
     scene.add(k.scatter('grass_tall', many(Math.round(40 * q), -14, -2, 0.25, 0.36)));
     scene.add(k.scatter('clover', many(Math.round(40 * q), -8, 8, 0.28, 0.4)));
     scene.add(k.scatter('flowers_a', many(Math.round(30 * q), -9, 7, 0.2, 0.28)));
-    scene.add(k.scatter('flowers_b', many(Math.round(24 * q), -9, 7, 0.18, 0.25)));
+    scene.add(k.scatter('flowers_b', many(Math.round(12 * q), -9, 7, 0.18, 0.25))); // 1.7k triangles each — keep them few
     scene.add(k.scatter('fern', many(12, -6, -2, 0.38, 0.5, 1)));
     scene.add(k.scatter('mushroom', many(10, -5, -1.9, 0.4, 0.6, 0)));
     const pebbles: { x: number; z: number; s: number; rot: number }[] = []; for (let i = 0; i < 30; i++) { const x = (rr() - 0.5) * 2 * (hw + 3), z = 0.15 + (rr() < 0.5 ? -1 : 1) * (1.25 + rr() * 0.4); pebbles.push({ x, z, s: 0.6 + rr() * 0.6, rot: rr() * 6.28 }); }
