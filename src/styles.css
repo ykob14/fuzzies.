@@ -2477,22 +2477,27 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .land-talk-howto ol, .land-adv-howto ol { margin: 6px 0 4px; padding-left: 18px; display: grid; gap: 3px; }
 .land-talk-howto small, .land-adv-howto small { display: block; opacity: .75; font-size: 11.5px; margin-top: 2px; }
 .land-adv-how { margin: 0 0 8px; font: 600 12.5px/1.4 var(--ui); opacity: .85; }
-.mg-intro-box { width: min(480px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: auto; text-align: left; justify-items: stretch; gap: 8px; }
+.mg-intro-box { width: min(400px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: auto; text-align: center; justify-items: stretch; gap: 10px; }
 .mg-intro-box h2 { text-align: center; }
 .mg-intro-box .adv-kicker { justify-self: center; }
-.mg-goal { margin: 0; text-align: center; font: 700 14.5px/1.35 var(--ui) !important; }
+.mg-goal { margin: 0; text-align: center; font: 700 15px/1.35 var(--ui) !important; opacity: .9; }
 .mg-twist { margin: 0; text-align: center; color: var(--lacc, #d6336c); font: 700 13px/1.35 var(--ui) !important; }
-.mg-steps { margin: 2px 0; padding-left: 22px; display: grid; gap: 5px; font: 600 13.5px/1.35 var(--ui); counter-reset: step; list-style: none; }
-.mg-steps li { position: relative; }
-.mg-steps li::before { counter-increment: step; content: counter(step); position: absolute; left: -22px; top: 1px; width: 17px; height: 17px; border-radius: 50%; background: var(--lacc, #d6336c); color: #fff; font: 700 11px/17px var(--brand); text-align: center; }
+.mg-steps { margin: 4px 0; padding: 0; display: grid; gap: 8px; font: 700 17px/1.3 var(--brand); counter-reset: step; list-style: none; }
+.mg-steps li { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 12px; border-radius: 14px; background: #fff; box-shadow: 0 2px 0 var(--llip, #e8d9bf); }
+.mg-steps li::before { counter-increment: step; content: counter(step); flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--lacc, #d6336c); color: #fff; font: 700 15px/30px var(--brand); text-align: center; }
 .mg-controls { display: grid; grid-template-columns: 68px 1fr; gap: 8px; align-items: start; padding: 7px 10px; border-radius: 12px; background: #fff; font: 600 12.5px/1.35 var(--ui); }
 .mg-controls b { font: 700 11px/1.5 var(--ui); letter-spacing: .05em; text-transform: uppercase; color: var(--lacc, #d6336c); }
+.mg-ctl { margin: 0; font: 600 13.5px/1.35 var(--ui); opacity: .8; }
+.mg-more { font: 600 12.5px/1.4 var(--ui); opacity: .85; text-align: left; }
+.mg-more summary { cursor: pointer; text-align: center; color: var(--lacc, #d6336c); font-weight: 700; list-style: none; }
+.mg-more summary::before { content: '▸ '; } .mg-more[open] summary::before { content: '▾ '; }
+.mg-more p { margin: 6px 0 0; }
 .mg-tip, .mg-extra { margin: 0; font: 600 12.5px/1.35 var(--ui); opacity: .85; text-align: center; }
 .mg-start { min-height: 50px; }
 .mg-coach { position: absolute; left: 50%; bottom: calc(118px + var(--safe-b, 0px)); transform: translateX(-50%) translateY(8px); max-width: calc(100% - 24px); padding: 9px 16px; border-radius: 14px; background: rgba(255, 250, 240, .96); color: #3b2a1a; font: 700 14px/1.3 var(--ui); text-align: center; box-shadow: 0 3px 0 #e8d9bf, 0 10px 24px rgba(20, 30, 50, .25); opacity: 0; transition: opacity .25s, transform .25s var(--ease-spring); pointer-events: none; z-index: 6; }
 .mg-coach.on { opacity: 1; transform: translateX(-50%) translateY(0); }
 .race .mg-coach { bottom: calc(160px + var(--safe-b, 0px)); }
-@media (max-width: 760px) { .mg-intro-box { gap: 6px; padding: 16px; } .mg-steps { font-size: 12.5px; } .mg-controls { grid-template-columns: 60px 1fr; font-size: 12px; } .mg-coach { bottom: calc(150px + var(--safe-b, 0px)); font-size: 13px; } .race .mg-coach { bottom: calc(190px + var(--safe-b, 0px)); } }
+@media (max-width: 760px) { .mg-intro-box { gap: 8px; padding: 16px; } .mg-steps { font-size: 16px; } .mg-controls { grid-template-columns: 60px 1fr; font-size: 12px; } .mg-coach { bottom: calc(150px + var(--safe-b, 0px)); font-size: 13px; } .race .mg-coach { bottom: calc(190px + var(--safe-b, 0px)); } }
 
 /* the forest clearing */
 .forest { position: absolute; inset: 0; z-index: 8; background: #cfe6ee; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none; animation: fzcIn .4s var(--ease) both; }

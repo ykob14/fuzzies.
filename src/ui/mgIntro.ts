@@ -12,14 +12,15 @@ export function introCard(o: IntroOpts): HTMLElement {
   const box = h('div', { class: 'forest-intro-box mg-intro-box' },
     h('span', { class: 'adv-kicker' }, `${a.emoji} ${o.host} says`),
     h('h2', null, a.name + (o.variant ? ` — ${o.variant.name}` : '')),
-    h('p', { class: 'mg-goal' }, a.objective + (a.limit ? ` · ⏱ ${a.limit % 60 === 0 ? `${a.limit / 60} min` : `${a.limit} s`}` : '')),
-    o.variant ? h('p', { class: 'mg-twist' }, `Today’s twist: ${o.variant.note}`) : null,
+    h('p', { class: 'mg-goal' }, a.objective),
     h('ol', { class: 'mg-steps' }, ...a.howTo.map((t) => h('li', null, t))),
-    h('div', { class: 'mg-controls' }, h('b', null, 'Controls'), h('span', null, o.mobile ? a.controls.mobile : a.controls.desktop)),
-    h('div', { class: 'mg-controls' }, h('b', null, 'Scoring'), h('span', null, a.scoring)),
-    o.extra ? h('p', { class: 'mg-extra' }, o.extra) : null,
-    h('p', { class: 'mg-tip' }, `💡 ${a.tip}`),
-    btn(o.buttonLabel, { kind: 'primary', size: 'lg', class: 'mg-start', onClick: o.onStart }));
+    h('p', { class: 'mg-ctl' }, o.mobile ? a.controls.mobile : a.controls.desktop),
+    btn(o.buttonLabel, { kind: 'primary', size: 'lg', class: 'mg-start', onClick: o.onStart }),
+    h('details', { class: 'mg-more' }, h('summary', null, 'Details'),
+      o.variant ? h('p', null, `Today’s twist: ${o.variant.note}`) : null,
+      h('p', null, a.scoring),
+      o.extra ? h('p', null, o.extra) : null,
+      h('p', null, `💡 ${a.tip}`)));
   return h('div', { class: 'forest-intro mg-intro' }, box);
 }
 

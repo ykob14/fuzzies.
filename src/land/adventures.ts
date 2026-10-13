@@ -65,7 +65,7 @@ export interface Adventure {
   /** the time limit in seconds (shown on the mission card) */
   limit?: number;
   variants?: Record<string, Variant>;
-  /** how to play, in 3–4 short steps (the mission card, the Adventures sheet and the game's own intro show these) */
+  /** how to play, in 3 very short steps (the mission card, the Adventures sheet and the game's own intro show these) */
   howTo: string[];
   /** the controls, in plain words, per device */
   controls: { desktop: string; mobile: string };
@@ -78,26 +78,26 @@ export interface Adventure {
 export const ADVENTURES: Adventure[] = [
   { id: 'boatrace', name: 'Fuzzies Boat Race', short: 'Boat Race', emoji: '⛵', hosts: ['adventurous', 'fisher'], kind: 'race',
     pitch: 'I’m planning an exciting boat race around the island today! Three laps, three boats, one winner. Wanna join me?',
-    objective: 'Race three laps around Palm Island and finish first', coins: [100, 60, 30], xp: 25, playable: true,
+    objective: 'Three laps around the island — finish first', coins: [100, 60, 30], xp: 25, playable: true,
     variants: { wild: { key: 'wild', name: 'Wild Water', note: 'Barrels, boost pads and rolling waves from the very first lap' } },
-    howTo: ['Wait for GO!, then follow the gold arrow to the next gate', 'Drive through every numbered gate in order — the finish line only counts after all eight', 'Missed one? The screen says so and the arrow points back: turn round and take it', 'Stay inside the buoys; later laps add barrels, boost pads, currents and waves'],
-    controls: { desktop: 'W or ↑ accelerate · A / D or ← → steer · S or ↓ brake · Esc pause', mobile: 'Hold the LEFT or RIGHT side of the screen to steer — the engine runs by itself · BRAKE button in the middle' },
-    scoring: 'Your finishing place against three Fuzzies: 1st 100 coins, 2nd 60, 3rd 30 (+25 XP), once a day.',
+    howTo: ['Follow the gold arrow', 'Go through every gate, in order', 'Missed one? Turn back for it'],
+    controls: { desktop: '← → steer · W go · S brake', mobile: 'Hold left or right to steer' },
+    scoring: 'Three gates skipped = no lap. Later laps add barrels, boost rings, currents and waves. 1st 100 coins, 2nd 60, 3rd 30, once a day.',
     tip: 'Ride the gold boost rings and brake a touch before the tight bend!' },
   { id: 'forest', name: 'Forest Challenge', short: 'Forest Challenge', emoji: '🪓', hosts: ['nature', 'builder'], kind: 'score', limit: 120,
     pitch: 'The woods need thinning and the town needs timber! Grab the axe — cut the marked trees and collect the wood. Two minutes, go for the big ones!',
-    objective: 'Cut and collect as many marked trees as you can in two minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
+    objective: 'Cut the ringed trees — 2 minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
     variants: { deep: { key: 'deep', name: 'Deep Woods', note: 'Denser woods, bigger trees, more bonus trees hidden among them' } },
-    howTo: ['Walk up to a tree with a glowing ring — the chop meter appears', 'Tap CHOP when the marker is in the green: perfect hits do double damage', 'Walk over the wood that flies out to collect it (+5 each)', 'Perfect hits in a row multiply your points; new trees get marked as you go'],
-    controls: { desktop: 'WASD or arrows to walk (or hold the mouse) · Space or E to chop · Esc pause', mobile: 'Drag anywhere to walk · tap the big CHOP button · ❚❚ to pause' },
+    howTo: ['Walk to a ringed tree', 'Tap CHOP in the green', 'Pick up the wood'],
+    controls: { desktop: 'WASD walk · Space chop', mobile: 'Drag to walk · tap CHOP' },
     scoring: 'Small / medium / large trees = 20 / 45 / 90 points (2 / 4 / 7 perfect hits), sparkly bonus trees +60. Top tier 100 coins, then 65, 35, 15 (+25 XP), once a day.',
     tip: 'Big trees pay best — but pick a route, the clock is ticking!' },
   { id: 'vacuum', name: 'Hairball Vacuum Challenge', short: 'Hairball Vacuum', emoji: '🧹', hosts: ['creative', 'baker'], kind: 'score', limit: 120,
     pitch: 'It was Big Brushing Day and there are hairballs EVERYWHERE! Take my vacuum and clean up the garden — two minutes, suck up as many as you can!',
-    objective: 'Vacuum up as many Fuzzy hairballs as you can in two minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
+    objective: 'Vacuum up the hairballs — 2 minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
     variants: { golden: { key: 'golden', name: 'Golden Day', note: 'Twice the golden hairballs — and they keep coming back' } },
-    howTo: ['Walk towards the hairballs — anything in front of the nozzle gets pulled in', 'Small ones 10 points, big ones 25, golden ones 100', 'Pick up quickly one after another to chain ×1.5, ×2, ×3', 'New fluff keeps appearing; the canister empties itself for a bonus when full'],
-    controls: { desktop: 'WASD or arrows to walk (or hold the mouse towards where you want to go) · Esc pause', mobile: 'Drag anywhere to walk — a joystick appears under your thumb · ❚❚ to pause' },
+    howTo: ['Walk into the fluff', 'Golden ones = 100 points', 'Pick up fast for combos'],
+    controls: { desktop: 'WASD or arrows to walk', mobile: 'Drag to walk' },
     scoring: 'Points for every hairball × your chain multiplier. Top tier 100 coins, then 65, 35, 15 (+25 XP), once a day.',
     tip: 'Golden hairballs hide in the corners and behind the flower beds!' },
   { id: 'fishing', name: 'Fishing Contest', short: 'Fishing', emoji: '🎣', hosts: ['fisher'], pitch: 'The big one is out there. Fancy a fishing contest?', objective: 'Catch the most fish in three minutes', coins: [80, 50, 30], xp: 20, playable: false, kind: 'score', howTo: [], controls: { desktop: '', mobile: '' }, scoring: '', tip: '' },
