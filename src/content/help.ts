@@ -181,7 +181,7 @@ twice in a set): Boat Race, Forest Challenge, Hairball Vacuum, Fruit Catcher (ca
 cones), Fuzzy Maze (find the three keys in the hedge maze, tap where to walk, then the gate opens), Balloon Pop (tap the balloons
 before they float over the roofs; shiny 50, dark spiky ones break the chain), Island Treasure Hunt (walk the beach, the meter goes
 WARM then HOT near treasure, then DIG), Fishing Frenzy (tap the water to cast, HOOK on the bite, hold REEL but let go when the line
-goes red), Obstacle Run (three lanes: swipe or A/D to change lane, jump the logs and puddles, go round the rocks), Farm Harvest Rush
+goes red), Obstacle Run (three lanes: swipe or A/D to change lane, swipe up / ↑ to jump logs and puddles, swipe down / ↓ to duck under vines, go round rocks, rolling boulders and carts, bounce on mushrooms for high stars, grab a shield, star magnet or speed boost; the 🔊 button mutes it), Farm Harvest Rush
 (pick the ripe plants before they wilt), Garden Cleanup (hold PULL on the weeds, never trample the flower beds), Package Delivery
 (a cart: load at the depot, bring parcels to the glowing doors, don't bump into things), Mining Adventure (dig the gem piles, step
 away when the ceiling rumbles), Firefighter Fuzzy (hold SPRAY at the flames, refill the tank at the pond, save the cottages), Snowball
