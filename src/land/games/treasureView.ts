@@ -117,7 +117,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     a.setScore(sim.score);
     a.setCount(`${sim.chests}/${CHESTS}`, `${sim.gems}/${GEMS} gems · ${sim.shellsGot}/${SHELLS} shells`);
     a.setTime(sim.clock.left);
-    if (sim.state === 'done' && !sim.allFound) a.finish(sim.result());
+    if (sim.state === 'done') a.finish(sim.result(), sim.allFound ? 'FOUND!' : 'TIME!'); // the event path normally gets here first; this catches a sim stepped from outside the loop
   });
   if (import.meta.env.DEV) (window as unknown as { __mg: unknown }).__mg = { id: 'treasure', sim, ctl: a.ctl, start: a.start, dig: doDig, finishNow: () => { (sim as unknown as { state: string }).state = 'done'; } };
 }

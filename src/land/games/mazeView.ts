@@ -138,7 +138,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     a.setCount(`${sim.keys}/${KEYS}`, `${sim.stars} star${sim.stars === 1 ? '' : 's'}`);
     a.setTime(sim.clock.left);
     if ((frameN++ & 1) === 0) drawMap();
-    if (sim.state === 'done' && !sim.escaped) a.finish(sim.result());
+    if (sim.state === 'done') a.finish(sim.result(), sim.escaped ? 'OUT!' : 'TIME!');
   });
   if (import.meta.env.DEV) (window as unknown as { __mg: unknown }).__mg = { id: 'maze', sim, ctl: a.ctl, start: a.start, tapAt, finishNow: () => { (sim as unknown as { state: string }).state = 'done'; } };
 }

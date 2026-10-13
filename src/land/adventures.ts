@@ -129,7 +129,7 @@ export const ADVENTURES: Adventure[] = [
     objective: 'Run the course — dodge, jump, collect stars', coins: [100, 65, 35, 15], xp: 25, playable: false,
     howTo: ['Swap lanes to dodge things', 'Jump over logs', 'Collect every star you can'],
     controls: { desktop: '← → change lane · Space / ↑ jump', mobile: 'Swipe left / right · swipe up to jump' },
-    scoring: 'A star 10, a golden star 50, every 100 m of running 20; a bump costs a chain. Gold 800, silver 500, bronze 250 points.',
+    scoring: 'A star 10, a golden star 50, every 100 m of running 20; stars in a row ×1.5 / ×2 / ×3; a bump costs 40 and the chain. Gold 2,300, silver 1,500, bronze 1,000 points.',
     tip: 'Stars sit in patterns — plan your lane early.' },
   { id: 'harvest', name: 'Farm Harvest Rush', short: 'Harvest Rush', emoji: '🌾', hosts: ['farmer'], kind: 'score', limit: 120,
     pitch: 'Every crop on the farm got ripe at once! Pick the ripe ones before they wilt — and leave the green ones to grow.',
