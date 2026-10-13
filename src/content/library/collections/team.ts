@@ -13,7 +13,7 @@ import type { Palette } from '../palettes';
 import { makeImage } from '../../../editor/doc';
 import { box, text, type CollectionTemplate, type Kit, type Use } from './kit';
 
-interface Theme {
+export interface Theme {
   id: string;
   head: string; bubble: string; page: string; frame: string; shadow: string;
   bar: string; barInk: string;                 // name bar and the words on it
@@ -26,7 +26,7 @@ interface Theme {
   photo: [string, string, string];             // placeholder tint: primary, secondary, accent
 }
 const base = { title: '#ffffff', sub: '#ffffff', footerInk: '#ffffff', nW: 800, rW: 500 };
-const T: Record<string, Theme> = {
+export const T: Record<string, Theme> = {
   reslife: { ...base, id: 'reslife', head: '#4b2590', bubble: '#e5dbf8', page: '#f6f3fc', frame: '#4b2590', shadow: '#e5dbf8', bar: '#fdc94a', barInk: '#25124d', kicker: '#fdc94a', ink: '#25124d', footer: '#4b2590', tFont: ['Montserrat', 900], kFont: ['Montserrat', 800], nFont: 'Montserrat', photo: ['#7b5cc4', '#e5dbf8', '#fdc94a'] },
   coral: { ...base, id: 'coral', head: '#1d2b53', bubble: '#ffe1d6', page: '#f7f8fc', frame: '#1d2b53', shadow: '#dfe3ef', bar: '#ff8a65', barInk: '#1d2b53', kicker: '#ff8a65', ink: '#1d2b53', footer: '#1d2b53', tFont: ['Poppins', 800], kFont: ['Poppins', 700], nFont: 'Poppins', nW: 700, photo: ['#5b6b9a', '#e6e9f4', '#ff8a65'] },
   teal: { ...base, id: 'teal', head: '#0f6e78', bubble: '#d4efec', page: '#f4fbfa', frame: '#0f6e78', shadow: '#d4efec', bar: '#ffd34d', barInk: '#0d3c42', kicker: '#ffd34d', ink: '#0d3c42', footer: '#0f6e78', tFont: ['Nunito', 900], kFont: ['Nunito', 800], nFont: 'Nunito', nW: 900, rW: 600, photo: ['#3c9aa3', '#d4efec', '#ffd34d'] },
@@ -39,7 +39,7 @@ const T: Record<string, Theme> = {
 };
 
 /** A replaceable photo (soft placeholder in the theme's colours with a camera mark). */
-function photo(c: Kit, th: Theme, i: number, x: number, y: number, w: number, h: number, radius: number): void {
+export function photo(c: Kit, th: Theme, i: number, x: number, y: number, w: number, h: number, radius: number): void {
   const id = th.id === 'reslife' ? `ph-reslife-${i % 3}` : `ph-team-${th.id}-${i % 3}`;
   c.assets[id] ??= photoAsset({ id: th.id === 'reslife' ? 'reslife' : `team-${th.id}`, primary: th.photo[0], secondary: th.photo[1], accent: th.photo[2] } as Palette, i % 3);
   const el = makeImage(id, w, h, { mask: 'none', radius });
@@ -64,7 +64,7 @@ function card(c: Kit, th: Theme, i: number, name: string, role: string, x: numbe
 
 interface Header { kicker: string; title: string; sub: string; h: number; size: number; kr?: number; sr?: number }
 /** Header band with the two soft bubbles at its corners, kicker, big title and a small line. */
-function header(c: Kit, th: Theme, o: Header): void {
+export function header(c: Kit, th: Theme, o: Header): void {
   const { W, u } = c, upper = th.upper ?? true;
   box(c, 0, 0, W, o.h, th.head, { name: 'Header' });
   const cr = u * 0.14;
@@ -80,13 +80,13 @@ function header(c: Kit, th: Theme, o: Header): void {
 }
 
 /** The closing pill. */
-function footer(c: Kit, th: Theme, s: string, y: number, h: number, w = c.W * 0.64, x = (c.W - w) / 2): void {
+export function footer(c: Kit, th: Theme, s: string, y: number, h: number, w = c.W * 0.64, x = (c.W - w) / 2): void {
   box(c, x, y, w, h, th.footer, { radius: h / 2, name: 'Footer' });
   const t = text(c, s, x + h * 0.6, 0, w - h * 1.2, { font: th.kFont[0], weight: Math.max(700, th.kFont[1]), size: h * 0.44, fill: th.footerInk, upper: true, spacing: h * 0.02, name: 'Footer text' });
   t.y = y + (h - t.h) / 2;
 }
 
-type Person = [name: string, role: string];
+export type Person = [name: string, role: string];
 /** Cards in a grid between `top` and `bottom`, `cols` across, centred; `tall` caps height ÷ width. */
 function grid(c: Kit, th: Theme, people: Person[], cols: number, top: number, bottom: number, side: number, gap: number, tall = Infinity): void {
   const rows = Math.ceil(people.length / cols);
@@ -121,11 +121,11 @@ function spotlightSquare(c: Kit, th: Theme, o: Spot): void {
   footer(c, th, o.footer, y + h - u * 0.075, u * 0.075, tw, tx);
 }
 
-const tpl = (id: string, name: string, format: Format, use: Use, style: string, colors: string[], occasion: string, tags: string[], build: (c: Kit) => void, th: Theme): CollectionTemplate =>
+export const tpl = (id: string, name: string, format: Format, use: Use, style: string, colors: string[], occasion: string, tags: string[], build: (c: Kit) => void, th: Theme): CollectionTemplate =>
   ({ id, name, format, use, style, colors, occasion, tags: [...tags, 'meet the team', 'team photos', 'photo grid'], build: (c) => { c.bg = th.page; build(c); } });
 
 // Page plans shared by every theme: kicker / title / line on top, people in the middle, a pill at the bottom.
-interface Words { kicker: string; title: string; sub: string; footer: string }
+export interface Words { kicker: string; title: string; sub: string; footer: string }
 const posterGrid = (th: Theme, w: Words, ps: Person[], cols = 3) => (c: Kit) => {
   const { W, H, u } = c;
   header(c, th, { ...w, h: H * 0.155, size: 0.075 });
@@ -151,10 +151,10 @@ const wideRow = (th: Theme, w: Words, ps: Person[], side: number, gap: number, t
   footer(c, th, w.footer, H * 0.895, u * 0.06, W * 0.46);
 };
 
-const NAMES = ['Jordan Lee', 'Amara Okafor', 'Sofia Martinez', 'Noah Bennett', 'Priya Sharma', 'Liam Walsh', 'Maya Chen', 'Ethan Brooks'];
-const people = (roles: string[], names = NAMES): Person[] => roles.map((r, i) => [names[i % names.length], r]);
+export const NAMES = ['Jordan Lee', 'Amara Okafor', 'Sofia Martinez', 'Noah Bennett', 'Priya Sharma', 'Liam Walsh', 'Maya Chen', 'Ethan Brooks'];
+export const people = (roles: string[], names = NAMES): Person[] => roles.map((r, i) => [names[i % names.length], r]);
 const RA = 'Resident Assistant';
-const RA_TAGS = ['resident assistants', 'resident assistant', 'ra', 'ras', 'reslife', 'residence life', 'dorm', 'residence hall', 'housing', 'student staff', 'staff photos', 'college', 'university', 'campus', 'welcome week', 'orientation'];
+export const RA_TAGS = ['resident assistants', 'resident assistant', 'ra', 'ras', 'reslife', 'residence life', 'dorm', 'residence hall', 'housing', 'student staff', 'staff photos', 'college', 'university', 'campus', 'welcome week', 'orientation'];
 const RA_WORDS: Words = { kicker: 'Meet your', title: 'Resident Assistants', sub: 'Your College Name  •  ResLife', footer: 'Here to help you feel at home' };
 const PURPLE = ['purple', 'gold', 'white'];
 const SIX_RAS = people(Array(6).fill(RA));
