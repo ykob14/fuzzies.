@@ -1,0 +1,279 @@
+/**
+ * The SHARED mini-game scene kit — everything a Fuzzies Land mini-game needs besides its own rules and props:
+ * the renderer, lights and environment (sky, fog, a vertex-coloured ground, the tree line and rail fence, flowers), a
+ * following camera, the HUD (score, a second counter, the clock, the combo badge, banners, the 3-2-1 / GO! / TIME! flash,
+ * floating "+10" labels, a fading hint), the How-to-play intro card and the coach line, pause / restart / back to town,
+ * the fixed-step game loop with visibility pause, particles (chips, sparks, puffs), the walking Fuzzy figure, and a clean
+ * tear-down. A game calls `createArcade()`, builds its props into `a.scene`, and gives `a.run()` two callbacks:
+ * `step(dt, input)` for the rules and `frame(dt)` for visuals. See fruitView.ts for the smallest complete example.
+ * Rules stay DOM-free (land/arcade.ts); art follows ART.md.
+ */
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import * as M from '../game/models3d';
+import * as T from '../game/textures3d';
+import { race as snd, vac, sfx } from '../game/sound';
+import { PAL, std, add } from './models';
+import { buildSky, treeModel } from './environment';
+import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
+import { mountControls, type Controls } from '../ui/joystick';
+import { introCard, coach as makeCoach } from '../ui/mgIntro';
+import type { Adventure, Variant } from './adventures';
+
+export interface Figure { group: THREE.Group; fuzzy: ReturnType<typeof M.makeFuzzy>; squash: number; base: number }
+export interface Stat { label: string; value: string }
+/** What every score-based mini-game hands back (the screen turns it into the results card and the reward). */
+export interface MiniResult { place: number; score: number; timeMs: number; tier: string; stats: Stat[]; standings?: { name: string; score: number; you: boolean; place: number }[] }
+export interface MiniHooks { onFinish: (r: MiniResult) => void; onQuit: () => void; onRestart?: () => void }
+export interface MiniSetup { mobile: boolean; sound: boolean; deluxe?: boolean; you: { name: string; skin: [string, string] }; host: string; variant?: string | null; seed: number }
+
+export interface ArcadeOpts {
+  /** called when the intro is dismissed and the game begins — start the sim here */
+  onStart?: () => void;
+  cls: string;
+  setup: MiniSetup;
+  adv: Adventure;
+  hooks: MiniHooks;
+  buttonLabel?: string;
+  /** an extra sentence under Details on the intro card */
+  extra?: string;
+  /** which controls to mount (default: joystick on touch + WASD, mouse steer on computers) */
+  controls?: { touch?: boolean; mouseSteer?: boolean; actionKeys?: string[]; none?: boolean };
+  hud?: { score?: string; count?: string; hint?: { desktop: string; mobile: string } };
+  camera?: { fov?: number; back?: number; up?: number; lookDy?: number; lead?: number };
+  /** the world: a grassy clearing by default; `size` = half extents of the fenced area */
+  world?: { size?: { hw: number; hd: number }; ground?: [string, string]; path?: boolean; treeLine?: boolean; fence?: boolean; flowers?: number; sky?: 'day' | 'dusk' | 'snow' | 'night'; fog?: [string, number, number]; sun?: number };
+  /** how long the end celebration lasts before the results (ms) */
+  outro?: number;
+}
+
+const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] => { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e; };
+export const lerp = THREE.MathUtils.lerp;
+
+export interface Arcade {
+  root: HTMLElement; hud: HTMLElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer;
+  time: { value: number }; ctl: Controls; mobile: boolean; real: boolean; mats: M.Mats;
+  sun: THREE.DirectionalLight; hemi: THREE.HemisphereLight; sky: THREE.Mesh; ground: THREE.Mesh;
+  camTarget: THREE.Vector3; cam: { back: number; up: number; lookDy: number; lead: number };
+  /** the intro card; the game starts when it's dismissed */
+  intro: HTMLElement; started: () => boolean; paused: () => boolean;
+  play: (f: () => void) => void; tip: (key: string, text: string, ms?: number) => void;
+  banner: (text: string, cls?: string) => void; flash: (text: string, cls?: string) => void;
+  float: (x: number, y: number, z: number, text: string, cls?: string) => void;
+  setScore: (n: number) => void; setCount: (text: string, n?: string) => void; setTime: (secsLeft: number, warn?: boolean) => void; setCombo: (chain: number, mult: number, next: { at: number; mult: number } | null) => void;
+  /** particles */
+  chips: (at: THREE.Vector3, n: number, color?: string) => void; sparks: (at: THREE.Vector3, n: number) => void; puff: (at: THREE.Vector3, n?: number, color?: string) => void;
+  /** a Fuzzy figure (yours or a rival's) */
+  figure: (skin: [string, string], r?: number) => Figure; walk: (f: Figure, speedK: number, dt: number) => void;
+  /** start the loop; `step` runs on a fixed step with the input vector, `frame` once per rendered frame */
+  run: (step: (dt: number, input: { x: number; z: number }) => void, frame: (dt: number, now: number) => void) => void;
+  /** end the game: shows the flash, waits the outro, hands the result over and tears down */
+  finish: (r: MiniResult, flashText?: string) => void;
+  warn: (n: number) => void; onAction: (f: () => void) => void; destroy: () => void; start: () => void;
+}
+
+export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
+  const { setup, adv, hooks } = o;
+  const mobile = setup.mobile;
+  const W = o.world ?? {};
+  const size = W.size ?? { hw: 16, hd: 11 };
+  // ---- DOM ----
+  const root = el('div', `${o.cls} mg`);
+  const canvas = document.createElement('canvas'); canvas.className = 'race-canvas';
+  const hud = el('div', 'race-hud mg-hud');
+  const scoreEl = el('div', 'race-lap mg-score'); const scoreN = el('b', '', '0'); scoreEl.append(el('small', '', o.hud?.score ?? 'SCORE'), scoreN);
+  const countEl = el('div', 'race-pos mg-count'); const countN = el('b', '', '0'); const countS = el('small', 'forest-trees', ''); countEl.append(el('small', '', o.hud?.count ?? ''), countN, countS);
+  if (!o.hud?.count) countEl.hidden = true;
+  const timeEl = el('div', 'race-time forest-time mg-time'); const timeN = el('span', '', adv.limit ? `${Math.floor(adv.limit / 60)}:${String(adv.limit % 60).padStart(2, '0')}` : '0:00'); timeEl.append(timeN);
+  const comboEl = el('div', 'mg-combo'); const comboN = el('b', '', '×1'); const comboS = el('small', ''); comboEl.append(comboN, comboS);
+  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause'); pauseBtn.textContent = '❚❚';
+  const bannerEl = el('div', 'race-banner');
+  const count = el('div', 'race-count');
+  const floats = el('div', 'mg-floats');
+  const hint = el('div', 'race-hint', o.hud?.hint ? (mobile ? o.hud.hint.mobile : o.hud.hint.desktop) : (mobile ? adv.controls.mobile : adv.controls.desktop));
+  hud.append(scoreEl, countEl, timeEl, comboEl, pauseBtn, bannerEl, count, hint, floats);
+  const variant: Variant | null = setup.variant ? adv.variants?.[setup.variant] ?? null : null;
+  const intro = introCard({ adv, variant, host: setup.host, mobile, buttonLabel: o.buttonLabel ?? 'Let’s go!', onStart: () => start(), extra: o.extra });
+  const pauseOverlay = el('div', 'race-paused'); pauseOverlay.hidden = true;
+  const resume = el('button', 'btn btn-primary btn-lg', 'Resume'); resume.type = 'button';
+  const restart = el('button', 'btn btn-soft', 'Restart'); restart.type = 'button';
+  const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
+  const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'Take your time.'), resume, restart, quit);
+  pauseOverlay.append(pbox);
+  root.append(canvas, hud, intro, pauseOverlay);
+  stage.append(root);
+  const tips = makeCoach(root);
+
+  // ---- renderer & scene ----
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.shadowMap.enabled = !mobile; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const env = pmrem.fromScene(new RoomEnvironment(), 0.04);
+  scene.environment = env.texture; scene.environmentIntensity = 0.3;
+  const camera = new THREE.PerspectiveCamera(o.camera?.fov ?? (mobile ? 44 : 36), 1, 0.3, 300);
+  const skyKind = W.sky ?? 'day';
+  const sunColor = skyKind === 'dusk' ? 0xffd2a6 : skyKind === 'night' ? 0xb9c8ff : skyKind === 'snow' ? 0xf4f8ff : 0xfff1dc;
+  const sun = new THREE.DirectionalLight(sunColor, W.sun ?? (skyKind === 'night' ? 1.2 : 2.4));
+  sun.position.set(-14, 22, 12); sun.castShadow = !mobile;
+  Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 2, far: 90 });
+  sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  const hemi = new THREE.HemisphereLight(skyKind === 'night' ? 0x8fa3ff : 0xdff0ff, skyKind === 'snow' ? 0xdde7ee : 0x6a8a4a, skyKind === 'night' ? 0.5 : 0.75);
+  scene.add(sun, sun.target, hemi);
+  const sky = buildSky(); scene.add(sky);
+  const skyMat = sky.material as THREE.ShaderMaterial;
+  if (skyKind === 'dusk') { (skyMat.uniforms.uTop.value as THREE.Color).set('#6a5aa8'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#ffc9a0'); }
+  else if (skyKind === 'night') { (skyMat.uniforms.uTop.value as THREE.Color).set('#1b2140'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#4a5a9a'); }
+  else if (skyKind === 'snow') { (skyMat.uniforms.uTop.value as THREE.Color).set('#9fc0e0'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#e9f1fa'); }
+  const fog = W.fog ?? (skyKind === 'night' ? ['#2a3560', 30, 110] : skyKind === 'snow' ? ['#e4edf5', 35, 120] : ['#cfe6ee', 45, 130]);
+  scene.fog = new THREE.Fog(fog[0], fog[1], fog[2]);
+  const time = { value: 0 };
+  // ground: a soft two-tone surface with an optional dirt path across the start
+  const [gA, gB] = W.ground ?? ['#79c86b', '#5fb35a'];
+  const ground = new THREE.PlaneGeometry(120, 120, 80, 80).rotateX(-Math.PI / 2);
+  const gp = ground.attributes.position, gc = new Float32Array(gp.count * 3);
+  const g1 = new THREE.Color(gA), g2 = new THREE.Color(gB), dirt = new THREE.Color('#c9a06b');
+  const cc = new THREE.Color();
+  for (let i = 0; i < gp.count; i++) {
+    const x = gp.getX(i), z = gp.getZ(i);
+    const n = Math.sin(x * 0.8) * Math.cos(z * 0.6) * 0.5 + 0.5;
+    const path = W.path ? Math.exp(-Math.pow((z - size.hd * 0.45) / 1.3, 2)) * (Math.abs(x) < 7 ? 1 : 0) : 0;
+    cc.copy(g1).lerp(g2, n).lerp(dirt, path * 0.9);
+    gc.set([cc.r, cc.g, cc.b], i * 3);
+    gp.setY(i, Math.sin(x * 0.5) * Math.cos(z * 0.4) * 0.05);
+  }
+  ground.setAttribute('color', new THREE.BufferAttribute(gc, 3)); ground.computeVertexNormals();
+  const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+  groundMesh.receiveShadow = !mobile; scene.add(groundMesh);
+  const rr = T.rng(setup.seed + 101);
+  if (W.treeLine !== false) for (let i = 0; i < (mobile ? 28 : 44); i++) { const a = (i / 44) * Math.PI * 2; const r = 1 + (i % 5) * 0.35; const t = treeModel(100 + i, time, 1.1 + (i % 3) * 0.3); t.position.set(Math.cos(a) * (size.hw + 3.5) * r, 0, Math.sin(a) * (size.hd + 3.5) * r); scene.add(t); }
+  if (W.fence !== false) {
+    const rail = std('#b58a5a', 0.9);
+    const { hw, hd } = size;
+    for (let x = -hw; x <= hw; x += 2) for (const z of [-hd, hd]) { add(scene, new THREE.CylinderGeometry(0.06, 0.07, 0.8, 8), rail, x, 0.4, z, false); if (x < hw) add(scene, new THREE.BoxGeometry(2, 0.07, 0.07), rail, x + 1, 0.6, z, false); }
+    for (let z = -hd; z <= hd; z += 2) for (const x of [-hw, hw]) { add(scene, new THREE.CylinderGeometry(0.06, 0.07, 0.8, 8), rail, x, 0.4, z, false); if (z < hd) add(scene, new THREE.BoxGeometry(0.07, 0.07, 2), rail, x, 0.6, z + 1, false); }
+  }
+  for (let i = 0; i < (W.flowers ?? (mobile ? 14 : 26)); i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), std(i % 3 ? '#ff8fb4' : '#ffc94a', 0.6)); f.position.set((rr() - 0.5) * size.hw * 2, 0.1, (rr() - 0.5) * size.hd * 2); f.scale.y = 0.6; scene.add(f); }
+
+  // ---- figures, particles ----
+  const mats = { fur: T.furStrands() } as unknown as M.Mats;
+  const real = !!setup.deluxe && glbReady();
+  const shadowTex = T.glow('rgba(0,0,0,0.45)', 'rgba(0,0,0,0)');
+  const figure = (skin: [string, string], r = 0.3): Figure => {
+    const fuzzy = real ? glbFuzzy(skin, r * 1.13, { shadow: !mobile }) : M.makeFuzzy(mats, skin, r, 0.09, mobile ? 6 : 9);
+    const group = new THREE.Group();
+    const base = real ? r * 1.33 : r * 1.13;
+    fuzzy.group.position.y = base;
+    group.add(fuzzy.group);
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(r * 1.6, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })); shadow.position.y = 0.02; group.add(shadow);
+    scene.add(group);
+    return { group, fuzzy, squash: 0, base };
+  };
+  const walk = (f: Figure, speedK: number, dt: number) => {
+    f.squash = lerp(f.squash, 0, Math.min(1, dt * 8));
+    f.fuzzy.group.position.y = f.base + Math.abs(Math.sin(time.value * 11)) * 0.08 * speedK;
+    f.fuzzy.body.rotation.z = Math.sin(time.value * 11) * 0.1 * speedK;
+    f.fuzzy.body.scale.set(1 + f.squash * 0.18, 1 - f.squash * 0.22, 1 + f.squash * 0.18);
+  };
+  const chipMat = std('#d9b27a', 0.9);
+  const chipsArr: { m: THREE.Mesh; v: THREE.Vector3; life: number }[] = [];
+  const chips = (at: THREE.Vector3, n: number, color?: string) => { const mat = color ? std(color, 0.85) : chipMat; for (let i = 0; i < n; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 0.12), mat); m.position.copy(at); m.rotation.set(Math.random() * 3, Math.random() * 3, 0); scene.add(m); chipsArr.push({ m, v: new THREE.Vector3((Math.random() - 0.5) * 3, 2 + Math.random() * 2, (Math.random() - 0.5) * 3), life: 0 }); } };
+  const sparkTex = T.glow('rgba(255,230,120,1)', 'rgba(255,230,120,0)');
+  const sparkMat = new THREE.SpriteMaterial({ map: sparkTex, transparent: true, depthWrite: false, opacity: 0.9 });
+  const sparksArr: { s: THREE.Sprite; v: THREE.Vector3; life: number; max: number }[] = [];
+  const sparks = (at: THREE.Vector3, n: number) => { for (let i = 0; i < n; i++) { const s = new THREE.Sprite(sparkMat); s.position.copy(at); s.scale.setScalar(0.3); scene.add(s); sparksArr.push({ s, v: new THREE.Vector3((Math.random() - 0.5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 3), life: 0, max: 1.2 }); } };
+  const puffTex = T.glow('rgba(255,255,255,0.9)', 'rgba(255,255,255,0)');
+  const puff = (at: THREE.Vector3, n = 4, color = '#ffffff') => { for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, depthWrite: false, opacity: 0.7, color })); s.position.copy(at); s.scale.setScalar(0.4); scene.add(s); sparksArr.push({ s, v: new THREE.Vector3((Math.random() - 0.5) * 1.5, 0.8 + Math.random(), (Math.random() - 0.5) * 1.5), life: 0, max: 0.8 }); } };
+
+  // ---- camera ----
+  const camTarget = new THREE.Vector3(0, 0, 0);
+  const cam = { back: o.camera?.back ?? (mobile ? 10 : 11), up: o.camera?.up ?? (mobile ? 12.5 : 12), lookDy: o.camera?.lookDy ?? -0.5, lead: o.camera?.lead ?? 0.25 };
+  const resize = () => { const w = root.clientWidth || innerWidth, h = root.clientHeight || innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+  resize();
+  const ro = new ResizeObserver(resize); ro.observe(root);
+
+  // ---- controls ----
+  const ctl: Controls = o.controls?.none
+    ? { read: () => ({ x: 0, z: 0 }), action: false, onAction: null, destroy: () => { /* nothing mounted */ } }
+    : mountControls(root, { touch: o.controls?.touch ?? mobile, mouseSteer: o.controls?.mouseSteer ?? !mobile, actionKeys: o.controls?.actionKeys });
+  let actionFn: (() => void) | null = null;
+  ctl.onAction = () => { if (!intro.hidden) start(); else actionFn?.(); };
+  const floatText = (x: number, y: number, z: number, text: string, cls = '') => {
+    const v = new THREE.Vector3(x, y, z).project(camera);
+    const d = el('span', `mg-float ${cls}`, text);
+    d.style.left = `${(v.x * 0.5 + 0.5) * 100}%`; d.style.top = `${(-v.y * 0.5 + 0.5) * 100}%`;
+    floats.append(d); setTimeout(() => d.remove(), 900);
+  };
+
+  // ---- pause / start / end ----
+  let paused = false, done = false, finishedAt = 0, startedFlag = false, pendingResult: MiniResult | null = null;
+  const play = (f: () => void) => { if (setup.sound) try { f(); } catch { /* no audio */ } };
+  const togglePause = () => { if (done || !intro.hidden) return; paused = !paused; pauseOverlay.hidden = !paused; };
+  pauseBtn.addEventListener('click', togglePause);
+  resume.addEventListener('click', togglePause);
+  quit.addEventListener('click', () => { destroy(); hooks.onQuit(); });
+  restart.addEventListener('click', () => { destroy(); if (hooks.onRestart) hooks.onRestart(); else hooks.onQuit(); });
+  const start = () => { if (intro.hidden) return; intro.hidden = true; startedFlag = true; o.onStart?.(); play(snd.go); count.textContent = 'GO!'; count.className = 'race-count go'; setTimeout(() => { if (count.textContent === 'GO!') { count.textContent = ''; count.className = 'race-count'; } }, 900); setTimeout(() => hint.classList.add('fade'), 4000); last = performance.now(); };
+  const onKey = (e: KeyboardEvent) => { if (e.repeat) return; const k = e.key.toLowerCase(); if (k === 'escape' || k === 'p') togglePause(); };
+  addEventListener('keydown', onKey);
+  const onVis = () => { if (document.hidden && !paused && startedFlag && !done) togglePause(); };
+  document.addEventListener('visibilitychange', onVis);
+  const banner = (t: string, cls = '') => { bannerEl.textContent = t; bannerEl.className = `race-banner ${cls}`; void bannerEl.offsetWidth; bannerEl.classList.add('on'); setTimeout(() => bannerEl.classList.remove('on'), 1500); };
+  const flash = (t: string, cls = '') => { count.textContent = t; count.className = `race-count ${cls}`; void count.offsetWidth; count.classList.add('pop'); };
+  const warn = (n: number) => { if (n === 30) banner('30 seconds left!'); else if (n === 10) banner('10 seconds!', 'warn'); else if (n <= 3) flash(String(n)); play(n <= 3 ? snd.count : vac.tick); };
+  let lastSec = -1, lastCombo = 1, lastScore = -1;
+  const setScore = (n: number) => { if (n === lastScore) return; lastScore = n; scoreN.textContent = String(n); scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump'); };
+  const setCount = (text: string, sub?: string) => { if (countN.textContent !== text) countN.textContent = text; if (sub !== undefined && countS.textContent !== sub) countS.textContent = sub; };
+  const setTime = (left: number, w = left <= 10) => { const s = Math.ceil(left); if (s !== lastSec) { lastSec = s; timeN.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; timeEl.classList.toggle('warn', w && s > 0); } };
+  const setCombo = (chain: number, mult: number, next: { at: number; mult: number } | null) => { if (chain > 1) { comboEl.classList.add('on'); comboN.textContent = `×${mult}`; comboS.textContent = next ? `${chain} in a row · ${next.at - chain} more for ×${next.mult}` : `${chain} in a row · MAX`; if (mult !== lastCombo) { comboEl.classList.remove('bump'); void comboEl.offsetWidth; comboEl.classList.add('bump'); } } else comboEl.classList.remove('on'); lastCombo = mult; };
+  const finish = (r: MiniResult, flashText = 'TIME!') => { if (done || pendingResult) return; pendingResult = r; finishedAt = performance.now(); flash(flashText, 'go'); play(snd.finish); };
+
+  // ---- the loop ----
+  let raf = 0, last = performance.now(), acc = 0;
+  const STEP = 1 / 120;
+  const run = (step: (dt: number, input: { x: number; z: number }) => void, frame: (dt: number, now: number) => void) => {
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+      if (paused) return;
+      if (!startedFlag) { renderer.render(scene, camera); return; }
+      time.value += dt;
+      if (!pendingResult) { const input = ctl.read(); acc += dt; while (acc >= STEP) { step(STEP, { x: input.x, z: input.z }); acc -= STEP; } }
+      // particles
+      for (let i = chipsArr.length - 1; i >= 0; i--) { const c = chipsArr[i]; c.life += dt; c.v.y -= 9 * dt; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += dt * 6; if (c.m.position.y < 0.02 || c.life > 1.6) { scene.remove(c.m); chipsArr.splice(i, 1); } }
+      for (let i = sparksArr.length - 1; i >= 0; i--) { const c = sparksArr[i]; c.life += dt; c.v.y -= 3 * dt; c.s.position.addScaledVector(c.v, dt); (c.s.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - c.life / c.max); if (c.life > c.max) { scene.remove(c.s); sparksArr.splice(i, 1); } }
+      frame(dt, now);
+      camera.position.set(camTarget.x, cam.up, camTarget.z + cam.back);
+      camera.lookAt(camTarget.x, 0.6, camTarget.z + cam.lookDy);
+      sun.target.position.copy(camTarget);
+      sun.position.set(camTarget.x - 14, 22, camTarget.z + 12);
+      if (pendingResult && now - finishedAt > (o.outro ?? 1800)) { done = true; const r = pendingResult; destroy(); hooks.onFinish(r); return; }
+      renderer.render(scene, camera);
+    };
+    requestAnimationFrame(() => { last = performance.now(); raf = requestAnimationFrame(tick); });
+  };
+  let destroyed = false;
+  const destroy = () => {
+    if (destroyed) return; destroyed = true;
+    cancelAnimationFrame(raf);
+    removeEventListener('keydown', onKey);
+    document.removeEventListener('visibilitychange', onVis);
+    ro.disconnect(); ctl.destroy(); tips.destroy();
+    scene.traverse((obj) => { if (obj instanceof THREE.Mesh) obj.geometry.dispose(); });
+    env.dispose(); pmrem.dispose(); renderer.dispose(); renderer.forceContextLoss();
+    root.remove();
+  };
+  return {
+    root, hud, scene, camera, renderer, time, ctl, mobile, real, mats, sun, hemi, sky, ground: groundMesh, camTarget, cam, intro,
+    started: () => startedFlag, paused: () => paused, play, tip: (k, t, ms) => tips.say(k, t, ms), banner, flash, float: floatText,
+    setScore, setCount, setTime, setCombo, chips, sparks, puff, figure, walk, run, finish, warn, onAction: (f) => { actionFn = f; }, destroy, start,
+  };
+}
+
+/** Points → a tier (1 gold … 4) from thresholds, and its word. */
+export const TIER_WORDS = ['Gold', 'Silver', 'Bronze', 'Keep practising'];
+export const PALS = PAL;
+export { std, add, sfx, vac, snd };

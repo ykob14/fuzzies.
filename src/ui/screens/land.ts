@@ -8,6 +8,7 @@ import * as L from '../../land/rules';
 import * as E from '../../land/events';
 import * as A from '../../land/adventures';
 import { conversation, dailyPill, adventuresBody, resultsScreen, scoreResults } from '../landAdventure';
+import { GAME_LOADERS } from '../../land/games/index';
 import { api, cloudEnabled } from '../../core/api';
 import type { LandView, Pick } from '../../land/view3d';
 import { accounts } from '../../core/account';
@@ -1561,9 +1562,20 @@ export function landScreen(): Screen {
           onRestart: () => { playing = false; startAdventure(adv); },
         });
       }).catch(fail);
+    } else if (GAME_LOADERS[adv.id]) {
+      // every other mini-game: built on the shared kit (land/mgScene.ts), loaded by id
+      const host = hostOf(adv.id);
+      void Promise.all([GAME_LOADERS[adv.id](), model]).then(([{ run }]) => {
+        pause();
+        run(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed }, {
+          onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, score: res.score, mini: { ...res, hostPortrait: safePortrait(host.index) } }),
+          onQuit: () => backToTown(),
+          onRestart: () => { playing = false; startAdventure(adv); },
+        });
+      }).catch(fail);
     } else { playing = false; toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); }
   }
-  interface AdvResult { place: number; timeMs: number; score?: number; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { score: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string; hostPortrait: string; standings: { name: string; score: number; you: boolean; place: number; cleared: number }[] }; vacuum?: { score: number; collected: number; count: { small: number; large: number; gold: number }; bestCombo: number; tier: string; hostPortrait: string } }
+  interface AdvResult { place: number; timeMs: number; score?: number; mini?: { score: number; tier: string; stats: { label: string; value: string }[]; standings?: { name: string; score: number; you: boolean; place: number }[]; hostPortrait: string }; race?: { name: string; place: number; you: boolean; index: number }[]; forest?: { score: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string; hostPortrait: string; standings: { name: string; score: number; you: boolean; place: number; cleared: number }[] }; vacuum?: { score: number; collected: number; count: { small: number; large: number; gold: number }; bestCombo: number; tier: string; hostPortrait: string } }
   function backToTown(): void {
     playing = false;
     stage.querySelector('.adv-results')?.remove();
@@ -1580,7 +1592,9 @@ export function landScreen(): Screen {
       const st = A.setStatus(s, now());
       const next = st.allDone ? (st.ready ? 'New missions are ready — tap the compass in town.' : `All three done — new missions in ${A.countdown(st.unlockIn)}.`) : `${st.total - st.doneCount} mission${st.total - st.doneCount === 1 ? '' : 's'} to go.`;
       const common = { adv, place: res.place, timeMs: res.timeMs, payout, pending, next, best: res.score !== undefined ? (A.adventures(s, now()).bestScore[adv.id] ?? null) : null, onBack: () => { screen.remove(); backToTown(); } }; // no "play again": a mission pays once
-      const screen: HTMLElement = res.vacuum
+      const screen: HTMLElement = res.mini
+        ? scoreResults({ ...common, score: res.mini.score, tier: res.mini.tier, hostPortrait: res.mini.hostPortrait, standings: res.mini.standings, stats: res.mini.stats })
+        : res.vacuum
         ? scoreResults({ ...common, score: res.vacuum.score, tier: res.vacuum.tier, hostPortrait: res.vacuum.hostPortrait, stats: [{ label: 'Hairballs', value: String(res.vacuum.collected) }, { label: 'Golden', value: String(res.vacuum.count.gold) }, { label: 'Big ones', value: String(res.vacuum.count.large) }, { label: 'Best chain', value: `×${res.vacuum.bestCombo}` }] })
         : res.forest
         ? scoreResults({ ...common, score: res.forest.score, tier: res.forest.tier, hostPortrait: res.forest.hostPortrait, standings: res.forest.standings, stats: [{ label: 'Trees cut', value: String(res.forest.cleared) }, { label: 'Wood', value: String(res.forest.wood) }, { label: 'Perfect hits', value: String(res.forest.perfect) }, { label: 'Best chain', value: `×${res.forest.bestCombo}` }] })
