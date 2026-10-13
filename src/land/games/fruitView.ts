@@ -1,7 +1,7 @@
 /**
  * Fruit Catcher — the orchard scene, built from real models: the orchard kit (public/models/kits/orchard.glb — Quaternius
  * trees, ground cover and a farmhouse assembled from their village kit, all CC0; our own fruit, pinecone and woven basket)
- * and the hero Fuzzy (game/fuzzyHero.ts: long layered fur, big sparkly eyes that follow the fruit, the fanged smile, moods).
+ * and the owner's own Fuzzy (their 3D model, unchanged — only lit, shadowed and sized to sit in the scene).
  * A sunny lane between a picket fence and a row of fruit trees; the Fuzzy balances the basket on its head and follows your
  * finger (drag anywhere) or A/D / arrows. Fruit pops out of a shaking crown, tumbles down with a landing shadow, arcs into
  * the basket and piles up there; misses bounce and roll away; a pinecone leaves the Fuzzy dizzy.
@@ -15,7 +15,7 @@ import { adventure } from '../adventures';
 import { FruitSim, ARENA, SCORING, BASKET, type Falling, type FruitKind } from './fruit';
 import * as O from './orchardArt';
 import { loadKit, type Kit } from '../assets/kit';
-import { makeHero } from '../../game/fuzzyHero';
+import { loadFuzzyGlb } from '../../game/fuzzyGlb';
 
 const JUICE: Record<FruitKind, string> = { apple: '#ff5a4a', pear: '#d8e070', berry: '#ff3d6a', gold: '#ffd84a', cone: '#9a6a3a' };
 const FRUIT_NODE: Record<FruitKind, string> = { apple: 'fruit_apple', pear: 'fruit_pear', berry: 'fruit_berry', gold: 'fruit_gold', cone: 'fruit_cone' };
@@ -48,7 +48,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new FruitSim(setup.variant === 'golden' ? 'golden' : 'classic', setup.seed, hw);
   const lite = setup.mobile;
   // start fetching the art while the intro card is up; the run starts when it's here (or has failed → fallback art)
-  const kits = loadKit('orchard', lite);
+  // (and the owner's Fuzzy model, if this player uses it, so the figure is made from it)
+  const kits = Promise.all([loadKit('orchard', lite), setup.deluxe ? Promise.race([loadFuzzyGlb(), new Promise((r) => setTimeout(r, 6000))]) : null]).then(([k]) => k);
   let built = false;
   const ready = new Promise<void>((res) => { const t = setInterval(() => { if (built) { clearInterval(t); res(); } }, 50); });
   const a = createArcade(stage, {
@@ -90,6 +91,34 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const clouds: THREE.Object3D[] = [];
   let kit: Kit | null = null;
   let me: Player;
+
+  /** You: the owner's Fuzzy exactly as it is (or the drawn one if the model isn't loaded), drawn big — on a phone it's about
+   * a fifth of the screen's height with the basket — with a basket balanced on its head; hops on a catch, leans into the run. */
+  const figurePlayer = (b: { group: THREE.Object3D; topY: number; width: number; fill: (kinds: O.FruitArtKind[]) => void; glow: (v: number) => void }): Player => {
+    const R = portrait ? 0.78 : 0.62;
+    const fig = a.figure(setup.you.skin, R);
+    fig.group.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+    const bs = R * 1.05 / b.width; // the basket about as wide as the Fuzzy
+    const holder = new THREE.Group(); holder.position.y = R * 0.95; holder.scale.setScalar(bs); holder.add(b.group); fig.fuzzy.group.add(holder);
+    let hopY = 0, hopV = 0, tilt = 0, tiltV = 0, sq = 0;
+    return {
+      group: fig.group, rimY: fig.base + R * 0.95 + b.topY * bs * 0.85,
+      basket: { group: holder, fill: b.fill, glow: b.glow },
+      frame(dt, s) {
+        hopV -= 15 * dt; hopY = Math.max(0, hopY + hopV * dt); if (hopY === 0 && hopV < 0) { if (hopV < -1.5) fig.squash = Math.max(fig.squash, 0.35); hopV = 0; }
+        fig.group.position.set(sim.x, hopY, 0); fig.group.rotation.y = s.yaw; fig.fuzzy.group.rotation.z = s.lean;
+        fig.fuzzy.group.rotation.x = lerp(fig.fuzzy.group.rotation.x, s.speed < 0.15 ? -0.1 + Math.sin(s.t * 2) * 0.03 : 0.05, Math.min(1, dt * 4)); // looks up for fruit when standing
+        if (s.stun) fig.fuzzy.group.rotation.z += Math.sin(s.t * 28) * 0.12;
+        a.walk(fig, s.speed, dt);
+        tiltV += ((s.vx * 0.045) - tilt) * 90 * dt - tiltV * 9 * dt; tilt += tiltV * dt; sq = Math.max(0, sq - dt * 5);
+        holder.rotation.z = tilt; holder.scale.set(bs * (1 + Math.sin(sq * 3) * 0.06 * sq), bs * (1 - 0.12 * sq), bs * (1 + Math.sin(sq * 3) * 0.06 * sq));
+      },
+      catch() { if (hopY < 0.05) hopV = 2.3; sq = 1; },
+      cheer() { if (hopY < 0.05) hopV = 3; },
+      ouch() { fig.squash = 0.7; sq = 1.4; },
+      miss() { fig.squash = Math.max(fig.squash, 0.2); },
+    };
+  };
 
   // ---------------------------------------------------------------- the kit scene
   const buildKit = (k: Kit) => {
@@ -144,40 +173,14 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
           float bend = max(0.0, position.y) * 0.08;
           transformed.x += sin(uTime * 1.9 + ph) * bend; transformed.z += cos(uTime * 1.5 + ph * 1.3) * bend * 0.5;
         #endif`); }; m.customProgramCacheKey = () => 'sway'; m.needsUpdate = true; });
-    // ---- you: the hero Fuzzy with the woven basket balanced on its fur ----
-    const H = portrait ? 1.95 : 1.55;
-    const hero = makeHero(setup.you.skin, { height: H, lite });
-    scene.add(hero.group);
-    const bk = k.clone('basket'); const holder = new THREE.Group(); holder.position.y = hero.top - 0.12; holder.scale.setScalar(0.55); holder.add(bk); hero.body.add(holder);
-    const pile = new THREE.Group(); bk.add(pile);
+    // ---- you: the owner's Fuzzy with the woven basket balanced on its head ----
+    const bk = k.clone('basket'); const pile = new THREE.Group(); bk.add(pile);
     const rimMats: THREE.MeshStandardMaterial[] = []; bk.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.material = (m.material as THREE.MeshStandardMaterial).clone(); rimMats.push(m.material as THREE.MeshStandardMaterial); } });
-    hero.group.updateMatrixWorld(true);
-    const rim = new THREE.Vector3(0, 0.72, 0); bk.localToWorld(rim);
-    let tilt = 0, tiltV = 0, squash = 0;
-    me = {
-      group: hero.group, rimY: rim.y,
-      basket: {
-        group: holder,
-        fill(kinds) { pile.clear(); kinds.slice(-9).forEach((kd, i) => { const f = k.clone(FRUIT_NODE[kd as FruitKind] ?? 'fruit_apple', { shadow: false }); const ring = i < 5 ? 0.42 : 0.2, an = i * 2.4; f.position.set(Math.cos(an) * ring, 0.52 + (i < 5 ? 0 : 0.18), Math.sin(an) * ring); f.scale.setScalar(0.26); f.rotation.set(rr(), rr() * 6, rr()); pile.add(f); }); },
-        glow(v) { for (const m of rimMats) { m.emissive.set('#ffb84a'); m.emissiveIntensity = v; } },
-      },
-      frame(dt, s) {
-        hero.move(s.speed, s.vx);
-        hero.group.position.set(sim.x, 0, 0);
-        hero.group.rotation.y = s.yaw; hero.group.rotation.z = s.lean;
-        hero.look(s.look);
-        hero.dizzy(s.stun);
-        // the basket: a damped spring that swings behind the run and squashes on a catch
-        tiltV += ((s.vx * 0.045) - tilt) * 90 * dt - tiltV * 9 * dt; tilt += tiltV * dt;
-        squash = Math.max(0, squash - dt * 5);
-        holder.rotation.z = tilt; holder.scale.set(0.55 * (1 + Math.sin(squash * 3) * 0.06 * squash), 0.55 * (1 - 0.12 * squash), 0.55 * (1 + Math.sin(squash * 3) * 0.06 * squash));
-        hero.update(dt);
-      },
-      catch(gold) { hero.act(gold ? 'cheer' : 'hop'); hero.mood(gold ? 'happy' : 'laugh', gold ? 1.2 : 0.5); squash = 1; if (Math.random() < 0.3) hero.blink(); },
-      cheer() { hero.act('hop'); hero.mood('happy', 1.1); }, // the whole Fuzzy + basket spins (below), so no extra spin here
-      ouch() { hero.mood('o', 1.0); squash = 1.4; },
-      miss() { hero.mood('o', 0.7); },
-    };
+    me = figurePlayer({
+      group: bk, topY: 0.72, width: 1,
+      fill(kinds) { pile.clear(); kinds.slice(-9).forEach((kd, i) => { const f = k.clone(FRUIT_NODE[kd as FruitKind] ?? 'fruit_apple', { shadow: false }); const ring = i < 5 ? 0.42 : 0.2, an = i * 2.4; f.position.set(Math.cos(an) * ring, 0.52 + (i < 5 ? 0 : 0.18), Math.sin(an) * ring); f.scale.setScalar(0.26); f.rotation.set(rr(), rr() * 6, rr()); pile.add(f); }); },
+      glow(v) { for (const m of rimMats) { m.emissive.set('#ffb84a'); m.emissiveIntensity = v; } },
+    });
     me.basket.fill([]);
   };
 
@@ -197,27 +200,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     scene.add(O.fence(-span - 6, span + 6, -1.3));
     const tufts: { x: number; z: number; s: number }[] = []; for (let i = 0; tufts.length < (lite ? 230 : 380) && i < 4000; i++) { const z = -14 + Math.pow(rr(), 0.7) * 24, x = (rr() - 0.5) * 2 * (halfWAt(z) + 2); if (free(x, z)) tufts.push({ x, z, s: 0.6 + rr() * 0.6 }); }
     scene.add(O.grassTufts(tufts, time));
-    const R = portrait ? 0.55 : 0.46;
-    const fig = a.figure(setup.you.skin, R);
-    fig.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
-    const basket = O.basketModel(R * 1.72);
-    const holder = new THREE.Group(); holder.position.y = R * 0.92; holder.add(basket.group); fig.fuzzy.group.add(holder);
-    let hopY = 0, hopV = 0, tilt = 0, tiltV = 0, sq = 0;
-    me = {
-      group: fig.group, rimY: fig.base + R * 0.92 + basket.topY * 0.6,
-      basket: { group: holder, fill: (kinds) => basket.fill(kinds), glow: (v) => { (basket.rim.material as THREE.MeshStandardMaterial).emissiveIntensity = v; } },
-      frame(dt, s) {
-        hopV -= 15 * dt; hopY = Math.max(0, hopY + hopV * dt); if (hopY === 0 && hopV < 0) { if (hopV < -1.5) fig.squash = Math.max(fig.squash, 0.35); hopV = 0; }
-        fig.group.position.set(sim.x, hopY, 0); fig.group.rotation.y = s.yaw; fig.fuzzy.group.rotation.z = s.lean;
-        a.walk(fig, s.speed, dt);
-        tiltV += ((s.vx * 0.045) - tilt) * 90 * dt - tiltV * 9 * dt; tilt += tiltV * dt; sq = Math.max(0, sq - dt * 5);
-        basket.group.rotation.z = tilt; basket.group.scale.set(1 + Math.sin(sq * 3) * 0.06 * sq, 1 - 0.12 * sq, 1 + Math.sin(sq * 3) * 0.06 * sq);
-      },
-      catch() { if (hopY < 0.05) hopV = 2.3; sq = 1; },
-      cheer() { /* the spin is enough */ },
-      ouch() { fig.squash = 0.7; sq = 1.4; },
-      miss() { /* nothing */ },
-    };
+    const basket = O.basketModel(1);
+    me = figurePlayer({ group: basket.group, topY: basket.topY, width: 1, fill: (kinds) => basket.fill(kinds), glow: (v) => { (basket.rim.material as THREE.MeshStandardMaterial).emissiveIntensity = v; } });
   };
 
   void kits.then((k) => { buildKit(k); }).catch((e) => { console.warn('Orchard models unavailable, using the drawn orchard', e); buildFallback(); }).finally(() => { built = true; afterBuild(); });

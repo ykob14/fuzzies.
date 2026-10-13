@@ -191,9 +191,10 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   const real = !!setup.deluxe && glbReady();
   const shadowTex = T.glow('rgba(0,0,0,0.45)', 'rgba(0,0,0,0)');
   const figure = (skin: [string, string], r = 0.3): Figure => {
-    const fuzzy = real ? glbFuzzy(skin, r * 1.13, { shadow: !mobile }) : M.makeFuzzy(mats, skin, r, 0.09, mobile ? 6 : 9);
+    const glb = !!setup.deluxe && glbReady(); // checked per figure: a scene may wait for the model before making its Fuzzy
+    const fuzzy = glb ? glbFuzzy(skin, r * 1.13, { shadow: !mobile }) : M.makeFuzzy(mats, skin, r, 0.09, mobile ? 6 : 9);
     const group = new THREE.Group();
-    const base = real ? r * 1.33 : r * 1.13;
+    const base = glb ? r * 1.33 : r * 1.13;
     fuzzy.group.position.y = base;
     group.add(fuzzy.group);
     const shadow = new THREE.Mesh(new THREE.CircleGeometry(r * 1.6, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })); shadow.position.y = 0.02; group.add(shadow);
