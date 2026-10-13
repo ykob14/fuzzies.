@@ -80,7 +80,7 @@ export function trophyModel(itemId: string): THREE.Group | null {
   const g = new THREE.Group();
   // base: a dark wooden block with a cream top and the game's coloured plaque (a metal star on it)
   add(g, rbox(0.56, 0.2, 0.56, 0.05), std('#6b4a2e', 0.6), 0, 0.1, 0);
-  add(g, rbox(0.46, 0.06, 0.46, 0.03), std(PAL.trim, 0.7), 0, 0.23, 0);
+  add(g, rbox(0.46, 0.06, 0.46, 0.03), std('#efd9b4', 0.7), 0, 0.23, 0);
   add(g, rbox(0.34, 0.12, 0.02, 0.01), gloss(look.plaque, 0.35), 0, 0.1, 0.285, false);
   add(g, extrude(starShape(0.035, 0.016), 0.008), trim, 0, 0.1, 0.3, false);
   // the cup on its stem
