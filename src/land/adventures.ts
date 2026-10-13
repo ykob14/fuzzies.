@@ -112,7 +112,7 @@ export const ADVENTURES: Adventure[] = [
     tip: 'Watch the shadows on the path — they show where each fruit will land.' },
   { id: 'fishing', name: 'Fishing Frenzy', short: 'Fishing Frenzy', emoji: '🎣', hosts: ['fisher'], kind: 'score', limit: 120,
     pitch: 'The lake is boiling with fish today! Cast, wait for the bite, hook it at the right moment and reel it in. Two minutes!',
-    objective: 'Catch the most fish from the jetty', coins: [100, 65, 35, 15], xp: 25, playable: false,
+    objective: 'Catch the most fish from the jetty', coins: [100, 65, 35, 15], xp: 25, playable: true,
     howTo: ['Tap to cast, aim at the ripples', 'Tap the moment the float dips', 'Reel in while the fish is calm'],
     controls: { desktop: 'Space / click to cast and hook', mobile: 'Tap to cast and hook' },
     scoring: 'Minnow 10, perch 20, trout 35, golden carp 80; a perfect hook ×1.5. Gold 500, silver 300, bronze 150 points.',
