@@ -1318,13 +1318,16 @@ export function landScreen(): Screen {
     stage.append(ring);
     const timer = window.setTimeout(() => {
       cancelHold();
-      const b = s.buildings.find((o) => o.id === id);
-      if (!b || !drag || drag.moved || pts.size !== 1) return;
-      startPlacing(b.item, b.id);
-      drag.ghost = true;
-      drag.picked = true;
-      sfx.hop();
-      try { navigator.vibrate?.(12); } catch { /* not supported */ }
+      // decide a moment later: a finger-move that is still queued (a janky phone) gets processed first and cancels the pick-up
+      setTimeout(() => {
+        const b = s.buildings.find((o) => o.id === id);
+        if (!b || !drag || drag.moved || pts.size !== 1 || placing) return;
+        startPlacing(b.item, b.id);
+        drag.ghost = true;
+        drag.picked = true;
+        sfx.hop();
+        try { navigator.vibrate?.(12); } catch { /* not supported */ }
+      }, 30);
     }, HOLD_MS);
     hold = { timer, ring };
   }
