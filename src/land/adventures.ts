@@ -65,26 +65,46 @@ export interface Adventure {
   /** the time limit in seconds (shown on the mission card) */
   limit?: number;
   variants?: Record<string, Variant>;
+  /** how to play, in 3–4 short steps (the mission card, the Adventures sheet and the game's own intro show these) */
+  howTo: string[];
+  /** the controls, in plain words, per device */
+  controls: { desktop: string; mobile: string };
+  /** one line on how the score / place works */
+  scoring: string;
+  /** a tip from the host */
+  tip: string;
 }
 
 export const ADVENTURES: Adventure[] = [
   { id: 'boatrace', name: 'Fuzzies Boat Race', short: 'Boat Race', emoji: '⛵', hosts: ['adventurous', 'fisher'], kind: 'race',
     pitch: 'I’m planning an exciting boat race around the island today! Three laps, three boats, one winner. Wanna join me?',
     objective: 'Race three laps around Palm Island and finish first', coins: [100, 60, 30], xp: 25, playable: true,
-    variants: { wild: { key: 'wild', name: 'Wild Water', note: 'Barrels, boost pads and rolling waves from the very first lap' } } },
+    variants: { wild: { key: 'wild', name: 'Wild Water', note: 'Barrels, boost pads and rolling waves from the very first lap' } },
+    howTo: ['Wait for GO!, then follow the gold arrow to the next gate', 'Drive through every numbered gate in order — the finish line only counts after all eight', 'Missed one? The screen says so and the arrow points back: turn round and take it', 'Stay inside the buoys; later laps add barrels, boost pads, currents and waves'],
+    controls: { desktop: 'W or ↑ accelerate · A / D or ← → steer · S or ↓ brake · Esc pause', mobile: 'Hold the LEFT or RIGHT side of the screen to steer — the engine runs by itself · BRAKE button in the middle' },
+    scoring: 'Your finishing place against three Fuzzies: 1st 100 coins, 2nd 60, 3rd 30 (+25 XP), once a day.',
+    tip: 'Ride the gold boost rings and brake a touch before the tight bend!' },
   { id: 'forest', name: 'Forest Challenge', short: 'Forest Challenge', emoji: '🪓', hosts: ['nature', 'builder'], kind: 'score', limit: 120,
     pitch: 'The woods need thinning and the town needs timber! Grab the axe — cut the marked trees and collect the wood. Two minutes, go for the big ones!',
     objective: 'Cut and collect as many marked trees as you can in two minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
-    variants: { deep: { key: 'deep', name: 'Deep Woods', note: 'Denser woods, bigger trees, more bonus trees hidden among them' } } },
+    variants: { deep: { key: 'deep', name: 'Deep Woods', note: 'Denser woods, bigger trees, more bonus trees hidden among them' } },
+    howTo: ['Walk up to a tree with a glowing ring — the chop meter appears', 'Tap CHOP when the marker is in the green: perfect hits do double damage', 'Walk over the wood that flies out to collect it (+5 each)', 'Perfect hits in a row multiply your points; new trees get marked as you go'],
+    controls: { desktop: 'WASD or arrows to walk (or hold the mouse) · Space or E to chop · Esc pause', mobile: 'Drag anywhere to walk · tap the big CHOP button · ❚❚ to pause' },
+    scoring: 'Small / medium / large trees = 20 / 45 / 90 points (2 / 4 / 7 perfect hits), sparkly bonus trees +60. Top tier 100 coins, then 65, 35, 15 (+25 XP), once a day.',
+    tip: 'Big trees pay best — but pick a route, the clock is ticking!' },
   { id: 'vacuum', name: 'Hairball Vacuum Challenge', short: 'Hairball Vacuum', emoji: '🧹', hosts: ['creative', 'baker'], kind: 'score', limit: 120,
     pitch: 'It was Big Brushing Day and there are hairballs EVERYWHERE! Take my vacuum and clean up the garden — two minutes, suck up as many as you can!',
     objective: 'Vacuum up as many Fuzzy hairballs as you can in two minutes', coins: [100, 65, 35, 15], xp: 25, playable: true,
-    variants: { golden: { key: 'golden', name: 'Golden Day', note: 'Twice the golden hairballs — and they keep coming back' } } },
-  { id: 'fishing', name: 'Fishing Contest', short: 'Fishing', emoji: '🎣', hosts: ['fisher'], pitch: 'The big one is out there. Fancy a fishing contest?', objective: 'Catch the most fish in three minutes', coins: [80, 50, 30], xp: 20, playable: false, kind: 'score' },
-  { id: 'treasure', name: 'Island Treasure Hunt', short: 'Treasure Hunt', emoji: '🗺️', hosts: ['explorer'], pitch: 'My map has an X on it. Shall we find out why?', objective: 'Follow the clues to the hidden chest', coins: [90, 60, 30], xp: 20, playable: false, kind: 'score' },
-  { id: 'harvest', name: 'Harvest Rush', short: 'Harvest Rush', emoji: '🌾', hosts: ['farmer'], pitch: 'The crops are all ready at once! Help me bring them in?', objective: 'Harvest the fields before the timer runs out', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score' },
-  { id: 'delivery', name: 'Delivery Dash', short: 'Delivery', emoji: '📦', hosts: ['baker'], pitch: 'Fresh buns, hungry Fuzzies, one little cart. Help me deliver?', objective: 'Deliver every parcel while it’s warm', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score' },
-  { id: 'garden', name: 'Garden Contest', short: 'Garden Contest', emoji: '🌷', hosts: ['creative'], pitch: 'A decorating contest! Make the prettiest garden on the island.', objective: 'Decorate the garden plot to win the judges over', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score' },
+    variants: { golden: { key: 'golden', name: 'Golden Day', note: 'Twice the golden hairballs — and they keep coming back' } },
+    howTo: ['Walk towards the hairballs — anything in front of the nozzle gets pulled in', 'Small ones 10 points, big ones 25, golden ones 100', 'Pick up quickly one after another to chain ×1.5, ×2, ×3', 'New fluff keeps appearing; the canister empties itself for a bonus when full'],
+    controls: { desktop: 'WASD or arrows to walk (or hold the mouse towards where you want to go) · Esc pause', mobile: 'Drag anywhere to walk — a joystick appears under your thumb · ❚❚ to pause' },
+    scoring: 'Points for every hairball × your chain multiplier. Top tier 100 coins, then 65, 35, 15 (+25 XP), once a day.',
+    tip: 'Golden hairballs hide in the corners and behind the flower beds!' },
+  { id: 'fishing', name: 'Fishing Contest', short: 'Fishing', emoji: '🎣', hosts: ['fisher'], pitch: 'The big one is out there. Fancy a fishing contest?', objective: 'Catch the most fish in three minutes', coins: [80, 50, 30], xp: 20, playable: false, kind: 'score', howTo: [], controls: { desktop: '', mobile: '' }, scoring: '', tip: '' },
+  { id: 'treasure', name: 'Island Treasure Hunt', short: 'Treasure Hunt', emoji: '🗺️', hosts: ['explorer'], pitch: 'My map has an X on it. Shall we find out why?', objective: 'Follow the clues to the hidden chest', coins: [90, 60, 30], xp: 20, playable: false, kind: 'score', howTo: [], controls: { desktop: '', mobile: '' }, scoring: '', tip: '' },
+  { id: 'harvest', name: 'Harvest Rush', short: 'Harvest Rush', emoji: '🌾', hosts: ['farmer'], pitch: 'The crops are all ready at once! Help me bring them in?', objective: 'Harvest the fields before the timer runs out', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score', howTo: [], controls: { desktop: '', mobile: '' }, scoring: '', tip: '' },
+  { id: 'delivery', name: 'Delivery Dash', short: 'Delivery', emoji: '📦', hosts: ['baker'], pitch: 'Fresh buns, hungry Fuzzies, one little cart. Help me deliver?', objective: 'Deliver every parcel while it’s warm', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score', howTo: [], controls: { desktop: '', mobile: '' }, scoring: '', tip: '' },
+  { id: 'garden', name: 'Garden Contest', short: 'Garden Contest', emoji: '🌷', hosts: ['creative'], pitch: 'A decorating contest! Make the prettiest garden on the island.', objective: 'Decorate the garden plot to win the judges over', coins: [70, 45, 25], xp: 15, playable: false, kind: 'score', howTo: [], controls: { desktop: '', mobile: '' }, scoring: '', tip: '' },
 ];
 export const adventure = (id: string): Adventure | undefined => ADVENTURES.find((a) => a.id === id);
 export const playable = (): Adventure[] => ADVENTURES.filter((a) => a.playable);

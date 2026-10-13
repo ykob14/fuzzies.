@@ -14,6 +14,7 @@ export interface TalkOpts {
   onStart: () => void; onLater: () => void; onFindHost: () => void; onChat: (line: string) => void; onClose: () => void;
 }
 
+const isTouchDevice = (): boolean => matchMedia('(pointer: coarse)').matches;
 export const limitWord = (sec: number): string => (sec % 60 === 0 ? `${sec / 60} min` : `${sec} s`);
 
 /** The conversation card. Returns the element and a `say(text)` that types new words into the bubble. */
@@ -48,6 +49,7 @@ export function conversation(o: TalkOpts): { el: HTMLElement; say: (t: string) =
         h('b', null, `${adv.emoji} ${adv.name}${o.mission.variant ? ` — ${o.mission.variant.name}` : ''}`),
         h('small', null, adv.objective + (adv.limit ? ` · ⏱ ${limitWord(adv.limit)}` : '')),
         o.mission.variant ? h('small', { class: 'land-talk-twist' }, `Today’s twist: ${o.mission.variant.note}`) : null,
+        h('details', { class: 'land-talk-howto' }, h('summary', null, 'How to play'), h('ol', null, ...adv.howTo.map((t) => h('li', null, t))), h('small', null, `${isTouchDevice() ? adv.controls.mobile : adv.controls.desktop}`)),
         h('div', { class: 'land-talk-reward' },
           ...adv.coins.slice(0, 3).map((n, i) => h('span', null, A.medal(i + 1), ' ', landIcon('coin', 16), String(n))),
           done ? h('em', null, `Done today · ${A.placeWord(done.place)} · resets in ${A.countdown(o.mission.resetsIn)}`) : h('em', null, `+${adv.xp} XP · resets in ${A.countdown(o.mission.resetsIn)}`))) : null),
@@ -90,6 +92,7 @@ export function adventuresBody(s: LandState, now: number, hostNameOf: (id: strin
     return h('div', { class: 'land-adv-featured' },
       h('div', { class: 'land-adv-head' }, h('span', { class: 'land-adv-emoji' }, adv.emoji), h('div', null, h('span', { class: 'land-adv-kicker' }, t.special ? '🎪 Fuzzy Festival' : 'Today’s adventure'), h('b', null, adv.name + (variant ? ` — ${variant.name}` : '')), h('small', null, adv.objective + (adv.limit ? ` · ⏱ ${limitWord(adv.limit)}` : '')), variant ? h('small', { class: 'land-adv-twist' }, variant.note) : null)),
       h('div', { class: 'land-adv-rewards' }, ...adv.coins.slice(0, 3).map((n, i) => h('div', { class: 'land-adv-place' }, h('span', null, A.medal(i + 1)), h('b', null, landIcon('coin', 18), String(n)), h('small', null, adv.kind === 'score' ? ['Top tier', '2nd tier', '3rd tier'][i] : A.placeWord(i + 1)))), h('div', { class: 'land-adv-place' }, h('span', null, '✨'), h('b', null, `+${adv.xp}`), h('small', null, 'XP'))),
+      h('details', { class: 'land-adv-howto' }, h('summary', null, 'How to play'), h('ol', null, ...adv.howTo.map((t) => h('li', null, t))), h('small', null, `Controls: ${isTouchDevice() ? adv.controls.mobile : adv.controls.desktop}`), h('small', null, adv.scoring)),
       m.done
         ? h('p', { class: 'land-adv-status done' }, `${A.medal(m.done.place)} Finished ${A.placeWord(m.done.place)} today · +${m.done.coins} coins collected. Play again for practice — a new adventure arrives in ${A.countdown(m.resetsIn)}.`)
         : h('p', { class: 'land-adv-status' }, `${hostName} has this adventure today · resets in ${A.countdown(m.resetsIn)} (at midnight).`),
@@ -104,8 +107,9 @@ export function adventuresBody(s: LandState, now: number, hostNameOf: (id: strin
       h('span', null, h('small', null, 'Today'), h('b', null, m.done ? `+${m.done.coins}` : A.isToday(adv.id, now) ? 'open' : '—'))));
   });
   const records = h('div', { class: 'land-adv-records' }, h('b', null, 'Your records'), ...recordRows, h('p', { class: 'land-adv-wood' }, `🪵 Wood in the barn: ${a.wood}`));
-  const pool = h('div', { class: 'land-adv-more' }, h('b', null, 'The adventure pool'),
-    ...A.ADVENTURES.filter((x) => !t.list.some((y) => y.adventure.id === x.id)).map((x) => h('div', { class: `land-adv-row ${x.playable ? '' : 'soon'}` }, h('span', { class: 'land-adv-emoji sm' }, x.emoji), h('div', null, h('b', null, x.name), h('small', null, x.playable ? `Comes round in the daily rotation${x.variants ? ` · twists: ${Object.values(x.variants).map((v) => v.name).join(', ')}` : ''}` : 'Coming soon — not playable yet')))),
+  const pool = h('div', { class: 'land-adv-more' }, h('b', null, 'How adventures work'),
+    h('p', { class: 'land-adv-how' }, 'A different Fuzzy offers a different challenge every day: the adventures take turns, some days with a twist, and once a week the whole town celebrates the Fuzzy Festival. Each adventure pays town coins and XP once a day — play again any time for practice and better records.'),
+    ...A.playable().filter((x) => !t.list.some((y) => y.adventure.id === x.id)).map((x) => h('div', { class: 'land-adv-row' }, h('span', { class: 'land-adv-emoji sm' }, x.emoji), h('div', null, h('b', null, x.name), h('small', null, `${x.objective}${x.variants ? ` · twist days: ${Object.values(x.variants).map((v) => v.name).join(', ')}` : ''}`)))),
     h('div', { class: 'land-adv-row' }, h('span', { class: 'land-adv-emoji sm' }, '🎪'), h('div', null, h('b', null, A.FESTIVAL.title), h('small', null, A.FESTIVAL.note))));
   return h('div', { class: 'land-adv' }, ...cards, records, pool);
 }

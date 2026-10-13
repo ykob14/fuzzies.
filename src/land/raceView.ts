@@ -19,6 +19,8 @@ import { RaceSim, LAPS, ISLAND_R, OUTER_R, EDGE_R, GATE_W, waveHeight, waveGrad,
 import { PAL, std, add } from './models';
 import { buildSky } from './environment';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
+import { introCard, coach as makeCoach } from '../ui/mgIntro';
+import { adventure } from './adventures';
 
 export interface RaceSetup {
   you: { name: string; skin: [string, string] };
@@ -424,8 +426,13 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
   const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'The Fuzzies are waiting.'), resume, restart, quit);
   pauseOverlay.append(pbox);
-  root.append(canvas, touch, hud, pauseOverlay); // the HUD's buttons sit above the steering zones
+  const adv = adventure('boatrace')!;
+  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.rivals[0]?.name ?? 'Pom', mobile, buttonLabel: 'To the start line!', onStart: () => start() });
+  root.append(canvas, touch, hud, intro, pauseOverlay); // the HUD's buttons sit above the steering zones
   stage.append(root);
+  const tips = makeCoach(root);
+  let started = false;
+  const start = () => { if (started) return; started = true; intro.hidden = true; last = performance.now(); };
 
   // ---- renderer & scene ----
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
@@ -554,7 +561,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
 
   // ---- pause ----
   let paused = false, done = false, finishedAt = -1, finishedWall = 0;
-  const togglePause = () => { if (done || sim.state === 'countdown') return; paused = !paused; pauseOverlay.hidden = !paused; if (paused) eng.set(0, 0); };
+  const togglePause = () => { if (done || !started || sim.state === 'countdown') return; paused = !paused; pauseOverlay.hidden = !paused; if (paused) eng.set(0, 0); };
   pauseBtn.addEventListener('click', togglePause);
   resume.addEventListener('click', togglePause);
   quit.addEventListener('click', () => { destroy(); hooks.onQuit(); });
@@ -593,6 +600,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
     last = now;
     if (paused) return;
     time.value += dt;
+    if (!started) { renderer.render(scene, camera); return; } // the intro is up: the lagoon idles behind it
     // input (steer: −1 left … +1 right — the rules turn the boat the way you press)
     const accelKey = keys.has('w') || keys.has('arrowup'), brakeKey = keys.has('s') || keys.has('arrowdown');
     const l = keys.has('a') || keys.has('arrowleft') ? 1 : 0, r = keys.has('d') || keys.has('arrowright') ? 1 : 0;
@@ -610,14 +618,14 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
       acc -= 1 / 120;
       for (const e of sim.events) {
         const b = sim.boats[e.boat];
-        if (e.kind === 'go') { count.textContent = 'GO!'; count.className = 'race-count go'; play(snd.go); setTimeout(() => { count.textContent = ''; count.className = 'race-count'; }, 900); hint.classList.add('fade'); }
+        if (e.kind === 'go') { count.textContent = 'GO!'; count.className = 'race-count go'; play(snd.go); setTimeout(() => { count.textContent = ''; count.className = 'race-count'; }, 900); hint.classList.add('fade'); setTimeout(() => tips.say('arrow', 'Follow the gold arrow through gate 1 — the gates must be taken in order'), 1500); }
         else if (e.kind === 'gate' && b?.you) { play(snd.gate); flash(gates[(b.next + sim.gates - 1) % sim.gates]); }
-        else if (e.kind === 'lap' && b?.you) { play(snd.lap); flashBanner(b.lap === LAPS - 1 ? 'Final lap!' : `Lap ${b.lap + 1}`); }
+        else if (e.kind === 'lap' && b?.you) { play(snd.lap); flashBanner(b.lap === LAPS - 1 ? 'Final lap!' : `Lap ${b.lap + 1}`); if (b.lap === 1) tips.say('lap2', 'Lap 2: barrels drift in and gold boost rings light up — ride them for a burst!'); else tips.say('lap3', 'Final lap: big waves and logs — steer early and hold on!'); }
         else if (e.kind === 'bump') { if (b?.you) play(snd.bump); if (b) { splash(b, 10); boats[b.id].squash = 1; } }
-        else if (e.kind === 'missed') { if (b?.you) play(snd.missed); }
+        else if (e.kind === 'missed') { if (b?.you) { play(snd.missed); tips.say('missed', 'You passed a gate without going through it: turn round, go back through it, then carry on'); } }
         else if (e.kind === 'recovered') { if (b?.you) { play(snd.recovered); flashBanner('Back on track!'); } }
-        else if (e.kind === 'boost') { if (b?.you) { play(snd.boost); boostEl.classList.remove('on'); void boostEl.offsetWidth; boostEl.classList.add('on'); } if (b) { boats[b.id].squash = -0.6; for (let k = 0; k < 6; k++) puff(new THREE.Vector3(b.pos.x, 0.15, b.pos.z), new THREE.Vector3(-Math.sin(b.heading) * 3 + (Math.random() - 0.5), 0.6, -Math.cos(b.heading) * 3 + (Math.random() - 0.5)), 0.4, 0.5, 1.2); } }
-        else if (e.kind === 'edge') { play(snd.edge); }
+        else if (e.kind === 'boost') { if (b?.you) { play(snd.boost); tips.say('boost', 'BOOST! The rings recharge after a few seconds'); boostEl.classList.remove('on'); void boostEl.offsetWidth; boostEl.classList.add('on'); } if (b) { boats[b.id].squash = -0.6; for (let k = 0; k < 6; k++) puff(new THREE.Vector3(b.pos.x, 0.15, b.pos.z), new THREE.Vector3(-Math.sin(b.heading) * 3 + (Math.random() - 0.5), 0.6, -Math.cos(b.heading) * 3 + (Math.random() - 0.5)), 0.4, 0.5, 1.2); } }
+        else if (e.kind === 'edge') { play(snd.edge); tips.say('edge', 'Outside the buoys the water is heavy — turn back towards the course'); }
         else if (e.kind === 'finish' && b?.you) { play(snd.finish); flashBanner(b.place === 1 ? '🏁 You win!' : `🏁 Finished ${b.place === 2 ? '2nd' : b.place === 3 ? '3rd' : b.place + 'th'}`); if (b.place === 1) setTimeout(() => play(snd.cheer), 500); }
       }
     }
@@ -909,7 +917,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
     removeEventListener('keydown', kd); removeEventListener('keyup', ku);
     document.removeEventListener('visibilitychange', onVis);
     ro.disconnect();
-    eng.stop();
+    eng.stop(); tips.destroy();
     scene.traverse((o) => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); } });
     env.dispose(); pmrem.dispose();
     renderer.dispose();
@@ -917,5 +925,5 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
     root.remove();
   };
   requestAnimationFrame(() => { last = performance.now(); raf = requestAnimationFrame(tick); });
-  if (import.meta.env.DEV) (window as unknown as { __race: unknown }).__race = { sim, input, pause: togglePause, finishNow: () => { for (const b of sim.boats) if (!b.finished) { b.lap = LAPS; b.finished = true; b.finishTime = sim.time + b.id; b.place = b.id + 1; } (sim as unknown as { state: string }).state = 'finished'; }, destroy };
+  if (import.meta.env.DEV) (window as unknown as { __race: unknown }).__race = { sim, input, start, pause: togglePause, finishNow: () => { for (const b of sim.boats) if (!b.finished) { b.lap = LAPS; b.finished = true; b.finishTime = sim.time + b.id; b.place = b.id + 1; } (sim as unknown as { state: string }).state = 'finished'; }, destroy };
 }

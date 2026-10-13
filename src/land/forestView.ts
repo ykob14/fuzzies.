@@ -13,6 +13,8 @@ import { PAL, std, add } from './models';
 import { buildSky, treeModel } from './environment';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls } from '../ui/joystick';
+import { introCard, coach as makeCoach } from '../ui/mgIntro';
+import { adventure } from './adventures';
 
 export interface ForestSetup { mobile: boolean; sound: boolean; deluxe?: boolean; you: { name: string; skin: [string, string] }; host: string; variant?: string | null; seed: number }
 export interface ForestResult { place: number; score: number; timeMs: number; wood: number; cleared: number; total: number; perfect: number; bestCombo: number; tier: string }
@@ -50,9 +52,8 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const floats = el('div', 'mg-floats');
   const hint = el('div', 'race-hint', mobile ? 'Drag to walk up to a ringed tree, then tap CHOP when the marker is in the green' : 'WASD / arrows to walk up to a ringed tree, then Space when the marker is in the green');
   hud.append(scoreEl, woodEl, timeEl, comboEl, pauseBtn, banner, count, hint, floats);
-  const intro = el('div', 'forest-intro mg-intro'); const introBox = el('div', 'forest-intro-box');
-  introBox.append(el('h2', '', `Forest Challenge${setup.variant === 'deep' ? ' — Deep Woods' : ''}`), el('p', '', `${setup.host} marked trees with glowing rings. Walk up to one and chop when the marker lands in the green — big trees take more hits but score more, sparkly ones hide a bonus. Pick up the wood that flies out. Perfect hits in a row multiply your points. Two minutes!`));
-  const go = el('button', 'btn btn-primary btn-lg', 'Let’s chop!'); go.type = 'button'; introBox.append(go); intro.append(introBox);
+  const adv = adventure('forest')!;
+  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Let’s chop!', onStart: () => start() });
   // the chop meter + button
   const meterWrap = el('div', 'forest-meter'); meterWrap.hidden = true;
   const meterBar = el('div', 'forest-meter-bar'); const sweet = el('i', 'forest-meter-sweet'); const marker = el('b', 'forest-meter-marker');
@@ -70,6 +71,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   pauseOverlay.append(pbox);
   root.append(canvas, hud, meterWrap, intro, pauseOverlay);
   stage.append(root);
+  const tips = makeCoach(root);
 
   // ---- renderer & scene ----
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
@@ -209,8 +211,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   resume.addEventListener('click', togglePause);
   quit.addEventListener('click', () => { destroy(); hooks.onQuit(); });
   restart.addEventListener('click', () => { destroy(); if (hooks.onRestart) hooks.onRestart(); else hooks.onQuit(); });
-  const start = () => { if (!intro.hidden) { intro.hidden = true; sim.start(); play(snd.go); count.textContent = 'GO!'; count.className = 'race-count go'; setTimeout(() => { count.textContent = ''; count.className = 'race-count'; }, 900); setTimeout(() => hint.classList.add('fade'), 4000); } };
-  go.addEventListener('click', start);
+  const start = () => { if (!intro.hidden) { intro.hidden = true; sim.start(); play(snd.go); count.textContent = 'GO!'; count.className = 'race-count go'; setTimeout(() => { count.textContent = ''; count.className = 'race-count'; }, 900); setTimeout(() => hint.classList.add('fade'), 4000); setTimeout(() => tips.say('walk', mobile ? 'Drag to walk up to a tree with a glowing ring' : 'Walk up to a tree with a glowing ring'), 1200); } };
   const onKey = (e: KeyboardEvent) => { if (e.repeat) return; const k = e.key.toLowerCase(); if (k === 'escape' || k === 'p') togglePause(); };
   addEventListener('keydown', onKey);
   const onVis = () => { if (document.hidden && !paused && sim.state === 'playing') togglePause(); };
@@ -232,13 +233,13 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
       sim.step(1 / 120, { x: input.x, z: input.z });
       acc -= 1 / 120;
       for (const e of sim.events) {
-        if (e.kind === 'felled' && e.tree) { floatText(e.tree.x, 2.2 * e.tree.scale, e.tree.z, `+${e.value}${(e.mult ?? 1) > 1 ? ` ×${e.mult}` : ''}`, e.tree.bonus ? 'gold' : 'big'); flashBanner(e.tree.bonus ? `Bonus tree! +${SCORING.bonusPoints}` : sim.remaining ? `Timber! ${sim.remaining} marked left` : 'Timber!', e.tree.bonus ? 'combo' : ''); }
+        if (e.kind === 'felled' && e.tree) { tips.say('wood', 'Timber! Walk over the wood pieces to collect them'); floatText(e.tree.x, 2.2 * e.tree.scale, e.tree.z, `+${e.value}${(e.mult ?? 1) > 1 ? ` ×${e.mult}` : ''}`, e.tree.bonus ? 'gold' : 'big'); flashBanner(e.tree.bonus ? `Bonus tree! +${SCORING.bonusPoints}` : sim.remaining ? `Timber! ${sim.remaining} marked left` : 'Timber!', e.tree.bonus ? 'combo' : ''); }
         else if (e.kind === 'pick' && e.wood) { floatText(e.wood.x, 0.8, e.wood.z, `+${e.value}`, e.wood.gold ? 'gold' : ''); const n = woods.get(e.wood.id); if (n) n.got = 0; play(e.wood.gold ? sfx.gold : sfx.collect); squash = 0.4; }
-        else if (e.kind === 'wave') { flashBanner(`New trees marked — wave ${e.n}!`, 'combo'); play(sfx.level); for (const n of nodes) if (n.tree.marked && !n.ring && !n.tree.felled) markNode(n, true); }
+        else if (e.kind === 'wave') { flashBanner(`New trees marked — wave ${e.n}!`, 'combo'); tips.say('wave', 'New rings further out — bigger trees score more, pick a good route!'); play(sfx.level); for (const n of nodes) if (n.tree.marked && !n.ring && !n.tree.felled) markNode(n, true); }
         else if (e.kind === 'combo') { flashBanner(`×${e.mult} PERFECT CHAIN!`, 'combo'); play(() => vac.combo(e.n ?? 1)); }
         else if (e.kind === 'warn') { if (e.n === 30) flashBanner('30 seconds — the sun is setting!'); else if (e.n === 10) flashBanner('10 seconds!', 'warn'); else if (e.n! <= 3) { count.textContent = String(e.n); count.className = 'race-count'; void count.offsetWidth; count.classList.add('pop'); } play(e.n! <= 3 ? snd.count : vac.tick); }
         else if (e.kind === 'bump') { play(vac.bump); squash = 0.5; }
-        else if (e.kind === 'target' && e.tree) { play(sfx.hop); }
+        else if (e.kind === 'target' && e.tree) { play(sfx.hop); tips.say('chop', mobile ? 'Tap CHOP when the marker is in the green — the big ones take more hits' : 'Press Space (or CHOP) when the marker is in the green — the big ones take more hits'); }
       }
     }
     // the day goes by: the sun sinks and warms, the sky turns to dusk
@@ -335,7 +336,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     cancelAnimationFrame(raf);
     removeEventListener('keydown', onKey);
     document.removeEventListener('visibilitychange', onVis);
-    ro.disconnect(); ctl.destroy();
+    ro.disconnect(); ctl.destroy(); tips.destroy();
     scene.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
     env.dispose(); pmrem.dispose(); renderer.dispose(); renderer.forceContextLoss();
     root.remove();

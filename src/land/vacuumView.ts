@@ -8,11 +8,13 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import * as M from '../game/models3d';
 import * as T from '../game/textures3d';
 import { race as snd, vac, vacuumHum, sfx } from '../game/sound';
-import { VacuumSim, SCORING, LIMIT, ARENA, SUCTION, type Hairball } from './vacuumGame';
+import { VacuumSim, LIMIT, ARENA, SUCTION, type Hairball } from './vacuumGame';
 import { PAL, std, add } from './models';
 import { buildSky, treeModel } from './environment';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls } from '../ui/joystick';
+import { introCard, coach as makeCoach } from '../ui/mgIntro';
+import { adventure } from './adventures';
 
 export interface VacuumSetup { mobile: boolean; sound: boolean; deluxe?: boolean; you: { name: string; skin: [string, string] }; host: string; variant?: string | null; seed: number }
 export interface VacuumResult { place: number; score: number; collected: number; count: { small: number; large: number; gold: number }; bestCombo: number; tier: string; timeMs: number }
@@ -154,9 +156,8 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   const hint = el('div', 'race-hint', mobile ? 'Drag anywhere to walk — the vacuum does the rest' : 'WASD / arrows to walk (or hold the mouse) — the vacuum does the rest');
   const floats = el('div', 'mg-floats');
   hud.append(scoreEl, countEl, timeEl, comboEl, pauseBtn, banner, count, hint, floats);
-  const intro = el('div', 'forest-intro mg-intro'); const introBox = el('div', 'forest-intro-box');
-  introBox.append(el('h2', '', 'Hairball Vacuum Challenge'), el('p', '', `${setup.host} lent you the vacuum. Walk over the hairballs and the nozzle pulls them in — ${SCORING.small} points each, ${SCORING.large} for the big ones, ${SCORING.gold} for golden ones. Quick pick-ups chain into a multiplier. Two minutes!`));
-  const go = el('button', 'btn btn-primary btn-lg', 'Start cleaning!'); go.type = 'button'; introBox.append(go); intro.append(introBox);
+  const adv = adventure('vacuum')!;
+  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Start cleaning!', onStart: () => start() });
   const pauseOverlay = el('div', 'race-paused'); pauseOverlay.hidden = true;
   const resume = el('button', 'btn btn-primary btn-lg', 'Resume'); resume.type = 'button';
   const restart = el('button', 'btn btn-soft', 'Restart'); restart.type = 'button';
@@ -165,6 +166,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   pauseOverlay.append(pbox);
   root.append(canvas, hud, intro, pauseOverlay);
   stage.append(root);
+  const tips = makeCoach(root);
 
   // ---- renderer & scene ----
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
@@ -222,8 +224,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   resume.addEventListener('click', togglePause);
   quit.addEventListener('click', () => { destroy(); hooks.onQuit(); });
   restart.addEventListener('click', () => { destroy(); if (hooks.onRestart) hooks.onRestart(); else hooks.onQuit(); });
-  const start = () => { if (!intro.hidden) { intro.hidden = true; sim.start(); play(snd.go); count.textContent = 'GO!'; count.className = 'race-count go'; setTimeout(() => { count.textContent = ''; count.className = 'race-count'; }, 900); setTimeout(() => hint.classList.add('fade'), 3500); } };
-  go.addEventListener('click', start);
+  const start = () => { if (!intro.hidden) { intro.hidden = true; sim.start(); play(snd.go); count.textContent = 'GO!'; count.className = 'race-count go'; setTimeout(() => { count.textContent = ''; count.className = 'race-count'; }, 900); setTimeout(() => hint.classList.add('fade'), 3500); setTimeout(() => tips.say('walk', mobile ? 'Drag to walk into the fluff — the nozzle does the rest' : 'Walk into the fluff — the nozzle does the rest'), 1200); } };
   const onKey = (e: KeyboardEvent) => { if (e.repeat) return; const k = e.key.toLowerCase(); if ((k === ' ' || k === 'enter') && !intro.hidden) { e.preventDefault(); start(); } if (k === 'escape' || k === 'p') togglePause(); };
   addEventListener('keydown', onKey);
   const onVis = () => { if (document.hidden && !paused && sim.state === 'playing') togglePause(); };
@@ -264,6 +265,8 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
       for (const e of sim.events) {
         if (e.kind === 'collect' && e.ball) {
           const n = balls.get(e.ball.id); if (n) n.pop = 0;
+          if (sim.collected === 3) tips.say('chain', 'Quick pick-ups one after another chain into ×1.5, ×2, ×3!');
+          if (e.ball.kind === 'gold') tips.say('gold', 'Golden! 100 points — more hide in the corners and behind the beds');
           const col = e.ball.kind === 'gold' ? 'gold' : e.ball.kind === 'large' ? 'big' : '';
           floatText(e.ball.x, 1.1, e.ball.z, `+${e.value}${(e.mult ?? 1) > 1 ? ` ×${e.mult}` : ''}`, col);
           play(e.ball.kind === 'gold' ? vac.gold : e.ball.kind === 'large' ? vac.big : vac.slurp);
@@ -272,7 +275,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
         } else if (e.kind === 'combo') { flashBanner(`×${e.mult} COMBO!`, 'combo'); play(() => vac.combo(e.n ?? 1)); }
         else if (e.kind === 'full') { flashBanner(`Canister full! +${e.value}`, 'combo'); play(vac.full); for (let k = 0; k < 14; k++) wisp(new THREE.Vector3(sim.you.pos.x, 1.4, sim.you.pos.z + 0.3), new THREE.Vector3((Math.random() - 0.5) * 4, 1 + Math.random() * 3, (Math.random() - 0.5) * 4), 0.35, 1.1); }
         else if (e.kind === 'spawn' && e.ball) addBall(e.ball);
-        else if (e.kind === 'warn') { if (e.n === 30) flashBanner('30 seconds!'); else if (e.n === 10) flashBanner('10 seconds — hurry!', 'warn'); else if (e.n! <= 3) { count.textContent = String(e.n); count.className = 'race-count'; void count.offsetWidth; count.classList.add('pop'); } play(e.n! <= 3 ? snd.count : vac.tick); }
+        else if (e.kind === 'warn') { if (e.n === 30) { flashBanner('30 seconds!'); tips.say('last', 'Last stretch — grab the big ones nearby!'); } else if (e.n === 10) flashBanner('10 seconds — hurry!', 'warn'); else if (e.n! <= 3) { count.textContent = String(e.n); count.className = 'race-count'; void count.offsetWidth; count.classList.add('pop'); } play(e.n! <= 3 ? snd.count : vac.tick); }
         else if (e.kind === 'bump') { play(vac.bump); squash = 0.6; }
       }
     }
@@ -370,7 +373,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
     cancelAnimationFrame(raf);
     removeEventListener('keydown', onKey);
     document.removeEventListener('visibilitychange', onVis);
-    ro.disconnect(); ctl.destroy(); hum.stop();
+    ro.disconnect(); ctl.destroy(); hum.stop(); tips.destroy();
     scene.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
     env.dispose(); pmrem.dispose(); renderer.dispose(); renderer.forceContextLoss();
     root.remove();
