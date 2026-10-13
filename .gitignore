@@ -7,3 +7,5 @@ android
 .env
 .env.*
 !.env.example
+tools/assets/.sources
+tools/assets/.out

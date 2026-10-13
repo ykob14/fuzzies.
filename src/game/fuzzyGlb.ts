@@ -51,11 +51,17 @@ function hsl(hex: string): [number, number, number] {
   const h = max === r ? ((g - b) / d + (g < b ? 6 : 0)) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
   return [h * 60, s, l];
 }
-const textures = new Map<string, THREE.Texture>();
+const textures = new WeakMap<object, Map<string, THREE.Texture>>();
 /** A fur texture in this Fuzzy's colour (cached per colour and size). */
 export function furTexture(skin: [string, string], size = 768): THREE.Texture {
+  return tintedFur(glb!.image as CanvasImageSource, skin, size);
+}
+/** Any pink-fur image (the owner's texture, or the rig's cleaned copy of it) hue-shifted to a Fuzzy's colour; cached per image. */
+export function tintedFur(image: CanvasImageSource, skin: [string, string], size = 768): THREE.Texture {
+  let per = textures.get(image as object);
+  if (!per) { per = new Map(); textures.set(image as object, per); }
   const key = `${skin[0]}|${size}`;
-  const hit = textures.get(key);
+  const hit = per.get(key);
   if (hit) return hit;
   const [h, s, l] = hsl(skin[0]);
   const c = document.createElement('canvas');
@@ -65,12 +71,12 @@ export function furTexture(skin: [string, string], size = 768): THREE.Texture {
   const bright = Math.min(1.9, Math.max(0.6, l / BASE_LIGHT));
   const rot = s < 0.08 ? 0 : Math.round(h - BASE_HUE);
   try { x.filter = `hue-rotate(${rot}deg) saturate(${sat.toFixed(2)}) brightness(${bright.toFixed(2)})`; } catch { /* old browsers: pink it is */ }
-  x.drawImage(glb!.image as CanvasImageSource, 0, 0, size, size);
+  x.drawImage(image, 0, 0, size, size);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.flipY = false; // glTF textures aren't flipped
   t.anisotropy = 2;
-  textures.set(key, t);
+  per.set(key, t);
   return t;
 }
 
