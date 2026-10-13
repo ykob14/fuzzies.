@@ -255,11 +255,11 @@ export const cloud = {
   },
 
   /** Delete the account everywhere (cloud + this device). */
-  async deleteAccount(): Promise<void> {
+  async deleteAccount(auth?: Reauth): Promise<void> {
     const a = accounts.current;
     if (!a) return;
     if (a.cloud) {
-      await api('auth', 'delete');
+      await api('auth', 'delete', { ...auth });
       sync.stop();
       sync.clear(a.id);
       token.clear();

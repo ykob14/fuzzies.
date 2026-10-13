@@ -76,7 +76,7 @@ create table if not exists fz_template_uses (
   primary key (template_id, user_id, day)
 );
 create index if not exists fz_template_uses_day on fz_template_uses (day);
--- Template managers chosen in the database (in addition to ADMIN_EMAILS in Vercel).
+-- Template managers (chosen in the database; see BACKEND.md).
 create table if not exists fz_admins (
   user_id uuid primary key references fz_users (id) on delete cascade,
   created_at timestamptz not null default now()
@@ -210,6 +210,20 @@ create table if not exists fz_wallet_rewards (
   fee_paid_at timestamptz,
   gift_at timestamptz
 );
+-- Keep every Fuzzies table away from a database provider's public REST API (Supabase's PostgREST): row-level security
+-- on with no policies (= nobody through that API) and no grants for its public roles. The app connects as the tables'
+-- owner, which isn't affected. Runs on every cold start, so tables added later are covered too.
+do $$
+declare t record; r record;
+begin
+  for t in select c.relname, c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = current_schema() and c.relkind = 'r' and left(c.relname, 3) = 'fz_' and pg_get_userbyid(c.relowner) = current_user loop
+    if not t.relrowsecurity then execute format('alter table %I enable row level security', t.relname); end if;
+    for r in select rolname from pg_roles where rolname in ('anon', 'authenticated') loop
+      execute format('revoke all on table %I from %I', t.relname, r.rolname);
+    end loop;
+  end loop;
+end $$;
 `;
 
 /** Errors that mean "the connection dropped" (Neon puts idle databases to sleep): safe to retry once. */

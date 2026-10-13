@@ -41,7 +41,7 @@ function brake(): boolean {
 
 async function pexels(key: string, q: string, page: number) {
   const url = q ? `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=${PER_PAGE}&page=${page}` : `https://api.pexels.com/v1/curated?per_page=${PER_PAGE}&page=${page}`;
-  const r = await fetch(url, { headers: { authorization: key } });
+  const r = await fetch(url, { headers: { authorization: key }, signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw Object.assign(new Error(`pexels ${r.status}`), { status: r.status });
   const d = (await r.json()) as { photos?: Record<string, unknown>[]; next_page?: string };
   const items: Photo[] = (d.photos ?? []).map((p) => {
@@ -58,7 +58,7 @@ async function pexels(key: string, q: string, page: number) {
 const LICENSE: Record<string, string> = { cc0: 'CC0 (public domain)', pdm: 'Public domain', by: 'CC BY' };
 async function openverse(q: string, page: number) {
   const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&license=cc0,pdm,by&source=flickr,wikimedia,stocksnap&mature=false&page_size=${PER_PAGE}&page=${page}`;
-  const r = await fetch(url, { headers: { 'user-agent': 'Fuzzies design app (template photos)' } });
+  const r = await fetch(url, { headers: { 'user-agent': 'Fuzzies design app (template photos)' }, signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw Object.assign(new Error(`openverse ${r.status}`), { status: r.status });
   const d = (await r.json()) as { results?: Record<string, unknown>[]; page_count?: number };
   const items: Photo[] = [];
@@ -85,7 +85,7 @@ async function proxy(raw: string): Promise<Response> {
   try { url = new URL(raw); } catch { return reply({ error: 'Bad address.' }, 400); }
   for (let hop = 0; hop < 4; hop++) {
     if (url.protocol !== 'https:' || !allowedHost(url.hostname) || url.port) return reply({ error: 'That picture isn’t from a supported photo library.' }, 400);
-    const r = await fetch(url, { redirect: 'manual', headers: { 'user-agent': 'Fuzzies design app (template photos)' } });
+    const r = await fetch(url, { redirect: 'manual', headers: { 'user-agent': 'Fuzzies design app (template photos)' }, signal: AbortSignal.timeout(8000) });
     if (r.status >= 300 && r.status < 400 && r.headers.get('location')) { url = new URL(r.headers.get('location')!, url); continue; }
     const type = (r.headers.get('content-type') ?? '').split(';')[0].trim();
     if (!r.ok || !/^image\/(jpeg|png|webp|gif)$/.test(type)) return reply({ error: 'That picture couldn’t be loaded.' }, 502);

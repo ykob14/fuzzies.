@@ -38,7 +38,7 @@ export async function api<T = Record<string, unknown>>(endpoint: 'auth' | 'data'
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
     if (res.status === 401 && token.get() && action !== 'login') { token.clear(); for (const l of loggedOutListeners) l(); }
-    if (res.status === 413) throw new ApiError(413, 'This design is too big to sync (too many large photos).');
+    if (res.status === 413) throw new ApiError(413, data.error || 'This design is too big to sync (too many large photos).');
     throw new ApiError(res.status, data.error || 'Something went wrong — please try again.');
   }
   return data;

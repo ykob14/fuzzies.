@@ -10,11 +10,10 @@
  *   gift.open  { id } (logged in)       → { amount } — adds the Fuzzies to the account, once
  */
 import { db, q } from './_lib/db.js';
-import { handle, requireUser, HttpError } from './_lib/auth.js';
+import { handle, requireUser, HttpError, clientIp } from './_lib/auth.js';
 import { payConfig, createQuote, publicPayment, verifyOnChain, fulfil, applyCredits, isSmartWallet, fundsProblem, isEvm, NETS, type PaymentRow } from './_lib/pay.js';
 
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-const clientIp = (req: Request) => (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64);
 
 export function POST(req: Request): Promise<Response> {
   return handle(req, async (b) => {

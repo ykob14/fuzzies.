@@ -42,6 +42,10 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
  * Upgrade a design from any earlier version and repair anything that would break the editor
  * (missing ids, duplicate ids, bad numbers, unknown element types). Mutates and returns the same object.
  */
+/** Far more than anyone designs by hand; stops a damaged or hostile file from freezing the editor. */
+const MAX_PAGES = 200;
+const MAX_ELEMENTS = 5000;
+
 export function migrateDesign(input: unknown): Design {
   if (!isObj(input)) throw new Error('This design could not be read.');
   const d = input as unknown as Design & Record<string, unknown>;
@@ -50,13 +54,16 @@ export function migrateDesign(input: unknown): Design {
   d.name = typeof d.name === 'string' && d.name.trim() ? d.name : 'Untitled design';
   d.width = Math.max(1, Math.round(num(d.width, 1080)));
   d.height = Math.max(1, Math.round(num(d.height, 1080)));
-  d.assets = isObj(d.assets) ? (d.assets as Record<string, string>) : {};
+  // pictures live inside the design as data: URLs; anything else (a web address) could phone home when shown — dropped
+  const assets: Record<string, string> = {};
+  if (isObj(d.assets)) for (const [k, v] of Object.entries(d.assets)) if (typeof v === 'string' && /^data:image\//i.test(v)) assets[k] = v;
+  d.assets = assets;
   d.createdAt = num(d.createdAt, now);
   d.updatedAt = num(d.updatedAt, d.createdAt);
   if (typeof d.owner !== 'string') d.owner = '';
   if (d.folder !== undefined && (typeof d.folder !== 'string' || !d.folder.trim())) delete d.folder;
 
-  const pages = Array.isArray(d.pages) ? d.pages.filter(isObj) as unknown as Page[] : [];
+  const pages = Array.isArray(d.pages) ? (d.pages.filter(isObj) as unknown as Page[]).slice(0, MAX_PAGES) : [];
   if (!pages.length) pages.push({ id: uid('p_'), background: '#ffffff', elements: [] });
   const seen = new Set<string>();
   const fresh = (id: unknown, prefix: string) => {
@@ -70,7 +77,7 @@ export function migrateDesign(input: unknown): Design {
     if (p.background === undefined || p.background === null) p.background = '#ffffff';
     if (p.bgAsset !== undefined && typeof p.bgAsset !== 'string') delete p.bgAsset;
     const els = Array.isArray(p.elements) ? p.elements : [];
-    p.elements = els.filter((e): e is El => isObj(e) && TYPES.includes((e as { type: ElType }).type)).map((e) => repairEl(e, fresh));
+    p.elements = els.filter((e): e is El => isObj(e) && TYPES.includes((e as { type: ElType }).type)).slice(0, MAX_ELEMENTS).map((e) => repairEl(e, fresh));
   }
   d.pages = pages;
   d.v = DOC_VERSION;
@@ -88,5 +95,13 @@ function repairEl(e: El, fresh: (id: unknown, prefix: string) => string): El {
   r.opacity = Math.min(1, Math.max(0, num(r.opacity, 1)));
   if (r.group !== undefined && (typeof r.group !== 'string' || !r.group)) delete r.group;
   if (e.type === 'image' && isObj(r.filters)) r.filters = { ...DEFAULT_FILTERS, ...(r.filters as object) };
+  if (e.type === 'image' && r.credit !== undefined) {
+    // credit links open in a new tab: only real https:// addresses
+    if (!isObj(r.credit)) delete r.credit;
+    else for (const k of ['byUrl', 'sourceUrl', 'licenseUrl'] as const) {
+      const c = r.credit as Record<string, unknown>;
+      if (c[k] !== undefined && !(typeof c[k] === 'string' && /^https:\/\//i.test(c[k] as string))) delete c[k];
+    }
+  }
   return e;
 }

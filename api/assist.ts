@@ -8,7 +8,7 @@
  * shows the built-in guide instead of pretending.
  */
 import { q } from './_lib/db.js';
-import { handle, requireUser, HttpError, type AuthedUser } from './_lib/auth.js';
+import { handle, requireUser, HttpError, clientIp as netOf, type AuthedUser } from './_lib/auth.js';
 import { systemPrompt, suggestionsFor, type AccountFacts, type ChatContext } from './_lib/guide.js';
 
 const aiKey = () => process.env.ANTHROPIC_API_KEY?.trim().replace(/^["']|["']$/g, '') ?? '';
@@ -20,10 +20,11 @@ const MAX_CHARS = 1200; // per message
 const LIMIT_USER = 40; // messages per hour per account
 const LIMIT_IP = 15; // messages per hour per network address for visitors
 const LIMIT_IP_ALL = 90; // and for everyone behind one address (shared Wi-Fi is fine, floods are not)
+const LIMIT_ALL = Number(process.env.ASSIST_HOURLY_CAP) || 1500; // the whole site per hour (keeps the AI bill bounded)
 const TIMEOUT_MS = 25_000;
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-const clientIp = (req: Request) => (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64) || 'unknown';
+const clientIp = (req: Request) => netOf(req) || 'unknown';
 const SCREENS = new Set(['home', 'templates', 'projects', 'edit', 'play', 'land', 'rewards', 'profile', 'settings', 'welcome', 'login', 'signup', 'reset', 's']);
 
 async function optionalUser(req: Request): Promise<AuthedUser | null> {
@@ -111,9 +112,10 @@ export async function POST(req: Request): Promise<Response> {
 
     const u = await optionalUser(req);
     const ip = clientIp(req);
+    await limit('all', LIMIT_ALL);
     await limit(`ip:${ip}`, LIMIT_IP_ALL);
     await limit(u ? `u:${u.id}` : `v:${ip}`, u ? LIMIT_USER : LIMIT_IP);
-    await q('insert into fz_assist (key) values ($1), ($2)', [`ip:${ip}`, u ? `u:${u.id}` : `v:${ip}`]);
+    await q('insert into fz_assist (key) values ($1), ($2), ($3)', ['all', `ip:${ip}`, u ? `u:${u.id}` : `v:${ip}`]);
     if (Math.random() < 0.05) await q("delete from fz_assist where at < now() - interval '2 hours'");
 
     const acct = u ? await facts(u).catch(() => null) : null;

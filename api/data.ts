@@ -20,10 +20,15 @@ import { handle, requireUser, HttpError } from './_lib/auth.js';
 
 const TABLES = { designs: 'fz_designs', uploads: 'fz_uploads' } as const;
 const tableOf = (k: unknown) => {
-  const t = TABLES[k as keyof typeof TABLES];
+  const t = typeof k === 'string' && Object.hasOwn(TABLES, k) ? TABLES[k as keyof typeof TABLES] : undefined;
   if (!t) throw new HttpError(400, 'Unknown kind.');
   return t;
 };
+/** Storage limits per account, so nobody can fill the database (a design with photos is usually well under 2 MB). */
+const MAX_PROFILE = 3_000_000; // characters of profile JSON
+const MAX_ROW = 5_000_000; // one design or upload
+const MAX_KIND_BYTES = 300_000_000; // all designs (or all uploads) of one account
+const MAX_KIND_ROWS = 20_000; // rows of one kind, deleted ones included
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : NaN);
 
 export function GET(req: Request): Promise<Response> {
@@ -77,6 +82,7 @@ export function POST(req: Request): Promise<Response> {
       case 'profile.put': {
         const at = num(b.at);
         if (!b.data || typeof b.data !== 'object' || Number.isNaN(at)) throw new HttpError(400, 'Bad profile.');
+        if (JSON.stringify(b.data).length > MAX_PROFILE) throw new HttpError(413, 'Your profile is too big to save online.');
         const incoming = { ...(b.data as Record<string, unknown>), username: u.username };
         // the Fuzzies balance can't be raised beyond what normal play earns (see _lib/balance.ts)
         const reply = (g: Guarded) => (g.clamped ? { ok: true, fuzzies: g.fuzzies, totalFuzzies: g.totalFuzzies } : { ok: true });
@@ -107,10 +113,16 @@ export function POST(req: Request): Promise<Response> {
         const at = num(r?.updated_at);
         if (!r || typeof r.id !== 'string' || !r.id || r.id.length > 80 || Number.isNaN(at)) throw new HttpError(400, 'Bad row.');
         const deleted = r.deleted === true;
+        const table = tableOf(b.kind);
+        const data = deleted ? null : JSON.stringify(r.data ?? null);
+        const what = table === 'fz_designs' ? 'design' : 'upload';
+        if (data !== null && data.length > MAX_ROW) throw new HttpError(413, `This ${what} is too big to save online (over 5 MB) — it stays on this device.`);
+        const { rows: used } = await q<{ n: number; bytes: number }>(`select count(*)::int as n, coalesce(sum(pg_column_size(data)) filter (where not deleted), 0)::float8 as bytes from ${table} where owner = $1 and id <> $2`, [u.id, r.id]);
+        if (used[0].n >= MAX_KIND_ROWS || (data !== null && used[0].bytes + data.length > MAX_KIND_BYTES)) throw new HttpError(413, `Your online storage for ${what}s is full — delete some you don’t need, then try again.`);
         await q(
-          `insert into ${tableOf(b.kind)} (owner, id, data, deleted, updated_at) values ($1, $2, $3, $4, $5)
+          `insert into ${table} (owner, id, data, deleted, updated_at) values ($1, $2, $3, $4, $5)
            on conflict (owner, id) do update set data = excluded.data, deleted = excluded.deleted, updated_at = excluded.updated_at`,
-          [u.id, r.id, deleted ? null : JSON.stringify(r.data ?? null), deleted, at]);
+          [u.id, r.id, data, deleted, at]);
         return { ok: true };
       }
       default:

@@ -88,6 +88,24 @@ export async function requireUser(req: Request): Promise<AuthedUser> {
 }
 
 /** JSON helpers shared by the endpoints. */
+/**
+ * The visitor's network address as Vercel reports it, for rate limits only. IPv6 visitors usually get a whole /64
+ * block (billions of addresses), so they are counted per /64 — rotating addresses inside it can't dodge a limit.
+ */
+export function clientIp(req: Request): string {
+  const raw = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64).toLowerCase();
+  if (!raw.includes(':')) return raw;
+  if (/^[\d.]+:\d+$/.test(raw)) return raw.replace(/:\d+$/, ''); // IPv4 with a port
+  const a = raw.replace(/^\[/, '').replace(/\](:\d+)?$/, '').split('%')[0];
+  const v4 = a.match(/^::ffff:([\d.]+)$/);
+  if (v4) return v4[1];
+  const [head, tail] = a.split('::');
+  const h = head ? head.split(':') : [];
+  const t = tail === undefined ? [] : tail ? tail.split(':') : [];
+  const groups = tail === undefined ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
+  return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, '')).join(':') + '::/64';
+}
+
 export const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 
 /**

@@ -19,8 +19,8 @@ import { box, drop, text, type CollectionTemplate, type Kit } from './kit';
 import { footer, header, NAMES, people, RA_TAGS, T, tpl, type Person, type Theme, type Words } from './team';
 
 /** Colours + fonts for the styles that don't use a header band. */
-interface Look { id: string; bg: string; ink: string; muted: string; accent: string; ring: string; tFont: [string, number]; bFont: string; photo: [string, string, string] }
-const L = {
+export interface Look { id: string; bg: string; ink: string; muted: string; accent: string; ring: string; tFont: [string, number]; bFont: string; photo: [string, string, string] }
+export const L = {
   slate: { id: 'slate', bg: '#ffffff', ink: '#14213d', muted: '#5c6b84', accent: '#2f6fed', ring: '#dbe6fd', tFont: ['Inter', 900], bFont: 'Inter', photo: ['#6f86b5', '#e8eefb', '#2f6fed'] },
   lilac: { id: 'lilac', bg: '#ffffff', ink: '#25124d', muted: '#6a5a8c', accent: '#6b3fc4', ring: '#fdc94a', tFont: ['Montserrat', 900], bFont: 'Montserrat', photo: ['#7b5cc4', '#e5dbf8', '#fdc94a'] },
   cream: { id: 'cream', bg: '#f7f1e8', ink: '#3b2a20', muted: '#8a6f5c', accent: '#c0674a', ring: '#c0674a', tFont: ['Playfair Display', 700], bFont: 'Montserrat', photo: ['#c99a7f', '#f2e4d6', '#c0674a'] },
@@ -37,8 +37,8 @@ function pic(c: Kit, key: string, tint: [string, string, string], i: number, x: 
   c.els.push(el);
   return el;
 }
-const lookPic = (c: Kit, l: Look, i: number, x: number, y: number, w: number, h: number, mask: 'none' | 'circle' | 'arch', r = 0) => pic(c, `style-${l.id}`, l.photo, i, x, y, w, h, mask, r);
-const themePic = (c: Kit, th: Theme, i: number, x: number, y: number, w: number, h: number, mask: 'none' | 'circle' | 'arch', r = 0) => pic(c, th.id === 'reslife' ? 'reslife' : `team-${th.id}`, th.photo, i, x, y, w, h, mask, r);
+export const lookPic = (c: Kit, l: Look, i: number, x: number, y: number, w: number, h: number, mask: 'none' | 'circle' | 'arch', r = 0) => pic(c, `style-${l.id}`, l.photo, i, x, y, w, h, mask, r);
+export const themePic = (c: Kit, th: Theme, i: number, x: number, y: number, w: number, h: number, mask: 'none' | 'circle' | 'arch', r = 0) => pic(c, th.id === 'reslife' ? 'reslife' : `team-${th.id}`, th.photo, i, x, y, w, h, mask, r);
 
 /** Turn a finished card (its elements) around a point, so tilted cards stay in one piece. */
 function spin(els: El[], cx: number, cy: number, deg: number): void {
@@ -54,7 +54,7 @@ function spin(els: El[], cx: number, cy: number, deg: number): void {
 function rng(seed: number): () => number { let s = seed; return () => ((s = (s * 9301 + 49297) % 233280) / 233280); }
 
 /** Cell grid: calls `cell(i, x, y, w, h)` for each person, centred between `top` and `bottom`. */
-function cells(c: Kit, n: number, cols: number, top: number, bottom: number, side: number, gap: number, cell: (i: number, x: number, y: number, w: number, h: number) => void, gapY = gap): void {
+export function cells(c: Kit, n: number, cols: number, top: number, bottom: number, side: number, gap: number, cell: (i: number, x: number, y: number, w: number, h: number) => void, gapY = gap): void {
   const rows = Math.ceil(n / cols), w = (c.W - side * 2 - gap * (cols - 1)) / cols, h = (bottom - top - gapY * (rows - 1)) / rows;
   for (let i = 0; i < n; i++) {
     const row = Math.floor(i / cols), inRow = Math.min(cols, n - row * cols);
@@ -65,7 +65,7 @@ function cells(c: Kit, n: number, cols: number, top: number, bottom: number, sid
 
 interface Head { kicker: string; title: string; sub?: string }
 /** A light-page heading: small spaced kicker, an oversized title, a short accent rule and an optional line. Returns its bottom. */
-function lightHead(c: Kit, l: Look, o: Head, top: number, size: number, align: 'center' | 'left' = 'center'): number {
+export function lightHead(c: Kit, l: Look, o: Head, top: number, size: number, align: 'center' | 'left' = 'center'): number {
   const { W, u } = c, x = align === 'left' ? W * 0.07 : W * 0.1, w = align === 'left' ? W * 0.86 : W * 0.8;
   const k = text(c, o.kicker, x, top, w, { font: l.bFont, weight: 700, size: u * size * 0.3, fill: l.accent, upper: true, spacing: u * 0.006, align, name: 'Kicker' });
   const t = text(c, o.title, x, k.y + k.h + u * 0.012, w, { font: l.tFont[0], weight: l.tFont[1], size: u * size, fill: l.ink, lh: 1.02, lines: 2, align, name: 'Title' });
@@ -77,7 +77,7 @@ function lightHead(c: Kit, l: Look, o: Head, top: number, size: number, align: '
 }
 
 // ---------- circles: round headshots, clean and corporate ----------
-function circles(c: Kit, l: Look, o: Head & { footer?: string }, ps: Person[], cols: number, head = 0.075): void {
+export function circles(c: Kit, l: Look, o: Head & { footer?: string }, ps: Person[], cols: number, head = 0.075): void {
   const { W, H, u } = c;
   c.bg = l.bg;
   const wide = W / H > 1.3;
@@ -122,8 +122,8 @@ function facts(c: Kit, th: Theme, w: Words, ps: Facts[], cols: number): void {
 }
 
 // ---------- directory: who to ask and how to reach them ----------
-type Entry = [name: string, role: string, reach: string];
-function directory(c: Kit, th: Theme, w: Words, rows: Entry[]): void {
+export type Entry = [name: string, role: string, reach: string];
+export function directory(c: Kit, th: Theme, w: Words, rows: Entry[]): void {
   const { W, H, u } = c;
   c.bg = th.page;
   header(c, th, { ...w, h: H * 0.16, size: 0.075 });

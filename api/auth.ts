@@ -26,7 +26,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { db, q } from './_lib/db.js';
 import { requireMail, sendMail, resetEmail, mailReady, walletLinkedEmail } from './_lib/mail.js';
-import { handle, hashPassword, checkPassword, makeToken, makeProof, readProof, requireUser, HttpError, errorRef, json, BUILD, type AuthedUser } from './_lib/auth.js';
+import { handle, hashPassword, checkPassword, makeToken, makeProof, readProof, requireUser, HttpError, errorRef, json, BUILD, clientIp, type AuthedUser } from './_lib/auth.js';
 import { paymentsEnabled, walletFeeCents, addressHash } from './_lib/pay.js';
 import { normAddress, recoverSigner, siteOf, siweMessage, verifySmartWallet, MAX_SIGNATURE } from './_lib/wallet.js';
 
@@ -57,8 +57,8 @@ const failKey = (u: { id: string; email: string | null }) => u.email || `u:${u.i
 const USER_COLS = 'id, email, username, token_v, (pass is not null) as has_password';
 const walletsOf = async (userId: string) =>
   (await q<{ address: string; wallet: string; created_at: string; last_used_at: string | null; active: boolean }>('select address, wallet, created_at, last_used_at, active from fz_wallets where user_id = $1 order by created_at', [userId])).rows;
-/** The visitor's network address as Vercel reports it (used only to slow down floods of sign-in requests). */
-const clientIp = (req: Request) => (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim().slice(0, 64);
+/** Wrong passwords from one network (any email) before it has to wait — stops guessing across many accounts. */
+const MAX_IP_FAILS = 30;
 
 /** Too many wrong passwords lately? */
 async function assertNotLocked(key: string): Promise<void> {
@@ -165,11 +165,12 @@ export function POST(req: Request): Promise<Response> {
       case 'login': {
         const email = str(b.email).toLowerCase();
         const password = typeof b.password === 'string' ? b.password : '';
-        const { rows: fails } = await q("select count(*)::int as n from fz_login_fails where email = $1 and at > now() - interval '15 minutes'", [email]);
-        if (fails[0].n >= MAX_FAILS) throw new HttpError(429, 'Too many tries — please wait 15 minutes and try again.');
+        const ipKey = `ip:${clientIp(req)}`;
+        const { rows: fails } = await q<{ e: number; i: number }>("select count(*) filter (where email = $1)::int as e, count(*) filter (where email = $2)::int as i from fz_login_fails where email in ($1, $2) and at > now() - interval '15 minutes'", [email, ipKey]);
+        if (fails[0].e >= MAX_FAILS || fails[0].i >= MAX_IP_FAILS) throw new HttpError(429, 'Too many tries — please wait 15 minutes and try again.');
         const { rows } = await q(`select ${USER_COLS}, pass from fz_users where email = $1 and email is not null`, [email]);
         if (!rows[0] || !(await checkPassword(password, rows[0].pass))) {
-          await q('insert into fz_login_fails (email) values ($1)', [email]);
+          await q('insert into fz_login_fails (email) values ($1), ($2)', [email, ipKey]);
           await q("delete from fz_login_fails where at < now() - interval '1 day'");
           throw new HttpError(401, 'Wrong email or password.');
         }
@@ -333,7 +334,7 @@ export function POST(req: Request): Promise<Response> {
         if (password.length < 6 || password.length > 200) throw new HttpError(400, 'Password needs at least 6 characters.');
         await reauth(u, { password: b.old, proof: b.proof }, 'change your login details');
         try {
-          const { rows } = await q<AuthedUser>(`update fz_users set email = $2, pass = $3 where id = $1 returning ${USER_COLS}`, [u.id, email, await hashPassword(password)]);
+          const { rows } = await q<AuthedUser>(`update fz_users set email = $2, pass = $3, token_v = token_v + 1 where id = $1 returning ${USER_COLS}`, [u.id, email, await hashPassword(password)]);
           return { token: makeToken(rows[0].id, rows[0].token_v), user: publicUser(rows[0]) };
         } catch (e) { return dup(e); }
       }
@@ -366,13 +367,19 @@ export function POST(req: Request): Promise<Response> {
         if (!u.has_password) throw new HttpError(400, 'This account has no password yet — add an email and password from Profile → Account.');
         const next = typeof b.new === 'string' ? b.new : '';
         if (next.length < 6 || next.length > 200) throw new HttpError(400, 'New password needs at least 6 characters.');
+        await assertNotLocked(failKey(u));
         const { rows } = await q('select pass from fz_users where id = $1', [u.id]);
-        if (!(await checkPassword(typeof b.old === 'string' ? b.old : '', rows[0].pass))) throw new HttpError(400, 'Current password is wrong.');
+        if (!(await checkPassword(typeof b.old === 'string' ? b.old : '', rows[0].pass))) {
+          await countFail(failKey(u));
+          throw new HttpError(400, 'Current password is wrong.');
+        }
         const { rows: r2 } = await q('update fz_users set pass = $2, token_v = token_v + 1 where id = $1 returning token_v', [u.id, await hashPassword(next)]);
         return { token: makeToken(u.id, r2[0].token_v) };
       }
       case 'delete': {
+        // a logged-in device alone can't wipe an account: the password (or a linked wallet's signature) is needed too
         const u = await requireUser(req);
+        await reauth(u, b, 'delete your account');
         await q('delete from fz_users where id = $1', [u.id]); // profile, designs and uploads go with it
         return { ok: true };
       }

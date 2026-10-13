@@ -231,7 +231,7 @@ export function buildProps(ed: Editor): Props {
     }));
     const replace = btn(e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', { kind: 'ghost', icon: 'image', size: 'sm', onClick: () => ed.pickPhotoFor(e) });
     const c = e.credit;
-    const link = (text: string, url?: string) => (url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, text) : h('span', null, text));
+    const link = (text: string, url?: string) => (url && /^https:\/\//i.test(url) ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, text) : h('span', null, text));
     const credit = c ? sec('Photo credit', h('p', { class: 'credit-line' }, 'Photo', c.by ? ' by ' : '', c.by ? link(c.by, c.byUrl) : null, ' on ', link(c.source, c.sourceUrl), h('br'),
       'Licence: ', link(c.license, c.licenseUrl)),
       h('p', { class: 'hint' }, c.required ? 'This licence asks you to credit the photographer wherever you share the design.' : 'No credit needed, but photographers love it.'),

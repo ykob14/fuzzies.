@@ -21,6 +21,23 @@ import { pay, money } from '../../core/pay';
 const EMOJIS = ['🦄', '🐻', '🐰', '🦊', '🐼', '🐥', '🐙', '🦋', '🐯', '🐨', '🐶', '🐱', '🌈', '⭐', '🍕', '🎨', '🚀', '🌸', '👾', '😎'];
 const COLORS = ['#d6336c', '#b0245a', '#ff8fb4', '#ffd6e4', '#18171c', '#5c5864', '#a09ca7', '#efede9', '#e8590c', '#2b9a66'];
 
+/** Re-authenticate: the password (asked in a small window), or — for accounts without one — a linked wallet's signature. */
+function confirmIdentity(what: string, hasPassword: boolean): Promise<Reauth | null> {
+  return new Promise((res) => {
+    if (!hasPassword) {
+      pickWallet({ title: 'Confirm it’s you', intro: `To ${what}, sign once with a wallet that’s already linked to this account.`, hash: '#/profile',
+        run: async (w) => { const r = await cloud.identifyWallet(w); if (!r.linked?.same) throw new Error('That wallet isn’t linked to this account — use one that is.'); res({ proof: r.proof }); } });
+      return;
+    }
+    let done = false;
+    const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', placeholder: 'Your Fuzzies password' });
+    const go = btn('Continue', { kind: 'primary', onClick: () => { if (!pw.value) { pw.focus(); return; } done = true; res({ password: pw.value }); m.close(); } });
+    pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
+    const m = modal('Confirm it’s you', h('div', { class: 'acct-reauth' }, h('p', { class: 'muted' }, `To ${what}, please enter your password.`), pw), { actions: [btn('Cancel', { kind: 'ghost', onClick: () => m.close() }), go], onClose: () => { if (!done) res(null); } });
+    setTimeout(() => pw.focus(), 60);
+  });
+}
+
 export function profileScreen(): Screen {
   const body = h('div');
 
@@ -117,7 +134,12 @@ export function profileScreen(): Screen {
                 const where = a.cloud ? 'from your Fuzzies account and every device' : 'on this device';
                 if (!(await confirmDialog('Delete your account?', `This removes your profile, Fuzzies, unlocks and every design ${where}. It cannot be undone.`, 'Delete everything'))) return;
                 try {
-                  if (cloud.enabled || a.cloud) await cloud.deleteAccount();
+                  if (a.cloud) {
+                    // the password (or a linked wallet) too, so a borrowed logged-in device can't wipe the account
+                    const auth = await confirmIdentity('delete your account', (await cloud.loginInfo()).hasPassword);
+                    if (!auth) return;
+                    await cloud.deleteAccount(auth);
+                  } else if (cloud.enabled) await cloud.deleteAccount();
                   else { await db.deleteOwner(a.id); accounts.remove(); }
                   location.hash = '#/welcome';
                 } catch (e) { toast((e as Error).message, 'bad'); }
@@ -146,19 +168,7 @@ export function profileScreen(): Screen {
     });
     const reload = () => cloud.loginInfo().then(show).catch((e) => list.replaceChildren(h('p', { class: 'form-err' }, (e as Error).message)));
     /** Re-authenticate: the password (asked in a small window), or — for accounts without one — a linked wallet's signature. */
-    const reauth = (what: string): Promise<Reauth | null> => new Promise((res) => {
-      if (!info?.hasPassword) {
-        pickWallet({ title: 'Confirm it’s you', intro: `To ${what}, sign once with a wallet that’s already linked to this account.`, hash: '#/profile',
-          run: async (w) => { const r = await cloud.identifyWallet(w); if (!r.linked?.same) throw new Error('That wallet isn’t linked to this account — use one that is.'); res({ proof: r.proof }); } });
-        return;
-      }
-      let done = false;
-      const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', placeholder: 'Your Fuzzies password' });
-      const go = btn('Continue', { kind: 'primary', onClick: () => { if (!pw.value) { pw.focus(); return; } done = true; res({ password: pw.value }); m.close(); } });
-      pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
-      const m = modal('Confirm it’s you', h('div', { class: 'acct-reauth' }, h('p', { class: 'muted' }, `To ${what}, please enter your password.`), pw), { actions: [btn('Cancel', { kind: 'ghost', onClick: () => m.close() }), go], onClose: () => { if (!done) res(null); } });
-      setTimeout(() => pw.focus(), 60);
-    });
+    const reauth = (what: string) => confirmIdentity(what, !!info?.hasPassword);
     const afterLink = (r: LinkResult) => {
       void reload();
       if (r.activate) { toast('Wallet linked — one last step: activate it', 'good', 3000); setTimeout(() => void activate(r.activate!.address, r.activate!.feeCents), 350); }

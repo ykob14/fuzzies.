@@ -81,10 +81,15 @@ export function fillStyle(ctx: CanvasRenderingContext2D, fill: Fill, w: number, 
   return g;
 }
 
+/** A colour that is safe to put into CSS: designs can arrive in share links, so nothing like url(…) gets through. */
+export function cssColor(c: unknown): string {
+  const s = typeof c === 'string' ? c.trim() : '';
+  return /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9a-z\s.,%/+-]*\)|[a-z]{3,20})$/i.test(s) ? s : 'transparent';
+}
 export function fillToCss(fill: Fill): string {
-  if (typeof fill === 'string') return fill;
-  const st = fill.stops.map((s) => `${s.color} ${Math.round(s.at * 100)}%`).join(', ');
-  return fill.kind === 'radial' ? `radial-gradient(circle, ${st})` : `linear-gradient(${fill.angle}deg, ${st})`;
+  if (typeof fill === 'string' || !fill || !Array.isArray(fill.stops)) return cssColor(fill);
+  const st = fill.stops.map((s) => `${cssColor(s.color)} ${Math.round((Number(s.at) || 0) * 100)}%`).join(', ');
+  return fill.kind === 'radial' ? `radial-gradient(circle, ${st})` : `linear-gradient(${Number(fill.angle) || 0}deg, ${st})`;
 }
 
 // ---------- text ----------

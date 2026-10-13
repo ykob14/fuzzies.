@@ -1,5 +1,5 @@
 /**
- * Template managers: accounts listed in ADMIN_EMAILS (Vercel) can save designs as templates, publish/unpublish and
+ * Template managers: accounts listed in the fz_admins table can save designs as templates, publish/unpublish and
  * delete them, and — when the site has an Anthropic API key — draft template wording with AI. The server decides who
  * is a manager; this file only asks. Kept small so the editor can import it without loading the whole catalog.
  */

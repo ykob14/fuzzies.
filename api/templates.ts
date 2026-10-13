@@ -9,7 +9,7 @@
  * GET  /api/templates?thumb=<id>&r=<revision>          → the preview picture (image)
  * POST /api/templates { action, ... }  (logged in)
  *   use     { id }                 → { ok }      counts one use per person per template per day
- *   me                             → { admin, ai } may this account manage templates? (ADMIN_EMAILS in Vercel or fz_admins);
+ *   me                             → { admin, ai } may this account manage templates? (listed in fz_admins);
  *                                                 is AI drafting switched on? (ANTHROPIC_API_KEY + ANTHROPIC_MODEL)
  *   mine                           → { items }   every template, drafts too (admin)
  *   get     { id }                 → { meta, doc } drafts too (admin)
@@ -54,10 +54,11 @@ function tsQuery(text: string): string {
   return ws.map((w) => `${w}:*`).join(' & ');
 }
 
-/** Template managers: emails in ADMIN_EMAILS (Vercel), or accounts listed in the fz_admins table (set in the database). */
+/**
+ * Template managers: accounts listed in the fz_admins table (set in the database). Not by email: emails aren't
+ * verified, so an email list could be claimed by whoever signs up with (or changes to) an address first.
+ */
 async function isAdmin(u: AuthedUser): Promise<boolean> {
-  const list = (process.env.ADMIN_EMAILS ?? '').split(/[,\s;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
-  if (list.includes((u.email ?? '').toLowerCase())) return true;
   const { rows } = await q('select 1 from fz_admins where user_id = $1', [u.id]);
   return rows.length > 0;
 }
