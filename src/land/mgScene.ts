@@ -125,7 +125,8 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
   const hemi = new THREE.HemisphereLight(skyKind === 'night' ? 0x8fa3ff : 0xdff0ff, skyKind === 'snow' ? 0xdde7ee : 0x6a8a4a, skyKind === 'night' ? 0.5 : 0.75);
   scene.add(sun, sun.target, hemi);
-  const sky = buildSky(); scene.add(sky);
+  // the dome is built for the island (centred on the map); mini-game scenes sit at the origin, so re-centre it and keep it inside the camera's far plane
+  const sky = buildSky(); sky.position.set(0, 0, 0); sky.scale.setScalar(0.6); scene.add(sky);
   const skyMat = sky.material as THREE.ShaderMaterial;
   if (skyKind === 'dusk') { (skyMat.uniforms.uTop.value as THREE.Color).set('#6a5aa8'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#ffc9a0'); }
   else if (skyKind === 'night') { (skyMat.uniforms.uTop.value as THREE.Color).set('#1b2140'); (skyMat.uniforms.uHorizon.value as THREE.Color).set('#4a5a9a'); }

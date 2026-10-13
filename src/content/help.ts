@@ -155,7 +155,7 @@ overlap. Seasonal effects can be switched off in Settings.`,
   },
   {
     id: 'adventures', title: 'Fuzzies Adventures (daily missions & mini-games)', screens: ['land'],
-    keywords: ['adventure', 'adventures', 'mission', 'daily mission', 'boat', 'race', 'boat race', 'forest', 'chop', 'tree', 'wood', 'hairball', 'vacuum', 'hairballs', 'festival', 'talk', 'character', 'personality', 'pom', 'host', 'reward', 'complete', 'completed', 'contest', 'rival', 'lumberjack', 'five hours', 'new missions', 'set', 'laps', 'checkpoint', 'steer', 'joystick', 'combo', 'tier', 'golden'],
+    keywords: ['adventure', 'adventures', 'mission', 'daily mission', 'boat', 'race', 'boat race', 'forest', 'chop', 'tree', 'wood', 'hairball', 'vacuum', 'hairballs', 'festival', 'talk', 'character', 'personality', 'pom', 'host', 'reward', 'complete', 'completed', 'contest', 'rival', 'lumberjack', 'five hours', 'new missions', 'set', 'laps', 'checkpoint', 'steer', 'joystick', 'combo', 'tier', 'golden', 'fruit', 'maze', 'balloon', 'treasure', 'fishing', 'obstacle', 'harvest', 'garden', 'delivery', 'mining', 'firefighter', 'fire', 'snowball', 'beach', 'skating', 'skate', 'mini-game', 'mini-games', 'games', 'kart', 'dolphin', 'cooking', 'coming soon'],
     body: `Every Fuzzy walking around your town is a character with a name and a personality (Adventurer, Farmer, Builder, Explorer, Fisher,
 Decorator, Nature keeper, Baker). Tap one: the camera glides in, it says hello and a card shows who it is, its adventure (objective, time
 limit, rewards) and Start Adventure / Maybe later. MISSIONS COME IN SETS OF THREE: three different Fuzzies each have a mission (the
@@ -176,9 +176,22 @@ is already on is theirs; the live standings are in the corner; most points when 
 4th 15. Hairball
 Vacuum Challenge (2 minutes): walk around the garden with the vacuum — hairballs in front of the nozzle are pulled in (10 points, big
 ones 25, golden 100), quick pick-ups chain into a multiplier, the canister empties itself with a bonus. The vacuum pays by tier:
-top tier 100 coins, then 65, 35, 15. Every adventure can be paused and restarted mid-run. Rewards are town coins only — never Fuzzies tokens
-or crypto.`,
-    asks: ['How do I start an adventure?', 'How do I steer the boat?', 'Why didn’t I get coins for the race?', 'Which Fuzzy has today’s mission?', 'How does the hairball vacuum work?', 'Can I cut any tree in the forest?', 'When do I get new missions?', 'Why can’t I play the challenge again?'],
+top tier 100 coins, then 65, 35, 15. THE LIBRARY HAS 17 PLAYABLE MINI-GAMES (each set of three is drawn from it, never the same game
+twice in a set): Boat Race, Forest Challenge, Hairball Vacuum, Fruit Catcher (catch the falling fruit in your basket, dodge the pine
+cones), Fuzzy Maze (find the three keys in the hedge maze, tap where to walk, then the gate opens), Balloon Pop (tap the balloons
+before they float over the roofs; shiny 50, dark spiky ones break the chain), Island Treasure Hunt (walk the beach, the meter goes
+WARM then HOT near treasure, then DIG), Fishing Frenzy (tap the water to cast, HOOK on the bite, hold REEL but let go when the line
+goes red), Obstacle Run (three lanes: swipe or A/D to change lane, jump the logs and puddles, go round the rocks), Farm Harvest Rush
+(pick the ripe plants before they wilt), Garden Cleanup (hold PULL on the weeds, never trample the flower beds), Package Delivery
+(a cart: load at the depot, bring parcels to the glowing doors, don't bump into things), Mining Adventure (dig the gem piles, step
+away when the ceiling rumbles), Firefighter Fuzzy (hold SPRAY at the flames, refill the tank at the pond, save the cottages), Snowball
+Challenge (tap a target to throw, moving and far targets pay more), Beach Cleanup (pick up the litter before the tide takes it, drop
+a full bag in the bin, hop over the crabs) and Ice Skating (lean left/right to steer on the sliding ice, glide through the lit gates
+in order, SPIN once between gates for style, miss the snowmen). Every one has gold / silver / bronze score tiers (shown on its card),
+runs on phones (on-screen joystick or tap) and computers (WASD/arrows, Space for the action, mouse/click), can be paused and restarted
+mid-run, and keeps your best score. Kart Race, Dolphin Adventure and Fuzzy Cooking are listed as coming soon. Rewards are town coins
+only — never Fuzzies tokens or crypto.`,
+    asks: ['How do I start an adventure?', 'How do I steer the boat?', 'Why didn’t I get coins for the race?', 'Which Fuzzy has today’s mission?', 'How does the hairball vacuum work?', 'Can I cut any tree in the forest?', 'When do I get new missions?', 'Why can’t I play the challenge again?', 'Which mini-games are there?', 'How do I play the ice skating?'],
   },
   {
     id: 'wallets', title: 'Crypto wallets & wallet log-in', screens: ['profile', 'login', 'signup', 'welcome'],

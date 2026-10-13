@@ -184,7 +184,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 20, bottom: -20, near: 2, far: 80 });
   sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
   scene.add(sun, sun.target, new THREE.HemisphereLight(0xdff0ff, 0x6a8a4a, 0.75));
-  const sky = buildSky(); scene.add(sky);
+  const sky = buildSky(); sky.position.set(0, 0, 0); sky.scale.setScalar(0.6); scene.add(sky); // the dome is built for the island; re-centre it and keep it inside the far plane
   scene.fog = new THREE.Fog('#cfe6ee', 45, 130);
   const time = { value: 0 };
   const { water, lamps } = garden(scene, sim, time, mobile);

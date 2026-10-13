@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { treeModel } from '../environment';
 import { adventure } from '../adventures';
 import { BalloonSim, TOP, SQUARE, type Balloon } from './balloon';
 
@@ -19,7 +20,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     cls: 'balloon', setup, adv, hooks, buttonLabel: 'Let’s pop!',
     hud: { count: 'POPPED' },
     camera: portrait ? { fov: 60, back: 18, up: 5, lookDy: -18, lookY: 4, lead: 0 } : { fov: 46, back: 13, up: 4.5, lookDy: -13, lookY: 3.6, lead: 0 },
-    world: { size: { hw: 10, hd: 8 }, path: false, fence: false, flowers: 10 },
+    world: { size: { hw: 10, hd: 8 }, path: false, fence: false, flowers: 10, treeLine: false },
     controls: { none: true },
     onStart: () => sim.start(),
   });
@@ -46,6 +47,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   // bunting between two poles across the front
   for (const sx of [-1, 1]) add(scene, new THREE.CylinderGeometry(0.06, 0.08, 4, 8), trim, sx * 7.5, 2, -2.5);
   for (let i = 0; i < 18; i++) { const t = i / 17; const flag = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 3), std(PALETTE[i % 5], 0.8)); flag.position.set(-7.5 + t * 15, 3.95 - Math.sin(t * Math.PI) * 0.6, -2.5); flag.rotation.z = Math.PI; scene.add(flag); }
+  // trees behind the cottages only (the camera stands at the front of the square, so no tree may sit in front of it)
+  for (let i = 0; i < (a.mobile ? 10 : 16); i++) { const t = treeModel(100 + i, time, 1.1 + (i % 3) * 0.3); t.position.set(-16 + i * (32 / 15) + ((i * 7) % 3) * 0.4, 0, -11 - ((i * 5) % 4) * 1.2); scene.add(t); }
   // lamps
   for (const sx of [-1, 1]) { add(scene, new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), stone, sx * 4, 1.2, 3.6); add(scene, new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshStandardMaterial({ color: '#ffe9a8', emissive: '#ffb347', emissiveIntensity: 0.4 }), sx * 4, 2.5, 3.6, false); }
   // you, at the front, looking up
