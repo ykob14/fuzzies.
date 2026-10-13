@@ -3,7 +3,7 @@
  * three (pink) in a hedged meadow arena with rocks, low walls, destructible crates and bushes to hide in. Everyone shoots
  * aimed bolts (three charges that reload), fills a special by landing hits (Energy Burst, Bubble Shield, Zoom Dash, Bloom Heal),
  * gets knocked out at 0 HP and pops back at their own gate 3 s later. Points: a knockout = 1, holding the Sunflower ring in the
- * middle alone for 6 s = 1. First to 20 or the higher score when the 2 min 10 s run out wins (a tie → 20 s of sudden overtime,
+ * middle alone for 6 s = 1. First to 10 or the higher score when the 70 seconds run out wins (a tie → 15 s of sudden overtime,
  * then a draw). The computer Fuzzies path round cover (A* on a 1 m grid), chase, back off to heal, strafe, dodge bolts, hide
  * behind cover to reload, go for the ring and use their specials. Checked without a browser by `adv/brawl-check.ts`.
  */
@@ -28,7 +28,7 @@ export interface BrawlEvent {
 export interface Control { move: Vec2; aim: Vec2 | null; fire: boolean; special: boolean }
 
 export const ARENA = { hw: 11, hd: 15 };
-export const LIMIT = 130, OVERTIME = 20, WIN_AT = 20;
+export const LIMIT = 70, OVERTIME = 15, WIN_AT = 10;
 export const ZONE = { r: 2.6, hold: 6 };
 export const RADIUS = 0.42, RESPAWN = 3, REGEN = { wait: 3, rate: 14 };
 export const BUSH_SEE = 2.4; // you see into a bush from this close (or when someone in it just fired)

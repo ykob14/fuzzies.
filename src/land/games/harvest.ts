@@ -2,7 +2,7 @@
  * Farm Harvest Rush — RULES only (no DOM, no Three.js): a fenced field of 4 rows × 6 plants. Plants ripen in waves (mostly along
  * a row), glow while ripe, and wilt if nobody picks them in time. Walk up to a glowing plant and PICK: a fresh pick (first
  * seconds of ripeness) is 25, a ripe one 15, a green one is refused and costs a moment, a wilted one is lost. Picked and
- * wilted plants grow back. 100 seconds. Checked without a browser by `adv/harvest-check.ts`.
+ * wilted plants grow back. 70 seconds. Checked without a browser by `adv/harvest-check.ts`.
  */
 import { Clock, Mover, seeded, tierPlace, type Obstacle, type Vec2 } from '../arcade';
 
@@ -13,10 +13,10 @@ export interface HarvestEvent { kind: 'ripe' | 'wave' | 'pick' | 'early' | 'wilt
 
 export const SCORING = {
   ripe: 15, fresh: 25,
-  tiers: [1250, 750, 250] as [number, number, number],
+  tiers: [880, 520, 180] as [number, number, number],
   tierNames: ['Harvest hero', 'Green paws', 'Field hand', 'Still sowing'],
 };
-export const LIMIT = 100;
+export const LIMIT = 70;
 export const ROWS = 4; export const COLS = 6;
 export const ROW_GAP = 2.6; export const COL_GAP = 1.9;
 export const FIELD = { hw: (COLS * COL_GAP) / 2 + 2.2, hd: (ROWS * ROW_GAP) / 2 + 2.6 };

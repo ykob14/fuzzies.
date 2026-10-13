@@ -2,7 +2,7 @@
  * Beach Cleanup — RULES only (no DOM, no Three.js): the tide left litter all over the sand and keeps washing more up. Walk
  * over litter to bag it (a piece 10, a bottle 20; the bag holds 6), empty a full bag in the bin for +60. The tide rolls in
  * and out: litter left in the wet sand for a few seconds is washed away. Crabs scuttle along the water line — brush one and
- * it pinches: two pieces fall out of your bag. HOP (the action) jumps you forward out of their way. 100 seconds.
+ * it pinches: two pieces fall out of your bag. HOP (the action) jumps you forward out of their way. 70 seconds.
  * Checked by `adv/beach-check.ts`.
  */
 import { Clock, Mover, seeded, tierPlace, freeSpot, type Obstacle, type Vec2 } from '../arcade';
@@ -15,10 +15,10 @@ export interface BeachEvent { kind: 'pick' | 'full' | 'empty' | 'washed' | 'wash
 export const SCORING = {
   points: { can: 10, bag: 10, bottle: 20, wrapper: 10 } as Record<LitterKind, number>,
   binBonus: 60,
-  tiers: [840, 500, 210] as [number, number, number],
+  tiers: [590, 350, 150] as [number, number, number],
   tierNames: ['Beach guardian', 'Tide tamer', 'Sand sweeper', 'Sunbather'],
 };
-export const LIMIT = 100;
+export const LIMIT = 70;
 export const BEACH = { hw: 12, hd: 7 };
 export const BIN: Vec2 = { x: BEACH.hw - 1.6, z: BEACH.hd - 1.4 };
 export const BAG = 6;

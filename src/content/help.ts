@@ -170,20 +170,20 @@ Golden Day vacuum). Boat Race: three laps
 around Palm Island through the numbered gates in order; steer with A/D or the arrows (W accelerates, S brakes) or hold the left/right
 side of the screen on a phone; if you miss a gate the screen says MISSED CHECKPOINT and the arrow points back — go through it again;
 stay inside the buoys; later laps add barrels, boost pads, currents, logs and waves; 1st = 100 coins, 2nd 60, 3rd 30. Forest Challenge
-(100 seconds, a lumberjack contest against three town Fuzzies): tap any tree and your Fuzzy walks there by itself (or walk with
+(70 seconds, a lumberjack contest against three town Fuzzies): tap any tree and your Fuzzy walks there by itself (or walk with
 WASD/arrows, the mouse, or the on-screen joystick on a phone), then tap CHOP (or Space, or the tree itself) when the marker is in the
 green; EVERY tree can be cut — bigger ones take more hits and score more, trees with a glowing ring pay ×1.5, sparkly ones hide a
 bonus, walk over the wood that flies out for +5 each, perfect hits in a row multiply; the other Fuzzies cut trees too and a tree someone
 is already on is theirs; the live standings are in the corner; most points when the sun sets wins — 1st 100 coins, 2nd 65, 3rd 35,
 4th 15. Hairball
-Vacuum Challenge (100 seconds): walk around the garden with the vacuum — hairballs in front of the nozzle are pulled in (10 points, big
+Vacuum Challenge (70 seconds): walk around the garden with the vacuum — hairballs in front of the nozzle are pulled in (10 points, big
 ones 25, golden 100), quick pick-ups chain into a multiplier, the canister empties itself with a bonus. The vacuum pays by tier:
 top tier 100 coins, then 65, 35, 15. THE LIBRARY HAS 17 PLAYABLE MINI-GAMES (each set of three is drawn from it, never the same game
 twice in a set): Boat Race, Forest Challenge, Hairball Vacuum, Fruit Catcher (catch the falling fruit in your basket, dodge the pine
 cones), Fuzzy Maze (find the three keys in the hedge maze, tap where to walk, then the gate opens), Balloon Pop (tap the balloons
 before they float over the roofs; shiny 50, dark spiky ones break the chain), Island Treasure Hunt (walk the beach, the meter goes
 WARM then HOT near treasure, then DIG), Fishing Frenzy (tap the water to cast, HOOK on the bite, hold REEL but let go when the line
-goes red), Obstacle Run (three lanes: swipe or A/D to change lane, swipe up / ↑ to jump logs and puddles, swipe down / ↓ to duck under vines, go round rocks, rolling boulders and carts, bounce on mushrooms for high stars, grab a shield, star magnet or speed boost; the 🔊 button mutes it), Fuzzie Brawl Arena (3 vs 3: pick a power — Energy Burst, Bubble Shield, Zoom Dash or Bloom Heal — then WASD + mouse or two thumb sticks; knockouts and holding the Sunflower ring score, first to 20 wins; hide in bushes), Farm Harvest Rush
+goes red), Obstacle Run (three lanes: swipe or A/D to change lane, swipe up / ↑ to jump logs and puddles, swipe down / ↓ to duck under vines, go round rocks, rolling boulders and carts, bounce on mushrooms for high stars, grab a shield, star magnet or speed boost; the 🔊 button mutes it), Fuzzie Brawl Arena (3 vs 3: pick a power — Energy Burst, Bubble Shield, Zoom Dash or Bloom Heal — then WASD + mouse or two thumb sticks; knockouts and holding the Sunflower ring score, first to 10 wins; hide in bushes), Farm Harvest Rush
 (pick the ripe plants before they wilt), Garden Cleanup (hold PULL on the weeds, never trample the flower beds), Package Delivery
 (a cart: load at the depot, bring parcels to the glowing doors, steer round the lamp posts and the flower bed — crashing into them knocks a parcel off), Mining Adventure (dig the gem piles, step
 away when the ceiling rumbles), Firefighter Fuzzy (hold SPRAY at the flames, refill the tank at the pond, save the cottages), Snowball

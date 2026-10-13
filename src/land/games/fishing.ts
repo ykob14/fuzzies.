@@ -14,10 +14,10 @@ export interface FishingEvent { kind: 'cast' | 'ripple' | 'bite' | 'hook' | 'spo
 export const SCORING = {
   points: { minnow: 10, perch: 20, trout: 35, carp: 80 } as Record<FishKind, number>,
   perfect: 1.5,
-  tiers: [420, 250, 120] as [number, number, number],
+  tiers: [290, 180, 80] as [number, number, number],
   tierNames: ['Fishing legend', 'Keen angler', 'Jetty regular', 'Just the bait'],
 };
-export const LIMIT = 100;
+export const LIMIT = 70;
 /** the water: x across, z from the jetty (z = 0) out to `far` (negative z) */
 export const LAKE = { hw: 9, near: 2.5, far: 11 };
 export const CAST_TIME = 0.7;
