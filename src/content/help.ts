@@ -69,14 +69,16 @@ duplicates, renames, moves to a folder, shares or deletes it. Designs save autom
   },
   {
     id: 'editor', title: 'The editor', screens: ['edit'],
-    keywords: ['editor', 'canvas', 'text', 'font', 'shape', 'photo', 'upload', 'sticker', 'draw', 'background', 'layer', 'page', 'undo', 'group',
+    keywords: ['editor', 'canvas', 'text', 'font', 'shape', 'photo', 'upload', 'photo frame', 'replace photo', 'add my picture', 'insert picture', 'sticker', 'draw', 'background', 'layer', 'page', 'undo', 'group',
       'resize', 'rotate', 'align', 'snap', 'grid', 'zoom', 'colour', 'color', 'gradient', 'effect', 'curved', 'qr', 'toolbar', 'inspector', 'autosave', 'save'],
     body: `Left panels: Templates, Elements (shapes, graphics, illustrated collections, QR codes), Text, Uploads (your pictures), Photos (free stock photos),
 Stickers, Draw, Background and Layers. Drag anything from a panel onto the page, or tap it to add it. The toolbar above the canvas shows the
 useful controls for what you selected (font, size, colour, bold, align, fill, border, position, transparency); "All options" opens the full
 inspector (text effects such as shadow, outline, glow, curved text; filters and masks for photos; Replace artwork for graphics). Multi-select
 with Shift or by dragging a box; group with Ctrl/Cmd+G. Undo Ctrl/Cmd+Z, redo Ctrl/Cmd+Shift+Z. Pages: add, duplicate and reorder at the bottom.
-View menu: smart guides, grid, snap to grid. Preview shows the pages full screen. Your design saves itself (the chip says Saving / Saved);
+Photo frames in templates (they say "+ Add photo"): tap or click one to pick a picture from your computer or phone (gallery or camera)
+and it fills that frame, cropped to its shape; you can also drop a picture file on a frame, or select a frame and tap a picture in Uploads or
+Photos. To swap a photo later, double-click it (double-tap on a phone) or use "Replace photo" in the toolbar. View menu: smart guides, grid, snap to grid. Preview shows the pages full screen. Your design saves itself (the chip says Saving / Saved);
 Ctrl/Cmd+S saves right away. Brand colours and fonts (Settings → Brand kit) appear first in every colour and font picker.`,
     asks: ['How do I curve text?', 'How do I add my own photo?', 'How do I make a QR code?', 'How do I group things?'],
   },

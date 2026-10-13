@@ -21,6 +21,7 @@ export async function openEditor(id: string): Promise<Screen | null> {
   try { d = migrateDesign(raw); } // older or damaged saves are upgraded/repaired here, never thrown away
   catch { toast('That design could not be opened', 'bad'); location.replace('#/projects'); return null; }
   const ed = new Editor(d, () => { location.hash = '#/home'; });
+  if (import.meta.env.DEV) (window as unknown as { __ed: unknown }).__ed = ed; // for tests
   document.body.classList.add('in-editor');
   const tryIt = takeTryIt(d.id);
   if (tryIt) requestAnimationFrame(() => {

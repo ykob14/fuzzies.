@@ -33,7 +33,7 @@ function pic(c: Kit, key: string, tint: [string, string, string], i: number, x: 
   const id = `ph-${key}-${i % 3}`;
   c.assets[id] ??= photoAsset({ id: key, primary: tint[0], secondary: tint[1], accent: tint[2] } as Palette, i % 3);
   const el = makeImage(id, w, h, { mask, radius });
-  Object.assign(el, { x, y, w, h, name: 'Photo — tap Replace' });
+  Object.assign(el, { x, y, w, h, name: 'Photo — tap to add yours' });
   c.els.push(el);
   return el;
 }

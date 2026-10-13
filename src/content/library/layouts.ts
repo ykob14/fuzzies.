@@ -120,7 +120,7 @@ function photo(c: Ctx, i: number, x: number, y: number, w: number, h: number, o:
   c.assets[id] = photoAsset(c.pal, (c.seed + i) % 7);
   const el = makeImage(id, w, h, o);
   Object.assign(el, { x, y, w, h });
-  el.name = 'Photo — tap Replace';
+  el.name = 'Photo — tap to add yours';
   return el;
 }
 const pill = (c: Ctx, s: string, cx: number, y: number, fill: string, ink: string, size: number, align: 'center' | 'left' = 'center', x0 = 0): El[] => {

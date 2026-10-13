@@ -43,7 +43,7 @@ export function photo(c: Kit, th: Theme, i: number, x: number, y: number, w: num
   const id = th.id === 'reslife' ? `ph-reslife-${i % 3}` : `ph-team-${th.id}-${i % 3}`;
   c.assets[id] ??= photoAsset({ id: th.id === 'reslife' ? 'reslife' : `team-${th.id}`, primary: th.photo[0], secondary: th.photo[1], accent: th.photo[2] } as Palette, i % 3);
   const el = makeImage(id, w, h, { mask: 'none', radius });
-  Object.assign(el, { x, y, w, h, name: 'Photo — tap Replace' });
+  Object.assign(el, { x, y, w, h, name: 'Photo — tap to add yours' });
   c.els.push(el);
 }
 
