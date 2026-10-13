@@ -232,9 +232,10 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     : mountControls(root, { touch: o.controls?.touch ?? mobile, mouseSteer: o.controls?.mouseSteer ?? !mobile, actionKeys: o.controls?.actionKeys });
   let actionFn: (() => void) | null = null;
   let tapFn: ((ndc: { x: number; y: number }, client: { x: number; y: number }) => void) | null = null;
-  let tapStart: { id: number; x: number; y: number; t: number } | null = null; // t = the event's own time stamp (a busy phone runs handlers late)
-  const onTapDown = (e: PointerEvent) => { if ((e.target as HTMLElement).closest('button, .mg-intro, .race-paused, .joy')) return; tapStart = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp }; };
-  const onTapUp = (e: PointerEvent) => { if (!tapStart || e.pointerId !== tapStart.id) return; const moved = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y), held = e.timeStamp - tapStart.t; tapStart = null; if (moved > 14 || held > 700 || paused || done || !startedFlag) return; const r = canvas.getBoundingClientRect(); tapFn?.({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, { x: e.clientX, y: e.clientY }); };
+  // a tap = a touch / click that didn't slide (no time limit: a busy phone delivers events late, and no game uses press-and-hold here)
+  let tapStart: { id: number; x: number; y: number } | null = null;
+  const onTapDown = (e: PointerEvent) => { if ((e.target as HTMLElement).closest('button, .mg-intro, .race-paused, .joy')) return; tapStart = { id: e.pointerId, x: e.clientX, y: e.clientY }; };
+  const onTapUp = (e: PointerEvent) => { if (!tapStart || e.pointerId !== tapStart.id) return; const moved = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y); tapStart = null; if (moved > 14 || paused || done || !startedFlag) return; const r = canvas.getBoundingClientRect(); tapFn?.({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, { x: e.clientX, y: e.clientY }); };
   root.addEventListener('pointerdown', onTapDown); root.addEventListener('pointerup', onTapUp);
   ctl.onAction = () => { if (!intro.hidden) start(); else actionFn?.(); };
   const floatText = (x: number, y: number, z: number, text: string, cls = '') => {
