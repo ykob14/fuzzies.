@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { rockGeo, rockMat } from './sceneArt';
 import { woodTex } from './orchardArt';
@@ -21,6 +22,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new MiningSim(setup.variant, setup.seed);
   const a = createArcade(stage, {
     cls: 'mining', setup, adv, hooks, buttonLabel: 'Start digging!',
+    rivals: { you: sim, make: () => new MiningSim(setup.variant, setup.seed), bot: BOTS.mining },
     hud: { count: 'GEMS' },
     camera: { fov: 44, back: 9, up: 9.5, lookDy: -2.4, lead: 0 },
     world: { size: { hw: MINE.hw + 2, hd: MINE.hd + 2 }, ground: ['#8a7a66', '#766858'], groundKind: 'dirt', path: false, fence: false, treeLine: false, flowers: 0, sky: 'dusk', fog: ['#3a3330', 16, 46] },

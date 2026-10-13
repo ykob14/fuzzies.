@@ -11,6 +11,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { FruitSim, ARENA, SCORING, BASKET, type Falling, type FruitKind } from './fruit';
 import * as O from './orchardArt';
@@ -56,6 +57,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const ready = new Promise<void>((res) => { const t = setInterval(() => { if (built) { clearInterval(t); res(); } }, 50); });
   const a = createArcade(stage, {
     cls: 'fruit', setup, adv, hooks, buttonLabel: 'Catch!',
+    rivals: { you: sim, make: () => new FruitSim(setup.variant === 'golden' ? 'golden' : 'classic', setup.seed, hw), bot: BOTS.fruit },
     hud: { count: 'CAUGHT' },
     camera: cam,
     world: { size: { hw: 14, hd: 8 }, path: false, fence: false, treeLine: false, flowers: 0, clouds: false, tufts: false, fog: ['#e4ead2', portrait ? 24 : 20, portrait ? 88 : 74], sun: 2.6 },

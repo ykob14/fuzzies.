@@ -21,13 +21,14 @@ import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls, lockPage, type Controls } from '../ui/joystick';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import type { Adventure, Variant } from './adventures';
+import { RivalField, type Playable, type RivalBot, type RivalInfo } from './rivals';
 
 export interface Figure { group: THREE.Group; fuzzy: ReturnType<typeof M.makeFuzzy>; squash: number; base: number }
 export interface Stat { label: string; value: string }
 /** What every score-based mini-game hands back (the screen turns it into the results card and the reward). */
 export interface MiniResult { place: number; score: number; timeMs: number; tier: string; title?: string; stats: Stat[]; standings?: { name: string; score: number; you: boolean; place: number }[] }
 export interface MiniHooks { onFinish: (r: MiniResult) => void; onQuit: () => void; onRestart?: () => void }
-export interface MiniSetup { mobile: boolean; sound: boolean; deluxe?: boolean; you: { name: string; skin: [string, string] }; host: string; variant?: string | null; seed: number }
+export interface MiniSetup { mobile: boolean; sound: boolean; deluxe?: boolean; you: { name: string; skin: [string, string] }; host: string; variant?: string | null; seed: number; /** town Fuzzies who play the same round against you (games that support it) */ rivals?: RivalInfo[] }
 
 export interface ArcadeOpts {
   /** called when the intro is dismissed and the game begins — start the sim here */
@@ -47,6 +48,10 @@ export interface ArcadeOpts {
   world?: { size?: { hw: number; hd: number }; ground?: [string, string]; groundKind?: GroundKind; trees?: TreeKind; tufts?: boolean; clouds?: boolean; path?: boolean; treeLine?: boolean; fence?: boolean; flowers?: number; sky?: 'day' | 'dusk' | 'snow' | 'night'; fog?: [string, number, number]; sun?: number };
   /** how long the end celebration lasts before the results (ms) */
   outro?: number;
+  /** town rivals: each plays its own copy of the rules (`make`, same layout) with this game's bot, starting and running
+   *  while your own sim (`you`) is playing. Only used when the town sent rivals (`setup.rivals`). The final place becomes
+   *  your rank among them. */
+  rivals?: { you: Playable; make: () => Playable; bot: RivalBot<any> };
 }
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] => { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e; };
@@ -96,8 +101,19 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   const floats = el('div', 'mg-floats');
   const hint = el('div', 'race-hint', o.hud?.hint ? (mobile ? o.hud.hint.mobile : o.hud.hint.desktop) : (mobile ? adv.controls.mobile : adv.controls.desktop));
   hud.append(scoreEl, countEl, timeEl, comboEl, pauseBtn, bannerEl, count, hint, floats);
+  // town rivals: the live scoreboard (you + up to three town Fuzzies)
+  const field = o.rivals && setup.rivals?.length ? new RivalField(setup.rivals, o.rivals.make, o.rivals.bot, setup.seed) : null;
+  const board = el('div', 'forest-board mg-board');
+  const rows = new Map<number, { el: HTMLElement; pl: HTMLElement; sc: HTMLElement; last: number }>();
+  if (field) {
+    const add = (id: number, name: string, skin: [string, string], you: boolean) => { const r = el('div', `forest-row ${you ? 'you' : ''}`); const pl = el('small', '', String(id + 1)); const dot = el('i', ''); dot.style.background = skin[0]; r.append(pl, dot, el('b', '', name), el('span', '', '0')); board.append(r); rows.set(id, { el: r, pl, sc: r.lastChild as HTMLElement, last: 0 }); };
+    add(0, 'You', setup.you.skin, true);
+    field.rivals.forEach((r, i) => add(i + 1, r.info.name, r.info.skin, false));
+    hud.append(board);
+    if (import.meta.env.DEV) (window as unknown as { __rivals: unknown }).__rivals = field; // tests step the rivals by hand
+  }
   const variant: Variant | null = setup.variant ? adv.variants?.[setup.variant] ?? null : null;
-  const intro = introCard({ adv, variant, host: setup.host, mobile, buttonLabel: o.buttonLabel ?? 'Let’s go!', onStart: () => start(), extra: o.extra });
+  const intro = introCard({ adv, variant, host: setup.host, mobile, buttonLabel: o.buttonLabel ?? 'Let’s go!', onStart: () => start(), extra: o.extra, vs: field?.rivals.map((r) => r.info) });
   const pauseOverlay = el('div', 'race-paused'); pauseOverlay.hidden = true;
   const resume = el('button', 'btn btn-primary btn-lg', 'Resume'); resume.type = 'button';
   const restart = el('button', 'btn btn-soft', 'Restart'); restart.type = 'button';
@@ -266,7 +282,33 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   const setCount = (text: string, sub?: string) => { if (countN.textContent !== text) countN.textContent = text; if (sub !== undefined && countS.textContent !== sub) countS.textContent = sub; };
   const setTime = (left: number, w = left <= 10) => { const s = Math.ceil(left); if (s !== lastSec) { lastSec = s; timeN.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; timeEl.classList.toggle('warn', w && s > 0); } };
   const setCombo = (chain: number, mult: number, next: { at: number; mult: number } | null) => { if (chain > 1) { comboEl.classList.add('on'); comboN.textContent = `×${mult}`; comboS.textContent = next ? `${chain} in a row · ${next.at - chain} more for ×${next.mult}` : `${chain} in a row · MAX`; if (mult !== lastCombo) { comboEl.classList.remove('bump'); void comboEl.offsetWidth; comboEl.classList.add('bump'); } } else comboEl.classList.remove('on'); lastCombo = mult; };
-  const finish = (r: MiniResult, flashText = 'TIME!') => { if (done || pendingResult) return; pendingResult = r; finishedAt = performance.now(); flash(flashText, 'go'); play(snd.finish); };
+  const finish = (r: MiniResult, flashText = 'TIME!') => {
+    if (done || pendingResult) return;
+    if (field) {
+      // a contest: your place is your rank among the town Fuzzies
+      const st = field.standings({ score: r.score, name: setup.you.name, skin: setup.you.skin });
+      paintBoard(r.score);
+      r = { ...r, place: st.find((x) => x.you)!.place, standings: st.map((x) => ({ name: x.name, score: x.score, you: x.you, place: x.place })) };
+      const w = st[0];
+      setTimeout(() => banner(w.you ? 'You win!' : `${w.name} wins!`, w.you ? 'combo' : ''), 700);
+    }
+    pendingResult = r; finishedAt = performance.now(); flash(flashText, 'go'); play(snd.finish);
+  };
+  // the scoreboard: re-sorted when the order changes, a bump when a score goes up, a banner when the lead changes
+  let lastOrder = '', leader = -1, leadAt = 0;
+  const paintBoard = (you: number) => {
+    if (!field) return;
+    const st = field.standings({ score: you });
+    for (const x of st) { const row = rows.get(x.id)!; if (x.score !== row.last) { row.last = x.score; row.sc.textContent = String(x.score); row.el.classList.remove('bump'); void row.el.offsetWidth; row.el.classList.add('bump'); } row.pl.textContent = String(x.place); }
+    const order = st.map((x) => x.id).join();
+    if (order !== lastOrder) { lastOrder = order; for (const x of st) board.append(rows.get(x.id)!.el); }
+    const top = st[0];
+    if (top.id !== leader && top.score > 0) {
+      const t = time.value;
+      if (leader !== -1 && t - leadAt > 2.5 && !pendingResult) banner(top.you ? 'You take the lead!' : `${top.name} takes the lead!`, top.you ? 'combo' : '');
+      leader = top.id; leadAt = t;
+    }
+  };
 
   // ---- the loop ----
   let raf = 0, last = performance.now(), acc = 0;
@@ -278,7 +320,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
       if (paused) return;
       if (!startedFlag) { renderer.render(scene, camera); return; }
       time.value += dt;
-      if (!pendingResult) { const input = ctl.read(); acc += dt; while (acc >= STEP) { step(STEP, { x: input.x, z: input.z }); acc -= STEP; } }
+      if (!pendingResult) { const input = ctl.read(); acc += dt; while (acc >= STEP) { step(STEP, { x: input.x, z: input.z }); if (field && o.rivals!.you.state === 'playing') { field.start(); field.step(STEP); } acc -= STEP; } if (field) paintBoard(o.rivals!.you.score); }
       // particles
       for (let i = chipsArr.length - 1; i >= 0; i--) { const c = chipsArr[i]; c.life += dt; c.v.y -= 9 * dt; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += dt * 6; if (c.m.position.y < 0.02 || c.life > 1.6) { scene.remove(c.m); chipsArr.splice(i, 1); } }
       for (let i = sparksArr.length - 1; i >= 0; i--) { const c = sparksArr[i]; c.life += dt; c.v.y -= 3 * dt; c.s.position.addScaledVector(c.v, dt); (c.s.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - c.life / c.max); if (c.life > c.max) { scene.remove(c.s); sparksArr.splice(i, 1); } }

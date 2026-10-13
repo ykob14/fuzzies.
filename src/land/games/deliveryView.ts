@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { groundTex, cottage } from './sceneArt';
 import { DeliverySim, SQUARE, DEPOT, CART, type Parcel, type House } from './delivery';
@@ -17,6 +18,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new DeliverySim(setup.variant, setup.seed);
   const a = createArcade(stage, {
     cls: 'delivery', setup, adv, hooks, buttonLabel: 'Deliver!',
+    rivals: { you: sim, make: () => new DeliverySim(setup.variant, setup.seed), bot: BOTS.delivery },
     hud: { count: 'DELIVERED' },
     camera: { fov: 46, back: 10.5, up: 11, lookDy: -2.8, lead: 0 },
     world: { size: { hw: SQUARE.hw + 2, hd: SQUARE.hd + 2 }, path: false, fence: false, flowers: 10 },

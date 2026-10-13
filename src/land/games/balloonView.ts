@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { treeModel } from '../environment';
 import { adventure } from '../adventures';
 import { groundTex, cottage } from './sceneArt';
@@ -19,6 +20,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new BalloonSim(setup.variant, setup.seed, portrait ? 3.4 : SQUARE.hw);
   const a = createArcade(stage, {
     cls: 'balloon', setup, adv, hooks, buttonLabel: 'Let’s pop!',
+    rivals: { you: sim, make: () => new BalloonSim(setup.variant, setup.seed, portrait ? 3.4 : SQUARE.hw), bot: BOTS.balloon },
     hud: { count: 'POPPED' },
     camera: portrait ? { fov: 60, back: 18, up: 5, lookDy: -18, lookY: 4, lead: 0 } : { fov: 46, back: 13, up: 4.5, lookDy: -13, lookY: 3.6, lead: 0 },
     world: { size: { hw: 10, hd: 8 }, path: false, fence: false, flowers: 10, treeLine: false },

@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { blob } from './sceneArt';
 import { paint as shade } from './orchardArt';
@@ -17,6 +18,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const portrait = setup.mobile && innerHeight > innerWidth;
   const a = createArcade(stage, {
     cls: 'skate', setup, adv, hooks, buttonLabel: 'Onto the ice!',
+    rivals: { you: sim, make: () => new SkateSim(setup.variant, setup.seed), bot: BOTS.skate },
     hud: { count: 'GATES' },
     camera: portrait ? { fov: 60, back: 2.5, up: 24, lookDy: -2, lookY: 0.3, lead: 0 } : { fov: 50, back: 2.5, up: 17.5, lookDy: -2, lookY: 0.3, lead: 0 },
     world: { size: { hw: 17, hd: 12 }, ground: ['#f3f7fb', '#e2eaf1'], path: false, fence: false, flowers: 0, sky: 'snow' },

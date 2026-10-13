@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { water as waterSurface, groundTex } from './sceneArt';
 import { woodTex, grassTufts } from './orchardArt';
@@ -21,6 +22,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new FishingSim(setup.variant, setup.seed);
   const a = createArcade(stage, {
     cls: 'fishing', setup, adv, hooks, buttonLabel: 'Cast off!',
+    rivals: { you: sim, make: () => new FishingSim(setup.variant, setup.seed), bot: BOTS.fishing },
     hud: { count: 'CAUGHT' },
     camera: { fov: 46, back: 6.5, up: 5.2, lookDy: -9, lookY: 0.3, lead: 0 },
     world: { size: { hw: LAKE.hw + 6, hd: LAKE.far + 6 }, path: false, fence: false, flowers: 16, fog: ['#dbeef5', 30, 90] },

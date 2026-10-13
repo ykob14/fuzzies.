@@ -1569,11 +1569,14 @@ export function landScreen(): Screen {
         });
       }).catch(fail);
     } else if (GAME_LOADERS[adv.id]) {
-      // every other mini-game: built on the shared kit (land/mgScene.ts), loaded by id
+      // every other mini-game: built on the shared kit (land/mgScene.ts), loaded by id. Town rivals: the host and the next two
+      // Fuzzies play the same round (two at a medium level, one really easy — land/rivals.ts); games that support it show them.
       const host = hostOf(adv.id);
+      const others = Array.from({ length: view.residentCount }, (_, i) => i).filter((i) => i !== host.index).slice(0, 2);
+      const rivals = [host.index, ...others].map((i) => { const info = view!.residentInfo(i); return { index: i, name: info?.name ?? A.character(i).name, skin: info?.skin ?? (['#b8f28a', '#4f9e2f'] as [string, string]) }; });
       void Promise.all([GAME_LOADERS[adv.id](), model]).then(([{ run }]) => {
         pause();
-        run(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed }, {
+        run(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed, rivals }, {
           onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, score: res.score, mini: { ...res, hostPortrait: safePortrait(host.index) } }),
           onQuit: () => backToTown(),
           onRestart: () => { playing = false; startAdventure(adv); },

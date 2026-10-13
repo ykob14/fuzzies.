@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { blob, cottage, treeRing } from './sceneArt';
 import { paint as shade } from './orchardArt';
@@ -17,6 +18,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const portrait = setup.mobile && innerHeight > innerWidth;
   const a = createArcade(stage, {
     cls: 'snowball', setup, adv, hooks, buttonLabel: 'Throw!',
+    rivals: { you: sim, make: () => new SnowballSim(setup.variant, setup.seed), bot: BOTS.snowball },
     hud: { count: 'HITS' },
     camera: portrait ? { fov: 62, back: 5.5, up: 4.2, lookDy: -10, lookY: 0.6, lead: 0 } : { fov: 50, back: 5, up: 3.4, lookDy: -10, lookY: 0.8, lead: 0 },
     world: { size: { hw: 11, hd: 17 }, ground: ['#f4f7fb', '#e6edf5'], path: false, fence: false, flowers: 0, sky: 'snow', fog: ['#e4edf5', 24, 60] },

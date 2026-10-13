@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { groundTex, soilTex, cropGeo, cropMaterial } from './sceneArt';
@@ -18,6 +19,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new GardenSim(setup.variant, setup.seed);
   const a = createArcade(stage, {
     cls: 'garden', setup, adv, hooks, buttonLabel: 'Start weeding!',
+    rivals: { you: sim, make: () => new GardenSim(setup.variant, setup.seed), bot: BOTS.garden },
     hud: { count: 'WEEDS' },
     camera: { fov: 44, back: 9.5, up: 10, lookDy: -2.4, lead: 0 },
     world: { size: { hw: GARDEN.hw + 1.5, hd: GARDEN.hd + 1.5 }, path: false, fence: true, flowers: 0 },

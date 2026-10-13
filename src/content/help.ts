@@ -164,7 +164,10 @@ the rewards and a Find button that flies the camera to that Fuzzy). Finish them 
 shows a green Completed mark over its Fuzzy. ONCE ALL THREE ARE DONE, A NEW SET ARRIVES TEN MINUTES LATER (the panel counts down; an
 unfinished mission is never lost; sets don't pile up). For accounts the server's clock decides, so changing the phone's time
 doesn't bring missions sooner. Each mission pays town coins and XP once; some come with a twist (Wild Water race, Deep Woods forest,
-Golden Day vacuum). Boat Race: three laps
+Golden Day vacuum). TOWN RIVALS: in most mini-games (Fruit Catcher, Balloon Pop, Fishing, Obstacle Run, Harvest, Garden, Delivery, Mining,
+Snowball, Beach Cleanup, Ice Skating, Treasure Hunt) three of your own town Fuzzies play the same round at the same time — two
+play at a medium level and one is really easy; a scoreboard in the corner shows everyone live, and your place (1st–4th) decides
+the coins and the trophy's metal. Play at gold level and you win. Boat Race: three laps
 around Palm Island through the numbered gates in order; steer with A/D or the arrows (W accelerates, S brakes) or hold the left/right
 side of the screen on a phone; if you miss a gate the screen says MISSED CHECKPOINT and the arrow points back — go through it again;
 stay inside the buoys; later laps add barrels, boost pads, currents, logs and waves; 1st = 100 coins, 2nd 60, 3rd 30. Forest Challenge

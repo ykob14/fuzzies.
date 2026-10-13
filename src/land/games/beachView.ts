@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { water, palm, rock } from './sceneArt';
 import { BeachSim, BEACH, BIN, BAG, MOVE, HOP, type Litter, type LitterKind } from './beach';
@@ -15,6 +16,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new BeachSim(setup.variant, setup.seed);
   const a = createArcade(stage, {
     cls: 'beach', setup, adv, hooks, buttonLabel: 'Clean up!',
+    rivals: { you: sim, make: () => new BeachSim(setup.variant, setup.seed), bot: BOTS.beach },
     hud: { count: 'BAGGED' },
     camera: { fov: 44, back: 9.5, up: 10, lookDy: -2.6, lead: 0 },
     world: { size: { hw: BEACH.hw + 3, hd: BEACH.hd + 3 }, ground: ['#efd9a8', '#e6c98f'], groundKind: 'sand', path: false, fence: false, treeLine: false, flowers: 0, fog: ['#dff0f7', 40, 120] },

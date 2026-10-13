@@ -10,6 +10,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, std, add, sfx, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { tree, trailTex } from './sceneArt';
 import { adventure } from '../adventures';
 import { RunSim, LANES, BUMP, POWER, groundH, sprayOn, type Thing, type ObKind, type Power, type RunEvent, type Section } from './obstacle';
@@ -26,6 +27,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const soundWanted = setup.sound; if (muted) setup.sound = false;
   const a = createArcade(stage, {
     cls: 'obstacle', setup, adv, hooks, buttonLabel: 'Run!',
+    rivals: { you: sim, make: () => new RunSim(setup.variant, setup.seed), bot: BOTS.obstacle },
     hud: { count: 'STARS' },
     camera: { ...CAM },
     world: { size: { hw: 14, hd: 40 }, path: false, fence: false, treeLine: false, flowers: 0, fog: ['#cfe6ee', 28, 72] },

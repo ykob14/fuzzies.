@@ -5,7 +5,7 @@
 import { h, btn } from './dom';
 import type { Adventure, Variant } from '../land/adventures';
 
-export interface IntroOpts { adv: Adventure; variant?: Variant | null; host: string; mobile: boolean; buttonLabel: string; onStart: () => void; extra?: string }
+export interface IntroOpts { adv: Adventure; variant?: Variant | null; host: string; mobile: boolean; buttonLabel: string; onStart: () => void; extra?: string; /** town Fuzzies playing the same round against you */ vs?: { name: string; skin: [string, string] }[] }
 /** The intro overlay. Returns the overlay element (hide it with `hidden = true` when the game starts). */
 export function introCard(o: IntroOpts): HTMLElement {
   const a = o.adv;
@@ -13,6 +13,7 @@ export function introCard(o: IntroOpts): HTMLElement {
     h('span', { class: 'adv-kicker' }, `${a.emoji} ${o.host} says`),
     h('h2', null, a.name + (o.variant ? ` — ${o.variant.name}` : '')),
     h('p', { class: 'mg-goal' }, a.objective + (a.limit ? ` · ⏱ ${a.limit % 60 === 0 ? `${a.limit / 60} min` : `${a.limit} s`}` : '')),
+    o.vs?.length ? h('p', { class: 'mg-vs' }, h('span', null, 'Playing with you:'), ...o.vs.map((r) => { const dot = h('i'); dot.style.background = r.skin[0]; return h('b', null, dot, r.name); }), h('span', null, '— top score wins!')) : null,
     h('ol', { class: 'mg-steps' }, ...a.howTo.map((t) => h('li', null, t))),
     h('p', { class: 'mg-ctl' }, o.mobile ? a.controls.mobile : a.controls.desktop),
     btn(o.buttonLabel, { kind: 'primary', size: 'lg', class: 'mg-start', onClick: o.onStart }),

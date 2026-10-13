@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { BOTS } from './bots';
 import { adventure } from '../adventures';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { soilTex, cropGeo } from './sceneArt';
@@ -17,6 +18,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new HarvestSim(setup.variant, setup.seed);
   const a = createArcade(stage, {
     cls: 'harvest', setup, adv, hooks, buttonLabel: 'Start picking!',
+    rivals: { you: sim, make: () => new HarvestSim(setup.variant, setup.seed), bot: BOTS.harvest },
     hud: { count: 'PICKED' },
     camera: { fov: 44, back: 9.5, up: 10, lookDy: -2.6, lead: 0 },
     world: { size: { hw: FIELD.hw + 1, hd: FIELD.hd + 1 }, path: false, fence: true, flowers: 12 },
