@@ -80,3 +80,24 @@ export function mountControls(root: HTMLElement, opts: { touch: boolean; mouseSt
   }
   return ctl;
 }
+
+/**
+ * While a full-screen game is open on a phone, a finger drag must steer the game and never scroll, bounce or zoom the page
+ * behind it. `touch-action: none` in CSS isn't always honoured by iOS Safari, so moves are also cancelled here (a How-to-play
+ * card that overflows may still scroll) and the document is locked (`html.mg-open`). Returns the undo for the game's tear-down.
+ */
+export function lockPage(root: HTMLElement): () => void {
+  const noPan = (e: TouchEvent) => {
+    const box = (e.target as Element | null)?.closest?.('.mg-intro-box');
+    if (box && box.scrollHeight > box.clientHeight + 1) return;
+    if (e.cancelable) e.preventDefault();
+  };
+  const noZoom = (e: Event) => e.preventDefault();
+  root.addEventListener('touchmove', noPan, { passive: false });
+  root.addEventListener('gesturestart', noZoom); root.addEventListener('gesturechange', noZoom);
+  document.documentElement.classList.add('mg-open');
+  return () => {
+    root.removeEventListener('touchmove', noPan); root.removeEventListener('gesturestart', noZoom); root.removeEventListener('gesturechange', noZoom);
+    document.documentElement.classList.remove('mg-open'); // a restart builds a new game, which locks again
+  };
+}

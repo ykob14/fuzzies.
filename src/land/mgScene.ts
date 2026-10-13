@@ -18,7 +18,7 @@ import { buildSky } from './environment';
 import * as O from './games/orchardArt';
 import { groundTex, treeRing, type GroundKind, type TreeKind } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
-import { mountControls, type Controls } from '../ui/joystick';
+import { mountControls, lockPage, type Controls } from '../ui/joystick';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import type { Adventure, Variant } from './adventures';
 
@@ -108,6 +108,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   root.append(canvas, vignette, hud, intro, pauseOverlay);
   stage.append(root);
   const tips = makeCoach(root);
+  const unlockPage = lockPage(root); // phones: a drag steers the game, never the page behind it
 
   // ---- renderer & scene ----
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
@@ -231,9 +232,9 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     : mountControls(root, { touch: o.controls?.touch ?? mobile, mouseSteer: o.controls?.mouseSteer ?? !mobile, actionKeys: o.controls?.actionKeys });
   let actionFn: (() => void) | null = null;
   let tapFn: ((ndc: { x: number; y: number }, client: { x: number; y: number }) => void) | null = null;
-  let tapStart: { id: number; x: number; y: number; t: number } | null = null;
-  const onTapDown = (e: PointerEvent) => { if ((e.target as HTMLElement).closest('button, .mg-intro, .race-paused, .joy')) return; tapStart = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() }; };
-  const onTapUp = (e: PointerEvent) => { if (!tapStart || e.pointerId !== tapStart.id) return; const moved = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y), held = performance.now() - tapStart.t; tapStart = null; if (moved > 12 || held > 500 || paused || done || !startedFlag) return; const r = canvas.getBoundingClientRect(); tapFn?.({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, { x: e.clientX, y: e.clientY }); };
+  let tapStart: { id: number; x: number; y: number; t: number } | null = null; // t = the event's own time stamp (a busy phone runs handlers late)
+  const onTapDown = (e: PointerEvent) => { if ((e.target as HTMLElement).closest('button, .mg-intro, .race-paused, .joy')) return; tapStart = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp }; };
+  const onTapUp = (e: PointerEvent) => { if (!tapStart || e.pointerId !== tapStart.id) return; const moved = Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y), held = e.timeStamp - tapStart.t; tapStart = null; if (moved > 14 || held > 700 || paused || done || !startedFlag) return; const r = canvas.getBoundingClientRect(); tapFn?.({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, { x: e.clientX, y: e.clientY }); };
   root.addEventListener('pointerdown', onTapDown); root.addEventListener('pointerup', onTapUp);
   ctl.onAction = () => { if (!intro.hidden) start(); else actionFn?.(); };
   const floatText = (x: number, y: number, z: number, text: string, cls = '') => {
@@ -296,6 +297,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     cancelAnimationFrame(raf);
     removeEventListener('keydown', onKey);
     root.removeEventListener('pointerdown', onTapDown); root.removeEventListener('pointerup', onTapUp);
+    unlockPage();
     document.removeEventListener('visibilitychange', onVis);
     ro.disconnect(); ctl.destroy(); tips.destroy();
     scene.traverse((obj) => { if (obj instanceof THREE.Mesh) obj.geometry.dispose(); });
@@ -307,6 +309,17 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     started: () => startedFlag, paused: () => paused, play, tip: (k, t, ms) => tips.say(k, t, ms), banner, flash, float: floatText,
     setScore, setCount, setTime, setCombo, chips, sparks, puff, figure, walk, run, finish, warn, onAction: (f) => { actionFn = f; }, onTap: (f) => { tapFn = f; }, destroy, start,
   };
+}
+
+/**
+ * Sims clear `events` at the top of `step()`, so events a tap or button pushes between two steps (a pop, a throw, a cast)
+ * would be wiped before the view ever saw them — the balloon stayed on screen, the snowball was never drawn. `feed(sim)`
+ * gives `next(() => sim.step(…))`, which runs the step and returns everything to handle: what arrived since the last step
+ * first, then the step's own events.
+ */
+export function feed<E>(sim: { events: E[] }): (stepFn: () => void) => E[] {
+  let seen = 0;
+  return (stepFn) => { const early = sim.events.slice(seen); stepFn(); seen = sim.events.length; return early.length ? early.concat(sim.events) : sim.events; };
 }
 
 /** Points → a tier (1 gold … 4) from thresholds, and its word. */

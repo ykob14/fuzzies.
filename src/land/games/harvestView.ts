@@ -5,7 +5,7 @@
  * Rules: games/harvest.ts; scene, HUD, loop and chrome: land/mgScene.ts.
  */
 import * as THREE from 'three';
-import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { soilTex, cropGeo } from './sceneArt';
@@ -23,6 +23,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     controls: { mouseSteer: false },
     onStart: () => sim.start(),
   });
+  const next = feed(sim); // events from taps / buttons between steps
   const { scene, time } = a;
   // ---- the beds ----
   // raised beds: tilled soil (furrows along the row) in a planked wooden frame
@@ -90,8 +91,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   a.onAction(doPick);
   a.tip('go', a.mobile ? 'Tap a glowing plant — your Fuzzy walks there and picks it. Fresh (bright) ones pay 25' : 'Click a glowing plant to walk there and pick it, or walk up and press Space. Fresh (bright) ones pay 25', 5000);
   a.run((dt, input) => {
-    sim.step(dt, input);
-    for (const e of sim.events) {
+    for (const e of next(() => sim.step(dt, input))) {
       if (e.kind === 'pick' && e.plant) { const n = nodes.find((x) => x.p === e.plant)!; const m = n.fruit.children[0] as THREE.Mesh | undefined; if (m) { const fm = new THREE.Mesh(m.geometry, m.material); fm.scale.copy(m.scale).multiplyScalar(0.8); scene.add(fm); flies.push({ m: fm, t: 0, from: new THREE.Vector3(e.plant.x, 0.6, e.plant.z) }); } a.float(e.plant.x, 1.4, e.plant.z, e.fresh ? `+${e.value} FRESH!` : `+${e.value}`, e.fresh ? 'gold' : ''); a.play(e.fresh ? sfx.gold : sfx.collect); me.squash = 0.35; a.puff(new THREE.Vector3(e.plant.x, 0.4, e.plant.z), 3, '#9ad58c'); }
       else if (e.kind === 'early') { a.banner('Not ripe yet!', 'warn'); a.play(vac.bump); a.tip('early', 'Only the glowing plants are ripe — the bright ones are freshest', 3400); }
       else if (e.kind === 'wilt' && e.plant) { a.puff(new THREE.Vector3(e.plant.x, 0.5, e.plant.z), 4, '#8a6a3a'); if (sim.wilted === 1) a.tip('wilt', 'Ripe plants wilt after a few seconds — pick the ones that ripened first', 4000); }

@@ -5,7 +5,7 @@
  * Rules: games/skate.ts; scene, HUD, loop and chrome: land/mgScene.ts.
  */
 import * as THREE from 'three';
-import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
 import { blob } from './sceneArt';
 import { paint as shade } from './orchardArt';
@@ -23,6 +23,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     controls: { mouseSteer: false },
     onStart: () => sim.start(),
   });
+  const next = feed(sim); // events from taps / buttons between steps
   const { scene, time } = a;
   // ---- the pond: glossy ice, a faint track ring, boards with a blue rail ----
   const oval = (rx: number, rz: number) => { const s = new THREE.Shape(); s.absellipse(0, 0, rx, rz, 0, Math.PI * 2, false, 0); return new THREE.ShapeGeometry(s, 64).rotateX(-Math.PI / 2); };
@@ -95,8 +96,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   a.tip('go', a.mobile ? 'Hold left or right to lean — you slide, so turn early. Glide through the glowing gate' : 'A / D or ← → to lean — you slide, so turn early. Glide through the glowing gate', 5000);
   let sprayT = 0, tilt = 0;
   a.run((dt, input) => {
-    sim.step(dt, input);
-    for (const e of sim.events) {
+    for (const e of next(() => sim.step(dt, input))) {
       if ((e.kind === 'gate' || e.kind === 'clean') && e.gate) {
         light(sim.next);
         a.float(e.gate.x, 1.6, e.gate.z, e.kind === 'clean' ? `CLEAN +${e.value}` : `+${e.value}`, e.kind === 'clean' ? 'gold' : '');

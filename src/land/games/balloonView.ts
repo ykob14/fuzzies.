@@ -1,10 +1,10 @@
 /**
  * Balloon Pop — the 3D town square: cobbles, cottages, bunting, a stall; balloons (plain / big / shiny / spiky) with knots and
- * strings that rise and sway, pop into confetti, and float away over the roofs. Tap / click picks the balloon nearest the
- * finger on screen (forgiving), then the rules decide. Rules: games/balloon.ts; scene, HUD, loop, chrome: land/mgScene.ts.
+ * strings that rise and sway, pop into confetti, and float away over the roofs. A touch / click (on the way down) picks the
+ * balloon nearest the finger on screen (forgiving), then the rules decide. Rules: games/balloon.ts; scene, HUD, loop, chrome: land/mgScene.ts.
  */
 import * as THREE from 'three';
-import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { treeModel } from '../environment';
 import { adventure } from '../adventures';
 import { groundTex, cottage } from './sceneArt';
@@ -25,6 +25,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     controls: { none: true },
     onStart: () => sim.start(),
   });
+  const next = feed(sim); // events from taps / buttons between steps
   const { scene, time, camera } = a;
   // ---- the square ----
   const cob = groundTex('cobble').clone(); cob.needsUpdate = true; cob.repeat.set((SQUARE.hw * 2 + 2) / 2.2, (SQUARE.hd * 2 + 2) / 2.2);
@@ -75,11 +76,14 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     if (!best) return false;
     return sim.pop(best.id);
   };
-  a.onTap((_ndc, client) => { if (!popAt(client.x, client.y)) a.play(vac.tick); });
+  // pop on touch-down (not on lift-off): balloons move, and a finger that slides a little while tapping still counts
+  a.root.addEventListener('pointerdown', (e) => {
+    if ((e.target as HTMLElement).closest('button, .mg-intro, .race-paused') || !a.started() || a.paused()) return;
+    if (!popAt(e.clientX, e.clientY)) a.play(vac.tick);
+  });
   a.tip('go', a.mobile ? 'Tap the balloons before they float over the roofs — shiny ones are 50!' : 'Click the balloons before they float over the roofs — shiny ones are 50!', 4500);
   a.run((dt) => {
-    sim.step(dt);
-    for (const e of sim.events) {
+    for (const e of next(() => sim.step(dt))) {
       if (e.kind === 'pop' && e.item) {
         const n = nodes.get(e.item.id); const at = new THREE.Vector3(e.item.x, e.item.y, e.item.z);
         if (n) { scene.remove(n.g); nodes.delete(e.item.id); }
@@ -100,11 +104,13 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     for (const b of sim.items) {
       let n = nodes.get(b.id);
       if (!n) { if (b.state !== 'up') continue; n = make(b); }
+      if (b.state === 'popped') { scene.remove(n.g); nodes.delete(b.id); continue; } // safety net: a popped balloon never lingers
       if (b.state === 'gone') { n.gone = n.gone < 0 ? 0 : n.gone + dt; n.g.position.y = b.y + n.gone * 1.4; n.g.scale.setScalar(Math.max(0.001, 1 - n.gone * 1.5)); if (n.gone > 0.7) { scene.remove(n.g); nodes.delete(b.id); } continue; }
       n.g.position.set(b.x, b.y, b.z);
       n.g.rotation.z = Math.sin(time.value * 1.3 + b.phase) * 0.12; n.g.rotation.x = Math.cos(time.value * 1.1 + b.phase) * 0.06;
       if (b.kind === 'shiny') n.body.rotation.y += dt * 2;
     }
+    if (nodes.size > sim.items.length) for (const [id, n] of nodes) if (!sim.items.includes(n.b)) { scene.remove(n.g); nodes.delete(id); }
     a.walk(me, 0.2, dt);
     me.fuzzy.group.rotation.x = lerp(me.fuzzy.group.rotation.x, -0.35, Math.min(1, dt * 3));
     a.setScore(sim.score);
@@ -114,5 +120,5 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     if (sim.state === 'done') a.finish(sim.result());
   });
   void TOP;
-  if (import.meta.env.DEV) (window as unknown as { __mg: unknown }).__mg = { id: 'balloon', sim, ctl: a.ctl, start: a.start, popAt, screenOf: (id: number) => { const b = sim.items.find((x) => x.id === id); return b ? screenOf(b) : null; }, finishNow: () => { (sim as unknown as { state: string }).state = 'done'; } };
+  if (import.meta.env.DEV) (window as unknown as { __mg: unknown }).__mg = { id: 'balloon', sim, ctl: a.ctl, start: a.start, popAt, meshes: () => nodes.size, hasNode: (id: number) => nodes.has(id), screenOf: (id: number) => { const b = sim.items.find((x) => x.id === id); return b ? screenOf(b) : null; }, finishNow: () => { (sim as unknown as { state: string }).state = 'done'; } };
 }

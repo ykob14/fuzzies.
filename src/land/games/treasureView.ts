@@ -5,7 +5,7 @@
  * HUD, loop and chrome: land/mgScene.ts.
  */
 import * as THREE from 'three';
-import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
 import { water, palm, rock, rowboat } from './sceneArt';
 import { TreasureSim, BEACH, CHESTS, GEMS, SHELLS, DIG_TIME, MOVE, type Buried, type Shell } from './treasure';
@@ -20,6 +20,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     world: { size: { hw: BEACH.hw + 3, hd: BEACH.hd + 3 }, ground: ['#efd9a8', '#e6c98f'], groundKind: 'sand', path: false, fence: false, treeLine: false, flowers: 0, fog: ['#dff0f7', 40, 120] },
     onStart: () => sim.start(),
   });
+  const next = feed(sim); // events from taps / buttons between steps
   const { scene, time } = a;
   // ---- the sea along the north edge, with a foam line ----
   const sea = water(BEACH.hw * 2 + 60, 40, { shallow: '#7fe0d4', deep: '#1f7fc4', depth: (_x, z) => (20 - z) / 14, waves: 0.05 }, time);
@@ -73,8 +74,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   a.tip('go', a.mobile ? 'Walk around — the meter warms near treasure. When it says HOT, tap DIG' : 'Walk around — the meter warms near treasure. When it says HOT, press Space to dig', 5000);
   let digFx = 0;
   a.run((dt, input) => {
-    sim.step(dt, input);
-    for (const e of sim.events) {
+    for (const e of next(() => sim.step(dt, input))) {
       if (e.kind === 'find' && e.item) {
         makeHole(e.item.x, e.item.z); popOut(e.item);
         if (e.item.kind === 'chest') { a.banner(`Chest ${e.n} of ${CHESTS}! +${e.value}`, 'combo'); a.sparks(new THREE.Vector3(e.item.x, 0.8, e.item.z), 18); a.play(sfx.gold); me.squash = 0.5; }

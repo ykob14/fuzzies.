@@ -5,7 +5,7 @@
  * Space. Rules: games/mining.ts; scene, HUD, loop and chrome: land/mgScene.ts.
  */
 import * as THREE from 'three';
-import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
 import { rockGeo, rockMat } from './sceneArt';
 import { woodTex } from './orchardArt';
@@ -27,6 +27,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     controls: { mouseSteer: false },
     onStart: () => sim.start(),
   });
+  const next = feed(sim); // events from taps / buttons between steps
   const { scene, time } = a;
   // ---- the mine ----
   const rock = rockMat(), rockDark = rockMat(); const tT = woodTex().clone(); tT.needsUpdate = true; const timber = new THREE.MeshStandardMaterial({ map: tT, color: '#a87a4a', roughness: 0.85 }), rail = std('#8a8f99', 0.5);
@@ -77,8 +78,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   a.tip('go', a.mobile ? 'Walk to a sparkle and tap DIG a few times. When the ground shakes, step away!' : 'Walk to a sparkle and press Space a few times. When the ground shakes under you, step away!', 5200);
   let shake = 0;
   a.run((dt, input) => {
-    sim.step(dt, input);
-    for (const e of sim.events) {
+    for (const e of next(() => sim.step(dt, input))) {
       if (e.kind === 'swing') { a.play(vac.tick); }
       else if (e.kind === 'crack' && e.pile) { const n = pileNodes.get(e.pile.id); if (n) { n.core.visible = true; n.mound.scale.multiplyScalar(0.93); } a.chips(new THREE.Vector3(e.pile.x, 0.5, e.pile.z), 5, '#8a7a66'); a.play(vac.bump); me.squash = 0.3; }
       else if (e.kind === 'gem' && e.pile) { const n = pileNodes.get(e.pile.id); if (n) n.gone = 0; const gm = new THREE.Mesh(gemGeo, new THREE.MeshStandardMaterial({ color: GEM[e.pile.gem].color, emissive: GEM[e.pile.gem].glow, emissiveIntensity: 0.8, roughness: 0.15 })); gm.position.set(e.pile.x, 0.5, e.pile.z); gm.scale.y = 1.4; scene.add(gm); flies.push({ m: gm, t: 0, from: new THREE.Vector3(e.pile.x, 0.5, e.pile.z) }); a.float(e.pile.x, 1.5, e.pile.z, `+${e.value} ${GEM[e.pile.gem].name}`, e.pile.gem === 'diamond' || e.pile.gem === 'ruby' ? 'gold' : ''); a.sparks(new THREE.Vector3(e.pile.x, 0.8, e.pile.z), e.pile.gem === 'diamond' ? 20 : 8); a.play(e.pile.gem === 'quartz' ? sfx.collect : sfx.gold); me.squash = 0.4; if (e.pile.gem === 'diamond') a.banner('A DIAMOND! +80', 'combo'); }

@@ -5,7 +5,7 @@
  * the board back with a splash. Rules: games/snowball.ts; scene, HUD, loop and chrome: land/mgScene.ts.
  */
 import * as THREE from 'three';
-import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
 import { blob, cottage, treeRing } from './sceneArt';
 import { paint as shade } from './orchardArt';
@@ -23,6 +23,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     controls: { none: true },
     onStart: () => sim.start(),
   });
+  const next = feed(sim); // events from taps / buttons between steps
   const { scene, time, camera } = a;
   a.camTarget.set(0, 0, -1);
   // ---- the yard ----
@@ -77,8 +78,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const screenOf = (x: number, z: number) => { const v = new THREE.Vector3(x, 0.2, z).project(camera); const r = a.renderer.domElement.getBoundingClientRect(); return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height }; };
   a.tip('go', a.mobile ? 'Tap where to throw — aim at the targets as they pop up. Sliding ones: throw a little ahead' : 'Click where to throw — aim at the targets as they pop up. Sliding ones: throw a little ahead of them', 5000);
   a.run((dt) => {
-    sim.step(dt);
-    for (const e of sim.events) {
+    for (const e of next(() => sim.step(dt))) {
       if (e.kind === 'throw' && e.ball) { const m = new THREE.Mesh(ballGeo, snow); scene.add(m); balls.set(e.ball.id, { b: e.ball, m }); a.play(vac.tick); me.squash = 0.3; }
       else if ((e.kind === 'hit' || e.kind === 'bullseye') && e.target && e.ball) { const n = nodes.get(e.target.id); if (n) n.hitT = 0; a.chips(new THREE.Vector3(e.ball.to.x, 1.3, e.ball.to.z), 10, '#ffffff'); a.float(e.target.x, 2.4, e.target.z, e.kind === 'bullseye' ? `BULLSEYE! +${e.value}` : `+${e.value}${e.target.kind === 'moving' ? ' slider!' : ''}`, e.kind === 'bullseye' || e.target.kind === 'moving' ? 'gold' : ''); a.play(e.kind === 'bullseye' ? sfx.gold : sfx.collect); if (e.kind === 'bullseye') a.sparks(new THREE.Vector3(e.target.x, 1.5, e.target.z), 10); if (e.target.kind === 'moving' && sim.targets.filter((t) => t.hit && t.kind === 'moving').length === 1) a.tip('slide', 'Nice lead! Sliders pay 40', 2600); }
       else if (e.kind === 'miss' && e.ball) { a.puff(new THREE.Vector3(e.ball.to.x, 0.15, e.ball.to.z), 5, '#ffffff'); if (sim.misses === 3) a.tip('miss', 'Far targets need a moment in the air — throw where they will be', 3600); }

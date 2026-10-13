@@ -5,7 +5,7 @@
  * at the top always says what to do (TAP TO CAST · wait… · HOOK NOW! · REEL / LET GO). Rules: games/fishing.ts.
  */
 import * as THREE from 'three';
-import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
 import { water as waterSurface, groundTex } from './sceneArt';
 import { woodTex, grassTufts } from './orchardArt';
@@ -27,6 +27,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     controls: { touch: false, mouseSteer: false, actionKeys: [' ', 'enter', 'e'] },
     onStart: () => sim.start(),
   });
+  const next = feed(sim); // events from taps / buttons between steps
   const { scene, time, camera } = a;
   a.camTarget.set(0, 0, 1.2);
   // ---- the lake (z < 0) ----
@@ -103,8 +104,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const castFrom = new THREE.Vector3(); let rippleT = 0, snapFlash = 0;
   a.run((dt) => {
     const hold = holding || btnHeld || a.ctl.action;
-    sim.step(dt, hold);
-    for (const e of sim.events) {
+    for (const e of next(() => sim.step(dt, hold))) {
       if (e.kind === 'cast') { castFrom.copy(rodTip()); bob.visible = true; line.visible = true; if (e.shoal) a.tip('shoal', `Right in the ${FISH[e.shoal.kind].name.toLowerCase()} shoal!`, 2500); }
       else if (e.kind === 'ripple') { a.tip('ripple', 'Ripples — get ready, the float is about to dip', 2500); }
       else if (e.kind === 'bite') { a.flash('HOOK!', 'go'); a.play(() => vac.combo(2)); a.puff(new THREE.Vector3(sim.float.x, 0.1, sim.float.z), 4, '#ffffff'); ring(sim.float.x, sim.float.z, 1.6); }

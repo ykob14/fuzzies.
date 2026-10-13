@@ -5,7 +5,7 @@
  * Rules: games/beach.ts; scene, HUD, loop and chrome: land/mgScene.ts.
  */
 import * as THREE from 'three';
-import { createArcade, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
+import { createArcade, feed, std, add, sfx, vac, lerp, type MiniSetup, type MiniHooks } from '../mgScene';
 import { adventure } from '../adventures';
 import { water, palm, rock } from './sceneArt';
 import { BeachSim, BEACH, BIN, BAG, MOVE, HOP, type Litter, type LitterKind } from './beach';
@@ -20,6 +20,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     world: { size: { hw: BEACH.hw + 3, hd: BEACH.hd + 3 }, ground: ['#efd9a8', '#e6c98f'], groundKind: 'sand', path: false, fence: false, treeLine: false, flowers: 0, fog: ['#dff0f7', 40, 120] },
     onStart: () => sim.start(),
   });
+  const next = feed(sim); // events from taps / buttons between steps
   const { scene, time } = a;
   // ---- the sea, moving with the tide ----
   const sea = water(BEACH.hw * 2 + 60, 40, { shallow: '#7fe0d4', deep: '#1f7fc4', depth: (_x, z) => (20 - z) / 14, waves: 0.05 }, time);
@@ -70,8 +71,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   a.onAction(doHop);
   a.tip('go', a.mobile ? 'Walk over litter to bag it — the water line first, the tide takes it. Full bag → the green bin' : 'Walk over litter to bag it (WASD) — the water line first, the tide takes it. Full bag → the green bin. Space hops over crabs', 5600);
   a.run((dt, input) => {
-    sim.step(dt, input);
-    for (const e of sim.events) {
+    for (const e of next(() => sim.step(dt, input))) {
       if (e.kind === 'pick' && e.litter) { const n = litterNodes.get(e.litter.id); if (n) n.gone = 0; if (e.value) a.float(e.litter.x, 1.2, e.litter.z, `+${e.value}`); a.play(sfx.collect); me.squash = 0.25; repaintChips(); }
       else if (e.kind === 'full') { a.banner('Bag full — take it to the bin!', 'combo'); a.play(sfx.level); a.tip('full', 'The bin is the green one at the top of the beach (+60 for a full bag)', 3600); }
       else if (e.kind === 'empty') { repaintChips(); if (e.value) { a.float(BIN.x, 1.6, BIN.z, `+${e.value} full bag!`, 'gold'); a.sparks(new THREE.Vector3(BIN.x, 1.2, BIN.z), 12); a.play(sfx.gold); } else a.play(sfx.collect); me.squash = 0.3; }

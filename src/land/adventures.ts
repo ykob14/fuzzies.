@@ -170,7 +170,7 @@ export const ADVENTURES: Adventure[] = [
     objective: 'Pop the drifting balloons', coins: [100, 65, 35, 15], xp: 25, playable: true,
     howTo: ['Tap a balloon to pop it', 'Shiny balloons are worth more', 'Avoid the spiky ones'],
     controls: { desktop: 'Click the balloons', mobile: 'Tap the balloons' },
-    scoring: 'Balloon 10, big balloon 20, shiny 50; pops in a row ×1.5 / ×2 / ×3; a spiky one breaks the chain. Gold 3,400, silver 2,000, bronze 1,000 points.',
+    scoring: 'Balloon 10, big balloon 20, shiny 50; pops in a row ×1.5 / ×2 / ×3; a spiky one breaks the chain. Gold 2,800, silver 1,700, bronze 900 points.',
     tip: 'Pop the high ones first — the low ones hang around.' },
   { id: 'mining', name: 'Mining Adventure', short: 'Mining', emoji: '⛏️', hosts: ['builder', 'explorer'], kind: 'score', limit: 120,
     pitch: 'The old mine is full of gems — and falling rocks. Dig for the sparkly ones and keep your helmet on!',

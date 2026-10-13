@@ -1,7 +1,7 @@
 /**
  * Balloon Pop — RULES only (no DOM, no Three.js): balloons rise from the town square and drift away over the rooftops; tap them
  * before they're gone. Plain balloons 10, big slow ones 20, shiny fast ones 50; a spiky one breaks your chain. Quick pops in a
- * row grow a multiplier; the square gets busier as the 90 seconds go by, with a party burst at the end. The view does the
+ * row grow a multiplier; the square gets busier as the 90 seconds go by (never more than `MAX_LIVE` at once), with a party burst at the end. The view does the
  * picking (what's under a finger) and calls `pop(id)`. Checked without a browser by `adv/balloon-check.ts`.
  */
 import { Clock, Combo, seeded, tierPlace } from '../arcade';
@@ -14,7 +14,7 @@ export const SCORING = {
   points: { plain: 10, big: 20, shiny: 50, spiky: 0 } as Record<BalloonKind, number>,
   ladder: [{ at: 0, mult: 1 }, { at: 5, mult: 1.5 }, { at: 10, mult: 2 }, { at: 20, mult: 3 }],
   window: 2.5,
-  tiers: [3400, 2000, 1000] as [number, number, number],
+  tiers: [2800, 1700, 900] as [number, number, number],
   tierNames: ['Party legend', 'Pop star', 'Party helper', 'Still inflating'],
 };
 export const LIMIT = 90;
@@ -23,6 +23,7 @@ export const TOP = 8.5;
 export const RADIUS: Record<BalloonKind, number> = { plain: 0.42, big: 0.62, shiny: 0.4, spiky: 0.44 };
 export const RISE: Record<BalloonKind, [number, number]> = { plain: [1.0, 1.5], big: [0.7, 1.0], shiny: [1.9, 2.4], spiky: [1.1, 1.5] };
 export const COLORS = 5;
+export const MAX_LIVE = { wide: 9, narrow: 7 };
 
 export class BalloonSim {
   readonly clock = new Clock(LIMIT);
@@ -39,7 +40,9 @@ export class BalloonSim {
 
   /** how wide the square is for this screen (phones in portrait see a narrower slice) */
   readonly hw: number;
-  constructor(_variant: string | null | undefined, seed = 7, hw = SQUARE.hw) { this.rnd = seeded(seed); this.hw = Math.min(SQUARE.hw, hw); }
+  /** at most this many balloons in the air at once (fewer on a narrow portrait screen) */
+  readonly maxLive: number;
+  constructor(_variant: string | null | undefined, seed = 7, hw = SQUARE.hw) { this.rnd = seeded(seed); this.hw = Math.min(SQUARE.hw, hw); this.maxLive = this.hw < 5 ? MAX_LIVE.narrow : MAX_LIVE.wide; }
 
   start(): void { if (this.state === 'ready') this.state = 'playing'; }
   get k(): number { return this.clock.k; }
@@ -99,14 +102,19 @@ export class BalloonSim {
       b.x += Math.sin(this.clock.time * 1.3 + b.phase) * b.sway * dt;
       if (b.y > TOP) { b.state = 'gone'; if (b.kind !== 'spiky') { this.gone++; this.events.push({ kind: 'gone', item: b }); } }
     }
-    // the square gets busier: gaps 1.3 s → 0.55 s; a party burst at 60 s
+    // the square gets busier: gaps 1.3 s → 0.75 s, but never more than `maxLive` in the air (a phone screen stays readable);
+    // a party burst at 60 s may go up to four over
     this.spawnT -= dt;
     if (this.spawnT <= 0) {
-      this.spawn();
-      if (this.k > 0.5 && this.rnd() < 0.3) this.spawn();
-      this.spawnT = 1.3 - this.k * 0.75 + (this.rnd() - 0.5) * 0.3;
+      const room = this.maxLive - this.live.length;
+      if (room <= 0) this.spawnT = 0.2;
+      else {
+        this.spawn();
+        if (room > 1 && this.k > 0.5 && this.rnd() < 0.25) this.spawn();
+        this.spawnT = 1.3 - this.k * 0.55 + (this.rnd() - 0.5) * 0.3;
+      }
     }
-    if (!this.burstDone && this.clock.time >= 60) { this.burstDone = true; for (let i = 0; i < 8; i++) this.spawn(i === 0 ? 'shiny' : 'plain'); this.events.push({ kind: 'burst' }); }
+    if (!this.burstDone && this.clock.time >= 60) { this.burstDone = true; const n = Math.min(6, Math.max(3, this.maxLive + 4 - this.live.length)); for (let i = 0; i < n; i++) this.spawn(i === 0 ? 'shiny' : 'plain'); this.events.push({ kind: 'burst' }); }
     if (this.items.length > 90) this.items = this.items.filter((i) => i.state === 'up').concat(this.items.filter((i) => i.state !== 'up').slice(-20));
   }
 

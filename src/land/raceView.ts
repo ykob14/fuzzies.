@@ -23,6 +23,7 @@ import { palm as palmArt } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import { adventure } from './adventures';
+import { lockPage } from '../ui/joystick';
 
 export interface RaceSetup {
   you: { name: string; skin: [string, string] };
@@ -407,6 +408,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.rivals[0]?.name ?? 'Pom', mobile, buttonLabel: 'To the start line!', onStart: () => start() });
   root.append(canvas, el('div', 'mg-vignette'), touch, hud, intro, pauseOverlay); // the HUD's buttons sit above the steering zones
   stage.append(root);
+  const unlockPage = lockPage(root); // phones: a drag steers the game, never the page behind it
   const tips = makeCoach(root);
   let started = false;
   const start = () => { if (started) return; started = true; intro.hidden = true; last = performance.now(); };
@@ -892,6 +894,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   const destroy = () => {
     if (destroyed) return;
     destroyed = true;
+    unlockPage();
     cancelAnimationFrame(raf);
     removeEventListener('keydown', kd); removeEventListener('keyup', ku);
     document.removeEventListener('visibilitychange', onVis);

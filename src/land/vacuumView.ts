@@ -14,7 +14,7 @@ import { buildSky } from './environment';
 import * as O from './games/orchardArt';
 import { groundTex, treeRing, hedgeWalls, soilTex } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
-import { mountControls } from '../ui/joystick';
+import { mountControls, lockPage } from '../ui/joystick';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import { adventure } from './adventures';
 
@@ -174,6 +174,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   pauseOverlay.append(pbox);
   root.append(canvas, el('div', 'mg-vignette'), hud, intro, pauseOverlay);
   stage.append(root);
+  const unlockPage = lockPage(root); // phones: a drag steers the game, never the page behind it
   const tips = makeCoach(root);
 
   // ---- renderer & scene ----
@@ -380,6 +381,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   let destroyed = false;
   const destroy = () => {
     if (destroyed) return; destroyed = true;
+    unlockPage();
     cancelAnimationFrame(raf);
     removeEventListener('keydown', onKey);
     document.removeEventListener('visibilitychange', onVis);

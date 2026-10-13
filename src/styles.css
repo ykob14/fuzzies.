@@ -2671,3 +2671,8 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .brawl .br-sticks.gone { opacity: 0; }
 .brawl .mg-coach, .brawl .mg-coach.on { top: calc(124px + var(--safe-t, 0px)); bottom: auto; }
 :root[data-motion='reduce'] .brawl .br-special.ready, :root[data-motion='reduce'] .brawl .br-hurt.on { animation: none; }
+
+/* ---- mini-games on phones: a drag steers the game, never the page (mgScene adds html.mg-open while a game is open) ---- */
+html.mg-open, html.mg-open body { overflow: hidden; overscroll-behavior: none; }
+.mg, .mg canvas { -webkit-touch-callout: none; overscroll-behavior: none; }
+.mg-intro-box { touch-action: pan-y; overscroll-behavior: contain; }
