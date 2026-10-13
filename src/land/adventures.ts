@@ -143,7 +143,7 @@ export const ADVENTURES: Adventure[] = [
     objective: 'Deliver parcels to the marked houses', coins: [100, 65, 35, 15], xp: 25, playable: true,
     howTo: ['Pick up parcels at the depot', 'Bring each to its house', 'Don’t bump into things'],
     controls: { desktop: 'WASD to steer the cart', mobile: 'Drag to steer' },
-    scoring: 'A delivery 40, a fast one (within 14 s of loading) 60; a hard bump knocks a parcel off the cart. Gold 1,000, silver 600, bronze 300 points.',
+    scoring: 'A delivery 40, a fast one (within 14 s of loading) 60; a hard bump knocks a parcel off the cart. Gold 1,300, silver 900, bronze 400 points.',
     tip: 'Carry up to three parcels — plan the shortest round.' },
   { id: 'garden', name: 'Garden Cleanup', short: 'Garden Cleanup', emoji: '🌷', hosts: ['creative', 'nature'], kind: 'score', limit: 120,
     pitch: 'The weeds have taken over my prize garden! Pull them out, gather the flowers, and leave it prettier than you found it.',
