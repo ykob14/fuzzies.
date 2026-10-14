@@ -61,6 +61,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   const audio = new ParkAudio(st.audio, st.plays % 3);
   const host = h('div', { class: 'pk-stage' }); root.append(host);
   const scene = new ParkScene(host, { mobile: setup.mobile });
+  scene.onIdle = (i) => { if (play && !play.done && !drag) audio.voice(scene.voiceOf(i), Math.random() < 0.3 ? 'giggle' : 'coo'); };
   audio.music(true);
   const wake = () => audio.wake();
   // browsers (iPhones especially) only allow sound from a real tap: try on every kind of press until it's running
@@ -146,8 +147,8 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     const a = scene.along(i, e.clientX, e.clientY); if (a === null) return;
     canvas.setPointerCapture(e.pointerId);
     drag = { i, id: e.pointerId, grab: a, pos0: play.s[i], min: r.min, max: r.max, out: r.out, exitDir: car.exit, vel: 0, lastT: performance.now(), lastPos: play.s[i], bumped: false, moved: false, span: car.dir === 'h' ? play.p.w : play.p.h, len: car.len };
-    scene.select(i); audio.select(); keySel = i;
-    if (r.min === r.max && !r.out) { scene.bump(i, -1); audio.blocked(); }
+    scene.select(i); audio.select(); audio.voice(scene.voiceOf(i), 'hi'); keySel = i;
+    if (r.min === r.max && !r.out) { scene.bump(i, -1); audio.blocked(); audio.voice(scene.voiceOf(i), 'oops', 0.12); }
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id || !play) return;
@@ -158,7 +159,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     const over = want - clamped;
     const pos = clamped + Math.max(-0.1, Math.min(0.1, over * 0.2)); // a little rubber band past the end
     if (Math.abs(want - drag.pos0) > 0.12) drag.moved = true;
-    if (Math.abs(over) > 0.28 && !drag.bumped) { drag.bumped = true; const blocker = blockerOf(drag.i, over > 0 ? 1 : -1); scene.bump(drag.i, blocker); audio.bump(); }
+    if (Math.abs(over) > 0.28 && !drag.bumped) { drag.bumped = true; const blocker = blockerOf(drag.i, over > 0 ? 1 : -1); scene.bump(drag.i, blocker); audio.bump(); audio.voice(scene.voiceOf(drag.i), 'oops', 0.05); }
     else if (Math.abs(over) < 0.1) drag.bumped = false;
     const now = performance.now(), dt = Math.max(1, now - drag.lastT) / 1000;
     drag.vel = drag.vel * 0.6 + ((pos - drag.lastPos) / dt) * 0.4; drag.lastT = now; drag.lastPos = pos;
@@ -202,12 +203,12 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     scene.clearHint(); tip.hidden = true; hand.hidden = true;
     paintHud();
     if (to === OUT) {
-      busy = true; scene.select(-1); audio.escape();
+      busy = true; scene.select(-1); audio.escape(); audio.voice(scene.voiceOf(i), 'yay', 0.2);
       void scene.escape(i).then(() => { busy = false; audio.cheer(); afterMove(); });
       return;
     }
     audio.slide(to - from); setTimeout(() => audio.stop(), 140);
-    if (Math.random() < 0.3) scene.hop(i, 'note');
+    if (Math.random() < 0.35) { scene.hop(i, 'note'); audio.voice(scene.voiceOf(i), 'go', 0.1); }
     afterMove();
   }
   function afterMove(): void {
@@ -256,7 +257,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     const r = range(play.p, play.s, keySel);
     const to = play.s[keySel] + step;
     if (c.exit === step && (step === 1 ? to > r.max : to < r.min) && r.out) { commit(keySel, OUT); return; }
-    if (to < r.min || to > r.max) { scene.bump(keySel, blockerOf(keySel, step as 1 | -1)); audio.bump(); return; }
+    if (to < r.min || to > r.max) { scene.bump(keySel, blockerOf(keySel, step as 1 | -1)); audio.bump(); audio.voice(scene.voiceOf(keySel), 'oops'); return; }
     scene.settle(keySel, to); commit(keySel, to);
   };
   let keySel = -1;
@@ -363,7 +364,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     if (!play || play.done) return;
     const at = play; at.done = true; holdClock(true);
     const secs = elapsed();
-    scene.select(-1); scene.cheerAll(); scene.fireworks(P.isMilestone(at.n) && !at.endless ? 6 : 3);
+    scene.select(-1); scene.cheerAll(); at.p.cars.slice(0, 4).forEach((_, k) => audio.voice(scene.voiceOf(k + 1 < at.p.cars.length ? k + 1 : 0), 'giggle', 0.5 + k * 0.32)); scene.fireworks(P.isMilestone(at.n) && !at.endless ? 6 : 3);
     const special = at.lvl.t !== 'n' || (!at.endless && P.isMilestone(at.n));
     if (special) audio.special(); else audio.complete();
     paintHud();

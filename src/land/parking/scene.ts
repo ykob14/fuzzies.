@@ -28,6 +28,7 @@ interface Car {
   pos: number; goal: number; vel: number;
   drag: boolean; lift: number; tilt: number; jiggle: number; hop: number; spin: number; gone: boolean; leaving: number;
   emote: THREE.Sprite | null; emoteT: number;
+  /** which of the 15 Fuzzies drives (its voice) */ voice: number;
 }
 interface Spark { m: THREE.Mesh; v: THREE.Vector3; spin: THREE.Vector3; life: number; max: number }
 
@@ -52,6 +53,9 @@ export class ParkScene {
   private running = true;
   /** screen space the HUD covers (px): the board is framed inside what's left */
   pad = { top: 80, bottom: 110, side: 12 };
+  /** a Fuzzy hums now and then (game.ts gives it a voice) */
+  onIdle: ((i: number) => void) | null = null;
+  voiceOf(i: number): number { return this.cars[i]?.voice ?? 0; }
   private ro: ResizeObserver;
   private ray = new THREE.Raycaster();
   private milestone = false;
@@ -149,7 +153,7 @@ export class ParkScene {
       const ds = c.exit && c.letter === 'A' ? [0, 6, 9] : [pickDrv(), pickDrv(), pickDrv()];
       const m = buildVehicle(kind, c.len, color, ds);
       const face: 1 | -1 = c.exit ? c.exit : r2() < 0.5 ? 1 : -1;
-      const car: Car = { m, len: c.len, dir: c.dir, line: c.line, exit: c.exit, face, pos: s[c.i], goal: s[c.i], vel: 0, drag: false, lift: 0, tilt: 0, jiggle: 0, hop: 0, spin: 0, gone: s[c.i] === OUT, leaving: 0, emote: null, emoteT: 0 };
+      const car: Car = { m, len: c.len, dir: c.dir, line: c.line, exit: c.exit, face, pos: s[c.i], goal: s[c.i], vel: 0, drag: false, lift: 0, tilt: 0, jiggle: 0, hop: 0, spin: 0, gone: s[c.i] === OUT, leaving: 0, emote: null, emoteT: 0, voice: ds[0] };
       m.group.rotation.y = c.dir === 'h' ? (face === 1 ? 0 : Math.PI) : (face === 1 ? -Math.PI / 2 : Math.PI / 2);
       this.carsGroup.add(m.group);
       this.cars.push(car);
@@ -448,7 +452,7 @@ export class ParkScene {
       if (c.emote) { c.emoteT -= dt; const s = c.emote; const a = Math.min(1, c.emoteT * 3); (s.material as THREE.SpriteMaterial).opacity = a; s.position.y += dt * 0.12; const sc = 0.38 * (1 + Math.max(0, 0.25 - (1.3 - c.emoteT)) * 2); s.scale.set(sc, sc, 1); if (c.emoteT <= 0) { c.m.body.remove(s); c.emote = null; } }
     }
     // idle life: now and then a Fuzzy hums or waves
-    if (Math.random() < dt * 0.35 && this.cars.length) { const k = Math.floor(Math.random() * this.cars.length); const c = this.cars[k]; if (!c.gone && !c.drag && !c.emote && !c.leaving) { c.hop = 0.7; if (Math.random() < 0.5) this.emote(k, 'note', 1.1); } }
+    if (Math.random() < dt * 0.35 && this.cars.length) { const k = Math.floor(Math.random() * this.cars.length); const c = this.cars[k]; if (!c.gone && !c.drag && !c.emote && !c.leaving) { c.hop = 0.7; if (Math.random() < 0.5) { this.emote(k, 'note', 1.1); this.onIdle?.(k); } } }
     // selection ring follows its car
     if (this.sel >= 0 && this.cars[this.sel] && !this.cars[this.sel].gone) { const w = this.worldOf(this.cars[this.sel], this.cars[this.sel].pos); this.selRing.position.set(w.x, 0.02, w.z); (this.selRing.material as THREE.MeshBasicMaterial).opacity = 0.75 + Math.sin(this.t * 6) * 0.2; } else this.selRing.visible = false;
     for (const b of this.barriers) if (b.open > 0) { b.open = Math.min(1, b.open + dt * 2.5); b.arm.rotation.x = -b.open * 1.35; }

@@ -199,6 +199,43 @@ export class ParkAudio {
   fail(): void { if (!this.ok()) return; this.duck(2); [[392, 0], [349, 0.28], [311, 0.56]].forEach(([f, d]) => this.sfx('triangle', f, f * 0.96, 0.32, 0.16, d)); }
   /** a special challenge or milestone won: a bigger fanfare and a cymbal swell */
   special(): void { if (!this.ok()) return; this.duck(3.2); const t = this.now; [67, 72, 76, 79, 84].forEach((n, k) => { this.marimbaSfx(t + k * 0.1, n, 0.15); this.pianoSfx(t + k * 0.1, n - 12, 0.05); }); const a = this.ac!, s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = this.noise; f.type = 'highpass'; f.frequency.value = 5000; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6); s.connect(f).connect(g).connect(this.sfxBus); s.start(t); s.stop(t + 1.7); for (const n of [72, 76, 79, 84]) this.pianoSfx(t + 0.6, n, 0.05); }
+  // ---------- the Fuzzies' little voices ----------
+  private lastVoice = 0;
+  /**
+   * A Fuzzy says something: each of the 15 Fuzzies has its own pitch. hi = "eep?" (picked up), go = "wee!" (a slide), oops = "uh-oh"
+   * (blocked), yay = "wheee!" + a giggle (escaped), giggle = "hee-hee-hee", coo = a soft little hum.
+   */
+  voice(id: number, kind: 'hi' | 'go' | 'oops' | 'yay' | 'giggle' | 'coo', delay = 0): void {
+    if (!this.ok()) return;
+    const now = this.ac!.currentTime;
+    if (kind !== 'yay' && kind !== 'giggle' && now - this.lastVoice < 0.12 && !delay) return; // never a babble
+    this.lastVoice = now;
+    const f = 560 * Math.pow(2, (((id % 15) + 15) % 15) / 15 * 0.85); // 560–1000 Hz
+    const t = this.now + delay;
+    const syl = (at: number, f0: number, f1: number, dur: number, vol: number, vowel: 'ee' | 'oo' | 'ah', wob = 0.03) => this.syllable(t + at, f * f0, f * f1, dur, vol, vowel, wob);
+    if (kind === 'hi') syl(0, 1, 1.35, 0.14, 0.2, 'ee');
+    else if (kind === 'go') { syl(0, 1.1, 1.2, 0.08, 0.16, 'ah'); syl(0.1, 1.25, 1.45, 0.11, 0.16, 'ee'); }
+    else if (kind === 'oops') { syl(0, 1.2, 1.1, 0.12, 0.18, 'oo'); syl(0.16, 0.92, 0.72, 0.2, 0.18, 'oo', 0.05); }
+    else if (kind === 'yay') { syl(0, 1, 1.9, 0.42, 0.22, 'ee', 0.06); this.voice(id, 'giggle', delay + 0.48); }
+    else if (kind === 'giggle') [1.32, 1.2, 1.28, 1.14].forEach((k, n) => syl(n * 0.095, k, k * 0.92, 0.07, 0.15, 'ee', 0.02));
+    else syl(0, 0.9, 1.0, 0.3, 0.08, 'oo', 0.02);
+  }
+  private syllable(t: number, f0: number, f1: number, dur: number, vol: number, vowel: 'ee' | 'oo' | 'ah', wob: number): void {
+    const a = this.ac!;
+    const o = a.createOscillator(), lfo = a.createOscillator(), lg = a.createGain(), g = a.createGain(), dry = a.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(60, f1), t + dur);
+    lfo.frequency.value = 9; lg.gain.value = f0 * wob; lfo.connect(lg).connect(o.frequency);
+    // two formant filters give the "ee" / "oo" / "ah" colour — a tiny cartoon voice
+    const F: Record<string, [number, number]> = { ee: [700, 2700], oo: [450, 1050], ah: [950, 1600] };
+    for (const [k, fq] of F[vowel].entries()) { const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fq; bp.Q.value = 5; const bg = a.createGain(); bg.gain.value = k ? 0.6 : 1; o.connect(bp).connect(bg).connect(g); }
+    dry.gain.value = 0.35; o.connect(dry).connect(g);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.setValueAtTime(vol, t + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.connect(this.sfxBus); g.connect(this.verbSend);
+    o.start(t); lfo.start(t); o.stop(t + dur + 0.03); lfo.stop(t + dur + 0.03);
+    this.voices++;
+  }
+  /** voices spoken so far (the tests read it) */
+  voices = 0;
   private marimbaSfx(t: number, n: number, v: number): void { const f = hz(n); const o = this.ac!.createOscillator(), g = this.ac!.createGain(); o.frequency.value = f; this.env(g, t, v, 0.002, 0.4); o.connect(g).connect(this.sfxBus); o.start(t); o.stop(t + 0.45); const o2 = this.ac!.createOscillator(), g2 = this.ac!.createGain(); o2.frequency.value = f * 4; this.env(g2, t, v * 0.25, 0.002, 0.1); o2.connect(g2).connect(this.sfxBus); o2.start(t); o2.stop(t + 0.15); }
   private pianoSfx(t: number, n: number, v: number): void { const o = this.ac!.createOscillator(), g = this.ac!.createGain(); o.type = 'triangle'; o.frequency.value = hz(n); this.env(g, t, v, 0.005, 1.2); o.connect(g).connect(this.sfxBus); o.start(t); o.stop(t + 1.3); }
   private sparkle(t: number): void { [88, 91, 95, 100, 103].forEach((n, k) => { const o = this.ac!.createOscillator(), g = this.ac!.createGain(); o.frequency.value = hz(n); this.env(g, t + k * 0.06, 0.07, 0.002, 0.25); o.connect(g).connect(this.sfxBus); o.connect(this.verbSend); o.start(t + k * 0.06); o.stop(t + k * 0.06 + 0.3); }); }
