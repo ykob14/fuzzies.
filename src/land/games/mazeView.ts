@@ -12,9 +12,9 @@ import { groundTex, hedgeWalls } from './sceneArt';
 import { MazeSim, N, CELL, KEYS, HALF, MOVE, type Pickup } from './maze';
 
 /** the close, low camera (the hedges hide what's round the corner) and the high one a peek mushroom gives you */
-const VIEW = { desk: { back: 4.0, up: 8.2, lookDy: -0.6 }, phone: { back: 3.6, up: 10, lookDy: -0.6 }, peek: { back: 5.5, up: 19, lookDy: -0.9 } };
+const VIEW = { desk: { back: 4.0, up: 8.2, lookDy: -0.6 }, phone: { back: 3.6, up: 10, lookDy: -0.6 }, peek: { back: 4.6, up: 14.5, lookDy: -0.8 } };
 /** the mist (distance from the camera): clear just round your Fuzzy, gone a few corridors away; a peek pushes it out */
-const MIST = { desk: [9.6, 12.8], phone: [11, 14.5], peek: [24, 44] };
+const MIST = { desk: [9.6, 12.8], phone: [11, 14.5], peek: [17, 30] };
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
   const adv = adventure('maze')!;
@@ -140,7 +140,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     sim.step(dt, input);
     for (const e of sim.events) {
       if (e.kind === 'key' && e.item) { const n = nodes.find((x) => x.it === e.item); if (n) n.got = 0; a.float(e.item.x, 1.6, e.item.z, '+40 KEY', 'gold'); a.sparks(new THREE.Vector3(e.item.x, 1, e.item.z), 12); a.play(sfx.gold); me.squash = 0.4; a.banner(e.n! < KEYS ? `Key ${e.n} of ${KEYS}!` : 'All the keys!', 'combo'); if (e.n === 1) a.tip('map', 'The little map fills in with everything you’ve seen', 4200); }
-      else if (e.kind === 'peek' && e.item) { const n = nodes.find((x) => x.it === e.item); if (n) n.got = 0; peekT = 3.4; a.sparks(new THREE.Vector3(e.item.x, 0.8, e.item.z), 16); a.play(sfx.whoosh); me.squash = 0.5; a.banner('Peek! You can see over the hedges', 'combo'); }
+      else if (e.kind === 'peek' && e.item) { const n = nodes.find((x) => x.it === e.item); if (n) n.got = 0; peekT = 3; a.sparks(new THREE.Vector3(e.item.x, 0.8, e.item.z), 16); a.play(sfx.whoosh); me.squash = 0.5; a.banner('Peek! You can see over the hedges', 'combo'); }
       else if (e.kind === 'prickle') { a.puff(new THREE.Vector3(sim.you.pos.x, 0.5, sim.you.pos.z), 5, '#c9a27a'); a.sparks(new THREE.Vector3(sim.you.pos.x, 0.9, sim.you.pos.z), 6); a.play(sfx.boing); me.squash = 0.6; a.banner('Ouch — a hedgehog!', 'warn'); if (firstHog) { firstHog = false; a.tip('hog', 'Hedgehogs wander the paths — wait for one to pass, or find another way', 4200); } }
       else if (e.kind === 'star' && e.item) { const n = nodes.find((x) => x.it === e.item); if (n) n.got = 0; a.float(e.item.x, 1.4, e.item.z, '+15'); a.play(sfx.collect); me.squash = 0.25; }
       else if (e.kind === 'unlock') { lockOpen = 0.001; a.banner('The gate is open — it’s on your map!', 'combo'); a.play(sfx.level); a.tip('exit', 'The gate shows green on your map — find a way there through the mist', 4200); }
