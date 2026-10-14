@@ -92,7 +92,7 @@ function shell(active: string, content: HTMLElement): HTMLElement {
 
   const tab = (id: string, label: string, ic: IconName) => h('a', { class: `tab ${id === active ? 'on' : ''}`, href: `#/${id}` }, icon(ic, 22), h('span', null, label));
   const createTab = h('button', { class: 'tab tab-create', type: 'button', 'aria-label': 'Create a design', onclick: () => createDialog() }, h('span', { class: 'tab-plus' }, icon('plus', 26)));
-  const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' }, tab('home', 'Home', 'home'), tab('projects', 'Designs', 'folder'), createTab, tab('play', 'Play', 'gamepad'), tab('land', 'Fland', 'town'), tab('profile', 'Me', 'user'));
+  const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' }, tab('home', 'Home', 'home'), tab('templates', 'Templates', 'grid'), createTab, tab('projects', 'Designs', 'folder'), tab('play', 'Play', 'gamepad'), tab('land', 'Fland', 'town'));
 
   return h('div', { class: 'app' }, sidebar, h('div', { class: 'main' }, top, h('main', { class: 'content', id: 'content' }, content)), tabbar);
 }

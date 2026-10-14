@@ -64,14 +64,14 @@ export class ParkScene {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, o.mobile ? 2 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMapping = THREE.NeutralToneMapping; this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.canvas = this.renderer.domElement; this.canvas.className = 'pk-canvas';
     host.append(this.canvas);
     const pm = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose();
-    this.scene.add(new THREE.HemisphereLight('#eaf6ff', '#7fb069', 0.9));
-    this.sun = new THREE.DirectionalLight('#fff3dc', 2.1);
+    this.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose(); this.scene.environmentIntensity = 0.45;
+    this.scene.add(new THREE.HemisphereLight('#e4f1ff', '#6f9a5c', 0.75));
+    this.sun = new THREE.DirectionalLight('#fff1d6', 2.6);
     this.sun.position.set(-6, 14, 7); this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(o.mobile ? 1024 : 2048, o.mobile ? 1024 : 2048);
     Object.assign(this.sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 40 });
@@ -379,9 +379,9 @@ export class ParkScene {
     const r = this.canvas.getBoundingClientRect(); const w = Math.max(1, r.width), h = Math.max(1, r.height);
     const portrait = h > w * 1.15;
     this.camera.fov = portrait ? 34 : 30; this.camera.updateProjectionMatrix();
-    const tiltDeg = portrait ? 56 : 52, tilt = THREE.MathUtils.degToRad(tiltDeg);
+    const tiltDeg = portrait ? 61 : 54, tilt = THREE.MathUtils.degToRad(tiltDeg);
     const hasExit = (sd: string) => this.barriers.some((b) => b.side === sd);
-    const m = 0.45, ex = 1.35;
+    const m = portrait ? 0.22 : 0.4, ex = portrait ? 0.75 : 1.2;
     const xs = [-p.w / 2 - (hasExit('w') ? ex : m), p.w / 2 + (hasExit('e') ? ex : m)], zs = [-p.h / 2 - (hasExit('n') ? ex : m) - 0.4, p.h / 2 + (hasExit('s') ? ex : m)];
     const corners = [] as THREE.Vector3[]; for (const x of xs) for (const z of zs) for (const y of [0, 0.7]) corners.push(new THREE.Vector3(x, y, z));
     const cx = (xs[0] + xs[1]) / 2, cz = (zs[0] + zs[1]) / 2;
@@ -491,20 +491,21 @@ const once = <T>(f: () => T) => { let v: T | undefined; return () => (v ??= f())
 const cv = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return { c, g: c.getContext('2d')! }; };
 const ctex = (c: HTMLCanvasElement, aniso = 8) => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; return t; };
 
-/** asphalt with speckles, soft wear, white bay lines on every cell edge and a faint grid, so the lanes read at a glance */
+/** asphalt with fine speckles and one soft, rounded parking tile per cell, framed by a crisp white line — calm, and the lanes still read at a glance */
 function asphaltTex(W: number, H: number, walls: Uint8Array): THREE.Texture {
   const S = 112, pad = Math.round(S * 0.15);
   const { c, g } = cv(W * S + pad * 2, H * S + pad * 2);
-  g.fillStyle = '#4b5059'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#3e434d'; g.fillRect(0, 0, c.width, c.height);
   const r = mulberry(W * 100 + H);
-  for (let k = 0; k < c.width * c.height / 30; k++) { const v = 60 + r() * 50; g.fillStyle = `rgba(${v},${v + 2},${v + 6},${0.25 + r() * 0.3})`; g.fillRect(r() * c.width, r() * c.height, 1 + r() * 1.5, 1 + r() * 1.5); }
-  for (let k = 0; k < 14; k++) { const gr = g.createRadialGradient(r() * c.width, r() * c.height, 0, r() * c.width, r() * c.height, 60 + r() * 120); gr.addColorStop(0, 'rgba(255,255,255,0.05)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height); }
-  // bay lines: solid white along rows, dashed along columns
-  g.strokeStyle = 'rgba(255,255,255,0.78)'; g.lineWidth = 3.5; g.lineCap = 'round';
-  for (let z = 0; z <= H; z++) { g.beginPath(); g.moveTo(pad, pad + z * S); g.lineTo(pad + W * S, pad + z * S); g.stroke(); }
-  g.setLineDash([S * 0.18, S * 0.14]); g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 2.5;
-  for (let x = 1; x < W; x++) { g.beginPath(); g.moveTo(pad + x * S, pad); g.lineTo(pad + x * S, pad + H * S); g.stroke(); }
-  g.setLineDash([]);
+  for (let k = 0; k < c.width * c.height / 40; k++) { const v = 58 + r() * 40; g.fillStyle = `rgba(${v},${v + 2},${v + 6},${0.18 + r() * 0.22})`; g.fillRect(r() * c.width, r() * c.height, 1 + r() * 1.2, 1 + r() * 1.2); }
+  // the spaces: a slightly lighter rounded tile with a soft inner edge
+  for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) {
+    const px = pad + x * S + 5, py = pad + z * S + 5, sz = S - 10;
+    g.fillStyle = 'rgba(255,255,255,0.055)'; g.beginPath(); g.roundRect(px, py, sz, sz, 14); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.09)'; g.lineWidth = 2; g.stroke();
+  }
+  // the lot's frame
+  g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 4; g.beginPath(); g.roundRect(pad - 2, pad - 2, W * S + 4, H * S + 4, 10); g.stroke();
   // cross-hatched bays under the planters
   g.strokeStyle = 'rgba(255,214,74,0.6)'; g.lineWidth = 3;
   for (let k = 0; k < walls.length; k++) if (walls[k]) { const x = pad + (k % W) * S, y = pad + Math.floor(k / W) * S; g.save(); g.beginPath(); g.rect(x + 4, y + 4, S - 8, S - 8); g.clip(); for (let d = -S; d < S * 2; d += 16) { g.beginPath(); g.moveTo(x + d, y); g.lineTo(x + d - S, y + S); g.stroke(); } g.restore(); }

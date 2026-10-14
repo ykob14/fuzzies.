@@ -12,7 +12,8 @@ export type VehicleKind = 'hero' | 'hero2' | 'car' | 'taxi' | 'jeep' | 'sport' |
 export const SHORT_KINDS: VehicleKind[] = ['car', 'taxi', 'jeep', 'sport', 'car', 'jeep'];
 export const LONG_KINDS: VehicleKind[] = ['bus', 'truck', 'fire', 'icecream', 'truck', 'bus'];
 /** body colours for ordinary cars (never the hero's raspberry) */
-export const PAINTS = ['#2fb7b0', '#3d8bfd', '#ff8a3d', '#7cc84a', '#b18cf0', '#e8483f', '#f4f1ea', '#2c4f8a', '#20c997', '#ffb3c7', '#5bc0eb', '#9a6b4f'];
+/** rich toy-car paints, all clearly different from each other and from the two star cars (no pale creams: they washed out) */
+export const PAINTS = ['#2f6fe0', '#ff7a1a', '#2fa84f', '#ffc21a', '#14a3a3', '#e8483f', '#7b5cd6', '#1f4fa8', '#8cc63f', '#00a7d9', '#c0392b', '#ff9f1c'];
 export const HERO = '#d6336c', HERO2 = '#14b8a6';
 
 /** the 15 Fuzzies from the owner's sheet: d01 pink … d15 rainbow */
@@ -33,9 +34,10 @@ const geo = (k: string, make: () => THREE.BufferGeometry) => { let g = geoCache.
 const matCache = new Map<string, THREE.Material>();
 const mat = (k: string, make: () => THREE.Material) => { let m = matCache.get(k); if (!m) { m = make(); matCache.set(k, m); } return m; };
 const paint = (c: string) => mat(`paint${c}`, () => new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.32, metalness: 0.05, clearcoat: 0.8, clearcoatRoughness: 0.18 }));
+const shade = (c: string, k = 0.62) => '#' + new THREE.Color(c).multiplyScalar(k).getHexString();
 const plain = (c: string, rough = 0.6, metal = 0) => mat(`p${c}${rough}${metal}`, () => new THREE.MeshStandardMaterial({ color: c, roughness: rough, metalness: metal }));
 const glow = (c: string, i = 1.2) => mat(`g${c}${i}`, () => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: i, roughness: 0.3 }));
-const glass = () => mat('glass', () => new THREE.MeshPhysicalMaterial({ color: '#cfe9ff', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.38, clearcoat: 1 }));
+const glass = () => mat('glass', () => new THREE.MeshPhysicalMaterial({ color: '#cfe9ff', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.38, clearcoat: 1, depthWrite: false })); // never hides a Fuzzy behind it
 const rbox = (w: number, h: number, d: number, r = 0.08) => geo(`rb${w.toFixed(3)},${h.toFixed(3)},${d.toFixed(3)},${r}`, () => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001)));
 const mesh = (g: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0, shadow = true) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = shadow; o.receiveShadow = true; return o; };
 
@@ -86,6 +88,16 @@ export function buildVehicle(kind: VehicleKind, len: number, color: string, driv
       add(mesh(geo('tl', () => new THREE.BoxGeometry(0.03, 0.05, 0.12)), glow('#ff4d5e', 0.8), back, y, s * (W / 2 - 0.12), false));
     }
   };
+  /** the body details that make it read as a real toy car: a darker sill all round, a chrome grille, door seams and wing mirrors */
+  const trim = (ct: number, ch: number, mirrorX: number, mirrorY: number) => {
+    add(mesh(rbox(L + 0.012, 0.075, W + 0.012, 0.035), paint(shade(color)), 0, ct - ch + 0.05, 0));
+    add(mesh(rbox(0.02, 0.07, W * 0.46, 0.012), plain('#e9ecef', 0.2, 0.9), L / 2 + 0.004, ct - 0.07, 0, false));
+    for (const sd of [-1, 1]) {
+      add(mesh(rbox(0.012, ch * 0.62, 0.008, 0.003), plain(shade(color, 0.45), 0.6), mirrorX - 0.08, ct - ch * 0.42, sd * (W / 2 + 0.002), false));
+      add(mesh(rbox(0.05, 0.045, 0.07, 0.015), paint(color), mirrorX, mirrorY, sd * (W / 2 + 0.035)));
+      add(mesh(rbox(0.008, 0.032, 0.05, 0.008), plain('#dfe9f3', 0.1, 0.9), mirrorX - 0.027, mirrorY, sd * (W / 2 + 0.04), false));
+    }
+  };
   const bumpers = (y: number) => { add(mesh(rbox(0.07, 0.09, W * 0.92, 0.03), plain('#3a3d45', 0.5), L / 2 - 0.02, y, 0)); add(mesh(rbox(0.07, 0.09, W * 0.92, 0.03), plain('#3a3d45', 0.5), -L / 2 + 0.02, y, 0)); };
   /**
    * An open cockpit from x0 (back) to x1 (front): a carpet, low doors on both sides in the body colour, soft cream seats with low
@@ -120,6 +132,7 @@ export function buildVehicle(kind: VehicleKind, len: number, color: string, driv
     cockpit(x0, x1, ct, wall, [(x0 + x1) / 2 - 0.02]);
     lights(L / 2 - 0.01, ct - 0.05, -L / 2 + 0.01);
     bumpers(ct - ch + 0.05);
+    trim(ct, ch, x1 + 0.02, wall + 0.01);
     if (kind === 'taxi') {
       add(mesh(geo('taxiband', () => new THREE.BoxGeometry(L * 0.98, 0.05, W + 0.005)), checkerTex(), 0, ct - 0.06, 0, false));
       add(mesh(geo('taxisign', () => new THREE.BoxGeometry(0.1, 0.1, 0.32)), taxiSign(), -L / 2 + trunkL / 2, ct + hoodH + 0.03, 0, false));
@@ -149,6 +162,7 @@ export function buildVehicle(kind: VehicleKind, len: number, color: string, driv
       for (const sd of [-1, 1]) add(mesh(geo(`busband${L}`, () => new THREE.BoxGeometry(L * 0.96, 0.035, 0.01)), plain('#ffffff', 0.4), 0, ct - 0.04, sd * (W / 2 + 0.003), false));
       lights(L / 2, ct - 0.05, -L / 2);
       bumpers(ct - ch + 0.05);
+      trim(ct, ch, x1 + 0.02, wall + 0.01);
       sit(drivers[0], 0.62, rows[0], ct);
       sit(drivers[1] ?? drivers[0] + 3, 0.58, rows[1], ct);
       sit(drivers[2] ?? drivers[0] + 7, 0.58, rows[2], ct);
@@ -181,6 +195,7 @@ export function buildVehicle(kind: VehicleKind, len: number, color: string, driv
       }
       lights(L / 2, ct - 0.04, -L / 2);
       bumpers(ct - ch + 0.05);
+      trim(ct, ch, x1 + 0.02, wall + 0.01);
       sit(drivers[0], 0.64, (x0 + x1) / 2 - 0.02, ct);
       if (kind === 'icecream') out.push(driver(drivers[1] ?? drivers[0] + 5, 0.4, bx, ct + 0.43, W * 0.22));
     }
