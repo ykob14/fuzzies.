@@ -418,6 +418,7 @@ scoped to the token's user. Owner setup steps: `BACKEND.md`.
   code** follows `land/games/orchardArt.ts`: lathe real profiles, weld (`mergeVertices`) before smoothing normals, bake shading into vertex
   colours, paint textures on canvases, batch/instance everything. Canvas gotcha: `destination-in` / `source-in` clear everything outside
   the drawn shape — build a mask on its own canvas and apply it once with `drawImage`.
+- **THE Fuzzy = the owner's round fur ball (`fuzzy.glb` / the driver + friends sheets). Never use or recreate the two rejected Claude versions** (owner, 2026-10-14: "Not like this"): the pink Fuzzy with arms, feet and eyebrows (the Oct 13 rig) and the big-eyed drawn fur ball with a pink tongue (the Oct 13 redraw). No arms, feet, eyebrows, bigger eyes or redrawn faces — optimise geometry/textures only.
 - **Owner-provided art (the exception to "no image assets"):** `public/models/fuzzy.glb` (≈1.5 MB, texture repacked to 1024 px JPEG)
   and `public/art/friends/f01–f40.webp` (256 px cut-outs of the owner's sheet) are the owner's own work and may be used anywhere.
   `game/fuzzyGlb.ts`: `loadFuzzyGlb()` loads once (lazy, cached, `glbReady()`), `furTexture(skin)` re-tints the pink fur per skin colour
