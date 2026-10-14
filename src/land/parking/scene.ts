@@ -8,12 +8,14 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { flowers } from '../games/orchardArt';
 import { backdrop, envOf, eventProps, groundTexture, smoothBush, type Atmo } from './world';
-import { buildVehicle, driverBlinkTexture, driverTexture, SHORT_KINDS, LONG_KINDS, STAR_STYLES, PAINTS, HERO, HERO2, type VehicleModel } from './vehicles';
+import { buildVehicle, driverBlinkTexture, driverTexture, toRider, type Driver, SHORT_KINDS, LONG_KINDS, STAR_STYLES, PAINTS, HERO, HERO2, type VehicleModel } from './vehicles';
 import { OUT, type Puzzle } from './engine';
 
 /** the neighbourhood name for a level (ten neighbourhoods, 50 levels each — see world.ts) */
 export const districtName = (i: number): string => envOf(i).name;
 
+/** how long a 3D driver's blink lasts (s) */
+const BLINK = 0.16;
 type Emote = 'bang' | 'heart' | 'star' | 'note' | 'huh' | 'sweat';
 interface Car {
   m: VehicleModel; len: number; dir: 'h' | 'v'; line: number; exit: 0 | 1 | -1; face: 1 | -1;
@@ -21,6 +23,8 @@ interface Car {
   pos: number; goal: number; vel: number;
   drag: boolean; lift: number; tilt: number; jiggle: number; hop: number; spin: number; gone: boolean; leaving: number;
   emote: THREE.Sprite | null; emoteT: number;
+  /** the 3D drivers' faces: happy (^ ^) after a heart / star / song, worried after a bump; eases out over `moodT` seconds */
+  mood: 'happy' | 'worry' | null; moodT: number;
   /** which of the 15 Fuzzies drives (its voice) */ voice: number;
 }
 interface Spark { m: THREE.Mesh; v: THREE.Vector3; spin: THREE.Vector3; life: number; max: number }
@@ -31,6 +35,7 @@ export class ParkScene {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
+  private tmpV = new THREE.Vector3();
   private sun: THREE.DirectionalLight;
   private hemi: THREE.HemisphereLight;
   private lot = new THREE.Group();
@@ -157,7 +162,7 @@ export class ParkScene {
       const ds = mine ? [look.driver ?? 0, 6, 9] : [pickDrv(), pickDrv(), pickDrv()];
       const m = mine && c.len === 2 && look.style ? buildVehicle(STAR_STYLES[look.style] ?? 'car', 2, look.paint || HERO, ds, { star: true }) : buildVehicle(kind, c.len, mine && look.paint ? look.paint : color, ds);
       const face: 1 | -1 = c.exit ? c.exit : r2() < 0.5 ? 1 : -1;
-      const car: Car = { m, len: c.len, dir: c.dir, line: c.line, exit: c.exit, face, pos: s[c.i], goal: s[c.i], vel: 0, drag: false, lift: 0, tilt: 0, jiggle: 0, hop: 0, spin: 0, gone: s[c.i] === OUT, leaving: 0, emote: null, emoteT: 0, voice: ds[0] };
+      const car: Car = { m, len: c.len, dir: c.dir, line: c.line, exit: c.exit, face, pos: s[c.i], goal: s[c.i], vel: 0, drag: false, lift: 0, tilt: 0, jiggle: 0, hop: 0, spin: 0, gone: s[c.i] === OUT, leaving: 0, emote: null, emoteT: 0, mood: null, moodT: 0, voice: ds[0] };
       m.group.rotation.y = c.dir === 'h' ? (face === 1 ? 0 : Math.PI) : (face === 1 ? -Math.PI / 2 : Math.PI / 2);
       this.carsGroup.add(m.group);
       this.cars.push(car);
@@ -268,6 +273,38 @@ export class ParkScene {
     if (i >= 0 && this.cars[i]) { const c = this.cars[i]; c.hop = Math.max(c.hop, 0.6); const L = c.len - 0.02; this.selRing.scale.set(c.dir === 'h' ? L + 0.3 : 1.1, 1, c.dir === 'h' ? 1.1 : L + 0.3); }
   }
 
+  /**
+   * A 3D driver: blinks (a quick lid sweep, double blinks now and then), ^ ^ when happy, worried after a bump, breathes, bobs,
+   * hops, squashes with the car, leans into the motion, spins when it escapes — and turns in its seat to look up at you
+   * (a car facing away still shows a face), facing the road again while it drives.
+   */
+  private animRider(c: Car, d: Driver, dt: number, ph: number, hopY: number, breathe: number, moodK: number): void {
+    const r = d.rider!, o = d.obj;
+    if (d.blinkLeft > 0) d.blinkLeft = Math.max(0, d.blinkLeft - dt);
+    else if ((d.blinkIn -= dt) <= 0) { d.blinkLeft = BLINK; d.blinkIn = Math.random() < 0.2 ? 0.3 : 2 + Math.random() * 4; }
+    const lid = d.blinkLeft > 0 ? Math.sin((1 - d.blinkLeft / BLINK) * Math.PI) : 0;
+    const happy = c.mood === 'happy' || c.leaving ? Math.max(c.leaving ? 1 : 0, moodK) : 0;
+    const worry = c.mood === 'worry' ? moodK : 0;
+    r.face(lid, happy * 0.85, worry * 0.8);
+    o.position.set(d.base.x, d.base.y + hopY + Math.sin(ph * 1.7) * 0.01, d.base.z);
+    o.scale.set(breathe * (1 + c.jiggle * 0.08), breathe * (1 - c.jiggle * 0.1) * (1 + Math.max(0, hopY) * 0.25), breathe * (1 + c.jiggle * 0.08));
+    // where is the camera, seen from the seat? (+x = the way the car faces)
+    const v = o.parent!.worldToLocal(this.tmpV.copy(this.camera.position));
+    const toCam = Math.atan2(v.x - d.base.x, v.z - d.base.z) - Math.PI / 2;
+    const rel = Math.atan2(Math.sin(toCam), Math.cos(toCam));
+    const driving = c.leaving ? 1 : Math.min(1, Math.abs(c.vel) * 0.25);
+    const want = Math.max(-2.5, Math.min(2.5, rel * 0.95)) * (1 - driving * 0.75) + Math.sin(ph * 0.45) * 0.18;
+    const yaw = (o.userData.yaw ?? want) + (want - (o.userData.yaw ?? want)) * Math.min(1, dt * 4);
+    o.userData.yaw = yaw;
+    o.userData.spin = c.spin > 0.02 ? (o.userData.spin ?? 0) + dt * 14 * c.spin : 0; // a happy twirl when it escapes
+    o.rotation.y = Math.PI / 2 + yaw + o.userData.spin;
+    o.rotation.x = -0.72 * (1 - driving * 0.6) + Math.max(-0.12, Math.min(0.12, -c.vel * c.face * 0.02));
+    o.rotation.z = Math.sin(ph * 1.1) * 0.04 + (c.leaving ? 0.12 : 0);
+  }
+
+  /** the 3D drivers arrived: every flat one on the lot moves over to its 3D self */
+  upgradeRiders(): void { for (const c of this.cars) for (const d of c.m.drivers) toRider(d); }
+
   // ---------- reactions ----------
   emote(i: number, kind: Emote, secs = 1.3): void {
     const c = this.cars[i]; if (!c || c.gone) return;
@@ -276,6 +313,7 @@ export class ParkScene {
     s.renderOrder = 20; s.scale.set(0.38, 0.38, 1);
     const d = c.m.drivers[0]; s.position.copy(d.base).add(new THREE.Vector3(0, d.size * 1.05, 0));
     c.m.body.add(s); c.emote = s; c.emoteT = secs;
+    c.mood = kind === 'heart' || kind === 'star' || kind === 'note' ? 'happy' : 'worry'; c.moodT = secs + 0.4;
   }
   /** a vehicle ran into something: it squashes back a touch, its driver frowns, the one in the way wobbles */
   bump(i: number, blocker: number): void {
@@ -451,21 +489,24 @@ export class ParkScene {
       c.m.body.rotation.z = Math.max(-0.08, Math.min(0.08, c.tilt)) + jig;
       c.m.body.scale.set(1 + c.jiggle * 0.05, 1 - c.jiggle * 0.06, 1);
       // drivers: breathe, bob, blink-squash now and then, hop and spin when happy, lean back when the car shoots off
+      if (c.moodT > 0) { c.moodT -= dt; if (c.moodT <= 0) c.mood = null; }
+      const moodK = Math.min(1, Math.max(0, c.moodT) * 2.5);
       for (const d of c.m.drivers) {
         const ph = d.phase + this.t;
+        const hopY = Math.sin(Math.min(1, c.hop) * Math.PI) * 0.18;
+        const breathe = 1 + Math.sin(ph * 2.2) * 0.025;
+        if (d.rider) { this.animRider(c, d, dt, ph, hopY, breathe, moodK); continue; }
+        const sprite = d.sprite!;
         // real blinks: the closed-eyes picture shows for a moment every few seconds (double blinks now and then)
-        const mat = d.sprite.material as THREE.SpriteMaterial;
+        const mat = sprite.material as THREE.SpriteMaterial;
         if (d.blinkLeft > 0) { d.blinkLeft -= dt; if (d.blinkLeft <= 0) { mat.map = driverTexture(d.tex); mat.needsUpdate = true; } }
         else if ((d.blinkIn -= dt) <= 0) {
           const b = driverBlinkTexture(d.tex);
           if (b) { mat.map = b; mat.needsUpdate = true; d.blinkLeft = 0.13; }
           d.blinkIn = Math.random() < 0.2 ? 0.25 : 2 + Math.random() * 4;
         }
-        const blink = 1;
-        const hopY = Math.sin(Math.min(1, c.hop) * Math.PI) * 0.18;
-        const breathe = 1 + Math.sin(ph * 2.2) * 0.025;
-        d.sprite.position.set(d.base.x, d.base.y + hopY + Math.sin(ph * 1.7) * 0.012, d.base.z);
-        d.sprite.scale.set(d.size * breathe * (1 + c.jiggle * 0.08), d.size * breathe * blink * (1 - c.jiggle * 0.08), 1);
+        sprite.position.set(d.base.x, d.base.y + hopY + Math.sin(ph * 1.7) * 0.012, d.base.z);
+        sprite.scale.set(d.size * breathe * (1 + c.jiggle * 0.08), d.size * breathe * (1 - c.jiggle * 0.08), 1);
         // they lean into the motion like steering round a bend, spin when happy, sway a little while waiting
         mat.rotation = Math.sin(this.t * 14) * 0.25 * c.spin + Math.sin(ph * 1.1) * 0.03 + (c.leaving ? -0.15 * c.face : 0) + Math.max(-0.12, Math.min(0.12, c.vel * c.face * 0.02));
       }

@@ -47,7 +47,7 @@ export function parkingLot(): THREE.Group {
   // three little cars with their drivers
   const cars: [string, number, number, number, number][] = [['#2fb7b0', 4, -0.52, -0.5, -Math.PI / 2], ['#ffb3c7', 9, 0.2, -0.5, -Math.PI / 2], ['#d6336c', 0, 0.55, 0.32, Math.PI / 2]];
   for (const [col, d, x, z, ry] of cars) {
-    const v = buildVehicle(col === '#d6336c' ? 'hero' : 'car', 2, col, [d]); v.group.scale.setScalar(0.34); v.group.position.set(x, 0.11, z); v.group.rotation.y = ry; g.add(v.group);
+    const v = buildVehicle(col === '#d6336c' ? 'hero' : 'car', 2, col, [d], { flat: true }); v.group.scale.setScalar(0.34); v.group.position.set(x, 0.11, z); v.group.rotation.y = ry; g.add(v.group);
   }
   // ticket booth with a striped roof
   const booth = new THREE.Group(); booth.position.set(-0.62, 0.11, 0.55);
@@ -86,7 +86,7 @@ export function parkingTrophy(): THREE.Group {
   add(g, rbox(0.62, 0.14, 0.62, 0.04), m('#7a4f2d', 0.7), 0, 0.07, 0);
   add(g, rbox(0.5, 0.2, 0.5, 0.04), m('#f3ead8', 0.5), 0, 0.24, 0);
   const goldM = new THREE.MeshStandardMaterial({ color: '#ffc94a', metalness: 1, roughness: 0.22 });
-  const car = buildVehicle('hero', 2, '#ffc94a', [0]);
+  const car = buildVehicle('hero', 2, '#ffc94a', [0], { flat: true });
   car.group.traverse((o) => { const me = o as THREE.Mesh; if (me.isMesh && !(o as unknown as THREE.Sprite).isSprite) me.material = goldM; });
   car.group.scale.setScalar(0.26); car.group.position.y = 0.34; car.group.rotation.y = 0.5; g.add(car.group);
   const shape = new THREE.Shape(); for (let i = 0; i < 10; i++) { const r = i % 2 ? 0.05 : 0.12, a = (i / 10) * Math.PI * 2 - Math.PI / 2; if (i) shape.lineTo(Math.cos(a) * r, Math.sin(a) * r); else shape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
@@ -101,7 +101,7 @@ const plinth = (g: THREE.Group, w = 0.62) => { add(g, rbox(w, 0.12, w, 0.04), m(
 /** level 100: the pink star car on a plinth, its Fuzzy driving */
 export function parkStarStatue(): THREE.Group {
   const g = new THREE.Group(); plinth(g);
-  const car = buildVehicle('hero', 2, '#d6336c', [0]); car.group.scale.setScalar(0.3); car.group.position.y = 0.28; car.group.rotation.y = 0.6; g.add(car.group);
+  const car = buildVehicle('hero', 2, '#d6336c', [0], { flat: true }); car.group.scale.setScalar(0.3); car.group.position.y = 0.28; car.group.rotation.y = 0.6; g.add(car.group);
   noPick(g);
   g.userData.tick = (T: number) => { car.body.position.y = Math.abs(Math.sin(T * 2.4)) * 0.05; };
   return g;
@@ -159,7 +159,7 @@ export function parkBusStop(): THREE.Group {
   add(g, rbox(0.86, 0.05, 0.75, 0.02), frame, -0.5, 0.82, 0);
   add(g, new THREE.BoxGeometry(0.7, 0.55, 0.02), new THREE.MeshStandardMaterial({ color: '#cfeaff', transparent: true, opacity: 0.35, roughness: 0.1, depthWrite: false }), -0.5, 0.45, -0.3, false);
   add(g, rbox(0.6, 0.06, 0.18, 0.02), m('#b07a46', 0.7), -0.5, 0.26, -0.18);
-  const bus = buildVehicle('bus', 3, '#2f6fd8', [5, 9, 2]); bus.group.scale.setScalar(0.32); bus.group.position.set(0.45, 0.05, 0.08); g.add(bus.group);
+  const bus = buildVehicle('bus', 3, '#2f6fd8', [5, 9, 2], { flat: true }); bus.group.scale.setScalar(0.32); bus.group.position.set(0.45, 0.05, 0.08); g.add(bus.group);
   noPick(g);
   return g;
 }

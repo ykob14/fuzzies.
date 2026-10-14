@@ -14,7 +14,8 @@ import { ParkScene, districtName } from './scene';
 import { ENVS, envIndexOf, holidayPaint, LEVELS_PER_ENV, type Atmo } from './world';
 import { activeEvents, HOLIDAYS, type ActiveEvent } from '../events';
 import { ParkAudio } from './audio';
-import { preloadDrivers, driverUrl, DRIVER_NAMES, HERO } from './vehicles';
+import { preloadDrivers, driverUrl, DRIVER_NAMES, HERO, riders3d } from './vehicles';
+import { loadRiders } from './rider3d';
 import { liveLevel, rng, type Spec } from './generator';
 
 export interface ParkSetup { mobile: boolean; state: P.ParkState; coins: () => number; name: string; startLevel?: number; now?: () => number }
@@ -70,6 +71,9 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   const audio = new ParkAudio(st.audio, st.plays % 3);
   const host = h('div', { class: 'pk-stage' }); root.append(host);
   const scene = new ParkScene(host, { mobile: setup.mobile });
+  // the 3D drivers (0.3–0.4 MB; phones get the lighter copy) load while the map shows; a lot built before they arrive keeps its flat
+  // pictures until then and swaps them in place
+  if (riders3d()) void loadRiders(setup.mobile ? 'fuzzy-rider.m.glb' : 'fuzzy-rider.glb').then((ok) => { if (ok) scene.upgradeRiders(); });
   scene.onIdle = (i) => { if (play && !play.done && !drag) audio.voice(scene.voiceOf(i), Math.random() < 0.3 ? 'giggle' : 'coo'); };
   audio.music(true);
   const wake = () => audio.wake();

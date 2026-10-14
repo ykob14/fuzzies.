@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { makeRider, ridersReady, type Rider } from './rider3d';
 
 export type VehicleKind = 'hero' | 'hero2' | 'car' | 'sport' | 'taxi' | 'suv' | 'pickup' | 'van' | 'jeep' | 'bus' | 'school' | 'truck' | 'fire' | 'icecream';
 /** the ordinary two-cell vehicles (picked at random for the lot) */
@@ -134,7 +135,9 @@ class Kit {
 }
 
 export interface Driver {
-  sprite: THREE.Sprite; base: THREE.Vector3; size: number; phase: number; tex: number;
+  /** what sits in the seat: the 3D Fuzzy's group, or the flat picture */
+  obj: THREE.Object3D; rider?: Rider; sprite?: THREE.Sprite;
+  base: THREE.Vector3; size: number; phase: number; tex: number;
   /** seconds to the next blink, and how long the current one still shows */
   blinkIn: number; blinkLeft: number;
 }
@@ -159,10 +162,37 @@ function wheel(r: number, w: number): THREE.Group {
   return g;
 }
 
-function driver(tex: number, size: number, x: number, y: number, z: number): Driver {
+/**
+ * 3D riders (the owner's model) when it has loaded; the flat pictures otherwise (or when switched off).
+ * OFF until the owner approves the look (Phase A): a developer switch, localStorage `fz.pk.riders3d` = '1', turns them on.
+ */
+let use3d = (() => { try { return localStorage.getItem('fz.pk.riders3d') === '1'; } catch { return false; } })();
+export const riders3d = (): boolean => use3d;
+export const setRiders3d = (on: boolean): void => { use3d = on; };
+/** the 3D Fuzzy is this much of the picture's size (the picture has a margin round the fur) */
+const RIDER_K = 0.9;
+/** the ball leans back to look up at you, which lowers its face a little: sit it this much higher */
+const RIDER_LIFT = 0.02;
+/** swap a flat driver for the 3D one in the same seat (the model arrived after the lot was built); false if it can't */
+export function toRider(d: Driver): boolean {
+  if (d.rider || !use3d || !ridersReady() || !d.obj.parent) return false;
+  const r = makeRider(d.tex, d.size * RIDER_K), parent = d.obj.parent;
+  d.base.y += RIDER_LIFT; r.group.position.copy(d.base); r.group.rotation.set(0, Math.PI / 2, 0, 'YXZ');
+  parent.remove(d.obj); parent.add(r.group);
+  (d.sprite?.material as THREE.SpriteMaterial | undefined)?.dispose();
+  d.obj = r.group; d.rider = r; d.sprite = undefined;
+  return true;
+}
+function driver(tex: number, size: number, x: number, y: number, z: number, flat = false): Driver {
+  const blinkIn = 1.5 + Math.random() * 4, phase = Math.random() * 6.28;
+  if (use3d && !flat && ridersReady()) {
+    const r = makeRider(tex, size * RIDER_K);
+    y += RIDER_LIFT; r.group.position.set(x, y, z); r.group.rotation.set(0, Math.PI / 2, 0, 'YXZ');
+    return { obj: r.group, rider: r, base: new THREE.Vector3(x, y, z), size, phase, tex, blinkIn, blinkLeft: 0 };
+  }
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: driverTexture(tex), transparent: true, depthWrite: true, alphaTest: 0.14 }));
   s.center.set(0.5, 0); s.scale.set(size, size, 1); s.position.set(x, y, z); s.castShadow = false; s.renderOrder = 1;
-  return { sprite: s, base: new THREE.Vector3(x, y, z), size, phase: Math.random() * 6.28, tex, blinkIn: 1.5 + Math.random() * 4, blinkLeft: 0 };
+  return { obj: s, sprite: s, base: new THREE.Vector3(x, y, z), size, phase, tex, blinkIn, blinkLeft: 0 };
 }
 
 const W = 0.8, hw = W / 2;
@@ -171,7 +201,7 @@ const W = 0.8, hw = W / 2;
  * One vehicle `len` cells long. `drivers` lists the Fuzzy pictures (the first drives; vans and buses seat the next ones too).
  * `star` adds the star-car marks (a gold star on the bonnet and a little flag) to any style.
  */
-export function buildVehicle(kind: VehicleKind, len: number, color: string, drivers: number[], opts: { star?: boolean } = {}): VehicleModel {
+export function buildVehicle(kind: VehicleKind, len: number, color: string, drivers: number[], opts: { star?: boolean; flat?: boolean } = {}): VehicleModel {
   const group = new THREE.Group(), body = new THREE.Group(); group.add(body);
   const k = new Kit();
   const out: Driver[] = [];
@@ -181,7 +211,7 @@ export function buildVehicle(kind: VehicleKind, len: number, color: string, driv
   const style: VehicleKind = kind === 'hero' || kind === 'hero2' ? 'car' : kind === 'jeep' ? 'suv' : kind;
   const wheelR = len === 3 ? 0.175 : 0.165;
   const axles = len === 3 ? [F - 0.42, -F + 0.46] : [F - 0.36, -F + 0.37];
-  const sit = (n: number, size: number, x: number, y: number, z = 0) => out.push(driver(n, size, x, y, z));
+  const sit = (n: number, size: number, x: number, y: number, z = 0) => out.push(driver(n, size, x, y, z, opts.flat));
 
   // --- shared parts: skirt + sill, fender flares, bumpers, grille, lights ---
   const skirt = (top: number, m = P) => {
@@ -369,7 +399,7 @@ export function buildVehicle(kind: VehicleKind, len: number, color: string, driv
   }
 
   k.build(body);
-  for (const d of out) body.add(d.sprite);
+  for (const d of out) body.add(d.obj);
   // wheels (separate so they roll)
   const wheels: THREE.Object3D[] = [];
   for (const x of axles) for (const s of [-1, 1]) { const w = wheel(wheelR, 0.13); w.position.set(x, wheelR, s * (hw - 0.05)); group.add(w); wheels.push(w); }
