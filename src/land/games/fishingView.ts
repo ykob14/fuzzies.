@@ -22,7 +22,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new FishingSim(setup.variant, setup.seed);
   const a = createArcade(stage, {
     cls: 'fishing', setup, adv, hooks, buttonLabel: 'Cast off!',
-    rivals: { you: sim, make: () => new FishingSim(setup.variant, setup.seed), bot: BOTS.fishing },
+    rivals: { you: sim, make: () => new FishingSim(setup.variant, setup.seed), bot: BOTS.fishing,
+      pose: (_r: FishingSim, i: number) => ({ ...[{ x: 0.5, z: 0.15 }, { x: -0.3, z: -0.85 }, { x: 0.5, z: -0.85 }][i], y: 0.46, heading: Math.PI, moving: 0 }) },
     hud: { count: 'CAUGHT' },
     camera: { fov: 46, back: 6.5, up: 5.2, lookDy: -9, lookY: 0.3, lead: 0 },
     world: { size: { hw: LAKE.hw + 6, hd: LAKE.far + 6 }, path: false, fence: false, flowers: 16, fog: ['#dbeef5', 30, 90] },
@@ -68,6 +69,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   add(bob, new THREE.SphereGeometry(0.13, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), std('#ffffff', 0.4), 0, 0, 0, false);
   add(bob, new THREE.CylinderGeometry(0.015, 0.015, 0.22, 6), std('#ffffff', 0.4), 0, 0.2, 0, false);
   bob.visible = false; scene.add(bob);
+  // the town rivals' floats (each fishes its own copy of the lake from the jetty beside you)
+  const rivalBobs = (a.rivals?.rivals ?? []).map(() => { const g = bob.clone(); g.scale.setScalar(0.8); g.visible = false; scene.add(g); return g; });
   // the fish shadow under the water + the fish that leaps out
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#0b2e45', transparent: true, opacity: 0.45, depthWrite: false })); shadow.scale.set(1, 1, 0.5); shadow.visible = false; shadow.position.y = 0.03; scene.add(shadow);
   const fishModel = (k: FishKind) => { const f = FISH[k]; const g = new THREE.Group(); const m = new THREE.MeshStandardMaterial({ color: f.color, roughness: 0.3, metalness: k === 'carp' ? 0.6 : 0.2, emissive: k === 'carp' ? '#6b4a00' : '#000', emissiveIntensity: 0.3 }); const body = add(g, new THREE.SphereGeometry(0.22, 12, 8), m, 0, 0, 0, false); body.scale.set(1.8, 0.9, 0.7); const tail = add(g, new THREE.ConeGeometry(0.16, 0.3, 3), m, -0.46, 0, 0, false); tail.rotation.z = Math.PI / 2; tail.scale.z = 0.4; add(g, new THREE.SphereGeometry(0.04, 6, 5), std('#111', 0.3), 0.28, 0.05, 0.1, false); g.scale.setScalar(f.size); return g; };
@@ -120,6 +123,11 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
       else if (e.kind === 'warn') a.warn(e.n!);
     }
   }, (dt) => {
+    a.rivals?.rivals.forEach((r, i) => {
+      const rs = r.sim as unknown as FishingSim, g = rivalBobs[i]; const ph = rs.phase;
+      g.visible = ph === 'waiting' || ph === 'bite' || ph === 'reeling';
+      if (g.visible) g.position.set(rs.float.x, ph === 'bite' ? -0.15 + Math.sin(time.value * 30 + i) * 0.04 : 0.05 + Math.sin(time.value * 2.2 + i) * 0.03, rs.float.z);
+    });
     // shoals: drifting shadows + ripples now and then
     for (const [id, n] of shoalNodes) {
       if (!sim.shoals.includes(n.s)) { n.g.scale.multiplyScalar(0.9); if (n.g.scale.x < 0.05) { scene.remove(n.g); shoalNodes.delete(id); } continue; }

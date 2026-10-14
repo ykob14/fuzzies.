@@ -2697,3 +2697,13 @@ html.mg-open, html.mg-open body { overflow: hidden; overscroll-behavior: none; }
 .forest-row.bump span { animation: mg-row-bump .35s ease; }
 @keyframes mg-row-bump { 40% { transform: scale(1.3); } }
 :root[data-motion='reduce'] .forest-row.bump span { animation: none; }
+/* rival Fuzzies in the scene: a name tag over each head (place + colour dot + name), gold when leading */
+.mg-rival-tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.mg-rival-tag { position: absolute; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px 4px; border-radius: 999px; background: rgba(20, 30, 50, .55); color: #fff; font: 700 11.5px/1.3 var(--ui); white-space: nowrap; }
+.mg-rival-tag[hidden] { display: none; }
+.mg-rival-tag small { min-width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, .22); font: 700 10px var(--ui); }
+.mg-rival-tag i { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .8); }
+.mg-rival-tag b { font: 700 12px var(--brand); }
+.mg-rival-tag.lead { background: rgba(214, 160, 30, .85); }
+.mg-float.rival { font-size: 15px; color: #e8f3ff; opacity: .9; }
+@media (max-width: 760px) { .mg-rival-tag { font-size: 10.5px; padding: 1px 6px 1px 3px; } .mg-rival-tag b { font-size: 11px; } }

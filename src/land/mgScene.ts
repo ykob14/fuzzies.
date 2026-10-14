@@ -25,6 +25,8 @@ import { RivalField, type Playable, type RivalBot, type RivalInfo } from './riva
 
 export interface Figure { group: THREE.Group; fuzzy: ReturnType<typeof M.makeFuzzy>; squash: number; base: number }
 export interface Stat { label: string; value: string }
+/** A rival Fuzzy's spot in the scene: position, facing (radians, forward = (sin, cos)), how fast it's moving (0–1, for the walk bob) */
+export interface RivalPose { x: number; z: number; y?: number; heading?: number; moving?: number }
 /** What every score-based mini-game hands back (the screen turns it into the results card and the reward). */
 export interface MiniResult { place: number; score: number; timeMs: number; tier: string; title?: string; stats: Stat[]; standings?: { name: string; score: number; you: boolean; place: number }[] }
 export interface MiniHooks { onFinish: (r: MiniResult) => void; onQuit: () => void; onRestart?: () => void }
@@ -51,7 +53,11 @@ export interface ArcadeOpts {
   /** town rivals: each plays its own copy of the rules (`make`, same layout) with this game's bot, starting and running
    *  while your own sim (`you`) is playing. Only used when the town sent rivals (`setup.rivals`). The final place becomes
    *  your rank among them. */
-  rivals?: { you: Playable; make: () => Playable; bot: RivalBot<any> };
+  rivals?: { you: Playable; make: () => Playable; bot: RivalBot<any>;
+    /** where rival `i` stands in this scene (default: its own walker, `sim.you` or `sim.pos`/`heading`); null = hidden */
+    pose?: (sim: any, i: number, you: Playable) => RivalPose | null;
+    /** rival figure size (default 0.27) */
+    size?: number };
 }
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] => { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e; };
@@ -79,6 +85,8 @@ export interface Arcade {
   warn: (n: number) => void; onAction: (f: () => void) => void; destroy: () => void; start: () => void;
   /** a short tap / click on the scene (not a drag): NDC coords for ray-casting + client coords */
   onTap: (f: (ndc: { x: number; y: number }, client: { x: number; y: number }) => void) => void;
+  /** the town rivals playing this round (null when there are none) — views can draw extras for them (lines, snowballs…) */
+  rivals: RivalField<Playable> | null;
 }
 
 export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
@@ -310,6 +318,55 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     }
   };
 
+  // town rivals in the scene: a Fuzzy each (made on the first frame, so the 3D model is ready), a name tag with their place,
+  // a hop and a little "+points" when they score
+  interface RivalFig { f: Figure; tag: HTMLElement; pl: HTMLElement; last: number; hop: number; prev: { x: number; z: number } | null }
+  const rivalFigs: RivalFig[] = [];
+  const tags = el('div', 'mg-rival-tags');
+  if (field) hud.append(tags);
+  const defaultPose = (sim: any): RivalPose | null => {
+    const w = sim.you ?? (sim.pos ? sim : null);
+    if (!w?.pos) return null;
+    const v = w.vel ? Math.hypot(w.vel.x, w.vel.z) : (w.speed ?? 0);
+    return { x: w.pos.x, z: w.pos.z, heading: w.heading ?? 0, moving: Math.min(1, v / 3) };
+  };
+  const tagPos = new THREE.Vector3();
+  const paintRivals = (dt: number) => {
+    if (!field || !startedFlag) return;
+    if (!rivalFigs.length) field.rivals.forEach((r) => {
+      const f = figure(r.info.skin, o.rivals!.size ?? 0.27);
+      const tag = el('div', 'mg-rival-tag'); const pl = el('small', '', ''); const dot = el('i', ''); dot.style.background = r.info.skin[0];
+      tag.append(pl, dot, el('b', '', r.info.name)); tags.append(tag);
+      rivalFigs.push({ f, tag, pl, last: 0, hop: 0, prev: null });
+    });
+    const st = field.standings({ score: o.rivals!.you.score });
+    field.rivals.forEach((r, i) => {
+      const rf = rivalFigs[i];
+      const pose = (o.rivals!.pose ?? defaultPose)(r.sim, i, o.rivals!.you);
+      rf.f.group.visible = !!pose;
+      if (!pose) { rf.tag.hidden = true; return; }
+      // moving: from the pose, or from how far it went since the last frame
+      let mv = pose.moving;
+      if (mv === undefined) mv = rf.prev && dt > 0 ? Math.min(1, Math.hypot(pose.x - rf.prev.x, pose.z - rf.prev.z) / dt / 3) : 0;
+      rf.prev = { x: pose.x, z: pose.z };
+      // scored: hop + a small float
+      const sc = r.sim.score;
+      if (sc > rf.last) { const gain = sc - rf.last; rf.f.squash = 0.45; rf.hop = 1; if (gain >= 5) floatText(pose.x, (pose.y ?? 0) + 1.15, pose.z, `+${gain}`, 'rival'); }
+      rf.last = sc;
+      rf.hop = Math.max(0, rf.hop - dt * 3.2);
+      rf.f.group.position.set(pose.x, (pose.y ?? 0) + Math.sin(rf.hop * Math.PI) * 0.35, pose.z);
+      if (pose.heading !== undefined) rf.f.group.rotation.y = pose.heading;
+      walk(rf.f, mv, dt);
+      // the name tag over its head
+      tagPos.set(pose.x, (pose.y ?? 0) + (o.rivals!.size ?? 0.27) * 3.6, pose.z).project(camera);
+      const on = tagPos.z < 1 && Math.abs(tagPos.x) < 1.05 && Math.abs(tagPos.y) < 1.05;
+      rf.tag.hidden = !on;
+      if (on) { rf.tag.style.left = `${(tagPos.x * 0.5 + 0.5) * 100}%`; rf.tag.style.top = `${(-tagPos.y * 0.5 + 0.5) * 100}%`; }
+      const place = st.find((x) => x.id === i + 1)!.place;
+      if (rf.pl.textContent !== String(place)) { rf.pl.textContent = String(place); rf.tag.classList.toggle('lead', place === 1); }
+    });
+  };
+
   // ---- the loop ----
   let raf = 0, last = performance.now(), acc = 0;
   const STEP = 1 / 120;
@@ -325,6 +382,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
       for (let i = chipsArr.length - 1; i >= 0; i--) { const c = chipsArr[i]; c.life += dt; c.v.y -= 9 * dt; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += dt * 6; if (c.m.position.y < 0.02 || c.life > 1.6) { scene.remove(c.m); chipsArr.splice(i, 1); } }
       for (let i = sparksArr.length - 1; i >= 0; i--) { const c = sparksArr[i]; c.life += dt; c.v.y -= 3 * dt; c.s.position.addScaledVector(c.v, dt); (c.s.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - c.life / c.max); if (c.life > c.max) { scene.remove(c.s); sparksArr.splice(i, 1); } }
       frame(dt, now);
+      paintRivals(dt);
       camera.position.set(camTarget.x, cam.up, camTarget.z + cam.back);
       camera.lookAt(camTarget.x, o.camera?.lookY ?? 0.6, camTarget.z + cam.lookDy);
       sun.target.position.copy(camTarget);
@@ -350,7 +408,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   return {
     root, hud, scene, camera, renderer, time, ctl, mobile, real, mats, sun, hemi, sky, ground: groundMesh, camTarget, cam, intro,
     started: () => startedFlag, paused: () => paused, play, tip: (k, t, ms) => tips.say(k, t, ms), banner, flash, float: floatText,
-    setScore, setCount, setTime, setCombo, chips, sparks, puff, figure, walk, run, finish, warn, onAction: (f) => { actionFn = f; }, onTap: (f) => { tapFn = f; }, destroy, start,
+    setScore, setCount, setTime, setCombo, chips, sparks, puff, figure, walk, run, finish, warn, onAction: (f) => { actionFn = f; }, onTap: (f) => { tapFn = f; }, destroy, start, rivals: field,
   };
 }
 

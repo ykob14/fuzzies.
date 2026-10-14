@@ -27,7 +27,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const soundWanted = setup.sound; if (muted) setup.sound = false;
   const a = createArcade(stage, {
     cls: 'obstacle', setup, adv, hooks, buttonLabel: 'Run!',
-    rivals: { you: sim, make: () => new RunSim(setup.variant, setup.seed), bot: BOTS.obstacle },
+    rivals: { you: sim, make: () => new RunSim(setup.variant, setup.seed), bot: BOTS.obstacle,
+      pose: (r: RunSim) => { const dz = -(r.dist - sim.dist); return dz > 3 || dz < -45 ? null : { x: r.x, z: dz, y: r.y + groundH(r.sections, r.dist), heading: Math.PI, moving: 1 }; } },
     hud: { count: 'STARS' },
     camera: { ...CAM },
     world: { size: { hw: 14, hd: 40 }, path: false, fence: false, treeLine: false, flowers: 0, fog: ['#cfe6ee', 28, 72] },

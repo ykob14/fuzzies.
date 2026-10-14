@@ -57,7 +57,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const ready = new Promise<void>((res) => { const t = setInterval(() => { if (built) { clearInterval(t); res(); } }, 50); });
   const a = createArcade(stage, {
     cls: 'fruit', setup, adv, hooks, buttonLabel: 'Catch!',
-    rivals: { you: sim, make: () => new FruitSim(setup.variant === 'golden' ? 'golden' : 'classic', setup.seed, hw), bot: BOTS.fruit },
+    rivals: { you: sim, make: () => new FruitSim(setup.variant === 'golden' ? 'golden' : 'classic', setup.seed, hw), bot: BOTS.fruit, size: 0.24,
+      pose: (r: FruitSim, i: number) => ({ x: r.x, z: [-0.72, -0.98, -0.82][i] ?? -0.85, heading: Math.max(-0.5, Math.min(0.5, r.vx * 0.06)), moving: Math.min(1, Math.abs(r.vx) / 6) }) },
     hud: { count: 'CAUGHT' },
     camera: cam,
     world: { size: { hw: 14, hd: 8 }, path: false, fence: false, treeLine: false, flowers: 0, clouds: false, tufts: false, fog: ['#e4ead2', portrait ? 24 : 20, portrait ? 88 : 74], sun: 2.6 },

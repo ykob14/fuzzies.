@@ -13,6 +13,9 @@ import { BalloonSim, TOP, SQUARE, type Balloon } from './balloon';
 
 const PALETTE = ['#ff5c8a', '#ffc94a', '#4fa3ff', '#6fd36a', '#ff8c42'];
 
+/** where the town rivals stand at the front of the square (computer, portrait phone) */
+const RIVAL_SPOTS = [[{ x: 0.3, z: 4.5 }, { x: -1.7, z: 4.2 }, { x: -3.7, z: 4.5 }], [{ x: 0.5, z: 4.6 }, { x: -1.3, z: 4.3 }, { x: -2.9, z: 4.6 }]];
+
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
   const adv = adventure('balloon')!;
   // on a portrait phone the camera sits further back with a wider lens, and balloons rise in a narrower band so none drift off-screen
@@ -20,7 +23,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const sim = new BalloonSim(setup.variant, setup.seed, portrait ? 3.4 : SQUARE.hw);
   const a = createArcade(stage, {
     cls: 'balloon', setup, adv, hooks, buttonLabel: 'Let’s pop!',
-    rivals: { you: sim, make: () => new BalloonSim(setup.variant, setup.seed, portrait ? 3.4 : SQUARE.hw), bot: BOTS.balloon },
+    rivals: { you: sim, make: () => new BalloonSim(setup.variant, setup.seed, portrait ? 3.4 : SQUARE.hw), bot: BOTS.balloon,
+      pose: (_r: BalloonSim, i: number) => ({ ...RIVAL_SPOTS[portrait ? 1 : 0][i], heading: Math.PI, moving: 0 }) },
     hud: { count: 'POPPED' },
     camera: portrait ? { fov: 60, back: 18, up: 5, lookDy: -18, lookY: 4, lead: 0 } : { fov: 46, back: 13, up: 4.5, lookDy: -13, lookY: 3.6, lead: 0 },
     world: { size: { hw: 10, hd: 8 }, path: false, fence: false, flowers: 10, treeLine: false },

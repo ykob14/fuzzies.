@@ -12,13 +12,19 @@ import { blob, cottage, treeRing } from './sceneArt';
 import { paint as shade } from './orchardArt';
 import { SnowballSim, YARD, YOU, type Target, type Ball } from './snowball';
 
+/** where the town rivals stand at the fence beside you */
+const RIVAL_SPOTS = [{ x: -0.9, z: 0.5 }, { x: 1.9, z: 0.5 }, { x: -2.3, z: 0.65 }];
+/** a click / tap this close (px) to a target's board or its foot throws at that target (leading a sliding one) */
+const AIM_SLOP = 70;
+
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
   const adv = adventure('snowball')!;
   const sim = new SnowballSim(setup.variant, setup.seed);
   const portrait = setup.mobile && innerHeight > innerWidth;
   const a = createArcade(stage, {
     cls: 'snowball', setup, adv, hooks, buttonLabel: 'Throw!',
-    rivals: { you: sim, make: () => new SnowballSim(setup.variant, setup.seed), bot: BOTS.snowball },
+    rivals: { you: sim, make: () => new SnowballSim(setup.variant, setup.seed), bot: BOTS.snowball,
+      pose: (_r: SnowballSim, i: number) => ({ ...RIVAL_SPOTS[i], heading: Math.PI, moving: 0 }) },
     hud: { count: 'HITS' },
     camera: portrait ? { fov: 62, back: 5.5, up: 4.2, lookDy: -10, lookY: 0.6, lead: 0 } : { fov: 50, back: 5, up: 3.4, lookDy: -10, lookY: 0.8, lead: 0 },
     world: { size: { hw: 11, hd: 17 }, ground: ['#f4f7fb', '#e6edf5'], path: false, fence: false, flowers: 0, sky: 'snow', fog: ['#e4edf5', 24, 60] },
@@ -69,14 +75,35 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const ballGeo = new THREE.SphereGeometry(0.16, 10, 8);
   type BNode = { b: Ball; m: THREE.Mesh };
   const balls = new Map<number, BNode>();
+  const rivalBalls = new Map<string, THREE.Mesh>();
   const aim = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.65, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false })); aim.position.set(0, 0.03, -6); scene.add(aim);
   const aimDot = new THREE.Mesh(new THREE.CircleGeometry(0.12, 12).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#d6336c', transparent: true, opacity: 0.8, depthWrite: false })); aimDot.position.y = 0.035; aim.add(aimDot);
   const ray = new THREE.Raycaster(); const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); const hit = new THREE.Vector3();
   const groundAt = (clientX: number, clientY: number): THREE.Vector3 | null => { const r = a.renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1), camera); return ray.ray.intersectPlane(plane, hit) ? hit.clone() : null; };
-  const onMove = (e: PointerEvent) => { if (e.pointerType !== 'mouse') return; const g = groundAt(e.clientX, e.clientY); if (g) aim.position.set(g.x, 0.03, Math.min(-1.5, g.z)); };
+  const onMove = (e: PointerEvent) => { if (e.pointerType !== 'mouse') return; const t = targetNear(e.clientX, e.clientY); if (t) { const p = leadOf(t); aim.position.set(p.x, 0.03, p.z); return; } const g = groundAt(e.clientX, e.clientY); if (g) aim.position.set(g.x, 0.03, Math.min(-1.5, g.z)); };
   a.root.addEventListener('pointermove', onMove);
   const throwAt = (x: number, z: number): boolean => { const b = sim.throwAt(x, z); if (!b) return false; aim.position.set(b.to.x, 0.03, b.to.z); return true; };
-  a.onTap((_ndc, client) => { const g = groundAt(client.x, client.y); if (g && !throwAt(g.x, g.z)) a.play(vac.tick); });
+  // aim help: you see the board, but the mouse ray meets the ground far behind it — so a click / tap near a target's board (or
+  // its foot) throws at that target, a little ahead of a sliding one; anywhere else throws where the ground was clicked
+  const wp = new THREE.Vector3();
+  const targetNear = (cx: number, cy: number): Target | null => {
+    const r = a.renderer.domElement.getBoundingClientRect(); let best: Target | null = null, bd = AIM_SLOP;
+    for (const [, n] of nodes) {
+      const t = n.t; if (t.hit || (t.state !== 'up' && t.state !== 'rising')) continue;
+      for (const y of [0, 1]) {
+        if (y) n.board.getWorldPosition(wp); else wp.set(t.x, 0.2, t.z);
+        wp.project(camera); const d = Math.hypot(r.left + (wp.x * 0.5 + 0.5) * r.width - cx, r.top + (-wp.y * 0.5 + 0.5) * r.height - cy);
+        if (d < bd) { bd = d; best = t; }
+      }
+    }
+    return best;
+  };
+  const leadOf = (t: Target) => sim.predict(t, 0.45 + Math.hypot(t.x - YOU.x, t.z - YOU.z) * 0.065);
+  a.onTap((_ndc, client) => {
+    const t = targetNear(client.x, client.y);
+    if (t) { const p = leadOf(t); if (!throwAt(p.x, p.z)) a.play(vac.tick); return; }
+    const g = groundAt(client.x, client.y); if (g && !throwAt(g.x, g.z)) a.play(vac.tick);
+  });
   const screenOf = (x: number, z: number) => { const v = new THREE.Vector3(x, 0.2, z).project(camera); const r = a.renderer.domElement.getBoundingClientRect(); return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height }; };
   a.tip('go', a.mobile ? 'Tap where to throw — aim at the targets as they pop up. Sliding ones: throw a little ahead' : 'Click where to throw — aim at the targets as they pop up. Sliding ones: throw a little ahead of them', 5000);
   a.run((dt) => {
@@ -88,6 +115,17 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
       else if (e.kind === 'warn') a.warn(e.n!);
     }
   }, (dt) => {
+    // the town rivals' snowballs, thrown from their spots at the fence (each plays its own copy of the yard)
+    a.rivals?.rivals.forEach((r, i) => {
+      const from = RIVAL_SPOTS[i];
+      for (const b of (r.sim as unknown as SnowballSim).balls) {
+        const key = `${i}:${b.id}`; let m = rivalBalls.get(key);
+        if (b.state === 'landed') { if (m) { scene.remove(m); rivalBalls.delete(key); a.puff(new THREE.Vector3(b.to.x, 0.2, b.to.z), 3, '#ffffff'); } continue; }
+        if (!m) { m = new THREE.Mesh(ballGeo, snow); m.scale.setScalar(0.85); scene.add(m); rivalBalls.set(key, m); }
+        const k = Math.min(1, b.t / b.time), d = Math.hypot(b.to.x - from.x, b.to.z - from.z);
+        m.position.set(lerp(from.x, b.to.x, k), 0.6 + Math.sin(k * Math.PI) * (1.2 + d * 0.12), lerp(from.z, b.to.z, k));
+      }
+    });
     for (const [id, n] of nodes) {
       const t = n.t; n.g.position.set(t.x, -1.3 + t.up * 1.3, t.z);
       if (n.hitT >= 0) { n.hitT += dt; n.board.rotation.x = Math.min(1.4, n.hitT * 8); }
