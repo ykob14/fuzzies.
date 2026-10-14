@@ -183,7 +183,7 @@ Vacuum Challenge (70 seconds): walk around the garden with the vacuum — hairba
 ones 25, golden 100), quick pick-ups chain into a multiplier, the canister empties itself with a bonus. The vacuum pays by tier:
 top tier 100 coins, then 65, 35, 15. THE LIBRARY HAS 17 PLAYABLE MINI-GAMES (each set of three is drawn from it, never the same game
 twice in a set): Boat Race, Forest Challenge, Hairball Vacuum, Fruit Catcher (catch the falling fruit in your basket, dodge the pine
-cones), Fuzzy Maze (find the three keys in the hedge maze, tap where to walk, then the gate opens), Balloon Pop (tap the balloons
+cones), Fuzzy Maze (a misty hedge maze: you only see a few steps ahead and the map fills in as you explore; find the three keys, then the gate; red mushrooms let you peek over the hedges, hedgehogs bounce you back), Balloon Pop (tap the balloons
 before they float over the roofs; shiny 50, dark spiky ones break the chain), Island Treasure Hunt (walk the beach, the meter goes
 WARM then HOT near treasure, then DIG), Fishing Frenzy (tap the water to cast, HOOK on the bite, hold REEL but let go when the line
 goes red), Obstacle Run (three lanes: swipe or A/D to change lane, swipe up / ↑ to jump logs and puddles, swipe down / ↓ to duck under vines, go round rocks, rolling boulders and carts, bounce on mushrooms for high stars, grab a shield, star magnet or speed boost; the 🔊 button mutes it), Fuzzie Brawl Arena (3 vs 3: pick a power — Energy Burst, Bubble Shield, Zoom Dash or Bloom Heal — then WASD + mouse or two thumb sticks; knockouts and holding the Sunflower ring score, first to 10 wins; hide in bushes), Farm Harvest Rush
