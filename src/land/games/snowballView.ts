@@ -13,7 +13,7 @@ import { paint as shade } from './orchardArt';
 import { SnowballSim, YARD, YOU, type Target, type Ball } from './snowball';
 
 /** where the town rivals stand at the fence beside you */
-const RIVAL_SPOTS = [[{ x: -3.0, z: -1.6 }, { x: 3.0, z: -1.6 }, { x: -4.0, z: -2.7 }], [{ x: -1.4, z: -2.2 }, { x: 1.4, z: -2.2 }, { x: -1.9, z: -3.3 }]];
+const RIVAL_SPOTS = [[{ x: -3.0, z: -1.6 }, { x: 3.0, z: -1.6 }, { x: -1.7, z: -3.0 }], [{ x: -1.4, z: -2.2 }, { x: 1.4, z: -2.2 }, { x: -1.9, z: -3.3 }]];
 /** a click / tap this close (px) to a target's board or its foot throws at that target (leading a sliding one) */
 const AIM_SLOP = 70;
 

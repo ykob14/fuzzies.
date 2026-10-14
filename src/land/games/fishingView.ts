@@ -23,7 +23,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const a = createArcade(stage, {
     cls: 'fishing', setup, adv, hooks, buttonLabel: 'Cast off!',
     rivals: { you: sim, make: () => new FishingSim(setup.variant, setup.seed), bot: BOTS.fishing,
-      pose: (_r: FishingSim, i: number) => ({ ...[{ x: 0.5, z: 0.15 }, { x: -0.3, z: -0.85 }, { x: 0.5, z: -0.85 }][i], y: 0.46, heading: Math.PI, moving: 0 }) },
+      pose: (_r: FishingSim, i: number) => [{ x: 0.35, z: -1.0, y: 0.46 }, { x: -2.5, z: 0.45, y: 0.03 }, { x: 2.5, z: 0.45, y: 0.03 }].map((p) => ({ ...p, heading: Math.PI, moving: 0 }))[i] },
     hud: { count: 'CAUGHT' },
     camera: { fov: 46, back: 6.5, up: 5.2, lookDy: -9, lookY: 0.3, lead: 0 },
     world: { size: { hw: LAKE.hw + 6, hd: LAKE.far + 6 }, path: false, fence: false, flowers: 16, fog: ['#dbeef5', 30, 90] },
