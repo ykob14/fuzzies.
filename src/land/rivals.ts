@@ -18,7 +18,8 @@ export const SKILLS: Record<Skill, SkillCfg> = {
 /** two medium Fuzzies and one really easy one */
 export const LINEUP: Skill[] = ['medium', 'medium', 'easy'];
 
-export interface RivalInfo { name: string; skin: [string, string]; index?: number }
+/** a town Fuzzy playing against you: its name, fur colours, its town outfit (models.ts `fuzzyOutfit` kind; seeded by `index`) */
+export interface RivalInfo { name: string; skin: [string, string]; index?: number; outfit?: string }
 /** what a bot can say for one step: a stick direction and / or a held action button */
 export interface BotOut { x?: number; z?: number; hold?: boolean }
 /** a bot's private state (targets, timers) plus the skill and a seeded random */

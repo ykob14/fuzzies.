@@ -1015,10 +1015,10 @@ export class LandView {
   get residentCount(): number { return this.residents.length; }
 
   /** A resident's name, colours and whether it can be talked to right now (not indoors). */
-  residentInfo(i: number): { name: string; skin: [string, string]; available: boolean; pos: { x: number; z: number } } | null {
+  residentInfo(i: number): { name: string; skin: [string, string]; outfit: string; available: boolean; pos: { x: number; z: number } } | null {
     const r = this.residents[i];
     if (!r) return null;
-    return { name: r.name, skin: SKINS[r.skin], available: r.mode !== 'inside' && r.mode !== 'enter' && r.mode !== 'exit', pos: { x: r.pos.x, z: r.pos.y } };
+    return { name: r.name, skin: SKINS[r.skin], outfit: OUTFITS[i % OUTFITS.length], available: r.mode !== 'inside' && r.mode !== 'enter' && r.mode !== 'exit', pos: { x: r.pos.x, z: r.pos.y } };
   }
 
   /**

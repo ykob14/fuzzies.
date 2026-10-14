@@ -1514,6 +1514,33 @@ export function landScreen(): Screen {
   const devSet = (list: A.SetEntry[]) => { A.issueSet(s, now(), list); save(); paintDaily(); };
 
   /** Leave the town for a mini-game (the town keeps running its clocks; the 3D view pauses to give the game the GPU). */
+  /**
+   * Three town Fuzzies to play a mini-game against you, each a clearly different colour from you and from each other: the
+   * host first, then the other residents, dressed as they are in town (outfit). A small town (or one where several Fuzzies
+   * share a colour) is topped up with visitors in colours nobody has yet.
+   */
+  function pickRivals(hostIndex: number, yours: [string, string]): { index: number; name: string; skin: [string, string]; outfit?: string }[] {
+    const hue = (hex: string) => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (d < 0.12) return -1; const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return (h * 60 + 360) % 360; };
+    const clash = (a: [string, string], b: [string, string]) => { const ha = hue(a[0]), hb = hue(b[0]); if (ha < 0 || hb < 0) return ha === hb; const d = Math.abs(ha - hb); return Math.min(d, 360 - d) < 28; };
+    const taken: [string, string][] = [yours];
+    const out: { index: number; name: string; skin: [string, string]; outfit?: string }[] = [];
+    const order = [hostIndex, ...Array.from({ length: view?.residentCount ?? 0 }, (_, i) => i).filter((i) => i !== hostIndex)];
+    for (const i of order) {
+      if (out.length >= 3) break;
+      const info = view?.residentInfo(i); if (!info || taken.some((t) => clash(t, info.skin))) continue;
+      taken.push(info.skin); out.push({ index: i, name: info.name, skin: info.skin, outfit: info.outfit });
+    }
+    const VISITORS: [string, string][] = [['#7dffcf', '#22b5a0'], ['#ffe066', '#ff8c42'], ['#7ad7ff', '#2f7fe0'], ['#b8f28a', '#4f9e2f'], ['#c8a2ff', '#7048c8'], ['#ffc078', '#e8590c'], ['#ffffff', '#b9c2cf']];
+    const OUTFIT_KINDS = ['beanie', 'straw', 'scarf', 'bow', 'flower'];
+    const used = new Set(out.map((r) => r.name));
+    for (let k = 0; out.length < 3 && k < 40; k++) {
+      const skin = VISITORS[k % VISITORS.length]; if (taken.some((t) => clash(t, skin))) continue;
+      let n = (view?.residentCount ?? 0) + k; while (used.has(A.character(n).name)) n++;
+      const name = A.character(n).name; used.add(name); taken.push(skin);
+      out.push({ index: 100 + k, name, skin, outfit: OUTFIT_KINDS[k % OUTFIT_KINDS.length] });
+    }
+    return out;
+  }
   function startAdventure(adv: A.Adventure): void {
     if (playing || !view) return;
     if (!adv.playable) { toast(`${adv.name} isn’t playable yet — coming soon!`, 'info'); return; }
@@ -1535,11 +1562,11 @@ export function landScreen(): Screen {
     const you = { name: accounts.current?.name?.split(' ')[0] || 'You', skin: ['#ff86bb', '#b8235f'] as [string, string] };
     const hostOf = (id: string) => { const i = hostIndexOf(id); const info = view?.residentInfo(i); return { index: i, name: info?.name ?? A.character(i).name, skin: info?.skin ?? (['#b8f28a', '#4f9e2f'] as [string, string]) }; };
     if (adv.id === 'boatrace') {
-      const racers = Array.from({ length: Math.min(view.residentCount, 3) }, (_, i) => view!.residentInfo(i)!).filter(Boolean);
+      const racers = pickRivals(hostIndexOf('boatrace'), you.skin); // three clearly different colours from yours and each other
       void Promise.all([import('../../land/raceView'), model]).then(([{ runRace }]) => {
         pause();
-        runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound, deluxe, variant, portrait: (i: number) => (i < 0 ? '' : safePortrait(i)) }, {
-          onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, race: res.order }),
+        runRace(stage, { you, rivals: racers.map((r, i) => ({ name: r.name, skin: r.skin, skill: 0.72 + i * 0.12 })), mobile: isTouch(), sound, deluxe, variant, portrait: (i: number) => (i < 0 ? '' : safePortrait(racers[i]?.index ?? i)) }, {
+          onFinish: (res) => finishAdventure(adv, { place: res.place, timeMs: res.timeMs, race: res.order.map((o) => ({ ...o, index: o.you ? -1 : racers[o.index]?.index ?? o.index })) }),
           onQuit: () => backToTown(),
           onRestart: () => { playing = false; startAdventure(adv); },
         });
@@ -1557,9 +1584,8 @@ export function landScreen(): Screen {
     } else if (adv.id === 'forest') {
       // a lumberjack contest: the host plus two more town Fuzzies cut trees against you (the host is the sharpest)
       const host = hostOf('forest');
-      const others = Array.from({ length: view.residentCount }, (_, i) => i).filter((i) => i !== host.index).slice(0, 2);
       const skills = [0.8, 0.65, 0.45];
-      const rivals = [host.index, ...others].map((i, k) => { const info = view!.residentInfo(i); return { index: i, name: info?.name ?? A.character(i).name, skin: info?.skin ?? (['#b8f28a', '#4f9e2f'] as [string, string]), skill: skills[k] + (variant === 'deep' ? 0.08 : 0) }; });
+      const rivals = pickRivals(host.index, you.skin).map((r, k) => ({ index: r.index, name: r.name, skin: r.skin, skill: skills[k] + (variant === 'deep' ? 0.08 : 0) }));
       void Promise.all([import('../../land/forestView'), model]).then(([{ runForest }]) => {
         pause();
         runForest(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed, rivals }, {
@@ -1572,8 +1598,7 @@ export function landScreen(): Screen {
       // every other mini-game: built on the shared kit (land/mgScene.ts), loaded by id. Town rivals: the host and the next two
       // Fuzzies play the same round (two at a medium level, one really easy — land/rivals.ts); games that support it show them.
       const host = hostOf(adv.id);
-      const others = Array.from({ length: view.residentCount }, (_, i) => i).filter((i) => i !== host.index).slice(0, 2);
-      const rivals = [host.index, ...others].map((i) => { const info = view!.residentInfo(i); return { index: i, name: info?.name ?? A.character(i).name, skin: info?.skin ?? (['#b8f28a', '#4f9e2f'] as [string, string]) }; });
+      const rivals = pickRivals(host.index, you.skin);
       void Promise.all([GAME_LOADERS[adv.id](), model]).then(([{ run }]) => {
         pause();
         run(stage, { mobile: isTouch(), sound, deluxe, you, host: host.name, variant, seed, rivals }, {

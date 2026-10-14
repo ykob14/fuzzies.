@@ -56,6 +56,19 @@ const textures = new WeakMap<object, Map<string, THREE.Texture>>();
 export function furTexture(skin: [string, string], size = 768): THREE.Texture {
   return tintedFur(glb!.image as CanvasImageSource, skin, size);
 }
+/** does this browser draw canvas 2D filters? (Safari doesn't: the property isn't there) */
+const CANVAS_FILTERS = typeof document !== 'undefined' && typeof (document.createElement('canvas').getContext('2d') as { filter?: unknown } | null)?.filter === 'string';
+/** The 3×3 colour matrix of CSS `hue-rotate(deg) saturate(sat) brightness(bright)` (Filter Effects spec), row-major. */
+export function filterMatrix(deg: number, sat: number, bright: number): number[] {
+  const a = (deg * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
+  const H = [0.213 + c * 0.787 - sn * 0.213, 0.715 - c * 0.715 - sn * 0.715, 0.072 - c * 0.072 + sn * 0.928,
+    0.213 - c * 0.213 + sn * 0.143, 0.715 + c * 0.285 + sn * 0.14, 0.072 - c * 0.072 - sn * 0.283,
+    0.213 - c * 0.213 - sn * 0.787, 0.715 - c * 0.715 + sn * 0.715, 0.072 + c * 0.928 + sn * 0.072];
+  const S = [0.213 + 0.787 * sat, 0.715 - 0.715 * sat, 0.072 - 0.072 * sat, 0.213 - 0.213 * sat, 0.715 + 0.285 * sat, 0.072 - 0.072 * sat, 0.213 - 0.213 * sat, 0.715 - 0.715 * sat, 0.072 + 0.928 * sat];
+  const out: number[] = [];
+  for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) out.push(bright * (S[r * 3] * H[k] + S[r * 3 + 1] * H[3 + k] + S[r * 3 + 2] * H[6 + k]));
+  return out;
+}
 /** Any pink-fur image (the owner's texture, or the rig's cleaned copy of it) hue-shifted to a Fuzzy's colour; cached per image. */
 export function tintedFur(image: CanvasImageSource, skin: [string, string], size = 768): THREE.Texture {
   let per = textures.get(image as object);
@@ -70,8 +83,22 @@ export function tintedFur(image: CanvasImageSource, skin: [string, string], size
   const sat = s < 0.08 ? 0 : Math.min(1.8, Math.max(0.3, s / BASE_SAT));
   const bright = Math.min(1.9, Math.max(0.6, l / BASE_LIGHT));
   const rot = s < 0.08 ? 0 : Math.round(h - BASE_HUE);
-  try { x.filter = `hue-rotate(${rot}deg) saturate(${sat.toFixed(2)}) brightness(${bright.toFixed(2)})`; } catch { /* old browsers: pink it is */ }
-  x.drawImage(image, 0, 0, size, size);
+  if (CANVAS_FILTERS) {
+    x.filter = `hue-rotate(${rot}deg) saturate(${sat.toFixed(2)}) brightness(${bright.toFixed(2)})`;
+    x.drawImage(image, 0, 0, size, size);
+  } else {
+    // Safari (every iPhone browser) has no canvas filters: do the same hue-rotate → saturate → brightness by hand,
+    // with the matrices CSS filters use, or every Fuzzy stays the model's pink
+    x.drawImage(image, 0, 0, size, size);
+    if (rot !== 0 || sat !== 1 || bright !== 1) {
+      const img = x.getImageData(0, 0, size, size), d = img.data, m = filterMatrix(rot, sat, bright);
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i + 1], bl = d[i + 2];
+        d[i] = m[0] * r + m[1] * g + m[2] * bl; d[i + 1] = m[3] * r + m[4] * g + m[5] * bl; d[i + 2] = m[6] * r + m[7] * g + m[8] * bl; // Uint8Clamped clamps
+      }
+      x.putImageData(img, 0, 0);
+    }
+  }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.flipY = false; // glTF textures aren't flipped
