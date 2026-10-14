@@ -210,9 +210,28 @@ The gallery works without any of these. Each one is a Vercel → **Settings → 
 
 | Setting | What it switches on |
 |---|---|
-| `ADMIN_EMAILS` | Who may **publish templates** — the login emails of template managers, separated by commas (e.g. `you@gmail.com`). They get **Download → Publish as template** in the editor and **Manage templates** in Templates (publish, unpublish, edit, delete). Everyone else just sees and uses published templates. Managers can also be added in the database without a redeploy: `insert into fz_admins (user_id) select id from fz_users where email = '…';` |
 | `PEXELS_API_KEY` | **Pexels** photos in the editor's Photos search (free key: pexels.com/api → *Your API key*). Without it, search uses **Openverse** (no key; only CC0, public-domain and CC BY photos — CC BY ones carry a credit the app shows and lets people copy). |
 | `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` | **The Fuzzy assistant's AI chat** (the blue Fuzzy in the corner of every screen) and **Draft with AI** in Manage templates: Claude writes the wording for new templates and the app lays it out. Needs a key from console.anthropic.com (paid per use) and a Claude model id from Anthropic's model list. Both must be set; without them the AI button doesn't appear and the Fuzzy assistant answers from its built-in guide (clearly labelled, no AI). Optional `ASSIST_MODEL` picks a different (e.g. faster) model for the assistant only. The assistant is rate-limited (15 messages an hour for visitors, 40 for accounts) and sends Claude only the site guide, the current screen and — when logged in — the person's own username, balance, counts and town level, never emails, passwords, payments or wallet details; chats are not stored. |
+
+**Template managers** (who may publish templates: **Download → Publish as template** in the editor and **Manage
+templates** in Templates) are set in the database, not in Vercel — emails aren't verified, so an email list could be
+claimed by whoever signs up with that address first. Add one in Supabase → SQL editor:
+`insert into fz_admins (user_id) select id from fz_users where email = 'you@gmail.com';` (`ADMIN_EMAILS` is no longer read.)
+Optional `ASSIST_HOURLY_CAP` (default 1500) caps the assistant's AI messages for the whole site per hour.
+
+## Security notes
+
+- Every `fz_` table has row-level security on with no policies and no grants for Supabase's `anon` / `authenticated`
+  roles (set automatically on every cold start): nothing is reachable through Supabase's public REST API. The app
+  connects as the tables' owner, which isn't affected.
+- Limits per account: one design/upload ≤ 5 MB, ≤ 300 MB and 20,000 rows of each kind, profile ≤ 3 MB.
+- Sign-in guessing: 10 wrong passwords per email and 30 per network (IPv6 counted per /64) in 15 minutes; changing the
+  password also locks after 10 wrong tries. Changing email + password logs out every other device. Deleting an
+  account needs the password (or a linked wallet's signature).
+- Browser rules (`vercel.json`): strict Content-Security-Policy (scripts only from the site; WebAssembly allowed for the
+  3D model decoder), HSTS, no framing, `Cross-Origin-Opener-Policy: same-origin-allow-popups` (wallet pop-ups keep working).
+- Designs from share links are checked when opened: pictures must be embedded (`data:image/…`), credit links must be
+  `https://`, colours can't carry CSS like `url(…)`, and links can't unpack to more than 20 MB.
 
 Why not Unsplash's own API? Its rules require showing photos from Unsplash's servers (hotlinking), but a design must keep
 its photos inside the file to work offline and export, so the app only uses Unsplash photos through Lorem Picsum's

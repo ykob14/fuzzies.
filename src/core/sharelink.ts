@@ -22,9 +22,27 @@ const fromB64url = (s: string): Uint8Array => {
 
 const canCompress = typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
 
-async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
-  return new Uint8Array(await new Response(new Blob([bytes as BlobPart]).stream().pipeThrough(stream)).arrayBuffer());
+async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream, max = Infinity): Promise<Uint8Array> {
+  if (max === Infinity) return new Uint8Array(await new Response(new Blob([bytes as BlobPart]).stream().pipeThrough(stream)).arrayBuffer());
+  // read piece by piece and stop at `max`: a tiny link must not be able to unpack into gigabytes and freeze the tab
+  const reader = new Blob([bytes as BlobPart]).stream().pipeThrough(stream).getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) { void reader.cancel(); throw new Error('This link is too big to open.'); }
+    parts.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.byteLength; }
+  return out;
 }
+/** Limits for opening a link: longer than any link we make (~400k), and what it may unpack to. */
+const MAX_LINK = 600_000;
+const MAX_UNPACKED = 20_000_000;
 
 /** Shrink a photo for the link; keeps PNG only when the image has transparency. */
 async function shrink(src: string, maxSide: number, quality: number): Promise<string> {
@@ -74,12 +92,13 @@ export async function makeShareLink(d: Design): Promise<{ url: string; length: n
 
 /** Turn the part after #/s/ back into a design (owner is filled in when someone remixes it). */
 export async function readShareLink(data: string): Promise<Design> {
+  if (data.length > MAX_LINK) throw new Error('This link is too big to open.');
   const kind = data[0];
   const bytes = fromB64url(data.slice(1));
   let json: Uint8Array;
   if (kind === 'z') {
     if (!canCompress) throw new Error('This browser is too old to open this link.');
-    json = await pipe(bytes, new DecompressionStream('deflate-raw'));
+    json = await pipe(bytes, new DecompressionStream('deflate-raw'), MAX_UNPACKED);
   } else if (kind === 'j') json = bytes;
   else throw new Error('This link looks broken.');
   const p = JSON.parse(new TextDecoder().decode(json)) as Packed;

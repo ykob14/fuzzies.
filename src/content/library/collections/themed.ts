@@ -250,7 +250,7 @@ function photoSlot(c: Kit, L: Look, x: number, y: number, w: number, h: number):
   const id = `ph-${key}-${seed}`;
   c.assets[id] = photoAsset({ id: key, primary: t[0], secondary: t[1], accent: t[2] } as Palette, seed);
   const el = makeImage(id, w, h, { mask: L.photo?.mask ?? 'rounded' });
-  Object.assign(el, { x, y, w, h, name: 'Photo — tap Replace' });
+  Object.assign(el, { x, y, w, h, name: 'Photo — tap to add yours' });
   c.els.push(el);
   const m = L.photo?.mask ?? 'rounded', pad = c.u * 0.016;
   box(c, x - pad, y - pad, w + pad * 2, h + pad * 2, 'rgba(0,0,0,0)', { shape: m === 'circle' ? 'ellipse' : m === 'arch' ? 'arch' : 'rect', radius: m === 'rounded' ? Math.min(w, h) * 0.13 : 0, stroke: L.pal.accent, strokeWidth: c.u * 0.006, name: 'Photo frame' });

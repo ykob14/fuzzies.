@@ -1,7 +1,7 @@
 /** Colour + gradient picker popover used across the editor. */
 import type { Fill, Gradient } from './types';
 import { h } from '../ui/dom';
-import { fillToCss } from './render';
+import { cssColor, fillToCss } from './render';
 import { accounts } from '../core/account';
 
 export const PALETTE = [
@@ -84,7 +84,7 @@ export function openPicker(anchor: HTMLElement, value: Fill, opts: PickerOpts): 
 
   function swatchGrid(colors: string[], onPick: (c: string) => void): HTMLElement {
     return h('div', { class: 'swatches' }, ...colors.map((c) => {
-      const s = h('button', { type: 'button', class: 'swatch', style: `background:${c}`, title: c, 'aria-label': c });
+      const s = h('button', { type: 'button', class: 'swatch', style: `background:${cssColor(c)}`, title: c, 'aria-label': c });
       s.addEventListener('click', () => onPick(c));
       return s;
     }));

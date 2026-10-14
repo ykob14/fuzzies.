@@ -353,7 +353,7 @@ export function buildPanels(ed: Editor): Panels {
     uploadsGrid = h('div', { class: 'up-grid' });
     void fillUploads();
     const logo = accounts.current?.brand.logo;
-    const logoBtn = logo ? btn('Add my logo', { kind: 'soft', icon: 'star', class: 'btn-block', onClick: () => { ed.addImage(`brand-logo-${logo.src.length}`, logo.src, logo.w, logo.h); afterAdd(); } }) : null;
+    const logoBtn = logo ? btn('Add my logo', { kind: 'soft', icon: 'star', class: 'btn-block', onClick: () => { ed.addImage(`brand-logo-${logo.src.length}`, logo.src, logo.w, logo.h, undefined, { fill: false }); afterAdd(); } }) : null;
     return h('div', null, up, logoBtn,
       h('p', { class: 'hint' }, 'Drag & drop or paste (Ctrl/Cmd+V) images straight onto the canvas. On phones you can take a photo or pick from your gallery.'),
       section('Your uploads', uploadsGrid));
@@ -367,9 +367,8 @@ export function buildPanels(ed: Editor): Panels {
     try {
       const { src, w, h: ih } = await fetchPhoto(ph);
       const id = uid('a_');
-      ed.addImage(id, src, w, ih, at);
-      const el = ed.page.elements[ed.page.elements.length - 1];
-      if (el?.type === 'image') { el.name = ph.credit.by ? `Photo · ${ph.credit.by}` : 'Photo'; el.credit = { ...ph.credit }; ed.commit(); }
+      const el = ed.addImage(id, src, w, ih, at); // fills a selected empty frame / the photo it was dropped on
+      el.name = ph.credit.by ? `Photo · ${ph.credit.by}` : 'Photo'; el.credit = { ...ph.credit }; ed.commit();
       track('photo');
       afterAdd();
     } catch (e) {
@@ -480,7 +479,7 @@ export function buildPanels(ed: Editor): Panels {
   async function addFriend(id: string, at?: { x: number; y: number }): Promise<void> {
     try {
       const src = await friendData(id);
-      ed.addImage(`friend-${id}`, src, 256, 256, at);
+      ed.addImage(`friend-${id}`, src, 256, 256, at, { fill: false });
       track('sticker');
       afterAdd();
     } catch { toast('Couldn’t load that sticker — check your connection.', 'bad'); }

@@ -16,7 +16,7 @@ import { db } from '../core/db';
 import { track } from '../core/missions';
 import { accounts } from '../core/account';
 import { clamp, debounce, deepClone, fileToImageData, uid } from '../core/util';
-import { h, btn, icon, toast, popMenu, type IconName } from '../ui/dom';
+import { h, btn, icon, toast, popMenu, pickFile, type IconName } from '../ui/dom';
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rot';
 type Tool = 'select' | 'draw' | 'hand';
@@ -40,7 +40,12 @@ interface Drag {
   startSel?: string[];
   /** Clicking an already-selected group without dragging drills in to this single member. */
   single?: string;
+  /** A tap (no drag) on this photo opens the picture picker: an empty template frame, or a double-tap on a photo. */
+  pickPhoto?: string;
 }
+
+/** A template photo frame still showing its placeholder picture (template placeholders are the `ph-…` assets). */
+export const isEmptyFrame = (el: El | null | undefined): el is ImageEl => !!el && el.type === 'image' && el.asset.startsWith('ph-');
 
 export interface DrawSettings { color: string; width: number; highlighter: boolean; eraser: boolean }
 
@@ -102,6 +107,8 @@ export class Editor {
   private spaceDown = false;
   private fitZoom = 0;
   private lastTap = { t: 0, id: '' };
+  /** Set by a tap on a photo frame; the canvas `click` that follows opens the picker (phones only allow it from a real tap). */
+  private pickOnClick: { id: string; t: number } | null = null;
   panels!: Panels;
   props!: Props;
   readonly save: ReturnType<typeof debounce<[]>>;
@@ -350,7 +357,8 @@ export class Editor {
     const sx = clientX - r.left, sy = clientY - r.top;
     return { x: (sx - this.panX) / this.zoom, y: (sy - this.panY) / this.zoom, sx, sy };
   }
-  private toScreen(x: number, y: number): [number, number] { return [x * this.zoom + this.panX, y * this.zoom + this.panY]; }
+  /** Design point → canvas CSS pixels (tests and overlays). */
+  toScreen(x: number, y: number): [number, number] { return [x * this.zoom + this.panX, y * this.zoom + this.panY]; }
 
   // ---------- geometry ----------
   private corners(el: El): [number, number][] {
@@ -505,6 +513,25 @@ export class Editor {
       ctx.stroke();
       ctx.setLineDash([]);
     };
+    // empty template photo frames say what they're for (editor only: never drawn into thumbnails or downloads)
+    if ((!d || d.kind === 'marquee') && !this.editingText) {
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const el of this.page.elements) {
+        if (!isEmptyFrame(el) || el.hidden) continue;
+        const sw = el.w * this.zoom, sh = el.h * this.zoom;
+        if (sw < 40 || sh < 30) continue;
+        const [cx, cy] = this.toScreen(el.x + el.w / 2, el.y + el.h / 2);
+        const fs = clamp(Math.min(sw, sh) * 0.1, 10, 14), label = sw > 100 ? '＋ Add photo' : '＋';
+        ctx.font = `700 ${fs}px "DM Sans", system-ui, sans-serif`;
+        const pw = ctx.measureText(label).width + fs * 1.6, ph = fs * 2.1, py = cy + Math.min(sh * 0.2, 44);
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(cx - pw / 2, py - ph / 2, pw, ph, ph / 2); else ctx.rect(cx - pw / 2, py - ph / 2, pw, ph); // older Safari
+        ctx.fillStyle = 'rgba(255,255,255,0.94)'; ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 6; ctx.fill();
+        ctx.shadowColor = 'transparent'; ctx.fillStyle = accent; ctx.fillText(label, cx, py + 0.5);
+      }
+      ctx.restore();
+    }
     if (this.hover && !this.selection.includes(this.hover) && !d) {
       const el = this.byId(this.hover);
       if (el) outline(el, 1.5);
@@ -692,6 +719,7 @@ export class Editor {
     const items: HTMLElement[] = [];
     items.push(b('edit', 'Edit', () => this.props.open(), 'ctx-edit'));
     if (single?.type === 'text') items.push(b('text', 'Edit text', () => this.editText(single)));
+    if (single?.type === 'image' && !single.locked) items.push(b('upload', isEmptyFrame(single) ? 'Add your photo' : 'Replace photo', () => this.pickPhotoFor(single)));
     if (this.canGroup) items.push(b('group', 'Group (Ctrl+G)', () => this.group()));
     else if (this.canUngroup) items.push(b('grid', 'Ungroup (Ctrl+Shift+G)', () => this.ungroup()));
     items.push(b('copy', 'Duplicate (Ctrl+D)', () => this.duplicate()));
@@ -751,7 +779,14 @@ export class Editor {
       const p = this.toDesign(e.clientX, e.clientY);
       const el = this.hitEl(p.x, p.y);
       if (el?.type === 'text' && !el.locked) this.editText(el);
+      else if (el?.type === 'image' && !el.locked) { if (!isEmptyFrame(el)) this.pickPhotoFor(el); } // an empty frame already opened it on the first click
       else if (el) this.props.open();
+    });
+    c.addEventListener('click', () => {
+      const p = this.pickOnClick;
+      this.pickOnClick = null;
+      const el = p && performance.now() - p.t < 1000 ? this.byId(p.id) : null;
+      if (el?.type === 'image') this.pickPhotoFor(el);
     });
     c.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -833,8 +868,10 @@ export class Editor {
         this.editText(hit);
         return;
       }
+      const twice = this.lastTap.id === hit.id && now - this.lastTap.t < 350;
+      const pickPhoto = !additive && !hit.locked && hit.type === 'image' && (isEmptyFrame(hit) || (e.pointerType !== 'mouse' && twice)) ? hit.id : undefined;
       this.lastTap = { t: now, id: hit.id };
-      this.drag = { ...base, kind: 'move', single: wholeGroupSelected && !additive ? hit.id : undefined };
+      this.drag = { ...base, kind: 'move', single: wholeGroupSelected && !additive ? hit.id : undefined, pickPhoto };
       for (const el of this.selected) if (!el.locked) this.drag.orig.set(el.id, deepClone(el));
       return;
     }
@@ -907,6 +944,7 @@ export class Editor {
     if (!d || d.id !== e.pointerId) return;
     this.drag = null;
     if (d.kind === 'move' && !d.moved && d.single) this.select([d.single]);
+    if (d.kind === 'move' && !d.moved && d.pickPhoto) { this.select([d.pickPhoto]); this.pickOnClick = { id: d.pickPhoto, t: performance.now() }; }
     this.guides = [];
     this.canvas.style.cursor = '';
     if (d.kind === 'marquee') { this.marquee = null; this.emit('select'); this.buildCtxBar(); }
@@ -1203,23 +1241,68 @@ export class Editor {
 
   addEmoji(char: string): void { this.add([makeEmoji(char, this.unit * 0.2)]); track('sticker'); }
 
-  addImage(assetId: string, src: string, iw: number, ih: number, at?: { x: number; y: number }): void {
+  /**
+   * Add a picture — or put it into a photo frame: dropped onto a photo (`at` over it) it replaces that photo, and with an empty
+   * template frame selected it fills that frame. `fill: false` always adds a new picture (stickers, logos).
+   */
+  addImage(assetId: string, src: string, iw: number, ih: number, at?: { x: number; y: number }, opts: { fill?: boolean } = {}): ImageEl {
+    if (opts.fill !== false) {
+      const sel = this.selected;
+      const target = at ? this.imageAt(at.x, at.y) : sel.length === 1 && isEmptyFrame(sel[0]) ? sel[0] : null;
+      if (target) return this.fillImage(target, assetId, src);
+    }
     this.design.assets[assetId] = src;
     const max = this.unit * 0.6;
     const s = Math.min(max / iw, max / ih);
-    this.add([makeImage(assetId, iw * s, ih * s)], at);
+    const el = makeImage(assetId, iw * s, ih * s);
+    this.add([el], at);
+    return el;
+  }
+
+  /** The unlocked photo under a design point, if any. */
+  imageAt(x: number, y: number): ImageEl | null { const el = this.hitEl(x, y); return el?.type === 'image' && !el.locked ? el : null; }
+
+  /** Put a picture into an existing photo or frame: same place, size and shape; the picture is cropped to fill it. */
+  fillImage(el: ImageEl, assetId: string, src: string): ImageEl {
+    this.design.assets[assetId] = src;
+    if (el.asset.startsWith('ph-') || el.name?.startsWith('Photo —')) el.name = 'Photo';
+    el.asset = assetId; el.panX = 0; el.panY = 0; el.zoom = 1; delete el.credit;
+    this.select([el.id]);
+    this.commit();
+    this.props.refresh();
+    return el;
+  }
+
+  /** Open the computer's / phone's picture picker (gallery or camera) and put the chosen picture into this photo. Call from a tap or click. */
+  pickPhotoFor(target: ImageEl): void {
+    const id = target.id;
+    void pickFile('image/*').then(async ([file]) => {
+      const el = this.byId(id); // the element may have been replaced by undo while the picker was open
+      if (!file || el?.type !== 'image') return;
+      if (!file.type.startsWith('image/')) { toast('Pick an image file (JPG, PNG, GIF, WebP or SVG).', 'bad'); return; }
+      try {
+        const { src, w, h: ih } = await fileToImageData(file);
+        const aid = uid('a_');
+        await db.putUpload({ id: aid, owner: accounts.current?.id ?? '', src, w, h: ih, createdAt: Date.now() });
+        this.fillImage(el, aid, src);
+        track('photo');
+        this.panels.refreshUploads();
+      } catch {
+        toast(`Could not open ${file.name}`, 'bad');
+      }
+    });
   }
 
   async addFiles(files: File[], at?: { x: number; y: number }): Promise<void> {
     const imgs = files.filter((f) => f.type.startsWith('image/'));
     if (!imgs.length) { toast('Pick an image file (JPG, PNG, GIF, WebP or SVG).', 'bad'); return; }
     const owner = accounts.current?.id ?? '';
-    for (const f of imgs) {
+    for (const [i, f] of imgs.entries()) {
       try {
         const { src, w, h: ih } = await fileToImageData(f);
         const id = uid('a_');
         await db.putUpload({ id, owner, src, w, h: ih, createdAt: Date.now() });
-        this.addImage(id, src, w, ih, at);
+        this.addImage(id, src, w, ih, i === 0 ? at : undefined); // the first picture dropped on a photo goes into it
         track('photo');
       } catch {
         toast(`Could not open ${f.name}`, 'bad');

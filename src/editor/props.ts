@@ -14,10 +14,8 @@ import { assetsIn, collectionOf } from '../content/assets';
 import { rewards } from '../core/rewards';
 import { accounts } from '../core/account';
 import { unlockDialog } from '../ui/unlock';
-import { h, btn, icon, pickFile, fuzzyMark, popMenu, toast, type IconName } from '../ui/dom';
+import { h, btn, icon, fuzzyMark, popMenu, toast, type IconName } from '../ui/dom';
 import { creditLine } from './photos';
-import { fileToImageData, uid } from '../core/util';
-import { db } from '../core/db';
 
 /** `el` is the full inspector; `bar` is the smart toolbar above the canvas (only what fits the current selection). */
 export interface Props { el: HTMLElement; bar: HTMLElement; open(): void; close(): void; toggle(): void; refresh(): void }
@@ -231,18 +229,9 @@ export function buildProps(ed: Editor): Props {
       b.addEventListener('click', () => { live(() => (e.mask = m.id)); done(); render(); });
       return b;
     }));
-    const replace = btn('Replace photo', { kind: 'ghost', icon: 'image', size: 'sm', onClick: async () => {
-      const [file] = await pickFile('image/*');
-      if (!file) return;
-      const { src: s, w, h: ih } = await fileToImageData(file);
-      const id = uid('a_');
-      await db.putUpload({ id, owner: accounts.current?.id ?? '', src: s, w, h: ih, createdAt: Date.now() });
-      ed.design.assets[id] = s;
-      e.asset = id; e.panX = 0; e.panY = 0; e.zoom = 1; delete e.credit;
-      done(); render();
-    } });
+    const replace = btn(e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', { kind: 'ghost', icon: 'image', size: 'sm', onClick: () => ed.pickPhotoFor(e) });
     const c = e.credit;
-    const link = (text: string, url?: string) => (url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, text) : h('span', null, text));
+    const link = (text: string, url?: string) => (url && /^https:\/\//i.test(url) ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, text) : h('span', null, text));
     const credit = c ? sec('Photo credit', h('p', { class: 'credit-line' }, 'Photo', c.by ? ' by ' : '', c.by ? link(c.by, c.byUrl) : null, ' on ', link(c.source, c.sourceUrl), h('br'),
       'Licence: ', link(c.license, c.licenseUrl)),
       h('p', { class: 'hint' }, c.required ? 'This licence asks you to credit the photographer wherever you share the design.' : 'No credit needed, but photographers love it.'),
@@ -473,7 +462,7 @@ export function buildProps(ed: Editor): Props {
         items.push(label(SHAPE_KINDS.find((k) => k.kind === e.shape)?.label ?? 'Shape'), color(e.fill, (f) => (e.fill = f), { gradient: true, allowNone: !lineish, title: lineish ? 'Colour' : 'Fill colour' }),
           lineish ? null : color(e.stroke, (f) => { e.stroke = firstColor(f); if (!e.strokeWidth) e.strokeWidth = Math.max(2, Math.round(Math.min(e.w, e.h) * 0.03)); }, { title: 'Border colour' }));
       }
-      if (e.type === 'image') items.push(label('Photo'), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
+      if (e.type === 'image') items.push(label('Photo'), tb({ icon: 'upload', text: e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', title: 'Pick a picture from your computer or phone', onClick: () => ed.pickPhotoFor(e) }), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
       if (e.type === 'graphic') { const a = artById(e.art); items.push(label('Graphic'), tb({ icon: 'image', text: 'Replace', title: 'Swap this artwork for another', onClick: () => open() }), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
       if (e.type === 'qr') items.push(label('QR code'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Squares' }), color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true, title: 'Background' }), tb({ icon: 'edit', text: 'Link', title: 'Change the link', onClick: () => open() }));
       if (e.type === 'draw') items.push(label('Drawing'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Stroke colour' }));
