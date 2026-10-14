@@ -156,6 +156,24 @@ overlap. Seasonal effects can be switched off in Settings.`,
     asks: ['What is the festival button?', 'How do I earn event tokens?', 'Will these decorations come back next year?'],
   },
   {
+    id: 'parking', title: 'Fuzzies Parking Escape (the parking puzzle game)', screens: ['land'],
+    keywords: ['parking', 'parking escape', 'park', 'car', 'cars', 'puzzle', 'rush hour', 'parking jam', 'traffic', 'truck', 'bus', 'exit', 'levels', '500', 'stars', 'hint', 'undo', 'endless', 'timed', 'moves', 'double escape', 'milestone', 'parking lot', 'attendant'],
+    body: `Fuzzies Parking Escape is a puzzle game inside Fuzzies Land (always there — not a daily mission). Every town has a parking lot
+with a Fuzzy attendant (it was placed by the Town Hall; if the land was full it waits in Storage — place it from Edit town). Tap the lot,
+or the car button on the right side of the town, to play. The goal: get the pink star car out through the EXIT. Drag any vehicle with your
+finger or the mouse — cars, taxis, jeeps and sports cars are 2 spaces long, trucks, buses, fire engines and ice-cream vans 3 — they only
+drive forwards and backwards along their lane and can't pass each other or the bollard planters. A quick flick slides a car all the way.
+Buttons: Undo, Hint (shows the next good move; a level solved with a hint gets up to 2 stars) and Restart; Pause has Music & sounds
+(separate music and sound-effect volumes, Mute everything — saved with your progress). 500 levels in 20 districts of 25, getting harder
+(levels 1–20 teach the basics, 451–500 are master puzzles). Most levels have no timer. Special levels: Timed Escape (a clock), Limited
+Moves, Double Escape (two star cars, two exits), Special Challenges and a Milestone every 25 levels. Stars: solve in close to the fewest
+possible moves for 3 stars (timed levels also need time to spare); replay any level to improve. COINS go into your town coins, once per
+level: 20 (levels 1–75), 35 (76–250), 50 (251–500), 75 for special levels, +250 every 25th level, and +2,000 plus the Golden Parking
+Trophy decoration for finishing level 500 — after that Endless Parking gives new puzzles forever (25 coins each). Progress saves with
+your town (and syncs between devices for accounts); coins earned offline are added the next time you open the game.`,
+    asks: ['How do I play Parking Escape?', 'Where is the parking game?', 'How do I get 3 stars in Parking Escape?'],
+  },
+  {
     id: 'adventures', title: 'Fuzzies Adventures (daily missions & mini-games)', screens: ['land'],
     keywords: ['adventure', 'adventures', 'mission', 'daily mission', 'boat', 'race', 'boat race', 'forest', 'chop', 'tree', 'wood', 'hairball', 'vacuum', 'hairballs', 'festival', 'talk', 'character', 'personality', 'pom', 'host', 'reward', 'complete', 'completed', 'contest', 'rival', 'lumberjack', 'five hours', 'new missions', 'set', 'laps', 'checkpoint', 'steer', 'joystick', 'combo', 'tier', 'golden', 'fruit', 'maze', 'balloon', 'treasure', 'fishing', 'obstacle', 'harvest', 'garden', 'delivery', 'mining', 'firefighter', 'fire', 'snowball', 'beach', 'skating', 'skate', 'mini-game', 'mini-games', 'games', 'kart', 'dolphin', 'cooking', 'coming soon'],
     body: `Every Fuzzy walking around your town is a character with a name and a personality (Adventurer, Farmer, Builder, Explorer, Fisher,

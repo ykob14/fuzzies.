@@ -204,6 +204,15 @@ create table if not exists fz_adventures (
   at timestamptz not null default now(),
   primary key (user_id, day, adventure)
 );
+-- Fuzzies Parking Escape: each reward key (L<n> level, M<n> milestone, F500, E<n> endless) pays once per account
+create table if not exists fz_parking_claims (
+  user_id uuid not null references fz_users (id) on delete cascade,
+  key text not null,
+  coins int not null,
+  at timestamptz not null default now(),
+  primary key (user_id, key)
+);
+create index if not exists fz_parking_claims_at on fz_parking_claims (user_id, at);
 -- Once-per-wallet bookkeeping, kept even if the wallet is removed (only a hash of the address is stored).
 create table if not exists fz_wallet_rewards (
   address_hash text primary key,

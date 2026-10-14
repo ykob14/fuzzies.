@@ -10,9 +10,12 @@
  *   kind = 'designs' | 'uploads'
  *   adventure.set                            → { now, set: { key, issuedAt, seed, n, list }, done, nextAt }  (issues a new set when due)
  *   adventure.claim { set, id, place, score } → { ok, coins, xp }  (ok = false when already collected)
+ *   parking.claim { key }                    → { ok, coins }  (Parking Escape: L<n> level, M<n> milestone, F500 finale, E<n> endless —
+ *       each key pays once per account, ever; ok = false when it was already collected)
  */
 import { randomInt } from 'node:crypto';
 import { adventure, pickSet, REFILL_MS, setFinishedAt } from '../src/land/adventures.js';
+import { coinsForKey } from '../src/land/parking/progress.js';
 import { applyCredits } from './_lib/credits.js';
 import { guardBalance, type Guarded } from './_lib/balance.js';
 import { db, q } from './_lib/db.js';
@@ -73,6 +76,19 @@ export function POST(req: Request): Promise<Response> {
         const ok = (r.rowCount ?? 0) > 0;
         if (ok) await q(`update fz_adventure_sets set done = done || $2::jsonb where user_id = $1 and key = $3`, [u.id, JSON.stringify({ [id]: { place, coins, xp: adv.xp, at: Date.now(), ...(score !== undefined ? { score } : {}) } }), key]);
         return { ok, coins, xp: adv.xp };
+      }
+      // Fuzzies Parking Escape: a level's / milestone's coins are paid once per account (the app adds them only when this says ok).
+      // Limits keep a script from collecting the whole table at once: 30 rewards a minute, 400 endless puzzles a day.
+      case 'parking.claim': {
+        const key = String(b.key ?? '');
+        const coins = coinsForKey(key);
+        if (coins === null) throw new HttpError(400, 'That reward doesn’t exist.');
+        const { rows: recent } = await q<{ m: number; e: number }>(`select count(*) filter (where at > now() - interval '1 minute')::int as m,
+          count(*) filter (where key like 'E%' and at > now() - interval '1 day')::int as e from fz_parking_claims where user_id = $1 and at > now() - interval '1 day'`, [u.id]);
+        if (recent[0].m >= 30) throw new HttpError(429, 'Slow down a little — try again in a minute.');
+        if (key.startsWith('E') && recent[0].e >= 400) throw new HttpError(429, 'That’s a lot of parking for one day — come back tomorrow!');
+        const r = await q('insert into fz_parking_claims (user_id, key, coins) values ($1, $2, $3) on conflict (user_id, key) do nothing', [u.id, key, coins]);
+        return { ok: (r.rowCount ?? 0) > 0, coins };
       }
       case 'profile.get': {
         await applyCredits(u.id); // Fuzzies bought or gifted while this account's profile wasn't saved yet

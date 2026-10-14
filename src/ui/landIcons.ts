@@ -5,12 +5,17 @@
 export type LandIcon =
   | 'coin' | 'star' | 'pop' | 'hammer' | 'crate' | 'barn' | 'sparkles' | 'music' | 'musicOff'
   | 'zoomIn' | 'zoomOut' | 'back' | 'house' | 'wheat' | 'workshop' | 'flower' | 'clock' | 'lock'
-  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn' | 'festival' | 'token' | 'boat' | 'compass';
+  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn' | 'festival' | 'token' | 'boat' | 'compass' | 'car';
 
 const O = 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const HL = 'fill="#fff" opacity=".55"';
 
 const ART: Record<LandIcon, string> = {
+  car: `<path d="M6 19.5l2.2-6.2A3 3 0 0 1 11 11.3h10a3 3 0 0 1 2.8 2l2.2 6.2" fill="#ffd8e5" stroke="#a8325a" ${O}/>
+    <rect x="3.5" y="18" width="25" height="7.5" rx="3.2" fill="#e0527f" stroke="#a8325a" ${O}/>
+    <circle cx="9.5" cy="25.5" r="3" fill="#3d2f2a" stroke="#1d1612" ${O}/><circle cx="22.5" cy="25.5" r="3" fill="#3d2f2a" stroke="#1d1612" ${O}/>
+    <circle cx="16" cy="12.6" r="4.4" fill="#ff86bb" stroke="#b8235f" stroke-width="1.6"/><circle cx="14.6" cy="12" r=".9" fill="#1d1612"/><circle cx="17.4" cy="12" r=".9" fill="#1d1612"/>
+    <path d="M6 20.5h3M23 20.5h3" stroke="#fff3b0" stroke-width="2" stroke-linecap="round"/><ellipse cx="9" cy="19.6" rx="3" ry="1.1" ${HL}/>`,
   coin: `<circle cx="16" cy="16.5" r="11.5" fill="#e9a91f" stroke="#b9780c" ${O}/><circle cx="16" cy="15.5" r="11" fill="#ffc94a"/>
     <circle cx="16" cy="15.5" r="7.2" fill="none" stroke="#e9a91f" stroke-width="2"/>
     <path d="M16 11.5v8M13.6 13.2h3.6a1.6 1.6 0 0 1 0 3.2h-2.4a1.6 1.6 0 0 0 0 3.2h3.6" fill="none" stroke="#b9780c" stroke-width="1.8" stroke-linecap="round"/>

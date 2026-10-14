@@ -1,0 +1,4 @@
+out/log-*.txt
+out/mine-log-*.txt
+out/switch.*
+.lib/

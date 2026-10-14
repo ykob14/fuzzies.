@@ -10,6 +10,7 @@ import * as M from '../game/models3d';
 import * as ENV from './environment';
 import { seasonalModel } from './seasonal';
 import { trophyModel } from './trophyModel';
+import { parkingLot, parkingTrophy } from './parking/townModel';
 
 const mats = new Map<string, THREE.Material>();
 let base: M.Mats | null = null;
@@ -699,6 +700,8 @@ export function modelFor(itemId: string, seed: number): THREE.Group {
     case 'fountain': return fountain();
     case 'statue': return goldenStatue();
     case 'rainbow': return rainbowArch();
+    case 'parking': return parkingLot();
+    case 'parkchamp': return parkingTrophy();
     default: return seasonalModel(itemId) ?? trophyModel(itemId) ?? new THREE.Group();
   }
 }

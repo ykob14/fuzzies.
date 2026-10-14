@@ -1,0 +1,552 @@
+/**
+ * Fuzzies Parking Escape — THE GAME SCREEN: the level map (20 districts × 25 levels, stars, locks, specials, milestones), playing a
+ * level (drag a vehicle along its lane; undo, restart, hint, pause; timers and move limits on special levels), the victory and
+ * try-again cards, sound settings, the first-level tips and the endless mode after level 500. It runs full screen over Fuzzies Land
+ * (the town is paused underneath) and talks to the town only through `hooks`: save, pay rewards, exit.
+ * Rules: engine.ts · levels: levels.json (tools/parking) · progress/rewards: progress.ts · 3D: scene.ts · sound: audio.ts.
+ */
+import { h } from '../../ui/dom';
+import { landIcon } from '../../ui/landIcons';
+import { lockPage } from '../../ui/joystick';
+import { parse, range, grid, apply, solved, solveAsync, transform, OUT, type LevelData, type Puzzle } from './engine';
+import * as P from './progress';
+import { ParkScene, districtName } from './scene';
+import { ParkAudio } from './audio';
+import { preloadDrivers, driverUrl } from './vehicles';
+import { liveLevel, rng, type Spec } from './generator';
+
+export interface ParkSetup { mobile: boolean; state: P.ParkState; coins: () => number; name: string; startLevel?: number }
+export interface Payment { key: string; coins: number; ok: boolean; pending?: boolean }
+export interface ParkHooks {
+  save(): void;
+  /** pay rewards into the town (once each; cloud accounts ask the server first) */
+  pay(rewards: { key: string; coins: number; why: string }[]): Promise<Payment[]>;
+  exit(): void;
+}
+interface Levels { levels: LevelData[]; endless: LevelData[] }
+
+const PAGE = 25;
+const SVG = (d: string, size = 26) => { const w = document.createElement('div'); w.innerHTML = `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`; return w.firstElementChild as SVGElement; };
+const IC = {
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  restart: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
+  hint: '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>',
+  pause: '<path d="M8 5v14M16 5v14"/>',
+  back: '<path d="M15 18l-6-6 6-6"/>',
+  close: '<path d="M18 6 6 18M6 6l12 12"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  play: '<path d="M7 4v16l13-8z" fill="currentColor"/>',
+  next: '<path d="M9 18l6-6-6-6"/>',
+  timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
+  moves: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  double: '<path d="M4 8h12M12 4l4 4-4 4M20 16H8M12 12l-4 4 4 4"/>',
+  spark: '<path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z" fill="currentColor"/>',
+  sound: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
+  mute: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>',
+  infinity: '<path d="M18.2 7.8a4.2 4.2 0 1 1 0 8.4c-3.4 0-5-8.4-12.4-8.4a4.2 4.2 0 1 0 0 8.4c7.4 0 9-8.4 12.4-8.4z"/>',
+};
+const TYPE_ICON: Record<P.LType, string> = { n: '', t: IC.timer, m: IC.moves, d: IC.double, s: IC.spark };
+const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.max(0, Math.floor(s % 60))).padStart(2, '0')}`;
+const starRow = (n: number, cls = '') => h('span', { class: `pk-stars ${cls}` }, ...[1, 2, 3].map((k) => h('i', { class: k <= n ? 'on' : '' }, landIcon('star', 18))));
+
+/** Open Fuzzies Parking Escape over the town. */
+export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: ParkHooks): Promise<() => void> {
+  const st = setup.state;
+  const data = (await import('./levels.json')).default as Levels;
+  void preloadDrivers();
+  const root = h('div', { class: 'pk' });
+  stage.append(root);
+  const unlock = lockPage(root);
+  const audio = new ParkAudio(st.audio, st.plays % 3);
+  const host = h('div', { class: 'pk-stage' }); root.append(host);
+  const scene = new ParkScene(host, { mobile: setup.mobile });
+  audio.music(true);
+  const wake = () => audio.wake();
+  // browsers (iPhones especially) only allow sound from a real tap: try on every kind of press until it's running
+  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) root.addEventListener(ev, () => { if (!audio.ready) wake(); }, { capture: true });
+
+  // ---------- HUD ----------
+  const coinEl = h('b', null, String(setup.coins()));
+  const coinChip = h('div', { class: 'pk-chip pk-coins', title: 'Your Fuzzies Land coins' }, landIcon('coin', 22), coinEl);
+  const levelEl = h('div', { class: 'pk-level' });
+  const movesEl = h('div', { class: 'pk-chip pk-moves' });
+  const timerEl = h('div', { class: 'pk-chip pk-timer', hidden: true });
+  const btn = (icon: string, label: string, cls: string, onClick: () => void) => { const b = h('button', { class: `pk-btn ${cls}`, type: 'button', 'aria-label': label, title: label }, SVG(icon), h('span', null, label)); b.addEventListener('click', () => { audio.button(); onClick(); }); return b; };
+  const pauseBtn = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Pause', title: 'Pause (Esc)' }, SVG(IC.pause, 22));
+  pauseBtn.addEventListener('click', () => { audio.button(); openPause(); });
+  const mapBtn = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Level map', title: 'Level map' }, SVG(IC.back, 22));
+  mapBtn.addEventListener('click', () => { audio.button(); showMap(); });
+  const top = h('div', { class: 'pk-top' }, h('div', { class: 'pk-top-l' }, mapBtn, levelEl), h('div', { class: 'pk-top-c' }, movesEl, timerEl), h('div', { class: 'pk-top-r' }, coinChip, pauseBtn));
+  const undoBtn = btn(IC.undo, 'Undo', 'pk-undo', () => undo());
+  const restartBtn = btn(IC.restart, 'Restart', 'pk-restart', () => restart());
+  const hintBtn = btn(IC.hint, 'Hint', 'pk-hint', () => void hint());
+  const bottom = h('div', { class: 'pk-bottom' }, undoBtn, hintBtn, restartBtn);
+  const tip = h('div', { class: 'pk-tip', hidden: true });
+  const hand = h('div', { class: 'pk-hand', hidden: true }, h('i'));
+  const toastEl = h('div', { class: 'pk-toast', hidden: true });
+  root.append(top, bottom, tip, hand, toastEl);
+  const say = (text: string, ms = 2200) => { toastEl.textContent = text; toastEl.hidden = false; toastEl.classList.remove('show'); void toastEl.offsetWidth; toastEl.classList.add('show'); clearTimeout(sayT); sayT = setTimeout(() => { toastEl.hidden = true; }, ms); };
+  let sayT: ReturnType<typeof setTimeout> | undefined;
+  const paintCoins = (n = setup.coins()) => { coinEl.textContent = n.toLocaleString(); };
+  scene.pad = { top: setup.mobile ? 78 : 84, bottom: setup.mobile ? 104 : 96, side: 10 };
+
+  // ---------- one level ----------
+  interface Play { n: number; endless: boolean; lvl: LevelData; p: Puzzle; s: Uint8Array; hist: Uint8Array[]; moves: number; t0: number; paused: number; pauseAt: number; timeLeft: number; done: boolean; hinted: boolean; started: boolean; warned: number }
+  let play: Play | null = null;
+  let busy = false;
+  const levelOf = (n: number) => data.levels[n - 1];
+  const elapsed = () => (play ? ((play.pauseAt || performance.now()) - play.t0 - play.paused) / 1000 : 0);
+
+  function paintHud(): void {
+    if (!play) return;
+    const L = play.lvl, type = L.t;
+    levelEl.replaceChildren(h('b', null, play.endless ? `Endless ${play.n}` : `Level ${play.n}`), h('small', null, play.endless ? 'Endless Parking' : type === 'n' ? districtName(play.n) : P.TYPE_NAMES[type]));
+    const movesLeft = type === 'm' && L.lim ? L.lim - play.moves : null;
+    movesEl.replaceChildren(SVG(IC.moves, 16), h('b', null, movesLeft !== null ? `${movesLeft}` : String(play.moves)), h('small', null, movesLeft !== null ? 'moves left' : play.moves === 1 ? 'move' : 'moves'));
+    movesEl.classList.toggle('low', movesLeft !== null && movesLeft <= 3);
+    timerEl.hidden = type !== 't';
+    undoBtn.toggleAttribute('disabled', !play.hist.length || play.done);
+    restartBtn.toggleAttribute('disabled', !play.hist.length || play.done);
+    hintBtn.toggleAttribute('disabled', play.done);
+  }
+  function paintTimer(): void {
+    if (!play || play.lvl.t !== 't') return;
+    const left = Math.max(0, play.timeLeft);
+    timerEl.replaceChildren(SVG(IC.timer, 16), h('b', null, fmtTime(Math.ceil(left))));
+    timerEl.classList.toggle('low', left <= 10);
+  }
+  /** a level from the map (n ≤ 500) or the endless mode (endless = true) */
+  function start(n: number, endless = false, lvlIn?: LevelData): void {
+    closeOverlays(); mapEl.hidden = true; cardEl.hidden = true; keySel = -1;
+    const lvl = lvlIn ?? levelOf(n);
+    const p = parse(lvl);
+    play = { n, endless, lvl, p, s: p.start.slice(), hist: [], moves: 0, t0: performance.now(), paused: 0, pauseAt: 0, timeLeft: lvl.lim ?? 0, done: false, hinted: false, started: lvl.t === 'n' || lvl.t === 's', warned: 99 };
+    if (!endless) { st.cur = n; hooks.save(); }
+    scene.load(p, play.s, endless ? 451 + (n % 50) : n, endless ? 10_000 + n : n, !endless && P.isMilestone(n));
+    scene.clearHint();
+    top.hidden = false; bottom.hidden = false;
+    paintHud(); paintTimer(); paintCoins();
+    tip.hidden = true; hand.hidden = true;
+    // specials explain themselves first (the clock starts on "Start")
+    if (!play.started) { play.pauseAt = performance.now(); showIntro(); }
+    else { tutorial(); if (lvl.t === 's') say(P.isMilestone(n) ? `Milestone level ${n}! Bonus coins waiting 🎉` : 'Special Challenge — a trickier lot, bigger reward!', 2600); }
+  }
+
+  // ---------- dragging ----------
+  interface Drag { i: number; id: number; grab: number; pos0: number; min: number; max: number; out: boolean; exitDir: 0 | 1 | -1; vel: number; lastT: number; lastPos: number; bumped: boolean; moved: boolean; span: number; len: number }
+  let drag: Drag | null = null;
+  const canvas = scene.canvas;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!play || play.done || busy || !play.started || drag) return;
+    const i = scene.pick(e.clientX, e.clientY, e.pointerType === 'touch' ? 0.2 : 0.1);
+    if (i < 0) return;
+    const car = play.p.cars[i];
+    const r = range(play.p, play.s, i);
+    const a = scene.along(i, e.clientX, e.clientY); if (a === null) return;
+    canvas.setPointerCapture(e.pointerId);
+    drag = { i, id: e.pointerId, grab: a, pos0: play.s[i], min: r.min, max: r.max, out: r.out, exitDir: car.exit, vel: 0, lastT: performance.now(), lastPos: play.s[i], bumped: false, moved: false, span: car.dir === 'h' ? play.p.w : play.p.h, len: car.len };
+    scene.select(i); audio.select(); keySel = i;
+    if (r.min === r.max && !r.out) { scene.bump(i, -1); audio.blocked(); }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id || !play) return;
+    const a = scene.along(drag.i, e.clientX, e.clientY); if (a === null) return;
+    const want = drag.pos0 + (a - drag.grab);
+    const lo = drag.out && drag.exitDir === -1 ? drag.min - 1.6 : drag.min, hi = drag.out && drag.exitDir === 1 ? drag.max + 1.6 : drag.max;
+    const clamped = Math.max(lo, Math.min(hi, want));
+    const over = want - clamped;
+    const pos = clamped + Math.max(-0.1, Math.min(0.1, over * 0.2)); // a little rubber band past the end
+    if (Math.abs(want - drag.pos0) > 0.12) drag.moved = true;
+    if (Math.abs(over) > 0.28 && !drag.bumped) { drag.bumped = true; const blocker = blockerOf(drag.i, over > 0 ? 1 : -1); scene.bump(drag.i, blocker); audio.bump(); }
+    else if (Math.abs(over) < 0.1) drag.bumped = false;
+    const now = performance.now(), dt = Math.max(1, now - drag.lastT) / 1000;
+    drag.vel = drag.vel * 0.6 + ((pos - drag.lastPos) / dt) * 0.4; drag.lastT = now; drag.lastPos = pos;
+    scene.dragTo(drag.i, pos);
+  });
+  const endDrag = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id || !play) return;
+    const d = drag; drag = null;
+    const pos = scene.posOf(d.i);
+    const stale = performance.now() - d.lastT > 90; const vel = stale ? 0 : d.vel;
+    let to = Math.round(Math.max(d.min, Math.min(d.max, pos)));
+    let escape = false;
+    if (d.out) {
+      const beyond = d.exitDir === 1 ? pos - d.max : d.min - pos;
+      if (beyond > 0.35 || (vel * d.exitDir > 6 && beyond > -0.6)) escape = true;
+    }
+    if (!escape && Math.abs(vel) > 7 && d.moved) to = vel > 0 ? d.max : d.min; // a flick sends it all the way
+    if (!d.moved && !escape) { scene.settle(d.i, play.s[d.i]); return; }
+    if (escape) { commit(d.i, OUT); return; }
+    scene.settle(d.i, to);
+    if (to !== play.s[d.i]) commit(d.i, to); else if (d.moved) setTimeout(() => audio.stop(), 120);
+  };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  /** the vehicle (or −1 for a wall / the edge) in the way of `i` going in `dir` */
+  function blockerOf(i: number, dir: 1 | -1): number {
+    if (!play) return -1;
+    const c = play.p.cars[i], g = grid(play.p, play.s), r = range(play.p, play.s, i, g);
+    const along = dir === 1 ? r.max + c.len : r.min - 1;
+    if (along < 0 || along >= (c.dir === 'h' ? play.p.w : play.p.h)) return -1;
+    const v = g[c.dir === 'h' ? c.line * play.p.w + along : along * play.p.w + c.line];
+    return v >= 0 ? v : -1;
+  }
+  /** a move is made */
+  function commit(i: number, to: number): void {
+    if (!play) return;
+    const from = play.s[i];
+    play.hist.push(play.s.slice());
+    play.s = apply(play.s, { car: i, to });
+    play.moves++;
+    scene.clearHint(); tip.hidden = true; hand.hidden = true;
+    paintHud();
+    if (to === OUT) {
+      busy = true; scene.select(-1); audio.escape();
+      void scene.escape(i).then(() => { busy = false; audio.cheer(); afterMove(); });
+      return;
+    }
+    audio.slide(to - from); setTimeout(() => audio.stop(), 140);
+    if (Math.random() < 0.3) scene.hop(i, 'note');
+    afterMove();
+  }
+  function afterMove(): void {
+    if (!play) return;
+    if (solved(play.p, play.s)) { win(); return; }
+    if (play.lvl.t === 'm' && play.lvl.lim && play.moves >= play.lvl.lim) { fail('moves'); return; }
+    // the double escape: one out, one to go
+    if (play.lvl.t === 'd' && play.p.cars.some((c) => c.exit && play!.s[c.i] === OUT)) say('One out — now the other star car!');
+  }
+  function undo(): void {
+    if (!play || busy || play.done || !play.hist.length) return;
+    play.s = play.hist.pop()!; play.moves = Math.max(0, play.moves - 1);
+    scene.setState(play.s); scene.clearHint(); paintHud();
+  }
+  function restart(): void {
+    if (!play || busy) return;
+    if (play.lvl.t === 't' || play.done) { start(play.n, play.endless, play.lvl); return; }
+    play.s = play.p.start.slice(); play.hist = []; play.moves = 0; scene.setState(play.s); scene.clearHint(); paintHud();
+  }
+  async function hint(): Promise<void> {
+    if (!play || busy || play.done || !play.started) return;
+    busy = true; hintBtn.classList.add('thinking'); audio.hint();
+    const at = play;
+    const sol = await solveAsync(at.p, at.s, 900_000);
+    busy = false; hintBtn.classList.remove('thinking');
+    if (play !== at || at.done) return;
+    if (!sol || !sol.length) { say('Hmm — try Restart, this lot is in a tangle!'); return; }
+    at.hinted = true;
+    scene.hint(sol[0].car, sol[0].to);
+    say(sol[0].to === OUT ? 'Drive your star car out!' : at.p.cars[sol[0].car].exit ? 'Move your star car there' : `Move this one — ${sol.length} moves to go`, 2600);
+  }
+
+  // ---------- keyboard ----------
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); if (!pauseEl.hidden || !settingsEl.hidden) closeOverlays(); else if (play && !play.done && mapEl.hidden) openPause(); else if (!mapEl.hidden) quit(); return; }
+    if (!play || play.done || busy || !mapEl.hidden || !pauseEl.hidden) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+    if (e.key.toLowerCase() === 'r' && !e.ctrlKey && !e.metaKey) { restart(); return; }
+    if (e.key.toLowerCase() === 'h') { void hint(); return; }
+    // arrow keys move the last vehicle you picked one bay at a time (Tab picks the next one)
+    if (e.key === 'Tab') { e.preventDefault(); const n = play.p.cars.length; for (let k = 1; k <= n; k++) { const i = (keySel + k + n) % n; if (play.s[i] !== OUT) { keySel = i; scene.select(i); audio.select(); break; } } return; }
+    const dirs: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const d = dirs[e.key]; if (!d || keySel < 0 || play.s[keySel] === OUT) return;
+    e.preventDefault();
+    const c = play.p.cars[keySel]; const step = c.dir === 'h' ? d[0] : d[1]; if (!step) return;
+    const r = range(play.p, play.s, keySel);
+    const to = play.s[keySel] + step;
+    if (c.exit === step && (step === 1 ? to > r.max : to < r.min) && r.out) { commit(keySel, OUT); return; }
+    if (to < r.min || to > r.max) { scene.bump(keySel, blockerOf(keySel, step as 1 | -1)); audio.bump(); return; }
+    scene.settle(keySel, to); commit(keySel, to);
+  };
+  let keySel = -1;
+  addEventListener('keydown', onKey);
+
+  // ---------- the clock ----------
+  let timerRaf = 0;
+  const clock = () => {
+    timerRaf = requestAnimationFrame(clock);
+    if (!play || play.done || !play.started || play.pauseAt || play.lvl.t !== 't') return;
+    play.timeLeft = (play.lvl.lim ?? 0) - elapsed();
+    const left = Math.ceil(play.timeLeft);
+    if (left <= 10 && left < play.warned && left > 0) { play.warned = left; audio.warn(left <= 3); timerEl.classList.remove('tick'); void timerEl.offsetWidth; timerEl.classList.add('tick'); }
+    paintTimer();
+    if (play.timeLeft <= 0) fail('time');
+  };
+  timerRaf = requestAnimationFrame(clock);
+  const holdClock = (on: boolean) => { if (!play) return; if (on && !play.pauseAt) play.pauseAt = performance.now(); else if (!on && play.pauseAt) { play.paused += performance.now() - play.pauseAt; play.pauseAt = 0; } };
+  const onVis = () => { if (document.hidden) holdClock(true); else if (pauseEl.hidden && cardEl.hidden) holdClock(false); scene.setRunning(!document.hidden); };
+  document.addEventListener('visibilitychange', onVis);
+
+  // ---------- overlays ----------
+  const pauseEl = h('div', { class: 'pk-sheet-wrap', hidden: true });
+  const settingsEl = h('div', { class: 'pk-sheet-wrap', hidden: true });
+  const cardEl = h('div', { class: 'pk-card-wrap', hidden: true });
+  const mapEl = h('div', { class: 'pk-map', hidden: true });
+  root.append(mapEl, cardEl, pauseEl, settingsEl);
+  function closeOverlays(): void { pauseEl.hidden = true; settingsEl.hidden = true; if (play && !play.done && cardEl.hidden && play.started) holdClock(false); }
+  function openPause(): void {
+    if (!play) return;
+    holdClock(true);
+    pauseEl.replaceChildren(h('div', { class: 'pk-sheet' },
+      h('h2', null, 'Paused'),
+      h('p', { class: 'pk-muted' }, play.endless ? `Endless puzzle ${play.n}` : `Level ${play.n} · ${P.TYPE_NAMES[play.lvl.t]}`),
+      big('Resume', 'primary', () => closeOverlays()),
+      big('Restart level', 'soft', () => { closeOverlays(); restart(); }),
+      big('Music & sounds', 'soft', () => openSettings(true)),
+      big('Level map', 'soft', () => { closeOverlays(); showMap(); }),
+      big('Back to Fuzzies Land', 'ghost', () => quit())));
+    pauseEl.hidden = false;
+  }
+  function big(label: string, kind: 'primary' | 'soft' | 'ghost', onClick: () => void, cls = ''): HTMLButtonElement {
+    const b = h('button', { class: `pk-big ${kind} ${cls}`, type: 'button' }, label);
+    b.addEventListener('click', () => { audio.button(); onClick(); });
+    return b;
+  }
+  function openSettings(fromPause = false): void {
+    if (fromPause) pauseEl.hidden = true;
+    const slider = (label: string, key: 'music' | 'sfx') => {
+      const val = h('output', null, `${Math.round(st.audio[key] * 100)}%`);
+      const input = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(Math.round(st.audio[key] * 100)), 'aria-label': label }) as HTMLInputElement;
+      input.addEventListener('input', () => { st.audio[key] = Number(input.value) / 100; val.textContent = `${input.value}%`; audio.set({ [key]: st.audio[key] }); });
+      input.addEventListener('change', () => { hooks.save(); if (key === 'sfx') audio.coin(); });
+      return h('label', { class: 'pk-slider' }, h('span', null, label), input, val);
+    };
+    const mute = h('input', { type: 'checkbox', checked: st.audio.mute }) as HTMLInputElement;
+    mute.addEventListener('change', () => { st.audio.mute = mute.checked; audio.set({ mute: mute.checked }); hooks.save(); });
+    settingsEl.replaceChildren(h('div', { class: 'pk-sheet' },
+      h('h2', null, 'Music & sounds'),
+      slider('Music', 'music'), slider('Sound effects', 'sfx'),
+      h('label', { class: 'pk-toggle' }, h('span', null, 'Mute everything'), mute),
+      h('p', { class: 'pk-muted' }, `Now playing: “${audio.trackName}” — the tunes take turns.`),
+      big('Done', 'primary', () => { settingsEl.hidden = true; if (fromPause) pauseEl.hidden = false; })));
+    settingsEl.hidden = false;
+  }
+
+  /** the card before a special level: what's different, then Start (the clock starts there) */
+  function showIntro(): void {
+    if (!play) return;
+    const L = play.lvl, t = L.t;
+    const lines: Record<P.LType, string> = {
+      n: '', s: '',
+      t: `Get your star car out within ${fmtTime(L.lim ?? 0)}. The clock starts when you tap Start.`,
+      m: `You have ${L.lim} moves. Plan ahead — every slide counts!`,
+      d: 'Two star cars this time: get BOTH of them out through their own exits.',
+    };
+    cardEl.replaceChildren(h('div', { class: `pk-card pk-intro t-${t}` },
+      h('div', { class: 'pk-card-ic' }, SVG(TYPE_ICON[t] || IC.spark, 34)),
+      h('small', null, play.endless ? 'Endless Parking' : `Level ${play.n}`),
+      h('h2', null, P.TYPE_NAMES[t]),
+      h('p', null, lines[t]),
+      play.endless ? null : h('p', { class: 'pk-reward' }, landIcon('coin', 20), `+${P.coinsForLevel(play.n)} coins the first time`),
+      big('Start', 'primary', () => { cardEl.hidden = true; if (play) { play.started = true; play.t0 = performance.now(); play.paused = 0; play.pauseAt = 0; play.timeLeft = play.lvl.lim ?? 0; play.warned = 99; paintTimer(); tutorial(); } }),
+      big('Level map', 'ghost', () => { cardEl.hidden = true; showMap(); })));
+    cardEl.hidden = false;
+  }
+
+  function fail(why: 'time' | 'moves'): void {
+    if (!play || play.done) return;
+    play.done = true; drag = null; scene.select(-1); audio.fail();
+    if (why === 'time') { play.timeLeft = 0; paintTimer(); }
+    paintHud();
+    const at = play;
+    cardEl.replaceChildren(h('div', { class: 'pk-card pk-fail' },
+      h('div', { class: 'pk-card-ic sad' }, SVG(why === 'time' ? IC.timer : IC.moves, 34)),
+      h('h2', null, why === 'time' ? 'Time’s up!' : 'Out of moves!'),
+      h('p', null, why === 'time' ? 'So close! The Fuzzies are still honking. Try again — the lot is the same, and you keep every coin you’ve earned.' : 'Nearly there! Try again — plan the first few moves before you slide anything.'),
+      big('Try again', 'primary', () => { cardEl.hidden = true; start(at.n, at.endless, at.lvl); }),
+      big('Level map', 'ghost', () => { cardEl.hidden = true; showMap(); })));
+    setTimeout(() => { if (play === at) cardEl.hidden = false; }, 700);
+  }
+
+  async function win(): Promise<void> {
+    if (!play || play.done) return;
+    const at = play; at.done = true; holdClock(true);
+    const secs = elapsed();
+    scene.select(-1); scene.cheerAll(); scene.fireworks(P.isMilestone(at.n) && !at.endless ? 6 : 3);
+    const special = at.lvl.t !== 'n' || (!at.endless && P.isMilestone(at.n));
+    if (special) audio.special(); else audio.complete();
+    paintHud();
+    let clear: P.Clear | null = null; let rewards: { key: string; coins: number; why: string }[] = [];
+    if (at.endless) {
+      const e = P.clearEndless(st); if (e.coins) rewards = [{ key: e.key, coins: e.coins, why: `Endless puzzle ${at.n}` }];
+    } else {
+      clear = P.clearLevel(st, at.n, { opt: at.lvl.o, type: at.lvl.t, lim: at.lvl.lim, moves: at.moves, seconds: secs, timeLeft: at.lvl.t === 't' ? Math.max(0, at.timeLeft) : undefined, hinted: at.hinted });
+      rewards = clear.rewards;
+    }
+    hooks.save();
+    await new Promise((r) => setTimeout(r, 900));
+    if (play !== at) return;
+    // the victory card, then the coins fly in as each reward is confirmed
+    const coinsLine = h('div', { class: 'pk-win-coins' });
+    const starsEl = starRow(0, 'big');
+    const next = at.endless ? at.n + 1 : at.n + 1;
+    const champ = !at.endless && at.n === P.LEVELS && clear?.first;
+    const card = h('div', { class: `pk-card pk-win ${special ? 'special' : ''}` },
+      h('img', { class: 'pk-win-fuzzy', src: driverUrl(at.n % 15), alt: '' }),
+      special ? h('div', { class: 'pk-ribbon' }, !at.endless && P.isMilestone(at.n) ? `Milestone ${at.n}!` : P.TYPE_NAMES[at.lvl.t]) : null,
+      h('h2', null, champ ? 'Parking Champion!' : at.endless ? 'Lot cleared!' : 'Parked it!'),
+      at.endless ? h('p', { class: 'pk-muted' }, `Endless puzzle ${at.n} · ${at.moves} moves`) : starsEl,
+      at.endless ? null : h('div', { class: 'pk-win-stats' },
+        h('span', null, h('b', null, String(at.moves)), h('small', null, `moves${clear?.bestMoves && clear.before ? ' · best!' : ''}`)),
+        h('span', null, h('b', null, String(at.lvl.o)), h('small', null, 'fewest possible')),
+        h('span', null, h('b', null, fmtTime(secs)), h('small', null, 'time'))),
+      at.endless || !clear ? null : h('p', { class: 'pk-muted small' }, clear.stars < 3 ? (at.hinted ? 'Solve it without a hint for ★★★' : `Solve it in ${at.lvl.o + Math.max(1, Math.ceil(at.lvl.o * 0.25))} moves or fewer for ★★★`) : 'Three stars — brilliant parking!'),
+      champ ? h('p', { class: 'pk-champ' }, '🏆 Your Golden Parking Trophy is waiting in Build → Decor. Endless Parking is open!') : null,
+      coinsLine,
+      h('div', { class: 'pk-win-btns' },
+        !at.endless && at.n >= P.LEVELS ? big('Endless Parking', 'primary', () => startEndless(), 'pk-next') : big(at.endless ? 'Next puzzle' : 'Next level', 'primary', () => { if (at.endless) startEndless(); else start(next); }, 'pk-next'),
+        big('Replay', 'soft', () => start(at.n, at.endless, at.lvl)),
+        big('Level map', 'ghost', () => showMap())));
+    cardEl.replaceChildren(card); cardEl.hidden = false;
+    // stars pop in one by one
+    if (clear) for (let k = 1; k <= clear.stars; k++) setTimeout(() => { starsEl.children[k - 1]?.classList.add('on', 'pop'); audio.coin(); }, 250 + k * 260);
+    if (clear?.unlockedNext) setTimeout(() => { audio.unlock(); say(`Level ${next} unlocked!`, 1800); }, 1300);
+    if (rewards.length) {
+      coinsLine.append(h('span', { class: 'pk-muted' }, 'Collecting your coins…'));
+      const paid = await hooks.pay(rewards);
+      coinsLine.replaceChildren();
+      let total = 0;
+      for (const p of paid) {
+        const why = rewards.find((r) => r.key === p.key)?.why ?? '';
+        if (p.ok && p.coins > 0) { total += p.coins; coinsLine.append(h('div', { class: 'pk-coin-row' }, landIcon('coin', 20), h('b', null, `+${p.coins.toLocaleString()}`), h('small', null, why))); }
+        else if (p.pending) coinsLine.append(h('div', { class: 'pk-coin-row muted' }, h('small', null, `${why}: we’ll add your coins when you’re back online.`)));
+      }
+      if (total) flyCoins(card, Math.min(14, 4 + Math.round(total / 40)));
+    } else if (!at.endless) coinsLine.append(h('small', { class: 'pk-muted' }, 'Coins for this level were already collected — replays are for stars!'));
+  }
+  function flyCoins(from: HTMLElement, n: number): void {
+    const a = from.getBoundingClientRect(), b = coinChip.getBoundingClientRect();
+    for (let k = 0; k < n; k++) {
+      const c = h('div', { class: 'pk-fly' }, landIcon('coin', 26)); root.append(c);
+      const x0 = a.left + a.width / 2 + (Math.random() - 0.5) * 120, y0 = a.top + a.height * 0.62 + (Math.random() - 0.5) * 40;
+      c.style.transform = `translate(${x0}px, ${y0}px) scale(0.6)`;
+      setTimeout(() => { c.style.transform = `translate(${b.left + 8}px, ${b.top + 4}px) scale(0.9)`; c.style.opacity = '0.9'; }, 40 + k * 70);
+      setTimeout(() => { c.remove(); audio.coin(); paintCoins(); coinChip.classList.remove('bump'); void coinChip.offsetWidth; coinChip.classList.add('bump'); }, 760 + k * 70);
+    }
+  }
+
+  // ---------- endless ----------
+  async function startEndless(): Promise<void> {
+    if (!P.endlessOpen(st)) { say('Finish level 500 to open Endless Parking!'); return; }
+    const n = st.endless.n;
+    cardEl.replaceChildren(h('div', { class: 'pk-card' }, h('h2', null, 'Building a new lot…'), h('p', { class: 'pk-muted' }, 'The Fuzzies are parking their cars.')));
+    cardEl.hidden = false;
+    await new Promise((r) => setTimeout(r, 60));
+    const lvl = endlessLevel(n);
+    cardEl.hidden = true;
+    start(n, true, lvl);
+  }
+  /** a fresh puzzle from the generator now and then, otherwise one from the pool, turned and mirrored (always solvable) */
+  function endlessLevel(n: number): LevelData {
+    const want = Math.min(40, 18 + Math.floor(n / 3));
+    if (n % 3 === 1 || !data.endless.length) {
+      const spec: Spec = { w: 6, h: 6, cars: [9, 12], trucks: 0.3, walls: n % 2, double: false, cap: 30_000 };
+      const f = liveLevel(spec, want, 12, rng(n * 104729 + 7), setup.mobile ? 2200 : 1500);
+      // a brand-new lot when the generator finds one hard enough in time; the pool (prebuilt expert lots) otherwise
+      if (f && f.opt >= want - 4) return { b: f.board, w: 6, h: 6, x: 'A>', o: f.opt, t: n % 4 === 0 ? 't' : 'n', ...(n % 4 === 0 ? { lim: Math.round((20 + f.opt * 5) / 5) * 5 } : {}) };
+    }
+    const pool = data.endless.length ? data.endless : data.levels.slice(350); const sorted = [...pool].sort((a, b) => Math.abs(a.o - want) - Math.abs(b.o - want));
+    const pick = sorted[(n * 7) % Math.min(12, sorted.length)];
+    const lvl = transform(pick, (n * 5) % 8);
+    return n % 4 === 0 ? { ...lvl, t: 't', lim: Math.round((20 + lvl.o * 5) / 5) * 5 } : { ...lvl, t: 'n' };
+  }
+
+  // ---------- the level map ----------
+  let page = Math.floor((Math.max(1, st.top) - 1) / PAGE);
+  function showMap(): void {
+    play = null; drag = null; busy = false; closeOverlays(); cardEl.hidden = true; tip.hidden = true; hand.hidden = true;
+    top.hidden = true; bottom.hidden = true;
+    const pages = P.LEVELS / PAGE;
+    page = Math.max(0, Math.min(pages - 1, page));
+    const first = page * PAGE + 1;
+    const nodes: HTMLElement[] = [];
+    const cols = 5;
+    for (let k = 0; k < PAGE; k++) {
+      const n = first + k, row = Math.floor(k / cols), colRaw = k % cols, col = row % 2 ? cols - 1 - colRaw : colRaw;
+      const open = P.unlocked(st, n), stars = P.starsOf(st, n), type = P.typeOf(n), mile = P.isMilestone(n), cur = n === st.top && stars === 0;
+      const b = h('button', { class: `pk-node ${open ? '' : 'locked'} ${mile ? 'mile' : ''} ${cur ? 'cur' : ''} ${stars ? 'done' : ''} t-${type}`, type: 'button', style: `--r:${row};--c:${col}`, 'data-level': String(n), 'aria-label': `Level ${n}${open ? '' : ' (locked)'}` },
+        h('span', { class: 'pk-node-n' }, open ? String(n) : ''),
+        open ? null : h('span', { class: 'pk-node-lock' }, SVG(IC.lock, 18)),
+        type !== 'n' && open ? h('span', { class: 'pk-node-badge' }, SVG(TYPE_ICON[type], 13)) : null,
+        mile ? h('span', { class: 'pk-node-gift' }, landIcon('coin', 16), '250') : null,
+        stars ? starRow(stars, 'tiny') : null,
+        cur ? h('img', { class: 'pk-node-car', src: driverUrl(0), alt: '' }) : null);
+      b.addEventListener('click', () => { audio.button(); if (!open) { say(`Finish level ${st.top} first`); audio.blocked(); return; } start(n); });
+      nodes.push(b);
+    }
+    const road = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); road.setAttribute('class', 'pk-road'); road.setAttribute('viewBox', '0 0 500 500'); road.setAttribute('preserveAspectRatio', 'none');
+    let d = ''; for (let row = 0; row < 5; row++) { const y = 50 + row * 100; d += row === 0 ? `M50 ${y} H450` : row % 2 ? ` Q490 ${y - 50} 450 ${y} H50` : ` Q10 ${y - 50} 50 ${y} H450`; }
+    road.innerHTML = `<path d="${d}" class="pk-road-edge"/><path d="${d}" class="pk-road-top"/><path d="${d}" class="pk-road-line"/>`;
+    const pageStars = Array.from({ length: PAGE }, (_, k) => P.starsOf(st, first + k)).reduce((a, b) => a + b, 0);
+    const prev = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Previous district', disabled: page === 0 }, SVG(IC.back, 22));
+    const nextB = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Next district', disabled: page === pages - 1 }, SVG(IC.next, 22));
+    prev.addEventListener('click', () => { audio.button(); page--; showMap(); });
+    nextB.addEventListener('click', () => { audio.button(); page++; showMap(); });
+    const close = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Back to Fuzzies Land', title: 'Back to Fuzzies Land' }, SVG(IC.close, 22));
+    close.addEventListener('click', () => { audio.button(); quit(); });
+    const gear = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Music & sounds', title: 'Music & sounds' }, SVG(st.audio.mute ? IC.mute : IC.sound, 22));
+    gear.addEventListener('click', () => { audio.button(); openSettings(); });
+    const playN = Math.min(P.LEVELS, st.top);
+    const endlessCard = P.endlessOpen(st) && page === pages - 1 ? h('button', { class: 'pk-endless', type: 'button' }, SVG(IC.infinity, 28), h('b', null, 'Endless Parking'), h('small', null, `${st.endless.done} solved · +${P.REWARDS.endless} coins each`)) : null;
+    endlessCard?.addEventListener('click', () => { audio.button(); void startEndless(); });
+    mapEl.className = `pk-map theme-${page % 5}`;
+    mapEl.replaceChildren(
+      h('div', { class: 'pk-map-top' }, close, h('div', { class: 'pk-title' }, h('img', { src: driverUrl(0), alt: '' }), h('div', null, h('b', null, 'Parking Escape'), h('small', null, `${P.doneCount(st)} of ${P.LEVELS} levels · ${P.totalStars(st)} ★`))), h('div', { class: 'pk-chip pk-coins' }, landIcon('coin', 22), h('b', null, setup.coins().toLocaleString())), gear),
+      h('div', { class: 'pk-district' }, prev, h('div', null, h('b', null, districtName(first)), h('small', null, `Levels ${first}–${first + PAGE - 1} · ${pageStars}/${PAGE * 3} ★`)), nextB),
+      h('div', { class: 'pk-board' }, h('div', { class: 'pk-board-deco' }), road, ...nodes),
+      endlessCard ?? '',
+      h('div', { class: 'pk-map-bottom' }, big(st.top > P.LEVELS - 1 && P.starsOf(st, P.LEVELS) ? 'Endless Parking' : `Play level ${playN}`, 'primary', () => { if (P.starsOf(st, P.LEVELS) && st.top >= P.LEVELS) void startEndless(); else start(playN); }, 'pk-play')));
+    mapEl.hidden = false;
+    scene.clearHint();
+  }
+
+  // ---------- first-time tips ----------
+  function tutorial(): void {
+    if (!play || play.endless) return;
+    const n = play.n;
+    const tips: Record<number, string> = {
+      1: 'Drag your pink star car to the EXIT!',
+      2: 'Cars only drive forwards and backwards — along their own lane.',
+      3: 'Something in the way? Slide it out first.',
+      4: 'Stuck? Tap Hint. Slid the wrong one? Undo.',
+      6: 'Trucks and buses are three spaces long.',
+      13: 'A Special Challenge — trickier, with a bigger reward!',
+      30: 'Timed Escape — watch the clock up top!',
+    };
+    const t = tips[n]; if (!t) return;
+    tip.textContent = t; tip.hidden = false;
+    if (n <= 3) {
+      // a finger shows the first move of the solution
+      const sol = n === 1 ? [{ car: 0, to: OUT }] : null;
+      const show = (car: number, to: number) => {
+        const from = scene.screenOf(car); if (!from || !play) return;
+        const c = play.p.cars[car]; const span = c.dir === 'h' ? play.p.w : play.p.h;
+        const dest = scene.screenAt(scene.worldAt(car, to === OUT ? (c.exit === 1 ? span : -1) : to).setY(0.4));
+        hand.style.setProperty('--x0', `${from.x}px`); hand.style.setProperty('--y0', `${from.y}px`); hand.style.setProperty('--x1', `${dest.x}px`); hand.style.setProperty('--y1', `${dest.y}px`);
+        hand.hidden = false;
+      };
+      if (sol) setTimeout(() => show(0, OUT), 400);
+      else void solveAsync(play.p, play.s).then((s) => { if (s?.length) setTimeout(() => show(s[0].car, s[0].to), 300); });
+    }
+  }
+
+  // ---------- leaving ----------
+  let gone = false;
+  function quit(): void {
+    if (gone) return; gone = true;
+    hooks.save();
+    destroy();
+    hooks.exit();
+  }
+  function destroy(): void {
+    cancelAnimationFrame(timerRaf);
+    removeEventListener('keydown', onKey);
+    document.removeEventListener('visibilitychange', onVis);
+    audio.destroy(); scene.dispose(); unlock(); root.remove();
+  }
+  // straight to a level if asked (the town's "continue"), else the map
+  if (setup.startLevel && P.unlocked(st, setup.startLevel)) start(setup.startLevel); else showMap();
+  if (import.meta.env.DEV) (window as unknown as { __pk: unknown }).__pk = { get play() { return play; }, st, scene, audio, data, start, showMap, startEndless, commit, undo, restart, hint, quit, win: () => win(), solve: () => play && solveAsync(play.p, play.s) };
+  return () => { if (!gone) { gone = true; hooks.save(); destroy(); } };
+}

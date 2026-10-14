@@ -8,6 +8,8 @@ import * as L from '../../land/rules';
 import * as E from '../../land/events';
 import * as TR from '../../land/trophies';
 import * as A from '../../land/adventures';
+import * as PK from '../../land/parking/progress';
+import type { Payment } from '../../land/parking/game';
 import { conversation, dailyPill, adventuresBody, resultsScreen, scoreResults } from '../landAdventure';
 import { GAME_LOADERS } from '../../land/games/index';
 import { api, cloudEnabled } from '../../core/api';
@@ -44,6 +46,9 @@ export function landScreen(): Screen {
   E.decorateOrders(s, now()); // orders made during a holiday pay event tokens too
   A.serverIssuesSets(!!a.cloud && cloudEnabled); // cloud accounts get their next mission set from the server (10 min after the last mission)
   const oldTrophies = TR.syncTrophies(s); // a trophy for every mini-game already played (towns from before trophies too)
+  // Fuzzies Parking Escape: every town gets the parking lot (by the Town Hall, or in Storage when the land is full)
+  const lotNew = L.ensureParking(s, now());
+  if (lotNew) setTimeout(() => { save(); toast(lotNew === 'placed' ? '🚗 New in town: Parking Escape! Tap the parking lot (or the car button) to play.' : '🚗 Parking Escape is in your Storage — place it from Edit town, or tap the car button to play.', 'good', 6000); }, 3200);
   if (oldTrophies.length) setTimeout(() => { save(); toast(`🏆 ${oldTrophies.length === 1 ? 'A trophy' : `${oldTrophies.length} trophies`} for the mini-games you’ve played — place ${oldTrophies.length === 1 ? 'it' : 'them'} from Build → Decor`, 'good', 5000); }, 2500);
 
   const wrap = h('div', { class: 'land-stage' });
@@ -157,6 +162,7 @@ export function landScreen(): Screen {
     for (const k of Object.keys(s)) delete (s as unknown as Record<string, unknown>)[k];
     Object.assign(s, JSON.parse(JSON.stringify(remote)));
     TR.syncTrophies(s);
+    L.ensureParking(s, now());
     // a different copy of the town: the layout kept for "Cancel editing" no longer applies
     if (session) { session = null; persistSession(); undoStack.length = 0; redoStack.length = 0; sel.clear(); if (selMode) paintSel(); }
     view?.sync(s);
@@ -399,7 +405,7 @@ export function landScreen(): Screen {
       const sp = E.spare(s, it.id), own = E.owned(s, it.id);
       const card = h('button', { class: `land-card land-card-col ${sp ? '' : 'off'}`, type: 'button', title: sp ? `Place (${sp} to place)` : 'All copies are already on the map or in storage', 'data-item': it.id },
         h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), h('i', { class: 'land-store-n' }, `×${own}`)),
-        h('b', null, it.name), h('small', null, TR.isTrophy(it.id) ? `${TR.METAL_NAMES[TR.trophyMetal(it.id)]} trophy` : E.collectionOf(it.id)?.name ?? ''),
+        h('b', null, it.name), h('small', null, TR.isTrophy(it.id) ? `${TR.METAL_NAMES[TR.trophyMetal(it.id)]} trophy` : it.id === 'parkchamp' ? 'Parking Escape' : E.collectionOf(it.id)?.name ?? ''),
         h('span', { class: 'land-price owned' }, landIcon('festival', 16), sp ? `${sp} to place` : 'All placed'));
       card.addEventListener('click', () => { if (!sp) { toast('Every copy is already in your town — move one, or store it from Edit town.', 'info', 3500); return; } startPlacing(it.id); });
       return card;
@@ -692,6 +698,7 @@ export function landScreen(): Screen {
         return;
       }
     } catch (e) { toast((e as Error).message, 'info'); return; }
+    if (b.item === 'parking') { openParking(); return; }
     if (b.item === 'gate' && !panel) { openPanel({ kind: 'building', id }); return; }
     openPanel({ kind: 'building', id });
   }
@@ -1660,6 +1667,57 @@ export function landScreen(): Screen {
       });
     } else { save(); show(); }
   }
+  // ---------- Fuzzies Parking Escape (land/parking) — a permanent game, not one of the daily missions ----------
+  /** Open the parking game over the town; the town pauses underneath and comes back exactly as it was. */
+  function openParking(): void {
+    if (playing || !view) return;
+    playing = true;
+    endTalk(); openPanel(null);
+    s.parking = PK.migratePark(s.parking);
+    save();
+    retryParking();
+    const fail = (e: unknown) => { console.error(e); playing = false; view?.start(); toast('Parking Escape couldn’t load — please try again.', 'bad'); };
+    void import('../../land/parking/game').then(({ runParking }) => {
+      view?.stop(); music.stop();
+      return runParking(stage, { mobile: isTouch(), state: s.parking!, coins: () => s.coins, name: accounts.current?.name?.split(' ')[0] || 'You' }, {
+        save: () => save(),
+        pay: payParking,
+        exit: () => { renderHud(); backToTown(); },
+      });
+    }).catch(fail);
+  }
+  /** Parking rewards go into the town's coins, each once: cloud accounts ask the server first (offline → tried again later). */
+  async function payParking(list: { key: string; coins: number; why: string }[]): Promise<Payment[]> {
+    const p = (s.parking ??= PK.freshPark()), out: Payment[] = [];
+    const grant = (key: string) => { if (key === `F${PK.LEVELS}`) { s.owned ??= {}; s.owned.parkchamp = Math.max(1, s.owned.parkchamp ?? 0); } };
+    for (const r of list) {
+      if (p.paid.includes(r.key)) { out.push({ key: r.key, coins: 0, ok: false }); continue; }
+      if (isCloud()) {
+        try {
+          const res = await api<{ ok: boolean; coins: number }>('data', 'parking.claim', { key: r.key });
+          if (res.ok) s.coins += res.coins;
+          PK.settle(p, r.key); grant(r.key);
+          out.push({ key: r.key, coins: res.ok ? res.coins : 0, ok: res.ok });
+        } catch {
+          if (!p.pending.includes(r.key)) p.pending.push(r.key);
+          grant(r.key);
+          out.push({ key: r.key, coins: r.coins, ok: false, pending: true });
+        }
+      } else { s.coins += r.coins; PK.settle(p, r.key); grant(r.key); out.push({ key: r.key, coins: r.coins, ok: true }); }
+    }
+    save();
+    return out;
+  }
+  /** parking rewards earned while offline: ask again */
+  function retryParking(): void {
+    const p = s.parking; if (!p?.pending.length || !isCloud()) return;
+    for (const key of [...p.pending]) {
+      api<{ ok: boolean; coins: number }>('data', 'parking.claim', { key }).then((r) => {
+        if (r.ok) { s.coins += r.coins; toast(`+${r.coins} coins from Parking Escape — welcome back!`, 'fuzzy'); }
+        PK.settle(p, key); save(); renderHud();
+      }).catch(() => { /* still offline: next time */ });
+    }
+  }
   /** Rewards earned offline: ask the server again (once per town visit). */
   function retryPending(): void {
     const a = A.adventures(s, now());
@@ -1698,6 +1756,7 @@ export function landScreen(): Screen {
     if (x || y) tut.emit('pan');
   };
   function onKeyDown(e: KeyboardEvent): void {
+    if (playing) return; // a game is open on top of the town
     if (typing(e.target) || document.querySelector('.modal-backdrop, .gift-overlay')) return;
     const k = e.key.toLowerCase();
     // editing shortcuts (select mode)
@@ -1908,6 +1967,7 @@ export function landScreen(): Screen {
     musicBtn,
     round(landIcon('compass', 30), 'Adventures — today’s mission', () => (panel?.kind === 'adventures' ? openPanel(null) : openPanel({ kind: 'adventures' })), 'land-adv-btn'),
     round(landIcon('edit', 30), 'Edit town — move, store & rearrange', () => (selMode ? saveLayout() : enterSelect()), 'land-select'),
+    round(landIcon('car', 32), 'Parking Escape — the puzzle game', () => openParking(), 'land-park-btn'),
     round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
       round(landIcon('zoomIn', 20), 'Zoom in', () => { view?.zoom(0.8); tut.emit('zoom'); }),
@@ -1939,6 +1999,7 @@ export function landScreen(): Screen {
       applySeason();
       paintDaily();
       retryPending();
+      retryParking();
       void syncMissions();
       // the owner's 3D Fuzzy model: swapped in once it has loaded (off in Settings → Deluxe 3D Fuzzies)
       if (accounts.current?.settings.fuzzyLook !== 'classic') void import('../../game/fuzzyGlb').then((m) => m.loadFuzzyGlb()).then((g) => { if (g && alive && view) view.useDeluxe(true); });
@@ -1946,7 +2007,7 @@ export function landScreen(): Screen {
         const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
         if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
       } catch { /* first visit */ }
-      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), openShop: (tab: 'decor') => openPanel({ kind: 'shop', tab }), trophies: TR, adv: A, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, devSet, syncMissions, setStatus: () => A.setStatus(s, now()), talking: () => !!talk, playing: () => playing }; // for tests
+      if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), openShop: (tab: 'decor') => openPanel({ kind: 'shop', tab }), trophies: TR, adv: A, openParking, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, devSet, syncMissions, setStatus: () => A.setStatus(s, now()), talking: () => !!talk, playing: () => playing }; // for tests
       if (!a.settings.reduceMotion) view.swoopIn();
       setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in

@@ -43,6 +43,7 @@ export interface Placed {
 }
 
 import { migrateAdventures, type AdvState } from './adventures';
+import { migratePark, type ParkState } from './parking/progress';
 
 export interface Order { id: number; who: string; items: Record<string, number>; coins: number; xp: number; fuzzies: number; /** holiday orders (land/events.ts) */ event?: string; tokens?: number }
 
@@ -68,6 +69,8 @@ export interface LandState {
   events?: { tokens: Record<string, number>; progress: Record<string, Record<string, number>>; claimed: string[] };
   /** Fuzzies Adventures: today's mission results, plays, bests, pending rewards (land/adventures.ts). */
   adventures?: AdvState;
+  /** Fuzzies Parking Escape: levels, stars, bests, paid rewards, sound settings (land/parking/progress.ts). */
+  parking?: ParkState;
 }
 
 export const MAP = 30; // the whole island is MAP × MAP tiles; the buildable square grows with expansions
@@ -97,6 +100,7 @@ export const good = (id: string): Good => GOODS.find((g) => g.id === id)!;
 
 export const ITEMS: ItemDef[] = [
   { id: 'gate', name: 'Crossing Gate', kind: 'special', w: 2, d: 2, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🌀', blurb: 'Hop over to Fuzzy Crossing', max: () => 1, water: true },
+  { id: 'parking', name: 'Parking Escape', kind: 'special', w: 2, d: 2, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🚗', blurb: 'The puzzle parking lot — tap it to play', max: () => 1 },
   { id: 'hall', name: 'Town Hall', kind: 'special', w: 3, d: 3, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🏛️', blurb: 'The heart of Fuzzies Land', max: () => 1 },
   { id: 'cottage', name: 'Fuzzy Cottage', kind: 'house', w: 2, d: 2, cost: 40, currency: 'coins', level: 1, xp: 6, pop: 6, emoji: '🏠', blurb: '6 Fuzzies move in', build: 30 },
   { id: 'mushroom', name: 'Mushroom House', kind: 'house', w: 2, d: 2, cost: 140, currency: 'coins', level: 3, xp: 14, pop: 10, emoji: '🍄', blurb: '10 Fuzzies move in', build: 120 },
@@ -114,6 +118,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'lamp', name: 'Lamp Post', kind: 'decor', w: 1, d: 1, cost: 50, currency: 'coins', level: 3, xp: 3, emoji: '💡', blurb: 'Glows at night', sellable: true },
   { id: 'fountain', name: 'Fountain', kind: 'decor', w: 2, d: 2, cost: 300, currency: 'coins', level: 4, xp: 20, emoji: '⛲', blurb: 'Splishy splashy', sellable: true, build: 90, water: true },
   { id: 'statue', name: 'Golden Fuzzy', kind: 'decor', w: 1, d: 1, cost: 25, currency: 'fuzzies', level: 2, xp: 30, emoji: '🏆', blurb: 'A shiny statue — paid in Fuzzies', sellable: false },
+  { id: 'parkchamp', name: 'Golden Parking Trophy', kind: 'decor', w: 1, d: 1, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🏆', blurb: 'For clearing all 500 Parking Escape levels', sellable: false, collectible: 'parking' },
   { id: 'rainbow', name: 'Rainbow Arch', kind: 'decor', w: 2, d: 1, cost: 40, currency: 'fuzzies', level: 4, xp: 50, emoji: '🌈', blurb: 'Magical — paid in Fuzzies', sellable: false },
 ];
 export const item = (id: string): ItemDef => ITEMS.find((i) => i.id === id)!;
@@ -381,7 +386,7 @@ export const storeCat = (itemId: string): StoreCat => {
 };
 export const storage = (s: LandState): Placed[] => (s.storage ??= []);
 /** Why this piece can't go into storage ('' = it can). */
-export const cantStore = (p: Placed): string => (item(p.item).kind === 'special' ? `The ${item(p.item).name} stays where it is.` : '');
+export const cantStore = (p: Placed): string => (item(p.item).kind === 'special' && p.item !== 'parking' ? `The ${item(p.item).name} stays where it is.` : '');
 
 /** Lift pieces off the map into storage. Pieces that can't be stored stay put and are listed in `kept`. */
 export function store(s: LandState, ids: number[]): { stored: Placed[]; kept: { id: number; why: string }[] } {
@@ -584,9 +589,24 @@ export function migrateLand(s: Partial<LandState> | undefined): LandState {
   const fix = (b: Placed) => ({ ...b, rot: ((b.rot ?? 0) & 3) as Rot });
   const out = { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn }, buildings: s.buildings.map(fix), storage: Array.isArray(s.storage) ? s.storage.map(fix) : [],
     owned: { ...(s.owned ?? {}) }, events: { tokens: { ...(s.events?.tokens ?? {}) }, progress: { ...(s.events?.progress ?? {}) }, claimed: [...(s.events?.claimed ?? [])] },
-    adventures: s.adventures ? migrateAdventures(s.adventures) : undefined } as LandState;
+    adventures: s.adventures ? migrateAdventures(s.adventures) : undefined, parking: s.parking ? migratePark(s.parking) : undefined } as LandState;
   if (!s.layout) { out.layout = undefined; tidyOldStarter(out); out.layout = 2; }
   return out;
+}
+
+/**
+ * Every town gets the Parking Escape lot once: placed on the nearest free spot by the Town Hall (free, no construction), or put in
+ * Storage when the land is full. Returns what happened (null = it was already there, on the map or in storage).
+ */
+export function ensureParking(s: LandState, now = Date.now()): 'placed' | 'stored' | null {
+  if (count(s, 'parking') > 0) return null;
+  const hall = s.buildings.find((b) => b.item === 'hall');
+  const b = bounds(s);
+  const from = hall ? { x: hall.x + 4, z: hall.z + 1 } : { x: b.x0 + 2, z: b.z0 + 2 };
+  const spot = canPlace(s, 'parking', from.x, from.z, 0) ? from : nearestFree(s, 'parking', from.x, from.z, 0);
+  const piece: Placed = { id: s.nextId++, item: 'parking', x: spot?.x ?? 0, z: spot?.z ?? 0, rot: 0, builtAt: now };
+  if (spot) { s.buildings.push(piece); return 'placed'; }
+  (s.storage ??= []).push(piece); return 'stored';
 }
 
 // ---------- coming back ----------
