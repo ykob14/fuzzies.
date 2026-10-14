@@ -29,7 +29,10 @@ ok(L.length === 500, `500 levels (${L.length})`);
 const band = (a: number, b: number) => L.slice(a - 1, b).filter((l) => l.t !== 's').reduce((s, l) => s + l.o, 0) / L.slice(a - 1, b).filter((l) => l.t !== 's').length;
 const bands = [[1, 20], [21, 75], [76, 150], [151, 250], [251, 350], [351, 450], [451, 500]].map(([a, b]) => band(a, b));
 ok(bands.every((v, i) => i === 0 || v > bands[i - 1]), `difficulty climbs band by band: ${bands.map((v) => v.toFixed(1)).join(' → ')}`);
-ok(L[0].o === 1 && L.slice(0, 12).every((l) => l.t === 'n') && L.slice(0, 29).every((l) => l.t === 'n' || l.t === 's'), 'level 1 is one move; no specials before 13, no timers / limits / double escapes before 30');
+ok(L[0].o >= 2 && L[0].o <= 4 && L.slice(0, 12).every((l) => l.t === 'n') && L.slice(0, 29).every((l) => l.t === 'n' || l.t === 's'), 'level 1 is a short warm-up (2–4 moves); no specials before 13, no timers / limits / double escapes before 30');
+// the opening ramp (ramp.ts): real thinking from the start, climbing without a dip into levels 101+
+const avgO = (a: number, b: number) => { const xs = L.slice(a - 1, b).filter((l) => l.t !== 's'); return xs.reduce((s2, l) => s2 + l.o, 0) / xs.length; };
+ok(avgO(1, 10) >= 5 && avgO(11, 20) >= 8 && avgO(21, 50) >= 10 && avgO(51, 100) >= 12.5 && avgO(51, 100) <= avgO(101, 150), `opening ramp: 1–10 ${avgO(1, 10).toFixed(1)}, 11–20 ${avgO(11, 20).toFixed(1)}, 21–50 ${avgO(21, 50).toFixed(1)}, 51–100 ${avgO(51, 100).toFixed(1)}, 101–150 ${avgO(101, 150).toFixed(1)}`);
 const counts = L.reduce((m, l) => ({ ...m, [l.t]: (m[l.t] ?? 0) + 1 }), {} as Record<string, number>);
 ok(counts.n > 350, `most levels are plain (no timer): ${JSON.stringify(counts)}`);
 ok(L.slice(250).some((l) => l.b.includes('#')) && L.slice(0, 250).every((l) => !l.b.includes('#')), 'bollards from level 251');

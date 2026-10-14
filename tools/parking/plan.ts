@@ -6,6 +6,7 @@
  *   251–350 advanced with bollards (22→32) · 351–450 expert (29→38) · 451–500 master (36→46)
  * Types: timed every 15 from 30, limited moves every 15 from 40, double escape every 20 from 60, a special challenge at x13 of
  * every 25 and a milestone at every 25th (both a little harder than their neighbours). Everything else has no timer.
+ * NOTE: levels 1–100 in levels.json no longer come from this plan — ramp.ts replaces them with a steeper opening (3 → 14 moves).
  */
 import type { Spec } from './.lib/generator.ts';
 import { typeOf, type LType } from './.lib/progress.ts';

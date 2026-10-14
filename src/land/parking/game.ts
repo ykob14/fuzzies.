@@ -763,7 +763,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     if (!play || play.mode !== 'journey') return;
     const n = play.n;
     const tips: Record<number, string> = {
-      1: 'Drag your pink star car to the EXIT!',
+      1: 'Get your pink star car to the EXIT — slide the cars in its way first!',
       2: 'Cars only drive forwards and backwards — along their own lane.',
       3: 'Something in the way? Slide it out first.',
       4: 'Stuck? Tap Hint. Slid the wrong one? Undo.',
@@ -775,7 +775,6 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     tip.textContent = t; tip.hidden = false;
     if (n <= 3) {
       // a finger shows the first move of the solution
-      const sol = n === 1 ? [{ car: 0, to: OUT }] : null;
       const show = (car: number, to: number) => {
         const from = scene.screenOf(car); if (!from || !play) return;
         const c = play.p.cars[car]; const span = c.dir === 'h' ? play.p.w : play.p.h;
@@ -783,8 +782,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
         hand.style.setProperty('--x0', `${from.x}px`); hand.style.setProperty('--y0', `${from.y}px`); hand.style.setProperty('--x1', `${dest.x}px`); hand.style.setProperty('--y1', `${dest.y}px`);
         hand.hidden = false;
       };
-      if (sol) setTimeout(() => show(0, OUT), 400);
-      else void solveAsync(play.p, play.s).then((s) => { if (s?.length) setTimeout(() => show(s[0].car, s[0].to), 300); });
+      void solveAsync(play.p, play.s).then((s) => { if (s?.length) setTimeout(() => show(s[0].car, s[0].to), 300); });
     }
   }
 
