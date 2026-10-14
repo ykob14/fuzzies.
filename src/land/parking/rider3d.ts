@@ -88,16 +88,17 @@ function lidGeometry(geo: THREE.BufferGeometry): THREE.BufferGeometry {
 }
 
 // ---------- colour: the fur is recoloured to the Fuzzy's own colour from the owner's sheet, keeping the texture's light and shade ----------
-interface Tint { col: THREE.Color; rainbow: number; key: number }
+interface Tint { col: THREE.Color; rainbow: number; key: number; keep: number }
 /** sRGB luma of the model's average pink fur: brighter texels than this get brighter, darker ones darker */
 const FUR_LUMA = 0.5;
 function tintOf(n: number): Tint {
   const k = ((n % DRIVER_COLORS.length) + DRIVER_COLORS.length) % DRIVER_COLORS.length;
   const c = new THREE.Color(); c.setStyle(DRIVER_COLORS[k], THREE.NoColorSpace); // keep the sRGB numbers: the shader works in sRGB
-  return { col: c, rainbow: k === 14 ? 1 : 0, key: k };
+  // the pink Fuzzy IS the model's own colour: it keeps its texture exactly as painted (no recolouring at all)
+  return { col: c, rainbow: k === 14 ? 1 : 0, key: k, keep: k === 0 ? 1 : 0 };
 }
 const GLSL_TINT = /* glsl */`
-uniform vec3 uCol; uniform float uRainbow;
+uniform vec3 uCol; uniform float uRainbow; uniform float uKeep;
 varying vec3 vModel;
 vec3 fzHue(float h) { return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
 /** the fur's own light and shade, in this Fuzzy's colour (all sRGB) */
@@ -116,9 +117,9 @@ function bodyMaterial(n: number): THREE.MeshStandardMaterial {
   const t = tintOf(n), key = t.key;
   let m = bodyMats.get(key);
   if (m) return m;
-  m = new THREE.MeshStandardMaterial({ map: src!.map, roughness: 0.9, metalness: 0 });
+  m = new THREE.MeshStandardMaterial({ map: src!.map, roughness: 0.85, metalness: 0 }); // the GLB's own fur material values
   m.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uCol: { value: t.col }, uRainbow: { value: t.rainbow } });
+    Object.assign(sh.uniforms, { uCol: { value: t.col }, uRainbow: { value: t.rainbow }, uKeep: { value: t.keep } });
     sh.vertexShader = 'varying vec3 vModel;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvModel = position;');
     sh.fragmentShader = GLSL_TINT + sh.fragmentShader
       .replace('#include <map_fragment>', /* glsl */`
@@ -128,7 +129,7 @@ function bodyMaterial(n: number): THREE.MeshStandardMaterial {
         float fzFur = smoothstep(0.1, 0.28, (fzMax - fzMin) / max(fzMax, 0.001)) * smoothstep(0.12, 0.3, fzMax);
         vec2 fzM = (vModel.xy - vec2(${MOUTH.x}, ${MOUTH.y})) / vec2(${MOUTH.hx}, ${MOUTH.hy});
         fzFur *= smoothstep(0.85, 1.1, length(fzM)) + step(vModel.z, 0.12);
-        fzFur = clamp(fzFur, 0.0, 1.0);
+        fzFur = clamp(fzFur, 0.0, 1.0) * (1.0 - uKeep);
         vec3 fzT = fzTint(fzS, vModel);
         diffuseColor *= vec4(${toLin('mix(fzS, fzT, fzFur)')}, fzTex.a);
       `)
@@ -145,7 +146,7 @@ const LID_PINK = '#ec6a9a';
 function lidMaterial(n: number): THREE.MeshStandardMaterial {
   const t = tintOf(n);
   const m = new THREE.MeshStandardMaterial({ color: LID_PINK, roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const u = { uCol: { value: t.col }, uRainbow: { value: t.rainbow }, uBlink: { value: 0 }, uHappy: { value: 0 }, uWorry: { value: 0 } };
+  const u = { uCol: { value: t.col }, uRainbow: { value: t.rainbow }, uKeep: { value: t.keep }, uBlink: { value: 0 }, uHappy: { value: 0 }, uWorry: { value: 0 } };
   m.userData.u = u;
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);

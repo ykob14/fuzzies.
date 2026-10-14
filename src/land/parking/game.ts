@@ -72,9 +72,9 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   const audio = new ParkAudio(st.audio, st.plays % 3);
   const host = h('div', { class: 'pk-stage' }); root.append(host);
   const scene = new ParkScene(host, { mobile: setup.mobile });
-  // the 3D drivers (0.3–0.4 MB; phones get the lighter copy) load while the map shows; a lot built before they arrive keeps its flat
-  // pictures until then and swaps them in place
-  if (riders3d()) void loadRiders(setup.mobile ? 'fuzzy-rider.m.glb' : 'fuzzy-rider.glb').then((ok) => { if (ok) scene.upgradeRiders(); });
+  // the 3D drivers (0.4 MB) load while the map shows; a lot built before they arrive keeps its flat pictures until then and swaps them in
+  // place. Phones use the same copy as computers: a lighter one (a quarter of the triangles) bent the eyes — the character comes first
+  if (riders3d()) void loadRiders('fuzzy-rider.glb').then((ok) => { if (ok) scene.upgradeRiders(); });
   scene.onView = (zoomed) => { viewBtn.hidden = !zoomed; if (zoomed) hand.hidden = true; };
   scene.onIdle = (i) => { if (play && !play.done && !drag) audio.voice(scene.voiceOf(i), Math.random() < 0.3 ? 'giggle' : 'coo'); };
   audio.music(true);
