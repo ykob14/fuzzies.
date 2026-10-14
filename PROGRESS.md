@@ -875,6 +875,7 @@ and chose a single consistent brand colour instead (see §3).
 
 ## 9. Next up (ideas the owner hasn't prioritised yet)
 
+0. **Parking Escape opening ramp — on the branch (`6bcddfd`), preview https://fuzzies-j16ud4eab-silver-swan-special.vercel.app; owner (and their play-tester) try levels 1–20, then OK `main`.**
 0. **Parking Escape — Phases A and B live; next Phase C** (daily lot that never punishes missed days — no streak loss, missed days simply wait; a weekly challenge; collectibles; privacy-safe level analytics with an owner report — counts only, no personal data), then **Phase D** (strategy-based difficulty without moving level ids or saved progress, polish, lighting, frame-rate check). Ask the owner before each goes to `main`.
 0. **Parking Escape v2 — next:** the owner plays it on the iPhone (are the Fuzzies clearly sitting in the cars? Relaxed by default OK? Challenge too hard?) and OKs `main`; possible: more 8×8 lots (mine longer), holiday-specific lot looks, a daily lot.
 0. **Parking Escape — live; next:** the owner plays it on a real phone (drag feel, difficulty curve, music); then possible: daily parking challenge, leaderboards, more vehicle types, seasonal lot themes, a 3D attendant who greets you.
