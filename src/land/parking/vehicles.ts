@@ -166,7 +166,14 @@ function wheel(r: number, w: number): THREE.Group {
  * 3D riders (the owner's model) when it has loaded; the flat pictures otherwise (or when switched off).
  * OFF until the owner approves the look (Phase A): a developer switch, localStorage `fz.pk.riders3d` = '1', turns them on.
  */
-let use3d = (() => { try { return localStorage.getItem('fz.pk.riders3d') === '1'; } catch { return false; } })();
+let use3d = (() => {
+  try {
+    // a link with ?riders3d=1 (or =0) switches them on (off) on this device and remembers it — so the owner can try them on a phone
+    const q = new URLSearchParams(location.search).get('riders3d');
+    if (q === '1' || q === '0') localStorage.setItem('fz.pk.riders3d', q);
+    return localStorage.getItem('fz.pk.riders3d') === '1';
+  } catch { return false; }
+})();
 export const riders3d = (): boolean => use3d;
 export const setRiders3d = (on: boolean): void => { use3d = on; };
 /** the 3D Fuzzy is this much of the picture's size (the picture has a margin round the fur) */
