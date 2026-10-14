@@ -14,7 +14,7 @@ import { BalloonSim, TOP, SQUARE, type Balloon } from './balloon';
 const PALETTE = ['#ff5c8a', '#ffc94a', '#4fa3ff', '#6fd36a', '#ff8c42'];
 
 /** where the town rivals stand at the front of the square (computer, portrait phone) */
-const RIVAL_SPOTS = [[{ x: 0.3, z: 4.5 }, { x: -1.7, z: 4.2 }, { x: -3.7, z: 4.5 }], [{ x: 0.5, z: 4.6 }, { x: -1.3, z: 4.3 }, { x: -2.9, z: 4.6 }]];
+const RIVAL_SPOTS = [[{ x: 0.2, z: 2.9 }, { x: -2.0, z: 2.6 }, { x: -4.1, z: 2.9 }], [{ x: 0.9, z: 2.6 }, { x: -0.8, z: 2.3 }, { x: -2.4, z: 2.6 }]];
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
   const adv = adventure('balloon')!;

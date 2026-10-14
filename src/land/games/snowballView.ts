@@ -13,7 +13,7 @@ import { paint as shade } from './orchardArt';
 import { SnowballSim, YARD, YOU, type Target, type Ball } from './snowball';
 
 /** where the town rivals stand at the fence beside you */
-const RIVAL_SPOTS = [{ x: -0.9, z: 0.5 }, { x: 1.9, z: 0.5 }, { x: -2.3, z: 0.65 }];
+const RIVAL_SPOTS = [[{ x: -3.0, z: -1.6 }, { x: 3.0, z: -1.6 }, { x: -4.0, z: -2.7 }], [{ x: -1.4, z: -2.2 }, { x: 1.4, z: -2.2 }, { x: -1.9, z: -3.3 }]];
 /** a click / tap this close (px) to a target's board or its foot throws at that target (leading a sliding one) */
 const AIM_SLOP = 70;
 
@@ -24,7 +24,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const a = createArcade(stage, {
     cls: 'snowball', setup, adv, hooks, buttonLabel: 'Throw!',
     rivals: { you: sim, make: () => new SnowballSim(setup.variant, setup.seed), bot: BOTS.snowball,
-      pose: (_r: SnowballSim, i: number) => ({ ...RIVAL_SPOTS[i], heading: Math.PI, moving: 0 }) },
+      pose: (_r: SnowballSim, i: number) => ({ ...RIVAL_SPOTS[portrait ? 1 : 0][i], heading: Math.PI, moving: 0 }) },
     hud: { count: 'HITS' },
     camera: portrait ? { fov: 62, back: 5.5, up: 4.2, lookDy: -10, lookY: 0.6, lead: 0 } : { fov: 50, back: 5, up: 3.4, lookDy: -10, lookY: 0.8, lead: 0 },
     world: { size: { hw: 11, hd: 17 }, ground: ['#f4f7fb', '#e6edf5'], path: false, fence: false, flowers: 0, sky: 'snow', fog: ['#e4edf5', 24, 60] },
@@ -117,7 +117,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   }, (dt) => {
     // the town rivals' snowballs, thrown from their spots at the fence (each plays its own copy of the yard)
     a.rivals?.rivals.forEach((r, i) => {
-      const from = RIVAL_SPOTS[i];
+      const from = RIVAL_SPOTS[portrait ? 1 : 0][i];
       for (const b of (r.sim as unknown as SnowballSim).balls) {
         const key = `${i}:${b.id}`; let m = rivalBalls.get(key);
         if (b.state === 'landed') { if (m) { scene.remove(m); rivalBalls.delete(key); a.puff(new THREE.Vector3(b.to.x, 0.2, b.to.z), 3, '#ffffff'); } continue; }
