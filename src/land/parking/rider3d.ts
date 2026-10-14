@@ -4,8 +4,8 @@
  *  - its colour set in the shader: only the fur (and the irises, like the owner's sheet) changes hue; the eye whites, pupils, mouth
  *    and tongue keep their own colours, so a green Fuzzy still has a pink tongue. One texture for every colour (no per-colour copies
  *    on the phone's graphics memory). The rainbow Fuzzy's hue turns round its body.
- *  - eyelids: a thin copy of the model's own surface over each eye, in the fur colour, cut by the shader — `blink` closes them from
- *    the top with a soft lash line, `happy` pushes the lower lids up into ^ ^ eyes, `worry` tilts the top lids down at the outside.
+ *  - eyelids: a thin copy of the model's own surface over each eye, in the fur colour, cut by the shader — `blink` closes them with a
+ *    soft lash line. (The shader can also do ^ ^ and worried eyes; the owner chose the blink only, so the game never asks for them.)
  *  - a soft rim of light on the fur's edge so the ball reads against dark car seats.
  * The model faces +z and stands on y = 0 (centred in x / z).
  */

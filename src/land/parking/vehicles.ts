@@ -164,15 +164,15 @@ function wheel(r: number, w: number): THREE.Group {
 
 /**
  * 3D riders (the owner's model) when it has loaded; the flat pictures otherwise (or when switched off).
- * OFF until the owner approves the look (Phase A): a developer switch, localStorage `fz.pk.riders3d` = '1', turns them on.
+ * ON (owner approved, 2026-10-14: "Use 3D, keep the blink"); a link with ?riders3d=0 turns them off on that device (=1 back on).
  */
 let use3d = (() => {
   try {
     // a link with ?riders3d=1 (or =0) switches them on (off) on this device and remembers it — so the owner can try them on a phone
     const q = new URLSearchParams(location.search).get('riders3d');
     if (q === '1' || q === '0') localStorage.setItem('fz.pk.riders3d', q);
-    return localStorage.getItem('fz.pk.riders3d') === '1';
-  } catch { return false; }
+    return localStorage.getItem('fz.pk.riders3d') !== '0';
+  } catch { return true; }
 })();
 export const riders3d = (): boolean => use3d;
 export const setRiders3d = (on: boolean): void => { use3d = on; };
