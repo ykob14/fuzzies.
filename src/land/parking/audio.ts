@@ -230,8 +230,10 @@ export class ParkAudio {
    * A Fuzzy says something: each of the 15 Fuzzies has its own pitch. hi = "eep?" (picked up), go = "wee!" (a slide), oops = "uh-oh"
    * (blocked), yay = "wheee!" + a giggle (escaped), giggle = "hee-hee-hee", coo = a soft little hum.
    */
+  /** the player's "Fuzzy voices" setting */
+  voicesOn = true;
   voice(id: number, kind: 'hi' | 'go' | 'oops' | 'yay' | 'giggle' | 'coo', delay = 0): void {
-    if (!this.ok()) return;
+    if (!this.ok() || !this.voicesOn) return;
     const now = this.ac!.currentTime;
     if (kind !== 'yay' && kind !== 'giggle' && now - this.lastVoice < 0.12 && !delay) return; // never a babble
     this.lastVoice = now;

@@ -34,6 +34,9 @@ export class ParkScene {
   private scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
   private tmpV = new THREE.Vector3();
+  /** the player's settings: a steeper, nearly top-down camera; calm motion (no confetti / fireworks / camera glides, gentler bounces) */
+  topView = false;
+  calm = false;
   private sun: THREE.DirectionalLight;
   private hemi: THREE.HemisphereLight;
   private lot = new THREE.Group();
@@ -335,6 +338,7 @@ export class ParkScene {
   }
   /** confetti */
   burst(at: THREE.Vector3, n = 40, colors = ['#ff6b9a', '#ffd34a', '#3fd2c3', '#7cc84a', '#ffffff', '#5b9cff']): void {
+    if (this.calm) return;
     const geo = confettiGeo();
     for (let k = 0; k < n; k++) {
       const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colors[k % colors.length], side: THREE.DoubleSide, transparent: true }));
@@ -345,7 +349,7 @@ export class ParkScene {
   }
   /** fireworks over the lot (level won; bigger for milestones) */
   fireworks(n = 3): void {
-    const p = this.p; if (!p) return;
+    const p = this.p; if (!p || this.calm) return;
     for (let k = 0; k < n; k++) setTimeout(() => { const at = new THREE.Vector3((Math.random() - 0.5) * p.w, 2.6 + Math.random() * 1.4, -p.h / 2 + Math.random() * 1.5); this.burst(at, 34, [['#ffd34a', '#fff3b0'], ['#ff6b9a', '#ffd1e0'], ['#3fd2c3', '#c9fff7'], ['#7cc84a', '#e3ffd0']][k % 4]); }, k * 380);
   }
 
@@ -420,7 +424,7 @@ export class ParkScene {
     // measure without the last frame's shift (it is set again at the end — otherwise every second fit undoes the one before)
     this.camera.clearViewOffset();
     this.camera.fov = portrait ? 34 : 30; this.camera.zoom = 1; this.camera.updateProjectionMatrix(); // measure unzoomed (applyView puts the player's zoom back)
-    const tiltDeg = portrait ? 61 : 54, tilt = THREE.MathUtils.degToRad(tiltDeg);
+    const tiltDeg = this.topView ? (portrait ? 80 : 76) : portrait ? 61 : 54, tilt = THREE.MathUtils.degToRad(tiltDeg);
     const hasExit = (sd: string) => this.barriers.some((b) => b.side === sd);
     // the whole marked exit stays on screen: barrier, sign, chevrons and the painted EXIT
     // the space that's scarce gets less road: a side exit on a portrait phone shows its barrier, sign and first chevrons (the lot stays big);
@@ -495,7 +499,7 @@ export class ParkScene {
   }
   /** glide back to the whole lot (instant = no glide, e.g. a new level) */
   resetView(instant = false): void {
-    if (instant) { this.viewGoal = null; this.view = { zoom: 1, x: 0, z: 0 }; this.applyView(); this.onView?.(false); return; }
+    if (instant || this.calm) { this.viewGoal = null; this.view = { zoom: 1, x: 0, z: 0 }; this.applyView(); this.onView?.(false); return; }
     this.viewGoal = { zoom: 1, x: 0, z: 0 };
   }
   /** glide in on a spot (double-tap): 2× about it */
@@ -504,6 +508,7 @@ export class ParkScene {
     const zoom = 2;
     const k = 1 - 1 / zoom;
     this.viewGoal = { zoom, x: Math.max(-b.hw * k, Math.min(b.hw * k, g.x - b.cx)), z: Math.max(-b.hh * k, Math.min(b.hh * k, g.z - b.cz)) };
+    if (this.calm) { this.view = { ...this.viewGoal }; this.viewGoal = null; this.applyView(); this.onView?.(this.zoomed); }
   }
   private glideView(dt: number): void {
     const g = this.viewGoal; if (!g) return;
@@ -552,7 +557,7 @@ export class ParkScene {
       // drivers: breathe, bob, blink-squash now and then, hop and spin when happy, lean back when the car shoots off
       for (const d of c.m.drivers) {
         const ph = d.phase + this.t;
-        const hopY = Math.sin(Math.min(1, c.hop) * Math.PI) * 0.18;
+        const hopY = Math.sin(Math.min(1, c.hop) * Math.PI) * (this.calm ? 0.05 : 0.18);
         const breathe = 1 + Math.sin(ph * 2.2) * 0.025;
         if (d.rider) { this.animRider(c, d, dt, ph, hopY, breathe); continue; }
         const sprite = d.sprite!;
@@ -572,7 +577,7 @@ export class ParkScene {
       if (c.emote) { c.emoteT -= dt; const s = c.emote; const a = Math.min(1, c.emoteT * 3); (s.material as THREE.SpriteMaterial).opacity = a; s.position.y += dt * 0.12; const sc = 0.38 * (1 + Math.max(0, 0.25 - (1.3 - c.emoteT)) * 2); s.scale.set(sc, sc, 1); if (c.emoteT <= 0) { c.m.body.remove(s); c.emote = null; } }
     }
     // idle life: now and then a Fuzzy hums or waves
-    if (Math.random() < dt * 0.35 && this.cars.length) { const k = Math.floor(Math.random() * this.cars.length); const c = this.cars[k]; if (!c.gone && !c.drag && !c.emote && !c.leaving) { c.hop = 0.7; if (Math.random() < 0.5) { this.emote(k, 'note', 1.1); this.onIdle?.(k); } } }
+    if (Math.random() < dt * 0.35 && this.cars.length) { const k = Math.floor(Math.random() * this.cars.length); const c = this.cars[k]; if (!c.gone && !c.drag && !c.emote && !c.leaving) { if (!this.calm) c.hop = 0.7; if (Math.random() < 0.5) { this.emote(k, 'note', 1.1); this.onIdle?.(k); } } }
     // selection ring follows its car
     if (this.sel >= 0 && this.cars[this.sel] && !this.cars[this.sel].gone) { const w = this.worldOf(this.cars[this.sel], this.cars[this.sel].pos); this.selRing.position.set(w.x, 0.02, w.z); (this.selRing.material as THREE.MeshBasicMaterial).opacity = 0.75 + Math.sin(this.t * 6) * 0.2; } else this.selRing.visible = false;
     for (const b of this.barriers) if (b.open > 0) { b.open = Math.min(1, b.open + dt * 2.5); b.arm.rotation.x = -b.open * 1.35; }

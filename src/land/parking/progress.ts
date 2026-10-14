@@ -91,10 +91,16 @@ export interface ParkState {
   paints: string[];
   /** holiday puzzles solved, per event key (`halloween-2026`: how many) */
   season: Record<string, number>;
+  /**
+   * the player's settings: camera angle (standard 3/4 view or a steeper top-down one), calm motion (no confetti / fireworks / glides,
+   * gentler bounces — also on when the app's Reduce motion is), the drivers' little voices, and flat pictures instead of the 3D drivers
+   * (for older phones)
+   */
+  prefs: { camera: 'standard' | 'top'; calm: boolean; voices: boolean; flat: boolean };
 }
 export function freshPark(): ParkState {
   return { v: 1, cur: 1, top: 1, stars: '0'.repeat(LEVELS), best: new Array(LEVELS).fill(0), time: new Array(LEVELS).fill(0), paid: [], pending: [], audio: { music: 0.55, sfx: 0.8, mute: false }, endless: { n: 1, done: 0 }, champ: false, plays: 0,
-    relaxed: true, ch: { top: 1, stars: '0'.repeat(LADDER) }, tm: { top: 1, stars: '0'.repeat(LADDER) }, garage: { style: 0, driver: 0, paint: '' }, paints: [], season: {} };
+    relaxed: true, ch: { top: 1, stars: '0'.repeat(LADDER) }, tm: { top: 1, stars: '0'.repeat(LADDER) }, garage: { style: 0, driver: 0, paint: '' }, paints: [], season: {}, prefs: { camera: 'standard', calm: false, voices: true, flat: false } };
 }
 export function migratePark(p: Partial<ParkState> | undefined): ParkState {
   const f = freshPark();
@@ -114,6 +120,7 @@ export function migratePark(p: Partial<ParkState> | undefined): ParkState {
     garage: { style: int(p.garage?.style, 0, 5), driver: int(p.garage?.driver, 0, 14), paint: typeof p.garage?.paint === 'string' && /^[a-z-]{0,24}\d{0,4}$/.test(p.garage.paint) ? p.garage.paint : '' },
     paints: Array.isArray(p.paints) ? [...new Set(p.paints.filter((x) => typeof x === 'string' && /^[a-z-]{1,24}\d{4}$/.test(x)))].slice(0, 200) : [],
     season: p.season && typeof p.season === 'object' ? Object.fromEntries(Object.entries(p.season).filter(([k, v]) => /^[a-z-]{1,24}\d{4}$/.test(k) && Number.isFinite(v)).slice(0, 200).map(([k, v]) => [k, int(v, 0, SEASON_SET)])) : {},
+    prefs: { camera: p.prefs?.camera === 'top' ? 'top' : 'standard', calm: p.prefs?.calm === true, voices: p.prefs?.voices !== false, flat: p.prefs?.flat === true },
   };
 }
 const int = (v: unknown, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(Number(v) || 0)));

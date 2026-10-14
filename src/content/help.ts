@@ -157,7 +157,7 @@ overlap. Seasonal effects can be switched off in Settings.`,
   },
   {
     id: 'parking', title: 'Fuzzies Parking Escape (the parking puzzle game)', screens: ['land'],
-    keywords: ['parking', 'parking escape', 'park', 'car', 'cars', 'puzzle', 'rush hour', 'parking jam', 'traffic', 'truck', 'bus', 'exit', 'levels', '500', 'stars', 'hint', 'undo', 'endless', 'timed', 'moves', 'double escape', 'milestone', 'parking lot', 'attendant', 'zoom', 'pinch', 'camera'],
+    keywords: ['parking', 'parking escape', 'park', 'car', 'cars', 'puzzle', 'rush hour', 'parking jam', 'traffic', 'truck', 'bus', 'exit', 'levels', '500', 'stars', 'hint', 'undo', 'endless', 'timed', 'moves', 'double escape', 'milestone', 'parking lot', 'attendant', 'zoom', 'pinch', 'camera', 'settings', 'garage', '360', 'calm', 'motion', 'voices'],
     body: `Fuzzies Parking Escape is a puzzle game inside Fuzzies Land (always there — not a daily mission). Every town has a parking lot
 with a Fuzzy attendant (it was placed by the Town Hall; if the land was full it waits in Storage — place it from Edit town). Tap the lot,
 or the car button on the right side of the town, to play. The goal: get the pink star car out through the EXIT. Drag any vehicle with your
@@ -166,8 +166,11 @@ drive forwards and backwards along their lane and can't pass each other or the b
 Zoom: pinch with two fingers (or the mouse wheel) and slide with two fingers, or one finger on open ground; double-tap open ground to
 zoom in there or back out; the square button in the bottom-left corner (or the 0 key) shows the whole lot again. A finger on a car always
 moves the car.
-Buttons: Undo, Hint (shows the next good move; a level solved with a hint gets up to 2 stars) and Restart; Pause has Music & sounds
-(separate music and sound-effect volumes, Mute everything — saved with your progress). 500 levels in 20 districts of 25, getting harder
+Buttons: Undo, Hint (shows the next good move; a level solved with a hint gets up to 2 stars) and Restart. Settings (the gear on the
+map, or Pause → Settings): music and sound-effect volumes, Fuzzy voices, Mute everything, the camera angle (Standard or From above),
+Calm motion (no confetti or fireworks, gentler bounces — on by itself when the app's Reduce motion is), 3D Fuzzies (turn off for flat
+pictures if an older phone feels slow) and Relaxed — all saved with your progress. The Garage shows your star car and driver in 360°:
+drag to turn it all the way round, up or down to look from higher or lower, double-tap to put it back. 500 levels in 20 districts of 25, getting harder
 (levels 1–20 teach the basics, 451–500 are master puzzles). Most levels have no timer. Special levels: Timed Escape (a clock), Limited
 Moves, Double Escape (two star cars, two exits), Special Challenges and a Milestone every 25 levels. Stars: solve in close to the fewest
 possible moves for 3 stars (timed levels also need time to spare); replay any level to improve. COINS go into your town coins, once per

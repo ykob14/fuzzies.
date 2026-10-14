@@ -14,8 +14,9 @@ import { ParkScene, districtName } from './scene';
 import { ENVS, envIndexOf, holidayPaint, LEVELS_PER_ENV, type Atmo } from './world';
 import { activeEvents, HOLIDAYS, type ActiveEvent } from '../events';
 import { ParkAudio } from './audio';
-import { preloadDrivers, driverUrl, DRIVER_NAMES, HERO, riders3d } from './vehicles';
+import { preloadDrivers, driverUrl, DRIVER_NAMES, HERO, riders3d, setRiders3d } from './vehicles';
 import { loadRiders } from './rider3d';
+import { turntable, type Turntable } from './garage3d';
 import { liveLevel, rng, type Spec } from './generator';
 
 export interface ParkSetup { mobile: boolean; state: P.ParkState; coins: () => number; name: string; startLevel?: number; now?: () => number }
@@ -72,9 +73,17 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   const audio = new ParkAudio(st.audio, st.plays % 3);
   const host = h('div', { class: 'pk-stage' }); root.append(host);
   const scene = new ParkScene(host, { mobile: setup.mobile });
+  // the player's settings (Settings sheet): 3D or flat drivers, camera angle, calm motion (also on with the app's Reduce motion), voices
+  const siteCalm = () => document.documentElement.dataset.motion === 'reduce';
+  const applyPrefs = () => {
+    if (st.prefs.flat) setRiders3d(false); else if (new URLSearchParams(location.search).get('riders3d') !== '0') setRiders3d(true);
+    scene.topView = st.prefs.camera === 'top'; scene.calm = st.prefs.calm || siteCalm(); audio.voicesOn = st.prefs.voices;
+  };
+  applyPrefs();
   // the 3D drivers (0.4 MB) load while the map shows; a lot built before they arrive keeps its flat pictures until then and swaps them in
   // place. Phones use the same copy as computers: a lighter one (a quarter of the triangles) bent the eyes — the character comes first
-  if (riders3d()) void loadRiders('fuzzy-rider.glb').then((ok) => { if (ok) scene.upgradeRiders(); });
+  const want3d = () => { if (riders3d()) void loadRiders('fuzzy-rider.glb').then((ok) => { if (ok) scene.upgradeRiders(); }); };
+  want3d();
   scene.onView = (zoomed) => { viewBtn.hidden = !zoomed; if (zoomed) hand.hidden = true; };
   scene.onIdle = (i) => { if (play && !play.done && !drag) audio.voice(scene.voiceOf(i), Math.random() < 0.3 ? 'giggle' : 'coo'); };
   audio.music(true);
@@ -398,7 +407,10 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   const cardEl = h('div', { class: 'pk-card-wrap', hidden: true });
   const mapEl = h('div', { class: 'pk-map', hidden: true });
   root.append(mapEl, cardEl, pauseEl, settingsEl);
-  function closeOverlays(): void { pauseEl.hidden = true; settingsEl.hidden = true; if (play && !play.done && cardEl.hidden && play.started) holdClock(false); }
+  /** the Garage's 360° view (made when the Garage opens, thrown away when it closes; the lot underneath pauses meanwhile) */
+  let turn: Turntable | null = null;
+  const closeTurn = () => { if (!turn) return; turn.dispose(); turn = null; scene.setRunning(true); };
+  function closeOverlays(): void { closeTurn(); pauseEl.hidden = true; settingsEl.hidden = true; if (play && !play.done && cardEl.hidden && play.started) holdClock(false); }
   function openPause(): void {
     if (!play) return;
     holdClock(true);
@@ -407,7 +419,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
       h('p', { class: 'pk-muted' }, play.endless ? `Endless puzzle ${play.n}` : play.mode === 'ch' ? `Challenge ${play.n}` : play.mode === 'tm' ? `Timed Escape ${play.n}` : play.mode === 'season' ? `Holiday lot ${play.n}` : `Level ${play.n} · ${P.TYPE_NAMES[play.lvl.t]}`),
       big('Resume', 'primary', () => closeOverlays()),
       big('Restart level', 'soft', () => { closeOverlays(); restart(); }),
-      big('Music & sounds', 'soft', () => openSettings(true)),
+      big('Settings', 'soft', () => openSettings(true)),
       big('Level map', 'soft', () => { closeOverlays(); showMap(); }),
       big('Back to Fuzzies Land', 'ghost', () => quit())));
     pauseEl.hidden = false;
@@ -426,13 +438,29 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
       input.addEventListener('change', () => { hooks.save(); if (key === 'sfx') audio.coin(); });
       return h('label', { class: 'pk-slider' }, h('span', null, label), input, val);
     };
-    const mute = h('input', { type: 'checkbox', checked: st.audio.mute }) as HTMLInputElement;
-    mute.addEventListener('change', () => { st.audio.mute = mute.checked; audio.set({ mute: mute.checked }); hooks.save(); });
-    settingsEl.replaceChildren(h('div', { class: 'pk-sheet' },
-      h('h2', null, 'Music & sounds'),
-      slider('Music', 'music'), slider('Sound effects', 'sfx'),
-      h('label', { class: 'pk-toggle' }, h('span', null, 'Mute everything'), mute),
-      h('p', { class: 'pk-muted' }, `Now playing: “${audio.trackName}” — the tunes take turns.`),
+    /** a switch row: label, a short line under it, saved at once */
+    const toggle = (label: string, note: string, get: () => boolean, set: (on: boolean) => void) => {
+      const box = h('input', { type: 'checkbox', checked: get() }) as HTMLInputElement;
+      box.addEventListener('change', () => { set(box.checked); applyPrefs(); hooks.save(); audio.button(); });
+      return h('label', { class: 'pk-toggle' }, h('span', null, label, note ? h('small', null, note) : null), box);
+    };
+    /** the camera angle: two buttons, one pressed */
+    const angle = h('div', { class: 'pk-seg', role: 'group', 'aria-label': 'Camera angle' }, ...(['standard', 'top'] as const).map((v) => {
+      const b = h('button', { type: 'button', class: st.prefs.camera === v ? 'on' : '', 'aria-pressed': String(st.prefs.camera === v) }, v === 'standard' ? 'Standard' : 'From above');
+      b.addEventListener('click', () => { st.prefs.camera = v; applyPrefs(); scene.fit(); hooks.save(); audio.button(); openSettings(fromPause); });
+      return b;
+    }));
+    const sec = (title: string, ...kids: (HTMLElement | null)[]) => h('div', { class: 'pk-ssec' }, h('h3', null, title), ...kids);
+    settingsEl.replaceChildren(h('div', { class: 'pk-sheet pk-settings' },
+      h('h2', null, 'Settings'),
+      sec('Sound', slider('Music', 'music'), slider('Sound effects', 'sfx'),
+        toggle('Fuzzy voices', 'Their little “eep!” and giggles', () => st.prefs.voices, (on) => { st.prefs.voices = on; }),
+        toggle('Mute everything', '', () => st.audio.mute, (on) => { st.audio.mute = on; audio.set({ mute: on }); }),
+        h('p', { class: 'pk-muted small' }, `Now playing: “${audio.trackName}” — the tunes take turns.`)),
+      sec('View', h('div', { class: 'pk-row' }, h('span', null, 'Camera'), angle),
+        toggle('Calm motion', siteCalm() ? 'On — your app is set to reduce motion' : 'No confetti or fireworks, gentler bounces', () => st.prefs.calm || siteCalm(), (on) => { st.prefs.calm = on; }),
+        toggle('3D Fuzzies', 'Turn off for flat pictures if an older phone feels slow · from the next lot', () => !st.prefs.flat, (on) => { st.prefs.flat = !on; if (on) want3d(); })),
+      sec('Play', toggle('Relaxed', 'Special levels without the clock or move limit · same rewards', () => st.relaxed, (on) => { st.relaxed = on; })),
       big('Done', 'primary', () => { settingsEl.hidden = true; if (fromPause) pauseEl.hidden = false; })));
     settingsEl.hidden = false;
   }
@@ -603,7 +631,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     audio.mood(mapMode === 'tm' ? 'timed' : mapMode === 'season' ? 'season' : { env: envIndexOf(mapMode === 'journey' ? page * PAGE + 1 : 1) });
     const close = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Back to Fuzzies Land', title: 'Back to Fuzzies Land' }, SVG(IC.close, 22));
     close.addEventListener('click', () => { audio.button(); quit(); });
-    const gear = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Music & sounds', title: 'Music & sounds' }, SVG(st.audio.mute ? IC.mute : IC.sound, 22));
+    const gear = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Settings', title: 'Settings — sound, camera, motion' }, SVG(IC.gear, 22));
     gear.addEventListener('click', () => { audio.button(); openSettings(); });
     const garageB = h('button', { class: 'pk-round pk-garage-btn', type: 'button', 'aria-label': 'Garage', title: 'Garage — your star car and driver' }, h('img', { src: driverUrl(st.garage.driver), alt: '' }));
     garageB.addEventListener('click', () => { audio.button(); openGarage(); });
@@ -708,6 +736,8 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   }
   /** the garage: your star car's shape and paint and who drives it — looks only, the puzzles are the same for every car */
   function openGarage(): void {
+    if (!turn) { turn = turntable({ calm: scene.calm }); scene.setRunning(false); }
+    turn.show(st.garage.style, st.garage.paint ? holidayPaint(st.garage.paint) : HERO, st.garage.driver);
     const section = (title: string, ...kids: HTMLElement[]) => h('div', { class: 'pk-gsec' }, h('h3', null, title), h('div', { class: 'pk-ggrid' }, ...kids));
     const pickBtn = (on: boolean, open: boolean, lockText: string, label: string, art: HTMLElement, choose: () => void) => {
       const b = h('button', { class: `pk-gitem ${on ? 'on' : ''} ${open ? '' : 'locked'}`, type: 'button', 'aria-pressed': String(on) }, art, h('small', null, open ? label : lockText));
@@ -719,11 +749,12 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     const paints = ['', ...st.paints].map((id) => pickBtn(st.garage.paint === id, true, '', id ? id.replace(/-(\d{4})$/, ' $1').replace(/^./, (c) => c.toUpperCase()) : 'Classic pink', h('span', { class: 'pk-gpaint', style: `--c:${id ? holidayPaint(id) : HERO}` }), () => { st.garage.paint = id; }));
     settingsEl.replaceChildren(h('div', { class: 'pk-sheet pk-garage' },
       h('h2', null, 'Garage'),
+      turn.el,
       h('p', { class: 'pk-muted' }, 'Pick your star car and who drives it. Just for looks — every puzzle stays the same.'),
       section('Star car', ...styles), section('Driver', ...drivers),
       section('Paint', ...paints),
       st.paints.length ? h('span') : h('p', { class: 'pk-muted small' }, 'Finish a holiday’s 10 lots to earn its paint.'),
-      big('Done', 'primary', () => { settingsEl.hidden = true; showMap(); })));
+      big('Done', 'primary', () => { closeTurn(); settingsEl.hidden = true; showMap(); })));
     settingsEl.hidden = false;
   }
 
@@ -767,6 +798,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   }
   function destroy(): void {
     cancelAnimationFrame(timerRaf);
+    closeTurn();
     removeEventListener('keydown', onKey);
     document.removeEventListener('visibilitychange', onVis);
     padObs.disconnect(); audio.destroy(); scene.dispose(); unlock(); root.remove();
