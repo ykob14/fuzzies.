@@ -13,7 +13,23 @@ const TRACKS: Track[] = [
   { name: 'Sunny Lot', bpm: 112, swing: 0, root: 60, chords: [[0, 4, 7], [9, 12, 16], [5, 9, 12], [7, 11, 14]], lead: 'xylo', arp: 'marimba', groove: 'pop', seed: 3 },
   { name: 'Honk Honk Hop', bpm: 122, swing: 0.16, root: 65, chords: [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]], lead: 'piano', arp: 'pluck', groove: 'bounce', seed: 11 },
   { name: 'Rainbow Roundabout', bpm: 96, swing: 0.08, root: 55, chords: [[0, 4, 7, 11], [4, 7, 11, 14], [5, 9, 12, 16], [7, 11, 14, 17]], lead: 'marimba', arp: 'piano', groove: 'soft', seed: 29 },
+  // one theme per neighbourhood (index 3 + neighbourhood), then the clock and the holidays
+  { name: 'Sunday Drive', bpm: 108, swing: 0.1, root: 62, chords: [[0, 4, 7], [5, 9, 12], [9, 12, 16], [7, 11, 14]], lead: 'xylo', arp: 'pluck', groove: 'pop', seed: 41 },
+  { name: 'Downtown Doo-Wop', bpm: 118, swing: 0.2, root: 58, chords: [[0, 4, 7, 9], [9, 12, 16], [5, 9, 12, 14], [7, 11, 14]], lead: 'piano', arp: 'piano', groove: 'bounce', seed: 53 },
+  { name: 'Shopping Spree', bpm: 124, swing: 0, root: 64, chords: [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]], lead: 'xylo', arp: 'marimba', groove: 'pop', seed: 67 },
+  { name: 'Sandy Toes', bpm: 100, swing: 0.18, root: 60, chords: [[0, 4, 7, 11], [5, 9, 12, 16], [2, 5, 9, 12], [7, 11, 14]], lead: 'marimba', arp: 'pluck', groove: 'bounce', seed: 71 },
+  { name: 'Snowflake Waltz', bpm: 90, swing: 0, root: 65, chords: [[0, 4, 7], [9, 12, 16], [2, 5, 9], [7, 11, 14]], lead: 'xylo', arp: 'piano', groove: 'soft', seed: 83 },
+  { name: 'Gate 7 Groove', bpm: 116, swing: 0.12, root: 57, chords: [[0, 4, 7, 11], [2, 5, 9, 12], [4, 7, 11, 14], [5, 9, 12, 16]], lead: 'piano', arp: 'marimba', groove: 'pop', seed: 97 },
+  { name: 'Festival Fanfare', bpm: 128, swing: 0.06, root: 67, chords: [[0, 4, 7], [5, 9, 12], [7, 11, 14], [0, 4, 7]], lead: 'xylo', arp: 'pluck', groove: 'bounce', seed: 101 },
+  { name: 'Pine Trail', bpm: 94, swing: 0.08, root: 55, chords: [[0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]], lead: 'marimba', arp: 'piano', groove: 'soft', seed: 113 },
+  { name: 'Velvet Garage', bpm: 98, swing: 0.22, root: 57, chords: [[0, 3, 7, 10], [5, 9, 12, 15], [2, 5, 9, 12], [7, 10, 14, 17]], lead: 'piano', arp: 'piano', groove: 'soft', seed: 127 },
+  { name: 'City Lights', bpm: 120, swing: 0.14, root: 62, chords: [[0, 4, 7, 11], [9, 12, 16, 19], [5, 9, 12, 16], [7, 11, 14, 17]], lead: 'xylo', arp: 'marimba', groove: 'bounce', seed: 131 },
+  { name: 'Beat the Clock', bpm: 138, swing: 0, root: 62, chords: [[0, 3, 7], [8, 12, 15], [5, 8, 12], [7, 11, 14]], lead: 'xylo', arp: 'pluck', groove: 'pop', seed: 137 },
+  { name: 'Holiday Bells', bpm: 112, swing: 0.1, root: 67, chords: [[0, 4, 7], [5, 9, 12], [2, 5, 9], [7, 11, 14]], lead: 'xylo', arp: 'marimba', groove: 'bounce', seed: 149 },
 ];
+/** the playlists: a neighbourhood's own theme with the classic tunes in between; the countdown; the holidays */
+export type Mood = { env: number } | 'timed' | 'season';
+const playlist = (m: Mood): number[] => (m === 'timed' ? [13] : m === 'season' ? [14, 0] : [3 + (m.env % 10), (m.env % 3)]);
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 const LOOPS_PER_TRACK = 4;
 
@@ -29,8 +45,9 @@ export class ParkAudio {
   private playing = false; private wanted = false; private hidden = false;
   /** notes scheduled so far (the tests read it to know the music really runs) */
   scheduled = 0;
+  private list: number[] = [0, 1, 2]; private li = 0;
   constructor(public prefs: AudioPrefs, track = 0) {
-    this.track = track % TRACKS.length;
+    this.li = track % this.list.length; this.track = this.list[this.li];
     document.addEventListener('visibilitychange', this.onVis);
   }
   private onVis = () => {
@@ -59,6 +76,14 @@ export class ParkAudio {
   }
   get ready(): boolean { return !!this.ac && this.ac.state === 'running'; }
   get trackName(): string { return TRACKS[this.track].name; }
+  /** switch the playlist (a neighbourhood, the countdown, a holiday): the new tune starts at once if it's a different one */
+  mood(m: Mood): void {
+    const list = playlist(m); if (list.join() === this.list.join()) return;
+    this.list = list; this.li = 0;
+    if (this.track === list[0]) return;
+    this.track = list[0];
+    if (this.playing) { this.stopMusic(); this.startMusic(); }
+  }
   set(prefs: Partial<AudioPrefs>): void { Object.assign(this.prefs, prefs); this.apply(); }
   private apply(now = false): void {
     if (!this.ac) return;
@@ -133,7 +158,7 @@ export class ParkAudio {
       this.nextAt += sixteenth; this.step++;
       if (this.step % (16 * 16) === 0) { // a whole loop played
         this.loops++;
-        if (this.loops >= LOOPS_PER_TRACK) { this.loops = 0; this.track = (this.track + 1) % TRACKS.length; this.melody = this.compose(TRACKS[this.track]); }
+        if (this.loops >= LOOPS_PER_TRACK) { this.loops = 0; this.li = (this.li + 1) % this.list.length; this.track = this.list[this.li]; this.melody = this.compose(TRACKS[this.track]); }
         this.step = 0;
       }
     }

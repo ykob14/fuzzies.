@@ -405,7 +405,7 @@ export function landScreen(): Screen {
       const sp = E.spare(s, it.id), own = E.owned(s, it.id);
       const card = h('button', { class: `land-card land-card-col ${sp ? '' : 'off'}`, type: 'button', title: sp ? `Place (${sp} to place)` : 'All copies are already on the map or in storage', 'data-item': it.id },
         h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), h('i', { class: 'land-store-n' }, `×${own}`)),
-        h('b', null, it.name), h('small', null, TR.isTrophy(it.id) ? `${TR.METAL_NAMES[TR.trophyMetal(it.id)]} trophy` : it.id === 'parkchamp' ? 'Parking Escape' : E.collectionOf(it.id)?.name ?? ''),
+        h('b', null, it.name), h('small', null, TR.isTrophy(it.id) ? `${TR.METAL_NAMES[TR.trophyMetal(it.id)]} trophy` : it.id.startsWith('park') ? 'Parking Escape' : E.collectionOf(it.id)?.name ?? ''),
         h('span', { class: 'land-price owned' }, landIcon('festival', 16), sp ? `${sp} to place` : 'All placed'));
       card.addEventListener('click', () => { if (!sp) { toast('Every copy is already in your town — move one, or store it from Edit town.', 'info', 3500); return; } startPlacing(it.id); });
       return card;
@@ -1679,7 +1679,7 @@ export function landScreen(): Screen {
     const fail = (e: unknown) => { console.error(e); playing = false; view?.start(); toast('Parking Escape couldn’t load — please try again.', 'bad'); };
     void import('../../land/parking/game').then(({ runParking }) => {
       view?.stop(); music.stop();
-      return runParking(stage, { mobile: isTouch(), state: s.parking!, coins: () => s.coins, name: accounts.current?.name?.split(' ')[0] || 'You' }, {
+      return runParking(stage, { mobile: isTouch(), state: s.parking!, coins: () => s.coins, name: accounts.current?.name?.split(' ')[0] || 'You', now }, {
         save: () => save(),
         pay: payParking,
         exit: () => { renderHud(); backToTown(); },
@@ -1689,7 +1689,8 @@ export function landScreen(): Screen {
   /** Parking rewards go into the town's coins, each once: cloud accounts ask the server first (offline → tried again later). */
   async function payParking(list: { key: string; coins: number; why: string }[]): Promise<Payment[]> {
     const p = (s.parking ??= PK.freshPark()), out: Payment[] = [];
-    const grant = (key: string) => { if (key === `F${PK.LEVELS}`) { s.owned ??= {}; s.owned.parkchamp = Math.max(1, s.owned.parkchamp ?? 0); } };
+    // a reward that comes with a town decoration (level 100, the ladders' 25th and 50th, level 500): owned for good, placed from Build → Decor
+    const grant = (key: string) => { const id = PK.DECOR_FOR_KEY[key]; if (id) { s.owned ??= {}; s.owned[id] = Math.max(1, s.owned[id] ?? 0); } };
     for (const r of list) {
       if (p.paid.includes(r.key)) { out.push({ key: r.key, coins: 0, ok: false }); continue; }
       if (isCloud()) {

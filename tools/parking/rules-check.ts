@@ -49,7 +49,7 @@ ok(threw === 3, 'broken levels are refused (split vehicle, bent vehicle, no star
 ok(P.starsFor(10, 10, 'n') === 3 && P.starsFor(10, 13, 'n') === 3 && P.starsFor(10, 14, 'n') === 2 && P.starsFor(10, 23, 'n') === 1, 'stars: best or close = 3, fair = 2, any finish = 1');
 ok(P.starsFor(10, 10, 't', 70, 15) === 2 && P.starsFor(10, 10, 't', 70, 5) === 1 && P.starsFor(10, 10, 't', 70, 40) === 3, 'timed levels need time to spare for 3 stars');
 ok(P.coinsForLevel(1) === 20 && P.coinsForLevel(102) === 35 && P.coinsForLevel(260) === 50 && P.coinsForLevel(37) === 75 && P.coinsForLevel(25) === 75, 'coins: normal 20 / challenging 35 / hard 50 / special 75');
-ok(P.coinsForKey('M25') === 250 && P.coinsForKey('M26') === null && P.coinsForKey('F500') === 2000 && P.coinsForKey('L501') === null && P.coinsForKey('E7') === 25 && P.coinsForKey('L0') === null && P.coinsForKey('X1') === null && P.coinsForKey('L1;drop') === null, 'reward keys: milestones every 25, the finale, endless; nonsense refused');
+ok(P.coinsForKey('M25') === 250 && P.coinsForKey('M26') === null && P.coinsForKey('F500') === 2000 && P.coinsForKey('L501') === null && P.coinsForKey('E7') === P.REWARDS.endless && P.coinsForKey('L0') === null && P.coinsForKey('X1') === null && P.coinsForKey('L1;drop') === null, 'reward keys: milestones every 25, the finale, endless; nonsense refused');
 {
   const st = P.freshPark();
   const c1 = P.clearLevel(st, 1, { opt: 1, type: 'n', moves: 1, seconds: 4 });
@@ -66,7 +66,7 @@ ok(P.coinsForKey('M25') === 250 && P.coinsForKey('M26') === null && P.coinsForKe
   for (const r of f.rewards) P.settle(st, r.key);
   ok(st.champ && P.endlessOpen(st), 'the finale gives the champion trophy and opens Endless Parking');
   const e1 = P.clearEndless(st), e2 = P.clearEndless(st);
-  ok(e1.key === 'E1' && e2.key === 'E2' && e1.coins === 25 && st.endless.n === 3, 'endless puzzles pay 25 each, numbered');
+  ok(e1.key === 'E1' && e2.key === 'E2' && e1.coins === P.REWARDS.endless && st.endless.n === 3, 'endless puzzles pay the endless reward each, numbered');
   // pending rewards aren't asked for twice
   const st2 = P.freshPark(); st2.pending.push('L1'); ok(P.clearLevel(st2, 1, { opt: 1, type: 'n', moves: 1, seconds: 2 }).rewards.length === 0, 'a reward waiting to be confirmed isn’t claimed again');
 }
@@ -90,6 +90,28 @@ ok(P.coinsForKey('M25') === 250 && P.coinsForKey('M26') === null && P.coinsForKe
   const m = L.migrateLand(JSON.parse(JSON.stringify({ ...s, parking: { top: 7, stars: '33', paid: ['L1'] } })));
   ok(m.parking!.top === 7 && m.parking!.stars.length === 500 && m.parking!.audio.music > 0, 'town saves keep parking progress (filled in by migrate)');
   ok(L.item('parkchamp').collectible === 'parking' && L.item('parkchamp').sellable === false, 'the Golden Parking Trophy is a keep-forever decoration');
+}
+// ---- the expansion: ladders, holiday lots, garage, decorations, Relaxed ----
+{
+  ok(P.coinsForKey('C1') === P.REWARDS.challenge && P.coinsForKey('T50') === P.REWARDS.timed && P.coinsForKey('C51') === null && P.coinsForKey('T0') === null, 'ladder keys: 1–50 only');
+  ok(P.coinsForKey('K25') === P.REWARDS.ladderMilestone && P.coinsForKey('U50') === P.REWARDS.ladderMilestone && P.coinsForKey('K24') === null, 'ladder bonuses at 25 and 50 only');
+  ok(P.coinsForKey('H' + P.seasonKey(2026, 0, 3)) === P.REWARDS.season && P.coinsForKey('H' + P.seasonKey(2026, 0, 11)) === null && P.coinsForKey('H' + P.seasonKey(2025, 0, 1)) === null, 'holiday keys: lots 1–10, 2026 on');
+  const q = P.freshPark();
+  const a = P.clearLadder(q, 'ch', 1, { opt: 20, moves: 22, lim: 30 });
+  ok(a.stars === 3 && q.ch.top === 2 && a.rewards.map((r) => r.key).join() === 'C1', 'challenge 1: 3 stars within the goal, lot 2 opens, C1 pays');
+  for (const r of a.rewards) P.settle(q, r.key);
+  ok(P.clearLadder(q, 'ch', 1, { opt: 20, moves: 60, lim: 30 }).rewards.length === 0 && q.ch.stars[0] === '3', 'replay: no pay, stars kept');
+  q.tm.top = 25; const t = P.clearLadder(q, 'tm', 25, { opt: 10, moves: 10, lim: 70, timeLeft: 5 });
+  ok(t.stars === 1 && t.rewards.map((r) => r.key).join() === 'T25,U25', 'timed 25 with 5 s left: 1 star, lot + bonus');
+  const h1 = P.clearSeason(q, 'halloween-2026', 2026, 0, 1);
+  ok(h1.rewards[0]?.key === 'H' + P.seasonKey(2026, 0, 1) && !h1.paint && q.season['halloween-2026'] === 1, 'holiday lot 1 pays once');
+  const h10 = P.clearSeason(q, 'halloween-2026', 2026, 0, 10);
+  ok(h10.paint && q.paints.includes('halloween-2026') && !P.clearSeason(q, 'halloween-2026', 2026, 0, 10).paint, 'all 10 → the holiday paint, once');
+  ok(P.DECOR_FOR_KEY.K50 === 'parkbus' && P.DECOR_FOR_KEY.M100 === 'parkstar' && ['parkstar', 'parksign', 'parkbus', 'parkclock', 'parkwatch'].every((id) => L.item(id)?.collectible === 'parking' && L.item(id).sellable === false), 'reward decorations exist in the town shop list, keep-forever');
+  ok(P.styleOpen(q, 0) && !P.styleOpen(q, 1) && P.driverOpen(q, 0) && P.driverOpen(q, 6) && !P.driverOpen(q, 14), 'garage: the convertible and three drivers from the start');
+  const bad = P.migratePark({ relaxed: 'yes', ch: { top: 99, stars: 'xx3' }, garage: { style: 9, driver: -4, paint: '<img onerror=1>' }, paints: ['halloween-2026', 42, '"><b>'], season: { 'halloween-2026': 99, '__proto__': 3 } } as never);
+  ok(bad.relaxed === true && bad.ch.top === 50 && bad.ch.stars.startsWith('003') && bad.garage.style === 5 && bad.garage.driver === 0 && bad.garage.paint === '' && bad.paints.join() === 'halloween-2026' && bad.season['halloween-2026'] === 10 && Object.keys(bad.season).length === 1, 'bad saved data is cleaned (garage, paints, ladders, holiday counts)');
+  ok(P.migratePark(undefined).relaxed === true, 'new players start Relaxed (no timers or move limits)');
 }
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

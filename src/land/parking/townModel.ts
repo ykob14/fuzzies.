@@ -95,3 +95,71 @@ export function parkingTrophy(): THREE.Group {
   g.userData.tick = (T: number) => { star.rotation.y = T * 1.6; star.position.y = 0.82 + Math.sin(T * 2) * 0.03; };
   return g;
 }
+
+// ---------- decorations earned in Parking Escape (rules.ts items park*; DECOR_FOR_KEY in progress.ts says which reward gives which) ----------
+const plinth = (g: THREE.Group, w = 0.62) => { add(g, rbox(w, 0.12, w, 0.04), m('#7a4f2d', 0.7), 0, 0.06, 0); add(g, rbox(w - 0.1, 0.16, w - 0.1, 0.04), m('#f3ead8', 0.5), 0, 0.2, 0); };
+/** level 100: the pink star car on a plinth, its Fuzzy driving */
+export function parkStarStatue(): THREE.Group {
+  const g = new THREE.Group(); plinth(g);
+  const car = buildVehicle('hero', 2, '#d6336c', [0]); car.group.scale.setScalar(0.3); car.group.position.y = 0.28; car.group.rotation.y = 0.6; g.add(car.group);
+  noPick(g);
+  g.userData.tick = (T: number) => { car.body.position.y = Math.abs(Math.sin(T * 2.4)) * 0.05; };
+  return g;
+}
+/** Challenge 25: a blue P sign with two traffic cones */
+export function parkSignDeco(): THREE.Group {
+  const g = new THREE.Group();
+  add(g, new THREE.CylinderGeometry(0.03, 0.03, 0.9, 8).translate(0, 0.45, 0), m('#9aa1ab', 0.4, 0.5), -0.1, 0, 0);
+  const board = add(g, rbox(0.42, 0.42, 0.05, 0.06), new THREE.MeshStandardMaterial({ map: pSign(), roughness: 0.4 }), -0.1, 0.95, 0.03);
+  board.castShadow = true;
+  for (const [x, z] of [[0.2, 0.15], [0.25, -0.18]]) { add(g, new THREE.ConeGeometry(0.08, 0.24, 14).translate(0, 0.12, 0), m('#ff7a1a', 0.5), x, 0, z); add(g, new THREE.CylinderGeometry(0.055, 0.065, 0.04, 14).translate(0, 0.13, 0), m('#ffffff', 0.5), x, 0, z); add(g, rbox(0.2, 0.03, 0.2, 0.01), m('#ff7a1a', 0.5), x, 0.015, z); }
+  return g;
+}
+const pSign = (() => { let t: THREE.Texture | null = null; return () => { if (t) return t; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d')!; g.fillStyle = '#2f6fd8'; g.fillRect(0, 0, 128, 128); g.strokeStyle = '#fff'; g.lineWidth = 8; g.strokeRect(10, 10, 108, 108); g.fillStyle = '#fff'; g.font = 'bold 84px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('P', 64, 70); t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }; })();
+/** a clock face (12 ticks) for the two Timed Escape rewards */
+const clockFace = (() => { let t: THREE.Texture | null = null; return () => { if (t) return t; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d')!; g.fillStyle = '#fffaf0'; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#3d2f2a'; g.lineCap = 'round'; for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; g.lineWidth = k % 3 ? 3 : 6; g.beginPath(); g.moveTo(64 + Math.cos(a) * 46, 64 + Math.sin(a) * 46); g.lineTo(64 + Math.cos(a) * 56, 64 + Math.sin(a) * 56); g.stroke(); } t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }; })();
+function hands(g: THREE.Group, x: number, y: number, z: number, r: number): (T: number) => void {
+  const hm = m('#3d2f2a', 0.5);
+  const big = new THREE.Group(), small = new THREE.Group(); big.position.set(x, y, z); small.position.set(x, y, z); g.add(big, small);
+  add(big, new THREE.BoxGeometry(r * 0.08, r * 0.8, 0.01).translate(0, r * 0.38, 0), hm, 0, 0, 0, false);
+  add(small, new THREE.BoxGeometry(r * 0.1, r * 0.55, 0.01).translate(0, r * 0.26, 0), hm, 0, 0, 0, false);
+  return (T) => { big.rotation.z = -T * 1.2; small.rotation.z = -T * 0.1; };
+}
+/** Timed Escape 25: a little clock tower with a pink roof */
+export function parkClockTower(): THREE.Group {
+  const g = new THREE.Group();
+  add(g, rbox(0.46, 0.12, 0.46, 0.04), m('#cfc6b4', 0.7), 0, 0.06, 0);
+  add(g, rbox(0.32, 0.95, 0.32, 0.04), m('#fff1dc', 0.6), 0, 0.6, 0);
+  add(g, new THREE.ConeGeometry(0.3, 0.36, 4).rotateY(Math.PI / 4).translate(0, 1.25, 0), m('#d6336c', 0.55), 0, 0, 0);
+  const face = add(g, new THREE.CircleGeometry(0.12, 24), new THREE.MeshStandardMaterial({ map: clockFace(), roughness: 0.5 }), 0, 0.85, 0.161, false);
+  void face;
+  const tick = hands(g, 0, 0.85, 0.165, 0.12);
+  g.userData.tick = tick;
+  return g;
+}
+/** Timed Escape 50: a golden stopwatch on a cushion */
+export function parkStopwatch(): THREE.Group {
+  const g = new THREE.Group(); plinth(g, 0.56);
+  const gold = new THREE.MeshStandardMaterial({ color: '#ffc94a', metalness: 1, roughness: 0.22 });
+  const w = new THREE.Group(); w.position.set(0, 0.56, 0); w.rotation.x = -0.25; g.add(w);
+  add(w, new THREE.CylinderGeometry(0.22, 0.22, 0.08, 32).rotateX(Math.PI / 2), gold, 0, 0, 0);
+  add(w, new THREE.CircleGeometry(0.18, 28), new THREE.MeshStandardMaterial({ map: clockFace(), roughness: 0.4 }), 0, 0, 0.041, false);
+  add(w, new THREE.CylinderGeometry(0.04, 0.04, 0.08, 12), gold, 0, 0.26, 0);
+  add(w, new THREE.TorusGeometry(0.06, 0.018, 8, 16), gold, 0, 0.33, 0);
+  const tick = hands(w as THREE.Group, 0, 0, 0.045, 0.16);
+  g.userData.tick = (T: number) => { tick(T * 2); w.position.y = 0.56 + Math.sin(T * 2) * 0.02; };
+  return g;
+}
+/** Challenge 50: a bus stop (2×1) — a shelter with a bench, a timetable and a little bus waiting */
+export function parkBusStop(): THREE.Group {
+  const g = new THREE.Group();
+  add(g, rbox(1.9, 0.06, 0.9, 0.02), m('#e9e3d6', 0.8), 0, 0.03, 0);
+  const frame = m('#2f6fd8', 0.4, 0.3);
+  for (const x of [-0.85, -0.15]) for (const z of [-0.3, 0.3]) add(g, new THREE.CylinderGeometry(0.025, 0.025, 0.8, 8).translate(0, 0.4, 0), frame, x, 0, z);
+  add(g, rbox(0.86, 0.05, 0.75, 0.02), frame, -0.5, 0.82, 0);
+  add(g, new THREE.BoxGeometry(0.7, 0.55, 0.02), new THREE.MeshStandardMaterial({ color: '#cfeaff', transparent: true, opacity: 0.35, roughness: 0.1, depthWrite: false }), -0.5, 0.45, -0.3, false);
+  add(g, rbox(0.6, 0.06, 0.18, 0.02), m('#b07a46', 0.7), -0.5, 0.26, -0.18);
+  const bus = buildVehicle('bus', 3, '#2f6fd8', [5, 9, 2]); bus.group.scale.setScalar(0.32); bus.group.position.set(0.45, 0.05, 0.08); g.add(bus.group);
+  noPick(g);
+  return g;
+}

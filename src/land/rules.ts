@@ -119,6 +119,11 @@ export const ITEMS: ItemDef[] = [
   { id: 'fountain', name: 'Fountain', kind: 'decor', w: 2, d: 2, cost: 300, currency: 'coins', level: 4, xp: 20, emoji: '⛲', blurb: 'Splishy splashy', sellable: true, build: 90, water: true },
   { id: 'statue', name: 'Golden Fuzzy', kind: 'decor', w: 1, d: 1, cost: 25, currency: 'fuzzies', level: 2, xp: 30, emoji: '🏆', blurb: 'A shiny statue — paid in Fuzzies', sellable: false },
   { id: 'parkchamp', name: 'Golden Parking Trophy', kind: 'decor', w: 1, d: 1, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🏆', blurb: 'For clearing all 500 Parking Escape levels', sellable: false, collectible: 'parking' },
+  { id: 'parkstar', name: 'Star Car Statue', kind: 'decor', w: 1, d: 1, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🚗', blurb: 'For reaching Parking Escape level 100', sellable: false, collectible: 'parking' },
+  { id: 'parksign', name: 'Parking Sign', kind: 'decor', w: 1, d: 1, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🅿️', blurb: 'For Parking Challenge 25', sellable: false, collectible: 'parking' },
+  { id: 'parkbus', name: 'Fuzzy Bus Stop', kind: 'decor', w: 2, d: 1, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🚌', blurb: 'For clearing all 50 Parking Challenges', sellable: false, collectible: 'parking' },
+  { id: 'parkclock', name: 'Clock Tower', kind: 'decor', w: 1, d: 1, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '🕰️', blurb: 'For Timed Escape 25', sellable: false, collectible: 'parking' },
+  { id: 'parkwatch', name: 'Golden Stopwatch', kind: 'decor', w: 1, d: 1, cost: 0, currency: 'coins', level: 1, xp: 0, emoji: '⏱️', blurb: 'For clearing all 50 Timed Escapes', sellable: false, collectible: 'parking' },
   { id: 'rainbow', name: 'Rainbow Arch', kind: 'decor', w: 2, d: 1, cost: 40, currency: 'fuzzies', level: 4, xp: 50, emoji: '🌈', blurb: 'Magical — paid in Fuzzies', sellable: false },
 ];
 export const item = (id: string): ItemDef => ITEMS.find((i) => i.id === id)!;

@@ -9,8 +9,16 @@ import { randomSetup, mutate, evaluate, toPuzzle, rng, type Spec } from './.lib/
 
 const [worker, lo, minutes] = [Number(process.argv[2] ?? 0), Number(process.argv[3] ?? 34), Number(process.argv[4] ?? 20)];
 const dir = new URL('./out/', import.meta.url).pathname; mkdirSync(dir, { recursive: true });
-const file = `${dir}mine-${worker}.jsonl`;
-const SPECS: Spec[] = [
+const BIG = process.env.BIG === '1';
+const file = `${dir}${BIG ? 'big' : 'mine'}-${worker}.jsonl`;
+/** BIG=1: the larger lots for the late game (8×8 and crowded 7×7, up to the engine's 17 vehicles) */
+const BIG_SPECS: Spec[] = [
+  { w: 8, h: 8, cars: [14, 17], trucks: 0.35, walls: 0, double: false, cap: 160_000 },
+  { w: 8, h: 8, cars: [13, 16], trucks: 0.35, walls: 2, double: false, cap: 160_000 },
+  { w: 7, h: 7, cars: [14, 17], trucks: 0.3, walls: 1, double: false, cap: 140_000 },
+  { w: 8, h: 8, cars: [12, 16], trucks: 0.3, walls: 1, double: true, cap: 160_000 },
+];
+const SPECS: Spec[] = BIG ? BIG_SPECS : [
   { w: 6, h: 6, cars: [11, 14], trucks: 0.3, walls: 0, double: false, cap: 150_000 },
   { w: 6, h: 6, cars: [10, 13], trucks: 0.3, walls: 1, double: false, cap: 150_000 },
   { w: 6, h: 6, cars: [10, 13], trucks: 0.3, walls: 2, double: false, cap: 150_000 },

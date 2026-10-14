@@ -6,20 +6,13 @@
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { groundTex, tree, type TreeKind } from '../games/sceneArt';
-import { bush, flowers } from '../games/orchardArt';
-import { buildVehicle, SHORT_KINDS, LONG_KINDS, PAINTS, HERO, HERO2, type VehicleModel } from './vehicles';
+import { flowers } from '../games/orchardArt';
+import { backdrop, envOf, eventProps, groundTexture, smoothBush, type Atmo } from './world';
+import { buildVehicle, driverBlinkTexture, driverTexture, SHORT_KINDS, LONG_KINDS, STAR_STYLES, PAINTS, HERO, HERO2, type VehicleModel } from './vehicles';
 import { OUT, type Puzzle } from './engine';
 
-/** looks per district (25 levels each, in turn): lawn, trees, flower mix */
-const THEMES: { ground: 'grass' | 'sand' | 'snow'; tree: TreeKind; lawn: string; sky: string; name: string }[] = [
-  { ground: 'grass', tree: 'leafy', lawn: '#8fd16a', sky: '#cfeaf7', name: 'Sunny Street' },
-  { ground: 'grass', tree: 'autumn', lawn: '#a8c766', sky: '#f3e3cf', name: 'Maple Avenue' },
-  { ground: 'grass', tree: 'pine', lawn: '#86c46b', sky: '#d6ecf0', name: 'Pinewood Lane' },
-  { ground: 'sand', tree: 'leafy', lawn: '#e9d9a6', sky: '#cdeefa', name: 'Seaside Plaza' },
-  { ground: 'snow', tree: 'snowpine', lawn: '#eef4f8', sky: '#dfe9f2', name: 'Snowflake Square' },
-];
-export const districtName = (i: number): string => THEMES[Math.floor((i - 1) / 25) % THEMES.length].name;
+/** the neighbourhood name for a level (ten neighbourhoods, 50 levels each — see world.ts) */
+export const districtName = (i: number): string => envOf(i).name;
 
 type Emote = 'bang' | 'heart' | 'star' | 'note' | 'huh' | 'sweat';
 interface Car {
@@ -39,6 +32,7 @@ export class ParkScene {
   private scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
   private sun: THREE.DirectionalLight;
+  private hemi: THREE.HemisphereLight;
   private lot = new THREE.Group();
   private carsGroup = new THREE.Group();
   private fx = new THREE.Group();
@@ -52,13 +46,17 @@ export class ParkScene {
   private raf = 0; private last = 0; private t = 0;
   private running = true;
   /** screen space the HUD covers (px): the board is framed inside what's left */
-  pad = { top: 80, bottom: 110, side: 12 };
+  /** screen pixels the HUD covers on each side (measured by the game from the real bars) */
+  pad = { top: 80, bottom: 110, left: 12, right: 12 };
   /** a Fuzzy hums now and then (game.ts gives it a voice) */
   onIdle: ((i: number) => void) | null = null;
   voiceOf(i: number): number { return this.cars[i]?.voice ?? 0; }
   private ro: ResizeObserver;
   private ray = new THREE.Raycaster();
   private milestone = false;
+  /** the neighbourhood on show */
+  env = envOf(1);
+  private tickWorld: ((t: number) => void) | null = null;
 
   constructor(host: HTMLElement, private o: SceneOpts) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -70,7 +68,7 @@ export class ParkScene {
     host.append(this.canvas);
     const pm = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose(); this.scene.environmentIntensity = 0.45;
-    this.scene.add(new THREE.HemisphereLight('#e4f1ff', '#6f9a5c', 0.75));
+    this.hemi = new THREE.HemisphereLight('#e4f1ff', '#6f9a5c', 0.75); this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight('#fff1d6', 2.6);
     this.sun.position.set(-6, 14, 7); this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(o.mobile ? 1024 : 2048, o.mobile ? 1024 : 2048);
@@ -88,7 +86,11 @@ export class ParkScene {
 
   // ---------- the lot for a level ----------
   /** build the lot and its vehicles for a puzzle; `seed` picks paint and drivers, `level` the district look */
-  load(p: Puzzle, s: Uint8Array, level: number, seed: number, milestone = false): void {
+  /**
+   * `look`: the garage's choice for your star car (shape, driver, paint) and, during a holiday, its decorations around the lot.
+   * Looks only — the puzzle, footprints and collisions are the same for every shape.
+   */
+  load(p: Puzzle, s: Uint8Array, level: number, seed: number, milestone = false, look: { style?: number; driver?: number; paint?: string; atmo?: Atmo; colors?: string[] } = {}): void {
     this.p = p; this.milestone = milestone;
     // free the last lot's GPU memory: its own geometry, materials and painted textures (vehicle parts are shared caches; only their
     // per-driver sprite materials go)
@@ -97,17 +99,20 @@ export class ParkScene {
     for (const s of this.sparks) (s.m.material as THREE.Material).dispose();
     if (this.ghost) disposeTree(this.ghost, false);
     clear(this.lot); clear(this.carsGroup); clear(this.fx); this.sparks = []; this.barriers = []; this.ghost = null; this.cars = [];
-    const theme = THEMES[Math.floor((Math.max(1, level) - 1) / 25) % THEMES.length];
-    this.scene.background = new THREE.Color(theme.sky);
-    this.scene.fog = new THREE.Fog(theme.sky, 26, 60);
+    const env = envOf(level); this.env = env;
+    this.hemi.groundColor.set(env.ground === 'lawn' ? '#6f9a5c' : env.ground === 'garage' ? '#3a3f47' : '#a99f8c');
+    this.scene.background = new THREE.Color(env.sky);
+    this.scene.fog = new THREE.Fog(env.sky, env.fog[0], env.fog[1]);
+    const indoor = env.ground === 'garage';
+    this.hemi.intensity = indoor ? 0.55 : 0.75; this.sun.intensity = indoor ? 1.9 : 2.6;
     const W = p.w, H = p.h, hw = W / 2, hh = H / 2;
     // ground
-    const g = groundTex(theme.ground).clone(); g.needsUpdate = true; g.repeat.set(10, 10);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: g, color: theme.lawn, roughness: 0.95 }));
+    const gt = groundTexture(env.ground); const g = gt.map.clone(); g.needsUpdate = true; g.repeat.set(gt.repeat, gt.repeat);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: g, color: env.lawn, roughness: indoor ? 0.35 : 0.95, metalness: indoor ? 0.1 : 0 }));
     ground.position.y = -0.12; ground.receiveShadow = true; this.lot.add(ground);
     // pavement ring + kerb + the asphalt with bay lines
     const exits = p.cars.filter((c) => c.exit).map((c) => ({ side: c.dir === 'h' ? (c.exit === 1 ? 'e' : 'w') : (c.exit === 1 ? 's' : 'n'), line: c.line, i: c.i }));
-    const pave = new THREE.Mesh(new THREE.BoxGeometry(W + 1.6, 0.1, H + 1.6), new THREE.MeshStandardMaterial({ map: paveTex(W + 1.6, H + 1.6), roughness: 0.9 }));
+    const pave = new THREE.Mesh(new THREE.BoxGeometry(W + 1.6, 0.1, H + 1.6), new THREE.MeshStandardMaterial({ map: paveTex(W + 1.6, H + 1.6), color: env.pave, roughness: 0.9 }));
     pave.position.y = -0.07; pave.receiveShadow = true; this.lot.add(pave);
     const asphalt = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, 0.08, H + 0.3), [side(), side(), new THREE.MeshStandardMaterial({ map: asphaltTex(W, H, p.walls), roughness: 0.82 }), side(), side(), side()]);
     asphalt.position.y = -0.04; asphalt.receiveShadow = true; this.lot.add(asphalt);
@@ -128,30 +133,29 @@ export class ParkScene {
     for (const e of exits) this.exitRoad(e.side, e.line, W, H, e.i);
     // bollard planters on wall cells
     for (let k = 0; k < p.walls.length; k++) if (p.walls[k]) this.planter((k % W) - hw + 0.5, Math.floor(k / W) - hh + 0.5, k);
-    // the town around: trees behind and to the sides (never between you and the lot), low flowers and bushes in front
+    // the neighbourhood around: trees and its backdrop behind and to the sides (never between you and the lot), flowers in front
     const rnd = mulberry(level * 31 + 7);
-    const spots: { x: number; z: number; s: number }[] = [];
-    for (let x = -hw - 4; x <= hw + 4; x += 1.7) spots.push({ x: x + (rnd() - 0.5) * 0.6, z: -hh - 2.3 - rnd() * 1.6, s: 0.55 + rnd() * 0.25 });
-    for (let z = -hh - 1; z <= hh + 0.5; z += 1.9) { spots.push({ x: -hw - 2.4 - rnd() * 1.3, z, s: 0.5 + rnd() * 0.25 }); spots.push({ x: hw + 2.4 + rnd() * 1.3, z, s: 0.5 + rnd() * 0.25 }); }
     const near = (x: number, z: number) => exits.some((e) => { const c = e.line - (e.side === 'n' || e.side === 's' ? W : H) / 2 + 0.5; return e.side === 'e' ? x > hw && Math.abs(z - c) < 1.4 : e.side === 'w' ? x < -hw && Math.abs(z - c) < 1.4 : e.side === 'n' ? z < -hh && Math.abs(x - c) < 1.4 : z > hh && Math.abs(x - c) < 1.4; });
-    for (const sp of spots) { if (near(sp.x, sp.z)) continue; const tr = tree(theme.tree, Math.round(sp.x * 7 + sp.z * 3), sp.s, !this.o.mobile); tr.position.set(sp.x, -0.1, sp.z); this.lot.add(tr); }
+    const bd = backdrop(env, { W, H, near, mobile: this.o.mobile }, level);
+    this.lot.add(bd.group); this.tickWorld = bd.tick ?? null;
+    if (look.atmo) { const ev = eventProps(look.atmo, look.colors ?? [], { W, H, near, mobile: this.o.mobile }); this.lot.add(ev); }
     const fl: { x: number; z: number; kind: number }[] = [];
     for (let k = 0; k < 70; k++) { const a = rnd() * Math.PI * 2, r = 0.5 + rnd() * 2.2; const x = Math.cos(a) * (hw + 1.2 + r * 0.5), z = Math.sin(a) * (hh + 1.2 + r * 0.5); if (near(x, z) || (Math.abs(x) < hw + 1 && Math.abs(z) < hh + 1)) continue; fl.push({ x, z, kind: k }); }
-    if (theme.ground !== 'snow') { const f = flowers(fl); f.position.y = -0.1; this.lot.add(f); }
-    for (const [x, z, sz] of [[-hw - 1.5, hh + 1.3, 0.45], [hw + 1.5, hh + 1.2, 0.4], [-hw - 1.6, -hh - 1.2, 0.5], [hw + 1.7, -hh - 1.4, 0.5]] as [number, number, number][]) { if (near(x, z)) continue; const b = bush(Math.round(x * 5 + z), sz, !this.o.mobile); b.position.set(x, -0.1, z); this.lot.add(b); }
+    if (env.flowers) { const f = flowers(fl); f.position.y = -0.1; this.lot.add(f); }
     for (const [x, z] of [[-hw - 0.75, -hh - 0.75], [hw + 0.75, -hh - 0.75]] as [number, number][]) this.lamp(x, z);
     if (milestone) this.balloons(W, H, exits);
     // the vehicles
     const r2 = mulberry(seed * 977 + 13);
     let drv = Math.floor(r2() * 15);
     for (const c of p.cars) {
-      const kind = c.exit ? (c.letter === 'A' ? 'hero' : 'hero2') : (c.len === 3 ? LONG_KINDS : SHORT_KINDS)[Math.floor(r2() * 6)];
-      const color = c.exit ? (c.letter === 'A' ? HERO : HERO2) : kind === 'taxi' ? '#ffcf3a' : kind === 'fire' ? '#e03131' : PAINTS[Math.floor(r2() * PAINTS.length)];
+      const kind = c.exit ? (c.letter === 'A' ? 'hero' : 'hero2') : (c.len === 3 ? LONG_KINDS : SHORT_KINDS)[Math.floor(r2() * (c.len === 3 ? LONG_KINDS : SHORT_KINDS).length)];
+      const color = c.exit ? (c.letter === 'A' ? HERO : HERO2) : kind === 'taxi' ? '#ffcf3a' : kind === 'school' ? '#ffb81c' : kind === 'fire' ? '#e03131' : PAINTS[Math.floor(r2() * PAINTS.length)];
       // drivers: different Fuzzies in turn; light vehicles never get the white / grey Fuzzy (they'd vanish against the paint)
       const light = ['#f4f1ea', '#ffb3c7'].includes(color) || kind === 'icecream';
       const pickDrv = () => { let d = drv++ % 15; if (light && (d === 10 || d === 11)) d = (d + 2) % 15; if (d === 0) d = 1; return d; };
-      const ds = c.exit && c.letter === 'A' ? [0, 6, 9] : [pickDrv(), pickDrv(), pickDrv()];
-      const m = buildVehicle(kind, c.len, color, ds);
+      const mine = c.exit && c.letter === 'A';
+      const ds = mine ? [look.driver ?? 0, 6, 9] : [pickDrv(), pickDrv(), pickDrv()];
+      const m = mine && c.len === 2 && look.style ? buildVehicle(STAR_STYLES[look.style] ?? 'car', 2, look.paint || HERO, ds, { star: true }) : buildVehicle(kind, c.len, mine && look.paint ? look.paint : color, ds);
       const face: 1 | -1 = c.exit ? c.exit : r2() < 0.5 ? 1 : -1;
       const car: Car = { m, len: c.len, dir: c.dir, line: c.line, exit: c.exit, face, pos: s[c.i], goal: s[c.i], vel: 0, drag: false, lift: 0, tilt: 0, jiggle: 0, hop: 0, spin: 0, gone: s[c.i] === OUT, leaving: 0, emote: null, emoteT: 0, voice: ds[0] };
       m.group.rotation.y = c.dir === 'h' ? (face === 1 ? 0 : Math.PI) : (face === 1 ? -Math.PI / 2 : Math.PI / 2);
@@ -203,7 +207,7 @@ export class ParkScene {
     const box = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.3, 0.78), new THREE.MeshStandardMaterial({ map: plankTex(), roughness: 0.8 }));
     box.position.y = 0.15; box.castShadow = true; box.receiveShadow = true; g.add(box);
     const soil = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.02, 0.68), new THREE.MeshStandardMaterial({ color: '#5a3d2b', roughness: 1 })); soil.position.y = 0.3; g.add(soil);
-    const b = bush(seed + 3, 0.36, !this.o.mobile); b.position.y = 0.26; g.add(b);
+    const b = smoothBush(seed + 3, 0.36); b.position.y = 0.28; g.add(b);
     // two little traffic cones at its corners
     for (const s of [-1, 1]) { const cone = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.2, 12), new THREE.MeshStandardMaterial({ map: coneTex(), roughness: 0.5 })); cone.position.set(s * 0.33, 0.4, s * 0.33); cone.castShadow = true; g.add(cone); }
     this.lot.add(g);
@@ -378,30 +382,34 @@ export class ParkScene {
     const p = this.p; if (!p) return;
     const r = this.canvas.getBoundingClientRect(); const w = Math.max(1, r.width), h = Math.max(1, r.height);
     const portrait = h > w * 1.15;
+    // measure without the last frame's shift (it is set again at the end — otherwise every second fit undoes the one before)
+    this.camera.clearViewOffset();
     this.camera.fov = portrait ? 34 : 30; this.camera.updateProjectionMatrix();
     const tiltDeg = portrait ? 61 : 54, tilt = THREE.MathUtils.degToRad(tiltDeg);
     const hasExit = (sd: string) => this.barriers.some((b) => b.side === sd);
-    const m = portrait ? 0.22 : 0.4, ex = portrait ? 0.75 : 1.2;
+    // the whole marked exit stays on screen: barrier, sign, chevrons and the painted EXIT
+    const m = portrait ? 0.22 : 0.4, ex = portrait ? 1.75 : 2.05;
     const xs = [-p.w / 2 - (hasExit('w') ? ex : m), p.w / 2 + (hasExit('e') ? ex : m)], zs = [-p.h / 2 - (hasExit('n') ? ex : m) - 0.4, p.h / 2 + (hasExit('s') ? ex : m)];
-    const corners = [] as THREE.Vector3[]; for (const x of xs) for (const z of zs) for (const y of [0, 0.7]) corners.push(new THREE.Vector3(x, y, z));
+    const corners = [] as THREE.Vector3[]; for (const x of xs) for (const z of zs) for (const y of [0, 0.8]) corners.push(new THREE.Vector3(x, y, z));
     const cx = (xs[0] + xs[1]) / 2, cz = (zs[0] + zs[1]) / 2;
     // usable rectangle in NDC
-    const top = 1 - (this.pad.top / h) * 2, bottom = -1 + (this.pad.bottom / h) * 2, sideN = 1 - (this.pad.side / w) * 2;
+    const top = 1 - (this.pad.top / h) * 2, bottom = -1 + (this.pad.bottom / h) * 2, left = -1 + (this.pad.left / w) * 2, right = 1 - (this.pad.right / w) * 2;
     let lo = 3, hi = 80;
     for (let k = 0; k < 28; k++) {
       const d = (lo + hi) / 2;
       this.camera.position.set(cx, Math.sin(tilt) * d, cz + Math.cos(tilt) * d); this.camera.lookAt(cx, 0, cz); this.camera.updateMatrixWorld();
-      let ok = true, ymin = Infinity, ymax = -Infinity;
-      for (const c of corners) { const v = c.clone().project(this.camera); if (Math.abs(v.x) > sideN) ok = false; ymin = Math.min(ymin, v.y); ymax = Math.max(ymax, v.y); }
-      if (ymax - ymin > top - bottom) ok = false;
+      let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+      for (const c of corners) { const v = c.clone().project(this.camera); xmin = Math.min(xmin, v.x); xmax = Math.max(xmax, v.x); ymin = Math.min(ymin, v.y); ymax = Math.max(ymax, v.y); }
+      const ok = xmax - xmin <= right - left && ymax - ymin <= top - bottom;
       if (ok) hi = d; else lo = d;
     }
     const d = hi;
     this.camera.position.set(cx, Math.sin(tilt) * d, cz + Math.cos(tilt) * d); this.camera.lookAt(cx, 0, cz); this.camera.updateMatrixWorld();
-    // shift so the lot sits in the middle of the free band (between the HUD bars)
-    let ymin = Infinity, ymax = -Infinity; for (const c of corners) { const v = c.clone().project(this.camera); ymin = Math.min(ymin, v.y); ymax = Math.max(ymax, v.y); }
-    const want = (top + bottom) / 2, have = (ymin + ymax) / 2;
-    this.camera.setViewOffset(w, h, 0, -((have - want) / 2) * h, w, h); this.camera.updateProjectionMatrix();
+    // shift so the lot sits in the middle of the free space (between the HUD bars and beside a tool rail)
+    let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+    for (const c of corners) { const v = c.clone().project(this.camera); xmin = Math.min(xmin, v.x); xmax = Math.max(xmax, v.x); ymin = Math.min(ymin, v.y); ymax = Math.max(ymax, v.y); }
+    const dy = (ymin + ymax) / 2 - (top + bottom) / 2, dx = (xmin + xmax) / 2 - (left + right) / 2;
+    this.camera.setViewOffset(w, h, (dx / 2) * w, -(dy / 2) * h, w, h); this.camera.updateProjectionMatrix();
     this.sun.target.position.set(cx, 0, cz); this.sun.position.set(cx - 6, 14, cz + 7);
   }
 
@@ -409,6 +417,7 @@ export class ParkScene {
   setRunning(on: boolean): void { this.running = on; if (on) this.last = performance.now(); }
   private frame(dt: number): void {
     this.t += dt;
+    this.tickWorld?.(this.t);
     const p = this.p;
     if (p) for (const c of this.cars) {
       if (c.gone) continue;
@@ -442,12 +451,21 @@ export class ParkScene {
       // drivers: breathe, bob, blink-squash now and then, hop and spin when happy, lean back when the car shoots off
       for (const d of c.m.drivers) {
         const ph = d.phase + this.t;
-        const blink = (Math.sin(ph * 0.7) > 0.995) ? 0.86 : 1;
+        // real blinks: the closed-eyes picture shows for a moment every few seconds (double blinks now and then)
+        const mat = d.sprite.material as THREE.SpriteMaterial;
+        if (d.blinkLeft > 0) { d.blinkLeft -= dt; if (d.blinkLeft <= 0) { mat.map = driverTexture(d.tex); mat.needsUpdate = true; } }
+        else if ((d.blinkIn -= dt) <= 0) {
+          const b = driverBlinkTexture(d.tex);
+          if (b) { mat.map = b; mat.needsUpdate = true; d.blinkLeft = 0.13; }
+          d.blinkIn = Math.random() < 0.2 ? 0.25 : 2 + Math.random() * 4;
+        }
+        const blink = 1;
         const hopY = Math.sin(Math.min(1, c.hop) * Math.PI) * 0.18;
         const breathe = 1 + Math.sin(ph * 2.2) * 0.025;
         d.sprite.position.set(d.base.x, d.base.y + hopY + Math.sin(ph * 1.7) * 0.012, d.base.z);
         d.sprite.scale.set(d.size * breathe * (1 + c.jiggle * 0.08), d.size * breathe * blink * (1 - c.jiggle * 0.08), 1);
-        (d.sprite.material as THREE.SpriteMaterial).rotation = Math.sin(this.t * 14) * 0.25 * c.spin + Math.sin(ph * 1.1) * 0.03 + (c.leaving ? -0.15 * c.face : 0);
+        // they lean into the motion like steering round a bend, spin when happy, sway a little while waiting
+        mat.rotation = Math.sin(this.t * 14) * 0.25 * c.spin + Math.sin(ph * 1.1) * 0.03 + (c.leaving ? -0.15 * c.face : 0) + Math.max(-0.12, Math.min(0.12, c.vel * c.face * 0.02));
       }
       if (c.emote) { c.emoteT -= dt; const s = c.emote; const a = Math.min(1, c.emoteT * 3); (s.material as THREE.SpriteMaterial).opacity = a; s.position.y += dt * 0.12; const sc = 0.38 * (1 + Math.max(0, 0.25 - (1.3 - c.emoteT)) * 2); s.scale.set(sc, sc, 1); if (c.emoteT <= 0) { c.m.body.remove(s); c.emote = null; } }
     }
