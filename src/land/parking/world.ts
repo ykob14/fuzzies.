@@ -38,7 +38,7 @@ export const ENVS: Env[] = [
   { id: 'airport', name: 'Airport Parking', blurb: 'Planes taking off over the lot.', ground: 'concrete', lawn: '#cdd3d6', sky: '#cfe7f7', fog: [30, 70], tree: 'cypress', backdrop: 'airport', pave: '#e2e5e7', tile: '#7aa7e0', icon: 'plane', flowers: false },
   { id: 'festival', name: 'Fuzzies Festival', blurb: 'Tents, bunting and a Ferris wheel.', ground: 'lawn', lawn: '#97d46e', sky: '#d6ecf8', fog: [26, 62], tree: 'blossom', backdrop: 'festival', pave: '#efe7d6', tile: '#ff8fb4', icon: 'star', flowers: true },
   { id: 'mountain', name: 'Mountain Resort', blurb: 'Pine woods under snowy peaks.', ground: 'lawn', lawn: '#88c26c', sky: '#cfe4f0', fog: [30, 72], tree: 'pine', backdrop: 'mountain', pave: '#e9e4d8', tile: '#6fae6b', icon: 'peak', flowers: true },
-  { id: 'garage', name: 'Luxury Garage', blurb: 'Shiny floors under soft spotlights.', ground: 'garage', lawn: '#5b6068', sky: '#3a3f47', fog: [20, 44], tree: 'none', backdrop: 'garage', pave: '#8a8f97', tile: '#3d424a', icon: 'key', flowers: false },
+  { id: 'garage', name: 'Luxury Garage', blurb: 'Shiny floors under soft spotlights.', ground: 'garage', lawn: '#7c828b', sky: '#4a4f58', fog: [20, 44], tree: 'none', backdrop: 'garage', pave: '#8a8f97', tile: '#3d424a', icon: 'key', flowers: false },
   { id: 'city', name: 'Fuzzies City Centre', blurb: 'Tall towers and the big fountain.', ground: 'plaza', lawn: '#d8d0c0', sky: '#cbe3f4', fog: [30, 70], tree: 'round', backdrop: 'city', pave: '#e8e2d4', tile: '#d6336c', icon: 'crown', flowers: true },
 ];
 /** which neighbourhood a level is in (50 levels each); endless lots rotate through all of them */
@@ -110,7 +110,7 @@ function treeGeo(style: TreeStyle, v: number): THREE.BufferGeometry {
         const pts = [new THREE.Vector2(0.001, hgt), new THREE.Vector2(w * 0.35, hgt * 0.62), new THREE.Vector2(w * 0.85, hgt * 0.16), new THREE.Vector2(w, hgt * 0.06), new THREE.Vector2(w * 0.92, 0), new THREE.Vector2(0.001, 0.02)];
         const lg = new THREE.LatheGeometry(pts, 16).translate(0, y, 0); lg.deleteAttribute('uv'); const wv = mergeVertices(lg); wv.computeVertexNormals();
         parts.push(paint(wv, style === 'snowpine'
-          ? (p, n, c) => { foliage(lo, hi, 0.3, 1.8)(p, n, c); if (n.y > 0.55) c.lerp(C('#f7fbff'), THREE.MathUtils.smoothstep(n.y, 0.55, 0.8)); }
+          ? (p, n, c) => { foliage(lo, hi, 0.3, 1.8)(p, n, c); const top = p.y - (0.3 + i * 0.42); if (n.y > 0.7 && top > hgt * 0.35) c.lerp(C('#f4f8fc'), 0.85 * THREE.MathUtils.smoothstep(n.y, 0.7, 0.9)); }
           : foliage(lo, hi, 0.25, 1.9)));
       }
     } else if (style === 'palm') {
@@ -322,8 +322,8 @@ export function backdrop(env: Env, ctx: BackdropCtx, seed: number): { group: THR
       for (const s of [-1, 1]) { const sw = smesh(new THREE.BoxGeometry(0.3, 2.4, ctx.H + 9).translate(0, 1.2, 0), wallM); sw.position.set(s * (hw + 3.6), -0.1, 0); g.add(sw); }
       const stripe = smesh(new THREE.BoxGeometry(ctx.W + 9, 0.12, 0.02), solid('#d6336c', 0.4, 0, '#d6336c')); stripe.position.set(0, 0.9, back - 0.44); g.add(stripe);
       const s = sign('LUXURY GARAGE', 3, '#1d1f24', '#ffd77a'); s.position.set(0, 1.6, back - 0.44); g.add(s);
-      for (let k = 0; k < 4; k++) for (const sd of [-1, 1]) { const p = smesh(new RoundedBoxGeometry(0.42, 2.4, 0.42, 2, 0.05).translate(0, 1.2, 0), solid('#e6e2da', 0.6)); put(p, sd * (hw + 1.4), -hh + k * (ctx.H / 3)); const band = smesh(new THREE.BoxGeometry(0.44, 0.24, 0.44), solid('#ffc21a', 0.5)); band.position.set(sd * (hw + 1.4), 0.25, -hh + k * (ctx.H / 3)); g.add(band); }
-      for (let k = 0; k < 3; k++) { const l = smesh(new THREE.BoxGeometry(ctx.W + 4, 0.04, 0.18), solid('#ffffff', 0.3, 0, '#fff4dc'), false); l.position.set(0, 2.3, back + 1.2 + k * 1.2); g.add(l); }
+      // pillars with a yellow safety band (none on an exit road)
+      for (let k = 0; k < 4; k++) for (const sd of [-1, 1]) { const x = sd * (hw + 1.4), z = -hh + k * (ctx.H / 3); if (ctx.near(x, z)) continue; const p = new THREE.Group(); p.add(smesh(new RoundedBoxGeometry(0.42, 2.4, 0.42, 2, 0.05).translate(0, 1.2, 0), solid('#e6e2da', 0.6))); p.add(smesh(new THREE.BoxGeometry(0.44, 0.24, 0.44).translate(0, 0.35, 0), solid('#ffc21a', 0.5))); put(p, x, z); }
       break;
     }
     case 'city': {

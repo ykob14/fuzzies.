@@ -151,6 +151,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   }
   /** a level: the journey (n ≤ 500), a ladder lot, a holiday lot or an endless puzzle */
   function start(n: number, mode: Mode = 'journey', lvlIn?: LevelData): void {
+    if (mode === 'season' && !lvlIn && !eventNow()) { say('That holiday has finished — see you at the next one!'); mapMode = 'journey'; showMap(); return; }
     closeOverlays(); mapEl.hidden = true; cardEl.hidden = true; keySel = -1;
     const endless = mode === 'endless';
     let lvl = lvlIn ?? (mode === 'ch' ? data.challenge[n - 1] : mode === 'tm' ? data.timed[n - 1] : mode === 'season' ? seasonLevel(eventNow()!, n) : levelOf(n));

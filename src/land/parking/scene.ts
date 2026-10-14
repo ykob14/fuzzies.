@@ -104,7 +104,7 @@ export class ParkScene {
     this.scene.background = new THREE.Color(env.sky);
     this.scene.fog = new THREE.Fog(env.sky, env.fog[0], env.fog[1]);
     const indoor = env.ground === 'garage';
-    this.hemi.intensity = indoor ? 0.55 : 0.75; this.sun.intensity = indoor ? 1.9 : 2.6;
+    this.hemi.intensity = indoor ? 0.8 : 0.75; this.sun.intensity = indoor ? 2.3 : 2.6;
     const W = p.w, H = p.h, hw = W / 2, hh = H / 2;
     // ground
     const gt = groundTexture(env.ground); const g = gt.map.clone(); g.needsUpdate = true; g.repeat.set(gt.repeat, gt.repeat);
@@ -388,8 +388,10 @@ export class ParkScene {
     const tiltDeg = portrait ? 61 : 54, tilt = THREE.MathUtils.degToRad(tiltDeg);
     const hasExit = (sd: string) => this.barriers.some((b) => b.side === sd);
     // the whole marked exit stays on screen: barrier, sign, chevrons and the painted EXIT
-    const m = portrait ? 0.22 : 0.4, ex = portrait ? 1.75 : 2.05;
-    const xs = [-p.w / 2 - (hasExit('w') ? ex : m), p.w / 2 + (hasExit('e') ? ex : m)], zs = [-p.h / 2 - (hasExit('n') ? ex : m) - 0.4, p.h / 2 + (hasExit('s') ? ex : m)];
+    // the space that's scarce gets less road: a side exit on a portrait phone shows its barrier, sign and first chevrons (the lot stays big);
+    // a top/bottom exit there — or a side exit on a wide screen — shows the whole road with its painted EXIT
+    const m = portrait ? 0.22 : 0.4, exH = portrait ? 1.0 : 2.05, exV = portrait ? 1.75 : 1.5;
+    const xs = [-p.w / 2 - (hasExit('w') ? exH : m), p.w / 2 + (hasExit('e') ? exH : m)], zs = [-p.h / 2 - (hasExit('n') ? exV : m) - 0.4, p.h / 2 + (hasExit('s') ? exV : m)];
     const corners = [] as THREE.Vector3[]; for (const x of xs) for (const z of zs) for (const y of [0, 0.8]) corners.push(new THREE.Vector3(x, y, z));
     const cx = (xs[0] + xs[1]) / 2, cz = (zs[0] + zs[1]) / 2;
     // usable rectangle in NDC

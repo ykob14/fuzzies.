@@ -12,7 +12,7 @@ import * as PK from '../../land/parking/progress';
 import type { Payment } from '../../land/parking/game';
 import { conversation, dailyPill, adventuresBody, resultsScreen, scoreResults } from '../landAdventure';
 import { GAME_LOADERS } from '../../land/games/index';
-import { api, cloudEnabled } from '../../core/api';
+import { api, ApiError, cloudEnabled } from '../../core/api';
 import type { LandView, Pick } from '../../land/view3d';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
@@ -1699,7 +1699,9 @@ export function landScreen(): Screen {
           if (res.ok) s.coins += res.coins;
           PK.settle(p, r.key); grant(r.key);
           out.push({ key: r.key, coins: res.ok ? res.coins : 0, ok: res.ok });
-        } catch {
+        } catch (e) {
+          // the server said no (e.g. a holiday lot after the holiday ended): settled, nothing to pay; anything else = offline, ask again later
+          if (e instanceof ApiError && e.status === 400) { PK.settle(p, r.key); out.push({ key: r.key, coins: 0, ok: false }); continue; }
           if (!p.pending.includes(r.key)) p.pending.push(r.key);
           grant(r.key);
           out.push({ key: r.key, coins: r.coins, ok: false, pending: true });
@@ -1716,7 +1718,7 @@ export function landScreen(): Screen {
       api<{ ok: boolean; coins: number }>('data', 'parking.claim', { key }).then((r) => {
         if (r.ok) { s.coins += r.coins; toast(`+${r.coins} coins from Parking Escape — welcome back!`, 'fuzzy'); }
         PK.settle(p, key); save(); renderHud();
-      }).catch(() => { /* still offline: next time */ });
+      }).catch((e) => { if (e instanceof ApiError && e.status === 400) { PK.settle(p, key); save(); } /* otherwise still offline: next time */ });
     }
   }
   /** Rewards earned offline: ask the server again (once per town visit). */
