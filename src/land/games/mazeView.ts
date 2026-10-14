@@ -12,19 +12,20 @@ import { groundTex, hedgeWalls } from './sceneArt';
 import { MazeSim, N, CELL, KEYS, HALF, MOVE, type Pickup } from './maze';
 
 /** the close, low camera (the hedges hide what's round the corner) and the high one a peek mushroom gives you */
-const VIEW = { desk: { back: 4.6, up: 7.4, lookDy: -0.7 }, phone: { back: 5.2, up: 8.6, lookDy: -0.8 }, peek: { back: 6.5, up: 17, lookDy: -1.2 } };
-const MIST = { near: 7.5, far: 14, peekNear: 22, peekFar: 40 };
+const VIEW = { desk: { back: 4.0, up: 8.2, lookDy: -0.6 }, phone: { back: 3.6, up: 10, lookDy: -0.6 }, peek: { back: 5.5, up: 19, lookDy: -0.9 } };
+/** the mist (distance from the camera): clear just round your Fuzzy, gone a few corridors away; a peek pushes it out */
+const MIST = { desk: [9.6, 12.8], phone: [11, 14.5], peek: [24, 44] };
 
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
   const adv = adventure('maze')!;
   const sim = new MazeSim(setup.variant, setup.seed);
   const portrait = setup.mobile && innerHeight > innerWidth;
-  const base = portrait ? VIEW.phone : VIEW.desk;
+  const base = portrait ? VIEW.phone : VIEW.desk, mist = portrait ? MIST.phone : MIST.desk;
   const a = createArcade(stage, {
     cls: 'maze', setup, adv, hooks, buttonLabel: 'Into the maze!',
     hud: { count: 'KEYS' },
     camera: { fov: 46, ...base, lead: 0 },
-    world: { size: { hw: HALF + 4, hd: HALF + 4 }, path: false, fence: false, flowers: 12, fog: ['#dcebd6', MIST.near, MIST.far] },
+    world: { size: { hw: HALF + 4, hd: HALF + 4 }, path: false, fence: false, flowers: 12, fog: ['#dcebd6', mist[0], mist[1]] },
     controls: { mouseSteer: false },
     onStart: () => sim.start(),
   });
@@ -159,7 +160,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     // a peek lifts the view over the hedges and clears the mist for a moment, then eases back down
     peekT = Math.max(0, peekT - dt); const want = peekT > 0.6 ? VIEW.peek : base, ease = Math.min(1, dt * (peekT > 0.6 ? 3 : 1.8));
     a.cam.back += (want.back - a.cam.back) * ease; a.cam.up += (want.up - a.cam.up) * ease; a.cam.lookDy += (want.lookDy - a.cam.lookDy) * ease;
-    const k = (a.cam.up - base.up) / (VIEW.peek.up - base.up); fog.near = MIST.near + (MIST.peekNear - MIST.near) * k; fog.far = MIST.far + (MIST.peekFar - MIST.far) * k;
+    const k = (a.cam.up - base.up) / (VIEW.peek.up - base.up); fog.near = mist[0] + (MIST.peek[0] - mist[0]) * k; fog.far = mist[1] + (MIST.peek[1] - mist[1]) * k;
     sim.hogs.forEach((h, i) => { const v = hogs[i]; v.g.position.set(h.x, 0, h.z); v.g.rotation.y = h.heading; v.body.position.y = Math.abs(Math.sin(time.value * 9 + i)) * 0.03; v.feet.forEach((f, j) => { f.position.y = 0.04 + Math.max(0, Math.sin(time.value * 14 + j * 1.6)) * 0.04; }); });
     for (const n of nodes) {
       if (n.got >= 0) { n.got += dt; const k = Math.min(1, n.got / 0.3); n.m.position.y = 0.9 + k * 1.2; n.m.scale.setScalar(Math.max(0.001, 1 - k)); if (k >= 1 && n.m.parent) scene.remove(n.m); continue; }
