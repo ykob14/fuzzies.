@@ -104,7 +104,8 @@ vec3 fzHue(float h) { return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) -
 /** the fur's own light and shade, in this Fuzzy's colour (all sRGB) */
 vec3 fzTint(vec3 c, vec3 p) {
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722)) / ${FUR_LUMA.toFixed(2)};
-  vec3 col = mix(uCol, mix(vec3(0.95), fzHue(atan(p.y - 0.5, p.x) / 6.2832 + p.z * 0.25), 0.82), uRainbow);
+  // rainbow: the order on the owner's sheet — orange on top, yellow-green on the left, blue below, purple and magenta on the right
+  vec3 col = mix(uCol, mix(vec3(0.95), fzHue((atan(p.y - 0.5, p.x) * 57.2958 - 60.0) / 360.0), 0.85), uRainbow);
   // shade multiplies; very light colours (white, the pale greys) lift a little less so they keep their fur detail
   return clamp(col * pow(l, 1.15), 0.0, 1.0);
 }
@@ -128,7 +129,10 @@ function bodyMaterial(n: number): THREE.MeshStandardMaterial {
         float fzMax = max(fzS.r, max(fzS.g, fzS.b)), fzMin = min(fzS.r, min(fzS.g, fzS.b));
         float fzFur = smoothstep(0.1, 0.28, (fzMax - fzMin) / max(fzMax, 0.001)) * smoothstep(0.12, 0.3, fzMax);
         vec2 fzM = (vModel.xy - vec2(${MOUTH.x}, ${MOUTH.y})) / vec2(${MOUTH.hx}, ${MOUTH.hy});
-        fzFur *= smoothstep(0.85, 1.1, length(fzM)) + step(vModel.z, 0.12);
+        // the mouth keeps its own colours (dark inside, pink tongue): only what sits deeper than the fur — the cavity — inside the mouth's
+        // outline; the fur round the lips is recoloured like the rest (a flat outline left a pink ring round every mouth)
+        float fzDeep = 1.0 - smoothstep(0.37, 0.40, length(vModel - vec3(0.0, 0.5, 0.0)));
+        fzFur *= 1.0 - fzDeep * (1.0 - smoothstep(0.95, 1.15, length(fzM))) * step(0.12, vModel.z);
         fzFur = clamp(fzFur, 0.0, 1.0) * (1.0 - uKeep);
         vec3 fzT = fzTint(fzS, vModel);
         diffuseColor *= vec4(${toLin('mix(fzS, fzT, fzFur)')}, fzTex.a);
