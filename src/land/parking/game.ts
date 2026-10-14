@@ -39,6 +39,7 @@ const IC = {
   restart: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
   hint: '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>',
   pause: '<path d="M8 5v14M16 5v14"/>',
+  fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="8.5" y="8.5" width="7" height="7" rx="1.5"/>',
   back: '<path d="M15 18l-6-6 6-6"/>',
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -74,6 +75,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   // the 3D drivers (0.3–0.4 MB; phones get the lighter copy) load while the map shows; a lot built before they arrive keeps its flat
   // pictures until then and swaps them in place
   if (riders3d()) void loadRiders(setup.mobile ? 'fuzzy-rider.m.glb' : 'fuzzy-rider.glb').then((ok) => { if (ok) scene.upgradeRiders(); });
+  scene.onView = (zoomed) => { viewBtn.hidden = !zoomed; if (zoomed) hand.hidden = true; };
   scene.onIdle = (i) => { if (play && !play.done && !drag) audio.voice(scene.voiceOf(i), Math.random() < 0.3 ? 'giggle' : 'coo'); };
   audio.music(true);
   const wake = () => audio.wake();
@@ -96,10 +98,13 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   const restartBtn = btn(IC.restart, 'Restart', 'pk-restart', () => restart());
   const hintBtn = btn(IC.hint, 'Hint', 'pk-hint', () => void hint());
   const bottom = h('div', { class: 'pk-bottom' }, undoBtn, hintBtn, restartBtn);
+  // back to the whole lot: shows only while you're zoomed in or slid aside (double-tap or the 0 key do the same)
+  const viewBtn = h('button', { class: 'pk-round pk-view', type: 'button', 'aria-label': 'Show the whole lot', title: 'Show the whole lot (0)', hidden: true }, SVG(IC.fit, 22));
+  viewBtn.addEventListener('click', () => { audio.button(); scene.resetView(); });
   const tip = h('div', { class: 'pk-tip', hidden: true });
   const hand = h('div', { class: 'pk-hand', hidden: true }, h('i'));
   const toastEl = h('div', { class: 'pk-toast', hidden: true });
-  root.append(top, bottom, tip, hand, toastEl);
+  root.append(top, bottom, viewBtn, tip, hand, toastEl);
   const say = (text: string, ms = 2200) => { toastEl.textContent = text; toastEl.hidden = false; toastEl.classList.remove('show'); void toastEl.offsetWidth; toastEl.classList.add('show'); clearTimeout(sayT); sayT = setTimeout(() => { toastEl.hidden = true; }, ms); };
   let sayT: ReturnType<typeof setTimeout> | undefined;
   const paintCoins = (n = setup.coins()) => { coinEl.textContent = n.toLocaleString(); };
@@ -187,19 +192,49 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   interface Drag { i: number; id: number; grab: number; pos0: number; min: number; max: number; out: boolean; exitDir: 0 | 1 | -1; vel: number; lastT: number; lastPos: number; bumped: boolean; moved: boolean; span: number; len: number }
   let drag: Drag | null = null;
   const canvas = scene.canvas;
+  // ---------- the camera: two fingers pinch + slide, one finger / the mouse on open ground slides, the wheel zooms, double-tap ----------
+  // a finger on a vehicle always drags the vehicle; a second finger hands everything to the camera (the vehicle goes back to its bay)
+  const ptrs = new Map<number, { x: number; y: number }>();
+  /** keep getting this pointer's moves even off the canvas (a pointer the browser no longer knows can't be captured: ignore) */
+  const capture = (id: number) => { try { canvas.setPointerCapture(id); } catch { /* gone already */ } };
+  let pan: { id: number; x: number; y: number; x0: number; y0: number; moved: boolean } | null = null;
+  let pinch: { d: number; mx: number; my: number } | null = null;
+  let lastTap = { t: 0, x: 0, y: 0 };
+  const two = () => { const [a, b] = [...ptrs.values()]; return { d: Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; };
   canvas.addEventListener('pointerdown', (e) => {
-    if (!play || play.done || busy || !play.started || drag) return;
+    if (!play) return;
+    if (e.isPrimary) { ptrs.clear(); pinch = null; } // a new gesture: forget any finger whose lift we never saw
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size >= 2) {
+      if (drag) { const d = drag; drag = null; scene.settle(d.i, play.s[d.i]); }
+      pan = null; pinch = two(); capture(e.pointerId); return;
+    }
+    const startPan = () => { pan = { id: e.pointerId, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false }; capture(e.pointerId); };
+    if (e.button !== 0) { startPan(); return; } // right / middle mouse button: always the camera
+    if (play.done || busy || !play.started || drag) { if (!drag) startPan(); return; }
     const i = scene.pick(e.clientX, e.clientY, e.pointerType === 'touch' ? 0.2 : 0.1);
-    if (i < 0) return;
+    if (i < 0) { startPan(); return; }
     const car = play.p.cars[i];
     const r = range(play.p, play.s, i);
     const a = scene.along(i, e.clientX, e.clientY); if (a === null) return;
-    canvas.setPointerCapture(e.pointerId);
+    capture(e.pointerId);
     drag = { i, id: e.pointerId, grab: a, pos0: play.s[i], min: r.min, max: r.max, out: r.out, exitDir: car.exit, vel: 0, lastT: performance.now(), lastPos: play.s[i], bumped: false, moved: false, span: car.dir === 'h' ? play.p.w : play.p.h, len: car.len };
     scene.select(i); audio.select(); audio.voice(scene.voiceOf(i), 'hi'); keySel = i;
     if (r.min === r.max && !r.out) { scene.bump(i, -1); audio.blocked(); audio.voice(scene.voiceOf(i), 'oops', 0.12); }
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && ptrs.size >= 2) {
+      const n = two();
+      scene.zoomAt(n.d / pinch.d, n.mx, n.my);
+      scene.panBy(pinch.mx, pinch.my, n.mx - pinch.mx, n.my - pinch.my);
+      pinch = n; return;
+    }
+    if (pan && e.pointerId === pan.id) {
+      if (!pan.moved && Math.hypot(e.clientX - pan.x0, e.clientY - pan.y0) > 8) pan.moved = true;
+      if (pan.moved) { scene.panBy(pan.x, pan.y, e.clientX - pan.x, e.clientY - pan.y); pan.x = e.clientX; pan.y = e.clientY; }
+      return;
+    }
     if (!drag || e.pointerId !== drag.id || !play) return;
     const a = scene.along(drag.i, e.clientX, e.clientY); if (a === null) return;
     const want = drag.pos0 + (a - drag.grab);
@@ -214,7 +249,33 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     drag.vel = drag.vel * 0.6 + ((pos - drag.lastPos) / dt) * 0.4; drag.lastT = now; drag.lastPos = pos;
     scene.dragTo(drag.i, pos);
   });
+  const endCamera = (e: PointerEvent): boolean => {
+    ptrs.delete(e.pointerId);
+    if (pinch) {
+      if (ptrs.size < 2) { pinch = null; const [id, q] = [...ptrs.entries()][0] ?? []; if (id !== undefined && q) pan = { id, x: q.x, y: q.y, x0: q.x, y0: q.y, moved: true }; }
+      return true;
+    }
+    if (pan && e.pointerId === pan.id) {
+      const p0 = pan; pan = null;
+      if (!p0.moved && e.type === 'pointerup' && e.button === 0) {
+        // a double-tap on open ground: zoom in there, or back out to the whole lot
+        const now = e.timeStamp; // when the finger lifted, not when a busy phone got round to it
+        if (now - lastTap.t < 340 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 40) { if (scene.zoomed) scene.resetView(); else scene.focusAt(e.clientX, e.clientY); lastTap.t = 0; }
+        else lastTap = { t: now, x: e.clientX, y: e.clientY };
+      }
+      return true;
+    }
+    return false;
+  };
+  canvas.addEventListener('wheel', (e) => {
+    if (!play) return; e.preventDefault();
+    scene.zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : e.ctrlKey ? 0.01 : 0.0015)), e.clientX, e.clientY);
+  }, { passive: false });
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  // iPhone Safari's own pinch-to-zoom of the page
+  for (const ev of ['gesturestart', 'gesturechange']) root.addEventListener(ev, (e) => e.preventDefault());
   const endDrag = (e: PointerEvent) => {
+    if (endCamera(e)) return;
     if (!drag || e.pointerId !== drag.id || !play) return;
     const d = drag; drag = null;
     const pos = scene.posOf(d.i);
@@ -297,6 +358,9 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
     if (e.key.toLowerCase() === 'r' && !e.ctrlKey && !e.metaKey) { restart(); return; }
     if (e.key.toLowerCase() === 'h') { void hint(); return; }
+    // the camera: + / − zoom on the middle of the screen, 0 = the whole lot
+    if (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_') { const r = canvas.getBoundingClientRect(); scene.zoomAt(e.key === '+' || e.key === '=' ? 1.25 : 0.8, r.left + r.width / 2, r.top + r.height / 2); return; }
+    if (e.key === '0') { scene.resetView(); return; }
     // arrow keys move the last vehicle you picked one bay at a time (Tab picks the next one)
     if (e.key === 'Tab') { e.preventDefault(); const n = play.p.cars.length; for (let k = 1; k <= n; k++) { const i = (keySel + k + n) % n; if (play.s[i] !== OUT) { keySel = i; scene.select(i); audio.select(); break; } } return; }
     const dirs: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };

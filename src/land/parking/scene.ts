@@ -170,6 +170,7 @@ export class ParkScene {
       this.place(car);
     }
     this.select(-1);
+    this.view = { zoom: 1, x: 0, z: 0 }; this.viewGoal = null; this.onView?.(false); // every lot starts on the whole-lot view
     this.fit();
   }
 
@@ -422,7 +423,7 @@ export class ParkScene {
     const portrait = h > w * 1.15;
     // measure without the last frame's shift (it is set again at the end — otherwise every second fit undoes the one before)
     this.camera.clearViewOffset();
-    this.camera.fov = portrait ? 34 : 30; this.camera.updateProjectionMatrix();
+    this.camera.fov = portrait ? 34 : 30; this.camera.zoom = 1; this.camera.updateProjectionMatrix(); // measure unzoomed (applyView puts the player's zoom back)
     const tiltDeg = portrait ? 61 : 54, tilt = THREE.MathUtils.degToRad(tiltDeg);
     const hasExit = (sd: string) => this.barriers.some((b) => b.side === sd);
     // the whole marked exit stays on screen: barrier, sign, chevrons and the painted EXIT
@@ -451,12 +452,76 @@ export class ParkScene {
     const dy = (ymin + ymax) / 2 - (top + bottom) / 2, dx = (xmin + xmax) / 2 - (left + right) / 2;
     this.camera.setViewOffset(w, h, (dx / 2) * w, -(dy / 2) * h, w, h); this.camera.updateProjectionMatrix();
     this.sun.target.position.set(cx, 0, cz); this.sun.position.set(cx - 6, 14, cz + 7);
+    this.base = { cx, cz, d, tilt, hw: (xs[1] - xs[0]) / 2, hh: (zs[1] - zs[0]) / 2 };
+    this.applyView();
+  }
+
+  // ---------- the player's own camera: pinch / wheel zoom about the fingers, pan, back to the whole lot ----------
+  /** the framing fit() chose (the whole lot with its exits) */
+  private base: { cx: number; cz: number; d: number; tilt: number; hw: number; hh: number } | null = null;
+  /** the player's zoom and pan on top of it; `goal` is where a reset glides to */
+  private view = { zoom: 1, x: 0, z: 0 };
+  private viewGoal: { zoom: number; x: number; z: number } | null = null;
+  /** called when the player changes the view (the game hides its pointing hand, shows the reset button) */
+  onView: ((zoomed: boolean) => void) | null = null;
+  static readonly MAX_ZOOM = 2.6;
+  private applyView(): void {
+    const b = this.base; if (!b) return;
+    const v = this.view, x = b.cx + v.x, z = b.cz + v.z;
+    this.camera.position.set(x, Math.sin(b.tilt) * b.d, z + Math.cos(b.tilt) * b.d); this.camera.lookAt(x, 0, z);
+    this.camera.zoom = v.zoom; this.camera.updateProjectionMatrix(); this.camera.updateMatrixWorld();
+  }
+  /** keep the lot on screen: the further in, the further you may slide (never past the lot's edge) */
+  private clampView(): void {
+    const b = this.base; if (!b) return;
+    const v = this.view; v.zoom = Math.max(1, Math.min(ParkScene.MAX_ZOOM, v.zoom));
+    const k = 1 - 1 / v.zoom, mx = b.hw * k, mz = b.hh * k;
+    v.x = Math.max(-mx, Math.min(mx, v.x)); v.z = Math.max(-mz, Math.min(mz, v.z));
+  }
+  /** is the view the default whole-lot framing? */
+  get zoomed(): boolean { return this.view.zoom > 1.02 || Math.abs(this.view.x) > 0.05 || Math.abs(this.view.z) > 0.05; }
+  private changed(): void { this.clampView(); this.applyView(); this.onView?.(this.zoomed); }
+  /** zoom by `factor` keeping the ground under (x, y) — the fingers' middle or the mouse — where it is */
+  zoomAt(factor: number, x: number, y: number): void {
+    if (!this.base) return; this.viewGoal = null;
+    const a = this.ground(x, y, 0);
+    this.view.zoom *= factor; this.clampView(); this.applyView();
+    const b = this.ground(x, y, 0);
+    if (a && b) { this.view.x += a.x - b.x; this.view.z += a.z - b.z; }
+    this.changed();
+  }
+  /** slide the lot with the finger / mouse from (x, y) by (dx, dy) screen pixels */
+  panBy(x: number, y: number, dx: number, dy: number): void {
+    if (!this.base) return; this.viewGoal = null;
+    const a = this.ground(x, y, 0), b = this.ground(x + dx, y + dy, 0);
+    if (a && b) { this.view.x -= b.x - a.x; this.view.z -= b.z - a.z; }
+    this.changed();
+  }
+  /** glide back to the whole lot (instant = no glide, e.g. a new level) */
+  resetView(instant = false): void {
+    if (instant) { this.viewGoal = null; this.view = { zoom: 1, x: 0, z: 0 }; this.applyView(); this.onView?.(false); return; }
+    this.viewGoal = { zoom: 1, x: 0, z: 0 };
+  }
+  /** glide in on a spot (double-tap): 2× about it */
+  focusAt(x: number, y: number): void {
+    const g = this.ground(x, y, 0); const b = this.base; if (!g || !b) return;
+    const zoom = 2;
+    const k = 1 - 1 / zoom;
+    this.viewGoal = { zoom, x: Math.max(-b.hw * k, Math.min(b.hw * k, g.x - b.cx)), z: Math.max(-b.hh * k, Math.min(b.hh * k, g.z - b.cz)) };
+  }
+  private glideView(dt: number): void {
+    const g = this.viewGoal; if (!g) return;
+    const k = 1 - Math.exp(-dt * 9), v = this.view;
+    v.zoom += (g.zoom - v.zoom) * k; v.x += (g.x - v.x) * k; v.z += (g.z - v.z) * k;
+    if (Math.abs(g.zoom - v.zoom) < 0.002 && Math.abs(g.x - v.x) < 0.003 && Math.abs(g.z - v.z) < 0.003) { Object.assign(v, g); this.viewGoal = null; }
+    this.applyView(); this.onView?.(this.zoomed);
   }
 
   // ---------- the loop ----------
   setRunning(on: boolean): void { this.running = on; if (on) this.last = performance.now(); }
   private frame(dt: number): void {
     this.t += dt;
+    this.glideView(dt);
     this.tickWorld?.(this.t);
     const p = this.p;
     if (p) for (const c of this.cars) {

@@ -2736,6 +2736,10 @@ html.mg-open, html.mg-open body { overflow: hidden; overscroll-behavior: none; }
 .pk-coins.bump { animation: pkTick .3s var(--ease); }
 @keyframes pkTick { 40% { transform: scale(1.15); } }
 .pk-bottom { position: absolute; left: 50%; bottom: calc(12px + var(--safe-b, 0px)); transform: translateX(-50%); display: flex; gap: 10px; padding: 6px; border-radius: 22px; background: rgba(255, 250, 242, .5); box-shadow: 0 6px 20px rgba(40, 60, 80, .12); backdrop-filter: none; }
+/* back to the whole lot (only while zoomed in / slid aside) */
+.pk-view { position: absolute; left: calc(12px + var(--safe-l, 0px)); bottom: calc(16px + var(--safe-b, 0px)); animation: pk-view-in .22s var(--ease, ease-out); }
+@keyframes pk-view-in { from { opacity: 0; transform: scale(.7); } }
+.pk-view[hidden] { display: none; }
 .pk-btn { display: grid; justify-items: center; align-content: center; gap: 3px; min-width: 74px; height: 56px; box-sizing: border-box; padding: 0 12px; border: 0; border-radius: var(--tile-r); background: var(--pc); color: #3d2f2a; font: 700 12.5px/1 var(--ui); box-shadow: var(--tile-lip); cursor: pointer; transition: transform .12s var(--ease), background .2s, color .2s, box-shadow .2s; }
 .pk-btn svg { color: var(--pacc); transition: color .2s, opacity .2s; }
 .pk-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--plip); }

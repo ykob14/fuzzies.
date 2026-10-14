@@ -157,12 +157,15 @@ overlap. Seasonal effects can be switched off in Settings.`,
   },
   {
     id: 'parking', title: 'Fuzzies Parking Escape (the parking puzzle game)', screens: ['land'],
-    keywords: ['parking', 'parking escape', 'park', 'car', 'cars', 'puzzle', 'rush hour', 'parking jam', 'traffic', 'truck', 'bus', 'exit', 'levels', '500', 'stars', 'hint', 'undo', 'endless', 'timed', 'moves', 'double escape', 'milestone', 'parking lot', 'attendant'],
+    keywords: ['parking', 'parking escape', 'park', 'car', 'cars', 'puzzle', 'rush hour', 'parking jam', 'traffic', 'truck', 'bus', 'exit', 'levels', '500', 'stars', 'hint', 'undo', 'endless', 'timed', 'moves', 'double escape', 'milestone', 'parking lot', 'attendant', 'zoom', 'pinch', 'camera'],
     body: `Fuzzies Parking Escape is a puzzle game inside Fuzzies Land (always there — not a daily mission). Every town has a parking lot
 with a Fuzzy attendant (it was placed by the Town Hall; if the land was full it waits in Storage — place it from Edit town). Tap the lot,
 or the car button on the right side of the town, to play. The goal: get the pink star car out through the EXIT. Drag any vehicle with your
 finger or the mouse — cars, taxis, jeeps and sports cars are 2 spaces long, trucks, buses, fire engines and ice-cream vans 3 — they only
 drive forwards and backwards along their lane and can't pass each other or the bollard planters. A quick flick slides a car all the way.
+Zoom: pinch with two fingers (or the mouse wheel) and slide with two fingers, or one finger on open ground; double-tap open ground to
+zoom in there or back out; the square button in the bottom-left corner (or the 0 key) shows the whole lot again. A finger on a car always
+moves the car.
 Buttons: Undo, Hint (shows the next good move; a level solved with a hint gets up to 2 stars) and Restart; Pause has Music & sounds
 (separate music and sound-effect volumes, Mute everything — saved with your progress). 500 levels in 20 districts of 25, getting harder
 (levels 1–20 teach the basics, 451–500 are master puzzles). Most levels have no timer. Special levels: Timed Escape (a clock), Limited
