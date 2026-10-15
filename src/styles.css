@@ -3033,12 +3033,13 @@ html[data-screen='edit']:has(.editor.props-open) .fz-assist:not(.open) { display
 @media (max-width: 760px) {
   .ed-tools { padding: 6px 0 calc(6px + var(--safe-b)) 8px; gap: 0; }
   .tb-track { padding: 0 8px; }
-  .ed-tools .tb-done { flex: none; height: 40px; padding: 0 14px 0 10px; margin-right: 6px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; box-shadow: var(--shadow-xs); }
+  .ed-tools .tb-done { flex: none; height: 40px; padding: 0 12px 0 8px; margin-right: 4px; font-size: 14px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; box-shadow: var(--shadow-xs); }
   .ed-tools .tb-done:hover, .ed-tools .tb-done:active { background: var(--accent); color: var(--on-accent); filter: brightness(1.06); }
   .ed-tools .tb-done + .tb-track { border-left: 1px solid var(--border); }
   .tb-track .tb-scroll.l { left: 0; }
   .tb-track .tb-btn { height: 40px; min-width: 40px; }
   .tb-track .tb-more span { display: inline; }
+  .tb-track .font-btn { width: 124px; }
 }
 /* phone editor top bar: back · name · undo/redo · ⋯ · Share — Preview, Download, View and Resize live in the ⋯ menu */
 .ed-more { display: none; }

@@ -103,7 +103,7 @@ export function buildProps(ed: Editor): Props {
     if (!sel.length) { title.textContent = 'Page'; body.append(...pageProps()); return; }
     if (sel.length > 1) { title.textContent = `${sel.length} items`; body.append(...multiProps(sel)); return; }
     const e = sel[0];
-    title.textContent = { text: 'Text', shape: 'Shape', image: 'Photo', graphic: 'Graphic', emoji: 'Sticker', draw: 'Drawing', qr: 'QR code' }[e.type];
+    title.textContent = ed.isPageBackground(e) ? 'Background' : { text: 'Text', shape: 'Shape', image: 'Photo', graphic: 'Graphic', emoji: 'Sticker', draw: 'Drawing', qr: 'QR code' }[e.type];
     if (e.locked) body.append(h('div', { class: 'note' }, icon('lock', 16), 'This item is locked. ', h('button', { class: 'link', type: 'button', onclick: () => { e.locked = false; done(); render(); } }, 'Unlock')));
     if (e.type === 'text') body.append(...textProps(e));
     if (e.type === 'shape') body.append(...shapeProps(e));

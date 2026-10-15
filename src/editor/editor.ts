@@ -114,6 +114,7 @@ export class Editor {
   private spaceDown = false;
   private fitZoom = 0;
   private lastTap = { t: 0, id: '' };
+  private bgTapAt = 0;
   /** Set by a tap on a photo frame; the canvas `click` that follows opens the picker (phones only allow it from a real tap). */
   private pickOnClick: { id: string; t: number } | null = null;
   /** The photo being cropped in place (double-click a photo): drag moves the picture inside its frame, the wheel zooms it. */
@@ -845,7 +846,8 @@ export class Editor {
     c.addEventListener('dblclick', (e) => {
       const p = this.toDesign(e.clientX, e.clientY);
       const el = this.hitEl(p.x, p.y);
-      if (el && this.isPageBackground(el) && !this.selection.includes(el.id)) { this.select([el.id]); return; } // double-click empty space = the background
+      // double-click (or the double-tap that just selected it) on empty space = select the background, nothing more
+      if (el && this.isPageBackground(el) && (!this.selection.includes(el.id) || el.type !== 'image' || performance.now() - this.bgTapAt < 600)) { this.select([el.id]); return; }
       if (el?.type === 'text' && !el.locked) this.editText(el);
       else if (el?.type === 'image' && !el.locked) { if (!isEmptyFrame(el) && !isSticker(el)) this.startCrop(el); } // an empty frame already opened its picker on the first click
       else if (el) this.props.open();
@@ -981,7 +983,7 @@ export class Editor {
     if (e.pointerType !== 'mouse') {
       const bg = this.hitEl(p.x, p.y);
       const now = performance.now();
-      if (bg && this.lastTap.id === 'bg:' + bg.id && now - this.lastTap.t < 350) { this.lastTap = { t: 0, id: '' }; this.select([bg.id]); this.drag = null; return; }
+      if (bg && this.lastTap.id === 'bg:' + bg.id && now - this.lastTap.t < 350) { this.lastTap = { t: 0, id: '' }; this.bgTapAt = now; this.select([bg.id]); this.drag = null; return; }
       this.lastTap = { t: now, id: bg ? 'bg:' + bg.id : '' };
     }
     if (e.pointerType === 'mouse') {
