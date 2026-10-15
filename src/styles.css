@@ -3005,3 +3005,24 @@ html[data-screen='edit']:has(.editor.props-open) .fz-assist:not(.open) { display
 .layer-rename { flex: 1; min-width: 0; height: 30px; }
 @media (pointer: coarse) { .layer-grip { width: 28px; font-size: 14px; opacity: 1; text-align: center; } }
 .tb-hint { color: var(--muted); font-size: 12.5px; white-space: nowrap; padding: 0 6px; }
+.pnl-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pnl-more { font-size: 12.5px; font-weight: 650; white-space: nowrap; }
+/* Layers rows fit the panel: the up/down arrows (dragging does the same) only show on the hovered or selected row */
+.layers { overflow-x: hidden; }
+.layer { min-width: 0; gap: 4px; }
+@media (hover: hover) { .layer:not(.on):not(:hover):not(:focus-within) .layer-move { display: none; } }
+
+/* phone colour picker: a low bottom sheet (the design stays in view above it) */
+.picker.sheet { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 44dvh; border-radius: 20px 20px 0 0; border-bottom: 0; padding: 0 14px calc(12px + var(--safe-b, 0px)); box-shadow: 0 -12px 40px rgba(0,0,0,.2); }
+.picker-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 10px 0 8px; background: var(--surface); }
+.picker.sheet .swatches { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+
+/* phone editor: Done stays reachable when the tool bar scrolls (the left arrow sits beside it, not on it) */
+@media (max-width: 760px) {
+  .ed-tools .tb-done { position: sticky; left: 0; z-index: 3; background: var(--surface); box-shadow: 8px 0 8px -6px rgba(0,0,0,.15); }
+  .ed-tools .tb-done ~ .tb-scroll.l { left: 48px; }
+  html[data-screen='edit']:has(.editor.has-sel) .fz-assist:not(.open) { display: none; } /* keep the canvas clear while editing */
+}
+/* phones: the helper slides mostly out of the way while you scroll down, and back when you scroll up */
+.fz-assist.tucked:not(.open) .fzc-launch { transform: translateX(62%); opacity: .7; transition: transform .25s var(--ease), opacity .25s; }
+.fz-assist .fzc-launch { transition: transform .25s var(--ease), opacity .25s; }

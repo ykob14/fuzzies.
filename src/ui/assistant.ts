@@ -393,6 +393,12 @@ export function mountAssistant(): void {
     toggle() { if (open) api.close(); else api.open(); },
   };
   ui = api;
+  // phones: tuck the launcher aside while scrolling down (it sat on card titles), bring it back on the way up
+  let lastY = scrollY;
+  addEventListener('scroll', () => {
+    const y = scrollY;
+    if (innerWidth <= 760 && Math.abs(y - lastY) > 12) { root.classList.toggle('tucked', y > lastY && y > 120); lastY = y; }
+  }, { passive: true });
   launcher.addEventListener('click', () => api.toggle());
   launcher.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !open) big.do('wink'); });
   label.addEventListener('click', () => api.open());

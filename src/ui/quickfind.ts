@@ -68,6 +68,7 @@ export function openQuickFind(initial = ''): void {
 
   let shown: Item[] = [];
   let at = 0;
+  let picked = false; // moved through the rows with the arrows or the mouse
   function fill(): void {
     const q = input.value.trim().toLowerCase();
     const words = q.split(/\s+/).filter(Boolean);
@@ -96,7 +97,7 @@ export function openQuickFind(initial = ''): void {
         it.thumb ? h('img', { class: 'qf-thumb', src: it.thumb, alt: '' }) : h('span', { class: 'qf-ic' }, icon(it.icon ?? 'file', 16)),
         h('span', { class: 'qf-label' }, it.label),
         it.sub ? h('span', { class: 'qf-sub' }, it.sub) : null);
-      row.addEventListener('pointermove', () => { if (at !== i) { at = i; mark(); } });
+      row.addEventListener('pointermove', () => { if (at !== i) { at = i; picked = true; mark(); } });
       row.addEventListener('click', () => choose(i));
       list.append(row);
     });
@@ -115,11 +116,19 @@ export function openQuickFind(initial = ''): void {
   }
   function onKey(e: KeyboardEvent): void {
     if (e.key === 'Escape') { e.preventDefault(); close(); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); at = (at + 1) % Math.max(1, shown.length); mark(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); at = (at - 1 + shown.length) % Math.max(1, shown.length); mark(); }
-    else if (e.key === 'Enter') { e.preventDefault(); choose(at); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); picked = true; at = (at + 1) % Math.max(1, shown.length); mark(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); picked = true; at = (at - 1 + shown.length) % Math.max(1, shown.length); mark(); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      // typed a search and pressed Enter straight away: show the results page (it used to open the first template as a new design)
+      const all = shown.findIndex((x) => x.label.startsWith('See all'));
+      const q = input.value.trim();
+      if (!picked && q && all >= 0) choose(all);
+      else if (!picked && q && shown[at]?.group === 'Templates') { close(); location.hash = `#/templates?q=${encodeURIComponent(q)}`; }
+      else choose(at);
+    }
   }
-  input.addEventListener('input', () => { at = 0; fill(); });
+  input.addEventListener('input', () => { at = 0; picked = false; fill(); });
   backdrop.addEventListener('pointerdown', (e) => { if (e.target === backdrop) close(); });
   addEventListener('keydown', onKey, true);
   addEventListener('hashchange', close, { once: true });

@@ -199,10 +199,34 @@ export function buildPanels(ed: Editor): Panels {
   }
 
   let elQuery = '';
+  const openCollections = new Set<string>(); // collections opened with "See all" (kept while the editor is open)
   function elementsPanel(): HTMLElement {
     const wrap = h('div');
     const search = h('input', { class: 'input', placeholder: 'Search graphics — “bat”, “pumpkin”, “moon”…', value: elQuery, type: 'search', 'aria-label': 'Search shapes and graphics' });
     const list = h('div');
+    const PREVIEW = 8, SEARCH_MAX = 24;
+    const renderCollection = (col: (typeof COLLECTIONS)[number], sec: HTMLElement, q: string) => {
+      const all = q ? searchAssets(q).filter((a) => a.id.startsWith(col.prefix)) : assetsIn(col);
+      const art = all.filter((a) => a.kind !== 'background');
+      const scenes = all.filter((a) => a.kind === 'background' && a.id.endsWith('-sq'));
+      if (!art.length && !scenes.length) { sec.remove(); if (!list.childElementCount) list.append(h('p', { class: 'muted' }, 'Nothing found.')); return; }
+      const open = openCollections.has(col.prefix);
+      const item = (a: AssetDef, onClick: () => void, drag = true) => {
+        const b = h('button', { class: `el-item ${a.kind === 'background' ? 'el-scene' : ''}`, type: 'button', title: `${a.name} · ${a.license}`, 'aria-label': a.name }, h('img', { src: artDataUrl(a.id, a.colors), alt: '', loading: 'lazy', decoding: 'async' }));
+        b.addEventListener('click', onClick);
+        if (drag) draggable(b, { kind: 'art', art: a.id });
+        return b;
+      };
+      const cap = open ? Infinity : q ? SEARCH_MAX : PREVIEW;
+      const more = (n: number, label: string) => n > cap ? h('button', { class: 'link pnl-more', type: 'button', onclick: () => { openCollections.add(col.prefix); renderCollection(col, sec, q); } }, `${label} (${n})`) : null;
+      const parts: Node[] = [];
+      if (art.length) parts.push(h('div', { class: 'pnl-label pnl-label-row' }, h('span', null, `${col.name} · illustrations`), more(art.length, 'See all')),
+        h('div', { class: 'el-grid' }, ...art.slice(0, cap).map((a) => item(a, () => { ed.addGraphic(a.id); afterAdd(); }))));
+      if (scenes.length) parts.push(h('div', { class: 'pnl-label pnl-label-row' }, h('span', null, `${col.name} · page backgrounds`), more(scenes.length, 'See all')),
+        h('div', { class: 'el-grid scenes' }, ...scenes.slice(0, open ? Infinity : 4).map((a) => item(a, () => { ed.addSceneBackground(a.id.replace(/-sq$/, ''), a.name.replace(/ \(.*\)$/, '')); afterAdd(); }, false))));
+      sec.replaceChildren(...parts);
+    };
+    let fillTimer = 0;
     const fill = () => {
       list.replaceChildren();
       const q = elQuery.toLowerCase();
@@ -224,26 +248,20 @@ export function buildPanels(ed: Editor): Panels {
         draggable(b, { kind: 'shape', shape: s.kind });
         return b;
       }))));
-      // illustration collections (lazy): searchable by name and tags
+      // illustration collections: each one loads when its section scrolls into view (or at once for a search), redraws only
+      // itself when it arrives, and shows a short preview with "See all" — opening Elements used to load all 13 collections
+      // and rebuild the whole list after each one (hundreds of pictures; a phone could stall for minutes)
       for (const col of COLLECTIONS) {
-        if (!isLoaded(col)) {
-          list.append(h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, col.name), h('div', { class: 'ph-status' }, h('span', { class: 'ph-spin' }), 'Loading…')));
-          void loadCollection(col).then(() => { if (list.isConnected) fill(); }).catch(() => {});
-          continue;
+        const sec = h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, col.name), h('div', { class: 'ph-status' }, h('span', { class: 'ph-spin' }), 'Loading…'));
+        list.append(sec);
+        const show = () => { if (sec.isConnected) renderCollection(col, sec, q); };
+        if (isLoaded(col)) { show(); continue; }
+        const load = () => void loadCollection(col).then(show).catch(() => { if (sec.isConnected) sec.querySelector('.ph-status')!.textContent = 'Couldn’t load — check your connection.'; });
+        if (q) load();
+        else {
+          const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); load(); } }, { rootMargin: '300px 0px' });
+          io.observe(sec);
         }
-        const all = q ? searchAssets(q).filter((a) => a.id.startsWith(col.prefix)) : assetsIn(col);
-        const art = all.filter((a) => a.kind !== 'background');
-        const scenes = all.filter((a) => a.kind === 'background' && a.id.endsWith('-sq'));
-        const item = (a: AssetDef, onClick: () => void, drag = true) => {
-          const b = h('button', { class: `el-item ${a.kind === 'background' ? 'el-scene' : ''}`, type: 'button', title: `${a.name} · ${a.license}`, 'aria-label': a.name }, h('img', { src: artDataUrl(a.id, a.colors), alt: '', loading: 'lazy' }));
-          b.addEventListener('click', onClick);
-          if (drag) draggable(b, { kind: 'art', art: a.id });
-          return b;
-        };
-        if (art.length) list.append(h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, `${col.name} · illustrations`),
-          h('div', { class: 'el-grid' }, ...art.map((a) => item(a, () => { ed.addGraphic(a.id); afterAdd(); })))));
-        if (scenes.length) list.append(h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, `${col.name} · page backgrounds`),
-          h('div', { class: 'el-grid scenes' }, ...scenes.map((a) => item(a, () => { ed.addSceneBackground(a.id.replace(/-sq$/, ''), a.name.replace(/ \(.*\)$/, '')); afterAdd(); }, false)))));
       }
       for (const pack of ART_PACKS) {
         const arts = ARTS.filter((a) => a.pack === pack.id && (!q || a.name.toLowerCase().includes(q) || pack.name.toLowerCase().includes(q)));
@@ -263,7 +281,7 @@ export function buildPanels(ed: Editor): Panels {
       }
       if (!list.childElementCount) list.append(h('p', { class: 'muted' }, 'Nothing found.'));
     };
-    search.addEventListener('input', () => { elQuery = search.value; fill(); });
+    search.addEventListener('input', () => { elQuery = search.value; clearTimeout(fillTimer); fillTimer = window.setTimeout(fill, 180); });
     fill();
     wrap.append(search, list);
     return wrap;
@@ -566,8 +584,8 @@ export function buildPanels(ed: Editor): Panels {
       const sel = ed.selection.includes(el.id);
       const vis = btn(null, { icon: el.hidden ? 'eyeOff' : 'eye', kind: 'plain', size: 'sm', title: el.hidden ? 'Show' : 'Hide', onClick: (e) => { e.stopPropagation(); el.hidden = !el.hidden; ed.commit(); fill(); } });
       const lock = btn(null, { icon: el.locked ? 'lock' : 'unlock', kind: 'plain', size: 'sm', title: el.locked ? 'Unlock' : 'Lock', onClick: (e) => { e.stopPropagation(); el.locked = !el.locked; ed.commit(); fill(); } });
-      const up = btn(null, { icon: 'up', kind: 'plain', size: 'sm', title: 'Move up', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('up'); fill(); } });
-      const down = btn(null, { icon: 'down', kind: 'plain', size: 'sm', title: 'Move down', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('down'); fill(); } });
+      const up = btn(null, { icon: 'up', kind: 'plain', size: 'sm', class: 'layer-move', title: 'Move up', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('up'); fill(); } });
+      const down = btn(null, { icon: 'down', kind: 'plain', size: 'sm', class: 'layer-move', title: 'Move down', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('down'); fill(); } });
       const grip = h('span', { class: 'layer-grip', title: 'Drag to reorder', 'aria-hidden': 'true' }, '⋮⋮');
       const name = h('span', { class: 'layer-name', title: 'Double-click to rename' }, el.group ? h('span', { class: 'layer-group', title: 'Grouped' }, '🔗 ') : null, elLabel(el));
       const row = h('div', { class: `layer ${sel ? 'on' : ''} ${el.hidden ? 'dim' : ''}`, role: 'button', tabindex: '0', 'data-id': el.id }, grip, layerIcon(el), name, up, down, vis, lock);

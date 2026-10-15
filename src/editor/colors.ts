@@ -143,6 +143,14 @@ export function openPicker(anchor: HTMLElement, value: Fill, opts: PickerOpts): 
   }
 
   renderBody();
+  // phones: a low bottom sheet with a Done button, so the design stays visible while you pick (it used to cover the screen)
+  const sheet = innerWidth < 640;
+  if (sheet) {
+    pop.classList.add('sheet');
+    const done = h('button', { type: 'button', class: 'btn btn-primary btn-sm' }, 'Done');
+    done.addEventListener('click', () => close());
+    pop.append(h('div', { class: 'picker-head' }, h('b', null, 'Colour'), done));
+  }
   pop.append(...(tabs ? [tabs] : []), body);
   document.body.append(pop);
 
@@ -150,13 +158,12 @@ export function openPicker(anchor: HTMLElement, value: Fill, opts: PickerOpts): 
   const r = anchor.getBoundingClientRect();
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
   let x = r.left, y = r.bottom + 8;
-  if (innerWidth < 640) { x = (innerWidth - pw) / 2; y = Math.max(8, innerHeight - ph - 12); }
+  if (sheet) { x = 0; y = innerHeight - ph; }
   else {
     if (x + pw > innerWidth - 8) x = innerWidth - pw - 8;
     if (y + ph > innerHeight - 8) y = Math.max(8, r.top - ph - 8);
   }
-  pop.style.left = `${Math.max(8, x)}px`;
-  pop.style.top = `${y}px`;
+  if (!sheet) { pop.style.left = `${Math.max(8, x)}px`; pop.style.top = `${y}px`; }
 
   const off = (e: Event) => { if (!pop.contains(e.target as Node) && e.target !== anchor) close(); };
   const key = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };

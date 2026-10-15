@@ -44,6 +44,8 @@ interface Drag {
   dup?: boolean;
   /** A marquee that began on a locked item: a click without dragging still selects that item. */
   tapSelect?: string;
+  /** Touch: a tap (no drag) on text that was already the only selection starts editing it (like Canva's app). */
+  tapEdit?: string;
   /** A tap (no drag) on this photo opens the picture picker: an empty template frame, or a double-tap on a photo. */
   pickPhoto?: string;
 }
@@ -90,7 +92,7 @@ export class Editor {
   private cssH = 0;
   private drag: Drag | null = null;
   private pointers = new Map<number, { x: number; y: number }>();
-  private pinch: { d: number; zoom: number; cx: number; cy: number; panX: number; panY: number } | null = null;
+  private pinch: { d: number; zoom: number; cx: number; cy: number; panX: number; panY: number; crop?: { id: string; zoom: number } } | null = null;
   private hover: string | null = null;
   private guides: { x?: number; y?: number }[] = [];
   private marquee: Box | null = null;
@@ -902,6 +904,7 @@ export class Editor {
     }
     if (hit) {
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+      const tapEdit = e.pointerType !== 'mouse' && hit.type === 'text' && !hit.locked && !additive && this.selection.length === 1 && this.selection[0] === hit.id ? hit.id : undefined;
       const members = hit.group && !e.altKey ? this.groupMembers(hit.group) : [hit.id];
       const wholeGroupSelected = members.length > 1 && members.every((id) => this.selection.includes(id));
       if (additive) {
@@ -918,7 +921,7 @@ export class Editor {
       if (!additive && !hit.locked && hit.type === 'image' && !isEmptyFrame(hit) && !isSticker(hit) && e.pointerType !== 'mouse' && twice) { this.lastTap = { t: 0, id: '' }; this.drag = null; this.startCrop(hit); return; }
       const pickPhoto = !additive && !hit.locked && hit.type === 'image' && isEmptyFrame(hit) ? hit.id : undefined;
       this.lastTap = { t: now, id: hit.id };
-      this.drag = { ...base, kind: 'move', single: wholeGroupSelected && !additive ? hit.id : undefined, pickPhoto, dup: e.altKey && e.pointerType === 'mouse' };
+      this.drag = { ...base, kind: 'move', single: wholeGroupSelected && !additive ? hit.id : undefined, pickPhoto, dup: e.altKey && e.pointerType === 'mouse', tapEdit };
       for (const el of this.selected) if (!el.locked) this.drag.orig.set(el.id, deepClone(el));
       return;
     }
@@ -998,13 +1001,14 @@ export class Editor {
   private onUp(e: PointerEvent): void {
     this.pointers.delete(e.pointerId);
     if (this.pinch) {
-      if (this.pointers.size < 2) { this.pinch = null; this.drag = null; }
+      if (this.pointers.size < 2) { if (this.pinch.crop) this.commit(); this.pinch = null; this.drag = null; }
       return;
     }
     const d = this.drag;
     if (!d || d.id !== e.pointerId) return;
     this.drag = null;
     if (d.kind === 'move' && !d.moved && d.single) this.select([d.single]);
+    if (d.kind === 'move' && !d.moved && d.tapEdit) { const t = this.byId(d.tapEdit); if (t?.type === 'text') this.editText(t); }
     if (d.kind === 'move' && !d.moved && d.pickPhoto) { this.select([d.pickPhoto]); this.pickOnClick = { id: d.pickPhoto, t: performance.now() }; }
     this.guides = [];
     this.canvas.style.cursor = '';
@@ -1027,7 +1031,9 @@ export class Editor {
     this.drag = null;
     this.guides = [];
     const r = this.canvas.getBoundingClientRect();
-    this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: this.zoom, cx: (a.x + b.x) / 2 - r.left, cy: (a.y + b.y) / 2 - r.top, panX: this.panX, panY: this.panY };
+    const crop = this.cropping ? this.byId(this.cropping) : null;
+    this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: this.zoom, cx: (a.x + b.x) / 2 - r.left, cy: (a.y + b.y) / 2 - r.top, panX: this.panX, panY: this.panY,
+      crop: crop?.type === 'image' ? { id: crop.id, zoom: crop.zoom } : undefined };
   }
 
   private updatePinch(): void {
@@ -1037,6 +1043,12 @@ export class Editor {
     const [a, b] = pts;
     const r = this.canvas.getBoundingClientRect();
     const p = this.pinch;
+    if (p.crop) {
+      // cropping: two fingers zoom the photo inside its frame, not the page
+      const el = this.byId(p.crop.id);
+      if (el?.type === 'image') { el.zoom = clamp((p.crop.zoom * Math.hypot(a.x - b.x, a.y - b.y)) / Math.max(1, p.d), 1, 4); this.requestRender(); }
+      return;
+    }
     const z = clamp((p.zoom * Math.hypot(a.x - b.x, a.y - b.y)) / Math.max(1, p.d), 0.02, 8);
     const cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
     // keep the design point under the fingers' midpoint fixed
@@ -1101,7 +1113,10 @@ export class Editor {
       const keepRatio = (hx !== 0 && hy !== 0) && (o.type === 'shape' || o.type === 'draw' ? shift : !shift);
       let nw = o.w, nh = o.h;
       if (keepRatio) {
-        const s = Math.max(min / Math.min(o.w, o.h), Math.max((hx * (lx - ax)) / o.w, (hy * (ly - ay)) / o.h));
+        // project the pointer onto the box's diagonal, so the corner stays under the cursor (taking the larger of the two
+        // directions made a small vertical move on a wide text box jump the corner far past the mouse)
+        const px2 = hx * (lx - ax), py2 = hy * (ly - ay);
+        const s = Math.max(min / Math.min(o.w, o.h), (px2 * o.w + py2 * o.h) / (o.w * o.w + o.h * o.h));
         nw = o.w * s; nh = o.h * s;
       } else {
         if (hx) nw = Math.max(min, hx * (lx - ax));

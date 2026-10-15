@@ -17,7 +17,7 @@ const face = (x: number, y: number, s: number, ink = '#4a3b3b', blush = '#f5a3b5
   `<path d="M${f1(x - s * 0.22)} ${f1(y + s * 0.35)} q${f1(s * 0.22)} ${f1(s * 0.22)} ${f1(s * 0.44)} 0" stroke="${ink}" stroke-width="${f1(s * 0.12)}" fill="none" stroke-linecap="round"/>` +
   `<ellipse cx="${f1(x - s * 1.15)}" cy="${f1(y + s * 0.35)}" rx="${f1(s * 0.3)}" ry="${f1(s * 0.18)}" fill="${blush}" opacity=".7"/><ellipse cx="${f1(x + s * 1.15)}" cy="${f1(y + s * 0.35)}" rx="${f1(s * 0.3)}" ry="${f1(s * 0.18)}" fill="${blush}" opacity=".7"/>`;
 function cloud(x: number, y: number, s: number, c: string, withFace = false): string {
-  return `<g transform="translate(${f1(x)} ${f1(y)}) scale(${s})"><path d="M-80 30 C-104 30 -110 0 -88 -8 C-92 -36 -56 -48 -40 -30 C-30 -64 22 -66 32 -30 C52 -46 86 -34 80 -6 C104 -4 104 30 80 30 Z" fill="${c}"/><path d="M-80 30 H80" stroke="${dk(c, 0.06)}" stroke-width="4"/>${withFace ? face(0, 2, 12) : ''}</g>`;
+  return `<g transform="translate(${f1(x)} ${f1(y)}) scale(${s})"><path d="M-80 30 C-104 30 -110 0 -88 -8 C-92 -36 -56 -48 -40 -30 C-30 -64 22 -66 32 -30 C52 -46 86 -34 80 -6 C104 -4 104 30 80 30 Z" fill="${c}"/><path d="M-84 24 C-60 34 60 34 84 24 C90 28 86 30 80 30 H-80 C-86 30 -90 28 -84 24 Z" fill="${dk(c, 0.05)}"/>${withFace ? face(0, 2, 12) : ''}</g>`;
 }
 function balloon(x: number, y: number, s: number, c: string, sx: number, sy: number): string {
   return `<path d="M${f1(x)} ${f1(y + 60 * s)} C${f1(x + 10)} ${f1((y + sy) / 2)} ${f1(sx - 10)} ${f1((y + sy) / 2 + 20)} ${f1(sx)} ${f1(sy)}" stroke="#9b8f8a" stroke-width="1.6" fill="none"/>` +

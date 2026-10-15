@@ -495,7 +495,7 @@ export function buildProps(ed: Editor): Props {
           lineish ? null : color(e.stroke, (f) => { e.stroke = firstColor(f); if (!e.strokeWidth) e.strokeWidth = Math.max(2, Math.round(Math.min(e.w, e.h) * 0.03)); }, { title: 'Border colour' }));
       }
       if (e.type === 'image' && isSticker(e)) items.push(label('Sticker'), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters and adjustments', onClick: () => open() }));
-      else if (e.type === 'image' && ed.cropping === e.id) items.push(label('Cropping'), h('span', { class: 'tb-hint' }, 'Drag the photo to move it · scroll to zoom'), tb({ icon: 'check', text: 'Done', title: 'Finish cropping (Enter)', on: true, onClick: () => ed.endCrop() }));
+      else if (e.type === 'image' && ed.cropping === e.id) items.push(label('Cropping'), h('span', { class: 'tb-hint' }, matchMedia('(pointer: coarse)').matches ? 'Drag to move · pinch to zoom' : 'Drag the photo to move it · scroll to zoom'), tb({ icon: 'check', text: 'Done', title: 'Finish cropping (Enter)', on: true, onClick: () => ed.endCrop() }));
       else if (e.type === 'image') items.push(label('Photo'), ...(e.asset.startsWith('ph-') ? [] : [tb({ icon: 'crop', text: 'Crop', title: 'Move and zoom the photo inside its frame (or double-click it)', onClick: () => ed.startCrop(e) })]), tb({ icon: 'upload', text: e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', title: 'Pick a picture from your computer or phone', onClick: () => ed.pickPhotoFor(e) }), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
       if (e.type === 'graphic') { const a = artById(e.art); items.push(label('Graphic'), tb({ icon: 'image', text: 'Replace', title: 'Swap this artwork for another', onClick: () => open() }), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
       if (e.type === 'qr') items.push(label('QR code'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Squares' }), color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true, title: 'Background' }), tb({ icon: 'edit', text: 'Link', title: 'Change the link', onClick: () => open() }));
@@ -511,7 +511,9 @@ export function buildProps(ed: Editor): Props {
       x.addEventListener('click', () => bar.scrollBy({ left: (side === 'l' ? -1 : 1) * bar.clientWidth * 0.7, behavior: 'smooth' }));
       return x;
     };
-    bar.replaceChildren(arrow('l'), ...items.filter((x): x is Node => !!x), arrow('r'));
+    const nodes = items.filter((x): x is Node => !!x);
+    const done = nodes[0] instanceof HTMLElement && nodes[0].classList.contains('tb-done') ? [nodes.shift()!] : [];
+    bar.replaceChildren(...done, arrow('l'), ...nodes, arrow('r'));
     edges();
   }
   function edges(): void {
