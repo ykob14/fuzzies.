@@ -40,6 +40,7 @@ export const COLLECTIONS: Collection[] = [
   { id: 'world', name: 'Nowruz, Kwanzaa & Día de Muertos', blurb: 'Haft-sin, sabzeh, hyacinths, kinara, unity cup, calaveras, marigolds and papel picado', prefix: 'wd-', cover: 'wd-kinara', load: () => import('./collections/world') },
   { id: 'milestones', name: 'Weddings & milestones', blurb: 'Rings, bouquets, cakes, champagne, graduation caps, houses, tiaras, tallit and gentle memorial pieces', prefix: 'ms-', cover: 'ms-rings', load: () => import('./collections/milestones') },
   { id: 'events', name: 'Parties & community events', blurb: 'Thanksgiving, birthday cakes, trophies, medals, running shoes, bingo, microphones, bunting and food trucks', prefix: 'ev-', cover: 'ev-birthday-cake', load: () => import('./collections/events') },
+  { id: 'everyday', name: 'Everyday', blurb: 'Coffee, croissants, pizza, sushi, flowers, guitars, armchairs, cameras, party poppers and more', prefix: 'ed-', cover: 'ed-latte', load: () => import('./collections/everyday') },
   { id: 'icons', name: 'Topic icons', blurb: 'Sports, hobbies, events, business and school icons in your colours', prefix: 'ic-', cover: 'ic-awards', load: () => import('./collections/icons') },
 ];
 
