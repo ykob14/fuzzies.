@@ -11,7 +11,7 @@
  * - `doorDecs`  a sheet of cut-out name tags for dorm doors (an RA classic).
  * Every piece is still a normal editable layer; photos are placeholders you Replace.
  */
-import { makeEmoji, makeImage } from '../../../editor/doc';
+import { makeImage } from '../../../editor/doc';
 import type { El } from '../../../editor/types';
 import { photoAsset } from '../layouts';
 import type { Palette } from '../palettes';
@@ -67,7 +67,7 @@ interface Head { kicker: string; title: string; sub?: string }
 /** A light-page heading: small spaced kicker, an oversized title, a short accent rule and an optional line. Returns its bottom. */
 export function lightHead(c: Kit, l: Look, o: Head, top: number, size: number, align: 'center' | 'left' = 'center'): number {
   const { W, u } = c, x = align === 'left' ? W * 0.07 : W * 0.1, w = align === 'left' ? W * 0.86 : W * 0.8;
-  const k = text(c, o.kicker, x, top, w, { font: l.bFont, weight: 700, size: u * size * 0.3, fill: l.accent, upper: true, spacing: u * 0.006, align, name: 'Kicker' });
+  const k = text(c, o.kicker, x, top, w, { font: l.bFont, weight: 700, size: Math.max(u * size * 0.3, u * 0.026), fill: l.accent, upper: true, spacing: u * 0.006, align, name: 'Kicker' });
   const t = text(c, o.title, x, k.y + k.h + u * 0.012, w, { font: l.tFont[0], weight: l.tFont[1], size: u * size, fill: l.ink, lh: 1.02, lines: 2, align, name: 'Title' });
   const rx = align === 'left' ? x : W / 2 - u * 0.045;
   box(c, rx, t.y + t.h + u * 0.025, u * 0.09, u * 0.008, l.accent, { radius: u * 0.004, name: 'Rule' });
@@ -81,18 +81,18 @@ export function circles(c: Kit, l: Look, o: Head & { footer?: string }, ps: Pers
   const { W, H, u } = c;
   c.bg = l.bg;
   const wide = W / H > 1.3;
-  const top = lightHead(c, l, o, H * (wide ? 0.07 : 0.06), head);
+  const top = lightHead(c, l, o, H * (wide ? 0.08 : 0.06), head, wide ? 'left' : 'center');
   const bottom = H - (o.footer ? u * 0.13 : u * 0.06);
-  cells(c, ps.length, cols, top + u * 0.06, bottom, W * 0.06, W * 0.03, (i, x, y, w, h) => {
-    const d = Math.min(w * 0.82, h * 0.62), cx = x + w / 2, ring = d * 0.05;
-    y += Math.max(0, (h - (d + ring * 2 + u * 0.12)) / 2);
+  cells(c, ps.length, cols, top + u * (wide ? 0.08 : 0.06), bottom, W * 0.06, W * 0.03, (i, x, y, w, h) => {
+    const nameH = u * 0.105, d = Math.min(w * 0.78, (h - nameH) / 1.12), cx = x + w / 2, ring = d * 0.05;
+    y += Math.max(0, (h - (d + ring * 2 + nameH)) / 2);
     box(c, cx - d / 2 - ring * 1.6, y - ring * 1.6, d + ring * 3.2, d + ring * 3.2, l.ring, { shape: 'ellipse', name: 'Ring' });
     box(c, cx - d / 2 - ring * 0.6, y - ring * 0.6, d + ring * 1.2, d + ring * 1.2, l.bg, { shape: 'ellipse', name: 'Ring gap' });
     lookPic(c, l, i, cx - d / 2, y, d, d, 'circle');
-    const n = text(c, ps[i][0], x, y + d + ring * 2 + u * 0.022, w, { font: l.bFont, weight: 800, size: Math.min(w * 0.095, u * 0.042), fill: l.ink, name: 'Name' });
-    text(c, ps[i][1], x, n.y + n.h + u * 0.006, w, { font: l.bFont, weight: 600, size: Math.min(w * 0.06, u * 0.026), fill: l.accent, upper: true, spacing: u * 0.002, lines: 2, lh: 1.2, name: 'Role' });
+    const n = text(c, ps[i][0], x, y + d + ring * 2 + u * 0.024, w, { font: l.bFont, weight: 800, size: Math.min(w * 0.105, u * 0.046), fill: l.ink, name: 'Name' });
+    text(c, ps[i][1], x, n.y + n.h + u * 0.008, w, { font: l.bFont, weight: 700, size: Math.min(w * 0.085, u * 0.032), fill: l.accent, upper: true, spacing: u * 0.002, lines: 2, lh: 1.2, name: 'Role' });
   });
-  if (o.footer) { const t = text(c, o.footer, W * 0.1, 0, W * 0.8, { font: l.bFont, weight: 600, size: u * 0.026, fill: l.muted, name: 'Footer text' }); t.y = H - u * 0.085; }
+  if (o.footer) { const t = text(c, o.footer, W * 0.1, 0, W * 0.8, { font: l.bFont, weight: 700, size: u * 0.03, fill: l.muted, upper: true, spacing: u * 0.004, name: 'Footer text' }); t.y = H - u * 0.09; }
 }
 
 // ---------- facts: "get to know me" cards ----------
@@ -105,20 +105,20 @@ function facts(c: Kit, th: Theme, w: Words, ps: Facts[], cols: number): void {
     const p = ps[i], r = cw * 0.04, pad = cw * 0.04;
     box(c, x + cw * 0.012, y + cw * 0.016, cw, ch, th.shadow, { radius: r, name: 'Card shadow' });
     box(c, x, y, cw, ch, '#ffffff', { radius: r, stroke: th.frame, strokeWidth: Math.max(3, cw * 0.008), name: 'Card' });
-    const ph = ch * 0.5;
+    const ph = ch * 0.36;
     themePic(c, th, i, x + pad, y + pad, cw - pad * 2, ph, 'none', r * 0.8);
     const tx = x + pad * 1.6, tw = cw - pad * 3.2;
-    const n = text(c, p.name, tx, y + pad + ph + ch * 0.03, tw, { font: th.nFont, weight: th.nW, size: cw * 0.075, fill: th.ink, upper: true, align: 'left', name: 'Name' });
-    const ro = text(c, p.role, tx, n.y + n.h + ch * 0.008, tw, { font: th.nFont, weight: 700, size: cw * 0.04, fill: th.frame, upper: true, spacing: cw * 0.002, align: 'left', name: 'Role' });
-    let fy = ro.y + ro.h + ch * 0.035;
+    const n = text(c, p.name, tx, y + pad + ph + ch * 0.03, tw, { font: th.nFont, weight: th.nW, size: cw * 0.085, fill: th.ink, upper: true, align: 'left', name: 'Name' });
+    const ro = text(c, p.role, tx, n.y + n.h + ch * 0.008, tw, { font: th.nFont, weight: 700, size: cw * 0.055, fill: th.frame, upper: true, spacing: cw * 0.002, align: 'left', name: 'Role' });
+    let fy = ro.y + ro.h + ch * 0.04;
     for (const [label, value] of p.facts) {
-      box(c, tx, fy - ch * 0.012, tw, Math.max(2, ch * 0.003), th.shadow, { name: 'Divider' });
-      const lb = text(c, label, tx, fy + ch * 0.008, tw * 0.36, { font: th.nFont, weight: 800, size: cw * 0.032, fill: th.frame, upper: true, spacing: cw * 0.002, align: 'left', name: 'Fact label' });
-      const v = text(c, value, tx + tw * 0.38, fy, tw * 0.62, { font: th.nFont, weight: 600, size: cw * 0.044, fill: th.ink, lines: 2, lh: 1.15, align: 'left', name: 'Fact' });
-      fy = Math.max(lb.y + lb.h, v.y + v.h) + ch * 0.03;
+      box(c, tx, fy - ch * 0.014, tw, Math.max(2, ch * 0.003), th.shadow, { name: 'Divider' });
+      const lb = text(c, label, tx, fy, tw, { font: th.nFont, weight: 800, size: cw * 0.046, fill: th.frame, upper: true, spacing: cw * 0.002, align: 'left', name: 'Fact label' });
+      const v = text(c, value, tx, lb.y + lb.h + ch * 0.006, tw, { font: th.nFont, weight: 600, size: cw * 0.052, fill: th.ink, lines: 1, align: 'left', name: 'Fact' });
+      fy = v.y + v.h + ch * 0.03;
     }
   }, W * 0.035);
-  footer(c, th, w.footer, H * 0.94, u * 0.034);
+  footer(c, th, w.footer, H * 0.93, u * 0.05);
 }
 
 // ---------- directory: who to ask and how to reach them ----------
@@ -127,7 +127,7 @@ export function directory(c: Kit, th: Theme, w: Words, rows: Entry[]): void {
   const { W, H, u } = c;
   c.bg = th.page;
   header(c, th, { ...w, h: H * 0.16, size: 0.075 });
-  const top = H * 0.2, bottom = H * 0.9, gap = u * 0.018, rh = (bottom - top - gap * (rows.length - 1)) / rows.length;
+  const top = H * 0.195, bottom = H * 0.9, gap = u * 0.018, rh = (bottom - top - gap * (rows.length - 1)) / rows.length;
   rows.forEach(([name, role, reach], i) => {
     const y = top + i * (rh + gap), x = W * 0.07, rw = W * 0.86;
     box(c, x, y, rw, rh, '#ffffff', { radius: rh * 0.22, shadow: drop(u, 'rgba(20,20,40,0.12)'), name: 'Row' });
@@ -137,12 +137,12 @@ export function directory(c: Kit, th: Theme, w: Words, rows: Entry[]): void {
     themePic(c, th, i, x + rh * 0.24, y + (rh - d) / 2, d, d, 'circle');
     const tx = x + rh * 0.24 + d + rh * 0.25, tw = rw - (tx - x) - rh * 0.25;
     const n = text(c, name, tx, 0, tw, { font: th.nFont, weight: th.nW, size: rh * 0.24, fill: th.ink, align: 'left', name: 'Name' });
-    const r = text(c, role, tx, 0, tw, { font: th.nFont, weight: 700, size: rh * 0.15, fill: th.frame, upper: true, spacing: rh * 0.01, align: 'left', name: 'Role' });
-    const re = text(c, reach, tx, 0, tw, { font: th.nFont, weight: 500, size: rh * 0.15, fill: th.ink, align: 'left', name: 'Contact' });
+    const r = text(c, role, tx, 0, tw, { font: th.nFont, weight: 700, size: rh * 0.17, fill: th.frame, upper: true, spacing: rh * 0.01, align: 'left', name: 'Role' });
+    const re = text(c, reach, tx, 0, tw, { font: th.nFont, weight: 600, size: rh * 0.17, fill: th.ink, align: 'left', name: 'Contact' });
     const g = rh * 0.05, total = n.h + r.h + re.h + g * 2;
     n.y = y + (rh - total) / 2; r.y = n.y + n.h + g; re.y = r.y + r.h + g;
   });
-  footer(c, th, w.footer, H * 0.925, u * 0.04);
+  footer(c, th, w.footer, H * 0.92, u * 0.055);
 }
 
 // ---------- snapshots: tilted instant photos with tape on kraft paper ----------
@@ -160,14 +160,14 @@ function snapshots(c: Kit, pp: Paper, o: { title: string; sub: string; note: str
   t.y = ty + (th - t.h) / 2 - th * 0.04;
   box(c, tx - tw * 0.03, ty - th * 0.08, tw * 0.16, th * 0.28, pp.tape, { name: 'Tape' }); box(c, tx + tw * 0.87, ty - th * 0.08, tw * 0.16, th * 0.28, pp.tape, { name: 'Tape' });
   spin(c.els.slice(t0), W / 2, ty + th / 2, -1.5);
-  const s = text(c, o.sub, W * 0.1, ty + th + u * 0.03, W * 0.8, { font: 'Montserrat', weight: 800, size: u * 0.026, fill: pp.ink, upper: true, spacing: u * 0.006, name: 'Subtitle' });
+  const s = text(c, o.sub, W * 0.1, ty + th + u * 0.03, W * 0.8, { font: 'Montserrat', weight: 800, size: u * 0.032, fill: pp.ink, upper: true, spacing: u * 0.006, name: 'Subtitle' });
   const tilts = [-4, 3, -2, 4, -3, 2, -4, 3];
   cells(c, ps.length, cols, s.y + s.h + u * 0.04, H - u * 0.12, W * 0.05, W * 0.035, (i, x, y, w, h) => {
     const fw = Math.min(w, h / 1.42), pad = fw * 0.06, phh = (fw - pad * 2) * 1.16, fh = pad + phh + fw * 0.3, fx = x + (w - fw) / 2, fy = y + (h - fh) / 2, start = c.els.length;
     box(c, fx, fy, fw, fh, '#ffffff', { shadow: drop(u, 'rgba(60,40,20,0.4)'), name: 'Photo card' });
     pic(c, `snap-${pp.id}`, pp.photo, i, fx + pad, fy + pad, fw - pad * 2, phh, 'none');
     const n = text(c, ps[i][0], fx + pad, fy + pad + phh + fw * 0.03, fw - pad * 2, { font: 'Caveat', weight: 700, size: fw * 0.13, fill: pp.ink, name: 'Name' });
-    text(c, ps[i][1], fx + pad, n.y + n.h - fh * 0.005, fw - pad * 2, { font: 'Montserrat', weight: 700, size: fw * 0.05, fill: pp.accent, upper: true, spacing: fw * 0.004, name: 'Role' });
+    text(c, ps[i][1], fx + pad, n.y + n.h - fh * 0.005, fw - pad * 2, { font: 'Montserrat', weight: 800, size: fw * 0.08, fill: pp.accent, upper: true, spacing: fw * 0.004, name: 'Role' });
     box(c, fx + fw * 0.34, fy - fh * 0.04, fw * 0.32, fh * 0.085, pp.tape, { name: 'Tape' });
     spin(c.els.slice(start), fx + fw / 2, fy + fh / 2, tilts[i % tilts.length]);
   }, u * 0.04);
@@ -186,10 +186,10 @@ function arches(c: Kit, l: Look, o: Head & { footer: string }, ps: Person[], col
     box(c, ax + off, y + off, aw, ah, 'rgba(0,0,0,0)', { shape: 'arch', stroke: l.accent, strokeWidth: Math.max(2, u * 0.003), name: 'Arch outline' });
     lookPic(c, l, i, ax, y, aw, ah, 'arch');
     const n = text(c, ps[i][0], x, y + ah + off + u * 0.025, w, { font: l.tFont[0], weight: 700, size: Math.min(w * 0.11, u * 0.045), fill: l.ink, name: 'Name' });
-    text(c, ps[i][1], x, n.y + n.h + u * 0.006, w, { font: l.bFont, weight: 600, size: Math.min(w * 0.055, u * 0.022), fill: l.accent, upper: true, spacing: u * 0.004, name: 'Role' });
+    text(c, ps[i][1], x, n.y + n.h + u * 0.008, w, { font: l.bFont, weight: 700, size: Math.min(w * 0.08, u * 0.03), fill: l.accent, upper: true, spacing: u * 0.003, name: 'Role' });
   }, u * 0.03);
   box(c, W * 0.3, H - u * 0.085, W * 0.4, Math.max(2, u * 0.002), l.accent, { name: 'Footer rule' });
-  const f = text(c, o.footer, W * 0.1, 0, W * 0.8, { font: l.bFont, weight: 600, size: u * 0.022, fill: l.muted, upper: true, spacing: u * 0.005, name: 'Footer text' });
+  const f = text(c, o.footer, W * 0.1, 0, W * 0.8, { font: l.bFont, weight: 700, size: u * 0.028, fill: l.muted, upper: true, spacing: u * 0.005, name: 'Footer text' });
   f.y = H - u * 0.065;
 }
 
@@ -202,11 +202,11 @@ function bigType(c: Kit, l: Look, o: { kicker: string; word: string; sub: string
   const s = text(c, o.sub, W * 0.06, big.y + big.h + u * 0.01, W * 0.88, { font: l.bFont, weight: 600, size: u * 0.026, fill: l.muted, upper: true, spacing: u * 0.004, align: 'left', name: 'Subtitle' });
   const top = big.y + big.h * 0.62; // photos overlap the bottom of the big word
   cells(c, ps.length, cols, Math.max(top, s.y + s.h + u * 0.03), H - u * 0.12, W * 0.06, W * 0.03, (i, x, y, w, h) => {
-    const ph = h - u * 0.1;
+    const ph = h - u * 0.12;
     lookPic(c, l, i, x, y, w, ph, 'none', 0);
     box(c, x, y + ph - u * 0.012, w * 0.3, u * 0.012, l.accent, { name: 'Accent' });
-    const n = text(c, ps[i][0], x, y + ph + u * 0.018, w, { font: l.bFont, weight: 800, size: Math.min(w * 0.085, u * 0.034), fill: l.ink, upper: true, align: 'left', name: 'Name' });
-    text(c, ps[i][1], x, n.y + n.h + u * 0.004, w, { font: l.bFont, weight: 500, size: Math.min(w * 0.06, u * 0.024), fill: l.muted, align: 'left', name: 'Role' });
+    const n = text(c, ps[i][0], x, y + ph + u * 0.018, w, { font: l.bFont, weight: 800, size: Math.min(w * 0.095, u * 0.04), fill: l.ink, upper: true, align: 'left', name: 'Name' });
+    text(c, ps[i][1], x, n.y + n.h + u * 0.006, w, { font: l.bFont, weight: 600, size: Math.min(w * 0.085, u * 0.032), fill: l.muted, align: 'left', name: 'Role' });
   }, u * 0.03);
   const f = text(c, o.footer, W * 0.06, 0, W * 0.88, { font: l.bFont, weight: 800, size: u * 0.026, fill: l.accent, upper: true, spacing: u * 0.006, align: 'left', name: 'Footer text' });
   f.y = H - u * 0.07;
@@ -215,7 +215,8 @@ function bigType(c: Kit, l: Look, o: { kicker: string; word: string; sub: string
 // ---------- doorDecs: a sheet of name tags for dorm doors ----------
 const DEC_COLORS = ['#ffd6e0', '#d6ecff', '#fff1bf', '#d9f5e3', '#e9dcff', '#ffe2cc'];
 const DEC_INK = ['#8a2846', '#1f4f82', '#7a5a00', '#1d6b43', '#4b2590', '#9a4a12'];
-function doorDecs(c: Kit, o: { title: string; sub: string; greeting: string }, names: string[], emoji: string[]): void {
+const DEC_SHAPES = ['star', 'heart', 'hexagon', 'ellipse', 'diamond', 'burst'] as const;
+function doorDecs(c: Kit, o: { title: string; sub: string; greeting: string }, names: string[]): void {
   const { W, H, u } = c;
   c.bg = '#ffffff';
   const t = text(c, o.title, W * 0.08, H * 0.03, W * 0.84, { font: 'Fredoka', weight: 700, size: u * 0.06, fill: '#25124d', name: 'Title' });
@@ -223,9 +224,9 @@ function doorDecs(c: Kit, o: { title: string; sub: string; greeting: string }, n
   cells(c, names.length, 2, H * 0.12, H * 0.97, W * 0.06, W * 0.05, (i, x, y, w, h) => {
     const k = i % DEC_COLORS.length;
     box(c, x, y, w, h, DEC_COLORS[k], { radius: Math.min(w, h) * 0.18, stroke: DEC_INK[k], strokeWidth: Math.max(2, u * 0.003), name: 'Door dec (cut along the line)' });
-    const em = makeEmoji(emoji[i % emoji.length], h * 0.34);
-    Object.assign(em, { x: x + (w - h * 0.34) / 2, y: y + h * 0.1, name: 'Emoji' });
-    c.els.push(em);
+    const sh = DEC_SHAPES[i % DEC_SHAPES.length], d = h * 0.3;
+    box(c, x + (w - d) / 2, y + h * 0.1, d, d, '#ffffff', { shape: sh, stroke: DEC_INK[k], strokeWidth: Math.max(2, u * 0.004), name: 'Door dec shape' });
+    box(c, x + (w - d * 0.5) / 2, y + h * 0.1 + d * 0.27, d * 0.5, d * 0.5, DEC_INK[k], { shape: sh, opacity: 0.85, name: 'Door dec shape' });
     const g = text(c, o.greeting, x + w * 0.08, y + h * 0.48, w * 0.84, { font: 'Caveat', weight: 700, size: h * 0.11, fill: DEC_INK[k], name: 'Greeting' });
     text(c, names[i], x + w * 0.06, g.y + g.h, w * 0.88, { font: 'Fredoka', weight: 700, size: h * 0.17, fill: DEC_INK[k], name: 'Name' });
   }, W * 0.05);
@@ -258,9 +259,9 @@ export const STYLE_SETS: { sub: string; label: string; cover: string; list: Coll
     tpl('ra-directory', 'RA Directory & Contacts', 'flyer', 'flyer', 'Modern', PURPLE, 'announcement', [...RA_TAGS, ...STAFF, 'room numbers', 'duty phone', 'emergency contacts'],
       (c) => directory(c, T.reslife, { kicker: 'Who to call', title: 'Your RA Team', sub: 'Maple Hall  •  2026–27', footer: 'Save this — we’re here 24/7' }, RA_DIR), T.reslife),
     tpl('welcome-home-door-decs', 'Welcome Home Door Decs', 'flyer', 'flyer', 'Playful', ['pastel', 'pink', 'blue', 'yellow'], 'announcement', [...RA_TAGS, 'door decs', 'door tags', 'name tags', 'dorm door', 'welcome home', 'printable', 'cut out'],
-      (c) => doorDecs(c, { title: 'Welcome Home!', sub: 'Maple Hall Floor 3  •  cut along the lines', greeting: 'Welcome home,' }, ['Ava', 'Mateo', 'Zara', 'Kai', 'Leila', 'Omar'], ['🌻', '🚀', '🌈', '🐢', '🦋', '⭐']), T.reslife),
+      (c) => doorDecs(c, { title: 'Welcome Home!', sub: 'Maple Hall Floor 3  •  cut along the lines', greeting: 'Welcome home,' }, ['Ava', 'Mateo', 'Zara', 'Kai', 'Leila', 'Omar']), T.reslife),
     tpl('meet-your-ras-circles', 'Meet Your RAs — Clean Circles', 'post', 'social', 'Minimal', ['white', 'purple', 'gold'], 'announcement', [...RA_TAGS, 'circle photos', 'minimal', 'clean', 'instagram', '6 photos'],
-      (c) => circles(c, L.lilac, { kicker: 'Meet your', title: 'Resident Assistants', footer: 'Your College Name  •  ResLife' }, people(Array(6).fill('Resident Assistant')), 3, 0.075), T.reslife),
+      (c) => circles(c, L.lilac, { kicker: 'Meet your', title: 'Resident Assistants', footer: 'Your College Name  •  ResLife' }, people(Array(6).fill('Resident Assistant')), 3, 0.062), T.reslife),
   ] },
   { sub: 'announcement', label: 'Team styles', cover: 'leadership-team-circles', list: [
     tpl('leadership-team-circles', 'Our Leadership Team', 'slides', 'poster', 'Minimal', ['white', 'blue', 'navy'], 'presentation', ['leadership team', 'executive team', 'management', 'our team', 'about us', 'company', 'presentation', 'circle photos', '4 photos'],
@@ -270,7 +271,7 @@ export const STYLE_SETS: { sub: string; label: string; cover: string; list: Coll
   ] },
   { sub: 'promotion', label: 'Salon & studio teams', cover: 'meet-the-stylists-arch', list: [
     tpl('meet-the-stylists-arch', 'Meet the Stylists', 'post', 'social', 'Elegant', ['cream', 'terracotta', 'brown'], 'announcement', ['meet the stylists', 'salon team', 'stylists', 'beauty', 'spa', 'boutique', 'small business', 'arch photos', 'instagram', '3 photos'],
-      (c) => arches(c, L.cream, { kicker: 'Meet the', title: 'Stylists', footer: 'Book your visit  •  Willow & Co. Salon' }, people(['Owner & Colorist', 'Senior Stylist', 'Stylist & Lash Artist'], [NAMES[2], NAMES[6], NAMES[4]]), 3, 0.1), T.coral),
+      (c) => arches(c, L.cream, { kicker: 'Meet the', title: 'Stylists', footer: 'Book your visit  •  Willow & Co. Salon' }, people(['Owner & Colorist', 'Senior Stylist', 'Lash Artist'], [NAMES[2], NAMES[6], NAMES[4]]), 3, 0.1), T.coral),
   ] },
   { sub: 'school-event', label: 'Staff directory', cover: 'school-staff-directory', list: [
     tpl('school-staff-directory', 'School Staff Directory', 'flyer', 'flyer', 'Playful', ['teal', 'yellow', 'white'], 'event', ['school staff', 'teachers', 'principal', 'counselor', 'back to school', 'parents', ...STAFF],
