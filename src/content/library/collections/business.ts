@@ -201,7 +201,7 @@ function logoBakery(c: Kit): void {
 function logoTech(c: Kit): void {
   const { W, u } = c, indigo = '#3a5bd9';
   c.bg = '#f4f6fb';
-  const s = u * 0.22, x = W * 0.12, y = u * 0.39;
+  const s = u * 0.28, x = W * 0.09, y = u * 0.36;
   box(c, x, y, s, s, indigo, { radius: s * 0.26, name: 'Icon' });
   box(c, x + s * 0.24, y + s * 0.24, s * 0.52, s * 0.52, '#ffffff', { shape: 'hexagon', name: 'Icon mark' });
   box(c, x + s * 0.39, y + s * 0.39, s * 0.22, s * 0.22, indigo, { shape: 'ellipse', name: 'Icon dot' });
@@ -410,7 +410,7 @@ function habits(c: Kit, L: PlanLook): void {
   const t = text(c, 'Habit Tracker', x, u * 0.08, w, { font: L.head[0], weight: L.head[1], size: u * 0.09, fill: L.ink, name: 'Title' });
   const s = text(c, 'Two weeks · one small step a day', x, t.y + t.h + u * 0.005, w, { font: L.body, weight: 600, size: u * 0.024, fill: L.muted, name: 'Subtitle' });
   const list = ['Drink 8 glasses of water', 'Move for 30 minutes', 'Read 10 pages', 'No phone after 10 PM', 'Eat a vegetable', 'Go to bed by 11', 'Write one good thing'];
-  const lw = w * 0.32, days = 14, dw = (w - lw) / days, top = s.y + s.h + u * 0.07;
+  const lw = w * 0.38, days = 14, dw = (w - lw) / days, top = s.y + s.h + u * 0.07;
   for (let d = 0; d < days; d++) {
     const n = text(c, String(d + 1), x + lw + d * dw, top, dw, { font: L.body, weight: 800, size: u * 0.019, fill: L.accent, name: 'Day number' });
     void n;
@@ -419,7 +419,7 @@ function habits(c: Kit, L: PlanLook): void {
   list.forEach((hb, i) => {
     const y = top + u * 0.05 + i * rowH;
     box(c, x, y, w, rowH - u * 0.015, i % 2 ? '#ffffff' : L.soft, { radius: u * 0.018, name: 'Habit row' });
-    const ht = text(c, hb, x + u * 0.025, 0, lw - u * 0.04, { font: L.body, weight: 700, size: u * 0.022, fill: L.ink, lines: 2, lh: 1.2, align: 'left', name: 'Habit' });
+    const ht = text(c, hb, x + u * 0.025, 0, lw - u * 0.04, { font: L.body, weight: 700, size: u * 0.027, fill: L.ink, lines: 2, lh: 1.2, align: 'left', name: 'Habit' });
     ht.y = y + (rowH - u * 0.015) / 2 - ht.h / 2;
     const r = Math.min(dw * 0.62, u * 0.04);
     for (let d = 0; d < days; d++) box(c, x + lw + d * dw + (dw - r) / 2, y + (rowH - u * 0.015) / 2 - r / 2, r, r, '#ffffff', { shape: 'ellipse', stroke: L.accent, strokeWidth: u * 0.0025, name: 'Day circle' });
@@ -437,11 +437,11 @@ function saveTheDate(c: Kit): void {
   const aw = W * 0.62, ah = H * 0.46, ax = (W - aw) / 2, ay = H * 0.07;
   outline(c, ax - u * 0.02, ay - u * 0.02, aw + u * 0.04, ah + u * 0.03, W_SAGE, u * 0.004, { shape: 'arch', name: 'Arch line' });
   pic(c, 'wedding-std', ['#c9a99a', '#efe0d6', '#8c9f88'], 0, ax, ay, aw, ah, 'arch');
-  const s = text(c, 'Save the Date', W * 0.08, ay + ah + u * 0.05, W * 0.84, { font: 'Pinyon Script', weight: 400, size: u * 0.13, fill: W_SAGE, name: 'Save the date' });
+  const s = text(c, 'Save the Date', W * 0.08, ay + ah + u * 0.05, W * 0.84, { font: 'Pinyon Script', weight: 400, size: u * 0.13, fill: '#5f7a5c', name: 'Save the date' });
   const n = text(c, 'Olivia & James', W * 0.08, s.y + s.h + u * 0.01, W * 0.84, { font: 'Cormorant Garamond', weight: 700, size: u * 0.1, fill: W_INK, upper: true, spacing: u * 0.01, name: 'Names' });
   rule(c, W / 2 - u * 0.12, n.y + n.h + u * 0.03, u * 0.24, W_SAGE, u * 0.002);
   const d = text(c, 'June 12, 2027', W * 0.08, n.y + n.h + u * 0.06, W * 0.84, { font: 'Cormorant Garamond', weight: 600, size: u * 0.055, fill: W_INK, spacing: u * 0.006, name: 'Date' });
-  text(c, 'Napa Valley, California · Invitation to follow', W * 0.08, d.y + d.h + u * 0.015, W * 0.84, { font: 'Montserrat', weight: 600, size: u * 0.026, fill: W_SAGE, upper: true, spacing: u * 0.006, name: 'Place' });
+  text(c, 'Napa Valley, California · Invitation to follow', W * 0.06, d.y + d.h + u * 0.015, W * 0.88, { font: 'Montserrat', weight: 600, size: u * 0.032, fill: W_SAGE, upper: true, spacing: u * 0.006, name: 'Place' });
 }
 function rsvp(c: Kit): void {
   const { W, H, u } = c;
@@ -485,7 +485,7 @@ const LOGO_TAGS = ['logo', 'brand', 'branding', 'logo design', 'small business',
 const PLAN_TAGS = ['planner', 'printable', 'organizer', 'schedule'];
 
 const BISTRO_LOOK: MenuLook = { bg: '#fbf7ef', ink: '#2b2622', muted: '#7a6f64', accent: '#8b5e3c', title: ['Playfair Display', 800], head: ['Montserrat', 800], body: 'Lora' };
-const NAVY_LOOK: MenuLook = { bg: '#f6f4ef', ink: '#1b2a41', muted: '#6b7380', accent: '#c9a227', title: ['Cinzel', 700], head: ['Montserrat', 800], body: 'Inter', titleUpper: true, frame: '#1b2a41' };
+const NAVY_LOOK: MenuLook = { bg: '#16233a', ink: '#f6f1e4', muted: '#b9b3a4', accent: '#d4af37', title: ['Cinzel', 700], head: ['Montserrat', 800], body: 'Inter', titleUpper: true, frame: '#d4af37' };
 const BRUNCH_LOOK: MenuLook = { bg: '#fffaf2', ink: '#3b2a1f', muted: '#8a7363', accent: '#e07a3f', title: ['Fredoka', 700], head: ['Fredoka', 700], body: 'Nunito' };
 const OCEAN: PlanLook = { accent: '#2f6f8f', soft: '#e3eef3', ink: '#1d3442', muted: '#6b7f8a', head: ['DM Serif Display', 400], body: 'Nunito', bg: '#fbfdfe' };
 const PEACH: PlanLook = { accent: '#e07a5f', soft: '#fbe5dc', ink: '#3d2b25', muted: '#8a6f66', head: ['Fredoka', 700], body: 'Nunito', bg: '#fffaf7' };
@@ -495,7 +495,7 @@ const LILAC: PlanLook = { accent: '#7b6fb0', soft: '#ebe8f6', ink: '#2c2742', mu
 export const BUSINESS_SETS: { sub: string; label: string; cover: string; list: CollectionTemplate[] }[] = [
   { sub: 'menu', label: 'Menus', cover: 'bistro-dinner-menu', list: [
     menuT('bistro-dinner-menu', 'Bistro Dinner Menu', 'document', 'Elegant', ['cream', 'brown'], [...MENU_TAGS, 'dinner', 'french', 'fine dining'], (c) => menuClassic(c, BISTRO_LOOK, BISTRO), { fit: true }),
-    menuT('navy-gold-menu', 'Navy & Gold Menu', 'document', 'Elegant', ['cream', 'navy', 'gold'], [...MENU_TAGS, 'dinner', 'wedding menu', 'event menu', 'formal'], (c) => menuClassic(c, NAVY_LOOK, BISTRO), { fit: true }),
+    menuT('navy-gold-menu', 'Navy & Gold Menu', 'document', 'Elegant', ['navy', 'gold'], [...MENU_TAGS, 'dark', 'dinner', 'wedding menu', 'event menu', 'formal'], (c) => menuClassic(c, NAVY_LOOK, BISTRO), { fit: true }),
     menuT('weekend-brunch-menu', 'Weekend Brunch Menu', 'document', 'Playful', ['orange', 'cream'], [...MENU_TAGS, 'brunch', 'breakfast', 'photo'], (c) => menuTwoCol(c, BRUNCH_LOOK, BRUNCH, '#e07a3f', ['#e9a66b', '#f7dfc1', '#7aa874'])),
     menuT('chalkboard-coffee-menu', 'Chalkboard Coffee Menu', 'poster', 'Hand-drawn', ['black', 'yellow', 'pink'], [...MENU_TAGS, 'coffee', 'drinks', 'chalkboard', 'menu board', 'coffee shop'], (c) => menuBoard(c, DRINKS)),
     menuT('chefs-special-post', "Chef's Special Post", 'post', 'Modern', ['cream', 'green'], [...MENU_TAGS, 'special', 'daily special', 'instagram', 'photo'], (c) => menuSpecial(c, ['#d79a6b', '#f3e2c8', '#7da35f'], '#22302a', '#2f7a55', '#fbf6ec')),

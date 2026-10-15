@@ -56,10 +56,10 @@ function ytTour(c: Kit): void {
   c.bg = coral;
   pic(c, 'yt-tour', ['#9aa5b1', '#eef1f4', '#ff6b5b'], 0, 0, 0, W * 0.55, H, 'none');
   const x = W * 0.6, w = W * 0.36;
-  const a = text(c, 'My', x, H * 0.14, w, { font: 'Bebas Neue', weight: 400, size: u * 0.18, fill: '#ffffff', align: 'left', name: 'Line 1' });
+  const a = text(c, 'My', x, H * 0.06, w, { font: 'Bebas Neue', weight: 400, size: u * 0.18, fill: '#ffffff', align: 'left', name: 'Line 1' });
   const b = text(c, 'Studio', x, a.y + a.h - u * 0.03, w, { font: 'Bebas Neue', weight: 400, size: u * 0.3, fill: '#ffffff', align: 'left', name: 'Line 2' });
   const t = text(c, 'Tour', x, b.y + b.h - u * 0.05, w, { font: 'Bebas Neue', weight: 400, size: u * 0.3, fill: '#1f1f1f', align: 'left', name: 'Line 3' });
-  text(c, 'Everything I use to make videos', x, t.y + t.h + u * 0.02, w, { font: 'Montserrat', weight: 700, size: u * 0.04, fill: '#ffffff', lines: 2, lh: 1.2, align: 'left', name: 'Subtitle' });
+  text(c, 'Everything I use to make videos', x, t.y + t.h + u * 0.01, w, { font: 'Montserrat', weight: 700, size: u * 0.048, fill: '#ffffff', lines: 2, lh: 1.2, align: 'left', name: 'Subtitle' });
   const s = u * 0.3;
   box(c, W * 0.04, H * 0.62, s, s, yellow, { shape: 'burst', rotation: 10, name: 'Burst' });
   mid(c, 'New!', W * 0.04, H * 0.62 + s / 2, s, { font: 'Bebas Neue', weight: 400, size: u * 0.09, fill: '#1f1f1f', name: 'Burst text' });
@@ -82,9 +82,9 @@ function schedule(c: Kit): void {
     const y = top + i * rh;
     box(c, x, y + rh * 0.08, w, rh * 0.84, i % 2 ? soft : 'rgba(255,255,255,0.1)', { radius: u * 0.015, name: 'Row' });
     mid(c, d, x + w * 0.03, y + rh / 2, w * 0.22, { font: 'Oswald', weight: 600, size: u * 0.03, fill: orange, upper: true, align: 'left', name: 'Date' });
-    mid(c, `${home ? 'vs' : '@'} ${o}`, x + w * 0.26, y + rh / 2, w * 0.44, { font: 'Oswald', weight: 600, size: u * 0.034, fill: ink, upper: true, align: 'left', name: 'Opponent' });
-    if (home) { box(c, x + w * 0.71, y + rh / 2 - u * 0.022, u * 0.11, u * 0.044, orange, { radius: u * 0.022, name: 'Home tag' }); mid(c, 'Home', x + w * 0.71, y + rh / 2, u * 0.11, { font: 'Montserrat', weight: 800, size: u * 0.018, fill: navy, upper: true, name: 'Home' }); }
-    mid(c, tm, x + w * 0.8, y + rh / 2, w * 0.18, { font: 'Oswald', weight: 500, size: u * 0.03, fill: ink, upper: true, align: 'right', name: 'Time' });
+    mid(c, `${home ? 'vs' : '@'} ${o}`, x + w * 0.26, y + rh / 2, w * 0.4, { font: 'Oswald', weight: 600, size: u * 0.034, fill: ink, upper: true, align: 'left', name: 'Opponent' });
+    if (home) { box(c, x + w * 0.67, y + rh / 2 - u * 0.022, u * 0.11, u * 0.044, orange, { radius: u * 0.022, name: 'Home tag' }); mid(c, 'Home', x + w * 0.67, y + rh / 2, u * 0.11, { font: 'Montserrat', weight: 800, size: u * 0.018, fill: navy, upper: true, name: 'Home' }); }
+    mid(c, tm, x + w * 0.82, y + rh / 2, w * 0.16, { font: 'Oswald', weight: 500, size: u * 0.03, fill: ink, upper: true, align: 'right', name: 'Time' });
   });
   text(c, 'Home games at Eastside Arena · Students free with ID', W * 0.07, H - u * 0.12, W * 0.86, { font: 'Montserrat', weight: 700, size: u * 0.026, fill: 'rgba(255,255,255,0.75)', name: 'Note' });
 }
@@ -159,13 +159,13 @@ const pitch = (D: Deck): [(c: Kit) => void, ((c: Kit) => void)[]] => [
     (c) => { // problem
       const { W, H, u } = c;
       c.bg = D.bg;
-      slideTitle(c, D, 'The problem', 'Booking a doctor still takes 3 phone calls', W * 0.06, H * 0.12, W * 0.4);
+      slideTitle(c, D, 'The problem', 'Booking a doctor still takes 3 phone calls', W * 0.06, H * 0.3, W * 0.4);
       const pts = ['Most clinics still book by phone, open 9 to 5.', 'Patients wait 24 days on average for a visit.', 'One in four appointments is missed or late.'];
       pts.forEach((p, i) => {
         const y = H * 0.18 + i * u * 0.24;
         box(c, W * 0.52, y, u * 0.12, u * 0.12, D.soft, { shape: 'ellipse', name: 'Number circle' });
         mid(c, String(i + 1), W * 0.52, y + u * 0.06, u * 0.12, { font: D.head[0], weight: D.head[1], size: u * 0.06, fill: D.accent, name: 'Number' });
-        mid(c, p, W * 0.52 + u * 0.16, y + u * 0.06, W * 0.36, { font: D.body, weight: 600, size: u * 0.04, fill: D.ink, lines: 2, lh: 1.3, align: 'left', name: 'Point' });
+        mid(c, p, W * 0.52 + u * 0.16, y + u * 0.06, W * 0.36, { font: D.body, weight: 600, size: u * 0.05, fill: D.ink, lines: 2, lh: 1.3, align: 'left', name: 'Point' });
       });
       pageNo(c, D, 2);
     },
@@ -177,8 +177,8 @@ const pitch = (D: Deck): [(c: Kit) => void, ((c: Kit) => void)[]] => [
       [['Book in 30 seconds', 'Real-time openings from 2,000 clinics'], ['Chat with your doctor', 'Quick questions without a visit'], ['Clear prices', 'See the cost before you book']].forEach(([a, b], i) => {
         const y = t.y + t.h + u * 0.07 + i * u * 0.17;
         box(c, W * 0.52, y + u * 0.01, u * 0.016, u * 0.11, D.accent, { radius: u * 0.008, name: 'Bar' });
-        const h = text(c, a, W * 0.52 + u * 0.05, y, W * 0.38, { font: D.body, weight: 800, size: u * 0.042, fill: D.ink, align: 'left', name: 'Feature' });
-        text(c, b, W * 0.52 + u * 0.05, h.y + h.h + u * 0.005, W * 0.38, { font: D.body, weight: 500, size: u * 0.032, fill: D.muted, align: 'left', name: 'Feature detail' });
+        const h = text(c, a, W * 0.52 + u * 0.05, y, W * 0.38, { font: D.body, weight: 800, size: u * 0.05, fill: D.ink, align: 'left', name: 'Feature' });
+        text(c, b, W * 0.52 + u * 0.05, h.y + h.h + u * 0.005, W * 0.38, { font: D.body, weight: 500, size: u * 0.038, fill: D.muted, align: 'left', name: 'Feature detail' });
       });
       pageNo(c, D, 3);
     },
@@ -189,10 +189,10 @@ const pitch = (D: Deck): [(c: Kit) => void, ((c: Kit) => void)[]] => [
       const stats: [string, string][] = [['48K', 'active patients'], ['$1.2M', 'yearly revenue'], ['4.8★', 'app store rating']];
       const cw = W * 0.27, gap = (W * 0.88 - cw * 3) / 2;
       stats.forEach(([v, l], i) => {
-        const x = W * 0.06 + i * (cw + gap), y = H * 0.42;
-        box(c, x, y, cw, H * 0.42, 'rgba(255,255,255,0.07)', { radius: u * 0.03, name: 'Stat card' });
-        text(c, v, x, y + u * 0.07, cw, { font: D.head[0], weight: D.head[1], size: u * 0.16, fill: D.accent, name: 'Stat' });
-        text(c, l, x, y + u * 0.29, cw, { font: D.body, weight: 600, size: u * 0.04, fill: '#ffffff', name: 'Stat label' });
+        const x = W * 0.06 + i * (cw + gap), y = H * 0.36;
+        box(c, x, y, cw, H * 0.52, 'rgba(255,255,255,0.07)', { radius: u * 0.03, name: 'Stat card' });
+        text(c, v, x + cw * 0.08, y + u * 0.1, cw * 0.84, { font: D.head[0], weight: D.head[1], size: u * 0.16, fill: D.accent, name: 'Stat' });
+        text(c, l, x, y + u * 0.34, cw, { font: D.body, weight: 600, size: u * 0.05, fill: '#ffffff', name: 'Stat label' });
       });
     },
     (c) => { // team
@@ -256,7 +256,7 @@ const lesson = (D: Deck): [(c: Kit) => void, ((c: Kit) => void)[]] => [
         box(c, cx - d / 2, cy, d, d, i % 2 ? D.accent : D.dark, { shape: 'ellipse', name: 'Step circle' });
         mid(c, String(i + 1), cx - d / 2, cy + d / 2, d, { font: D.head[0], weight: D.head[1], size: u * 0.08, fill: '#ffffff', name: 'Step' });
         const h = text(c, a, cx - cw / 2 + u * 0.01, cy + d + u * 0.04, cw - u * 0.02, { font: D.head[0], weight: D.head[1], size: u * 0.045, fill: D.ink, name: 'Stage' });
-        text(c, b, cx - cw / 2 + u * 0.03, h.y + h.h + u * 0.01, cw - u * 0.06, { font: D.body, weight: 600, size: u * 0.03, fill: D.muted, lines: 3, lh: 1.3, name: 'Stage detail' });
+        text(c, b, cx - cw / 2 + u * 0.02, h.y + h.h + u * 0.01, cw - u * 0.04, { font: D.body, weight: 600, size: u * 0.038, fill: D.muted, lines: 3, lh: 1.3, name: 'Stage detail' });
       });
       pageNo(c, D, 3);
     },
@@ -274,9 +274,9 @@ const lesson = (D: Deck): [(c: Kit) => void, ((c: Kit) => void)[]] => [
       const k = text(c, 'Quick quiz', W * 0.1, H * 0.12, W * 0.8, { font: D.body, weight: 800, size: u * 0.035, fill: D.accent, upper: true, spacing: u * 0.008, name: 'Kicker' });
       const q = text(c, 'What do we call water falling from clouds?', W * 0.1, k.y + k.h + u * 0.02, W * 0.8, { font: D.head[0], weight: D.head[1], size: u * 0.08, fill: D.ink, lines: 2, lh: 1.1, name: 'Question' });
       ['A · Evaporation', 'B · Precipitation', 'C · Collection'].forEach((a, i) => {
-        const y = q.y + q.h + u * 0.08 + i * u * 0.13, w = W * 0.5;
-        box(c, (W - w) / 2, y, w, u * 0.1, i === 1 ? D.dark : '#ffffff', { radius: u * 0.05, name: 'Answer' });
-        mid(c, a, (W - w) / 2, y + u * 0.05, w, { font: D.body, weight: 800, size: u * 0.042, fill: i === 1 ? '#ffffff' : D.ink, name: 'Answer text' });
+        const y = q.y + q.h + u * 0.08 + i * u * 0.16, w = W * 0.56;
+        box(c, (W - w) / 2, y, w, u * 0.13, i === 1 ? D.dark : '#ffffff', { radius: u * 0.065, name: 'Answer' });
+        mid(c, a, (W - w) / 2, y + u * 0.065, w, { font: D.body, weight: 800, size: u * 0.055, fill: i === 1 ? '#ffffff' : D.ink, name: 'Answer text' });
       });
     },
     (c) => {
