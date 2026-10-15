@@ -256,7 +256,8 @@ export const ARCHETYPES: Archetype[] = [
     build(c) {
       const { W, H, u, pal, ev } = c;
       const pad = u * 0.08;
-      const top = H * (c.land ? 0.5 : c.portrait ? 0.56 : 0.58); // banners: half and half, so the details below get room
+      const tall = H > W * 1.6;
+      const top = H * (c.land ? 0.5 : tall ? 0.5 : c.portrait ? 0.56 : 0.58); // banners + stories: half and half, so the details below get room
       const els: El[] = [
         shp('rect', 0, 0, W, top, pal.primary),
         shp('rect', -W * 0.1, top - u * 0.1, W * 1.2, u * 0.2, pal.primary, { rotation: -4 }),
@@ -272,7 +273,7 @@ export const ARCHETYPES: Archetype[] = [
       for (const k2 of [1, 0.86, 0.74, 0.62, 0.52]) {
         y = top + u * 0.16 * Math.max(0.6, k2) + W * (c.land ? 0.035 : 0.03); det = []; // wide pages: below the tilted stripe's low end
         for (const [i, d] of lines(ev).entries()) {
-          const e = txt(c, d, pad, y, W * (c.land ? 0.5 : 0.78), { weight: i ? 500 : 800, size: u * (i ? (c.portrait ? 0.05 : 0.042) : (c.portrait ? 0.066 : 0.054)) * k2, fill: i ? pal.muted : pal.ink });
+          const e = txt(c, d, pad, y, W * (c.land ? 0.5 : tall ? 0.86 : 0.78), { weight: i ? 500 : 800, size: u * (i ? (tall ? 0.062 : c.portrait ? 0.05 : 0.042) : (tall ? 0.082 : c.portrait ? 0.066 : 0.054)) * k2, fill: i ? pal.muted : pal.ink });
           det.push(e); y += e.h + u * 0.025 * k2;
         }
         if (y + u * 0.03 <= floor) break;
@@ -280,7 +281,7 @@ export const ARCHETYPES: Archetype[] = [
       if (c.portrait && det.length) centreBlock(det, top + u * 0.16 + W * 0.03, H - pad - pillH - u * 0.04);
       els.push(...det);
       if (c.land) { const ps = u * 0.036, est = Math.min(W * 0.86, ev.cta.length * ps * 0.62 + ps * 2.2); els.push(...pill(c, ev.cta, 0, H - pad - pillH, pal.secondary, pal.onPrimary, ps, 'left', W - pad - est)); }
-      else els.push(...pill(c, ev.cta, 0, Math.min(floor, Math.max(y + u * 0.03, H - pad - pillH)), pal.secondary, pal.onPrimary, u * 0.036, 'left', pad));
+      else els.push(...pill(c, ev.cta, 0, Math.min(floor, Math.max(y + u * 0.03, H - pad - pillH)), pal.secondary, pal.onPrimary, u * (tall ? 0.044 : 0.036), 'left', pad));
       return [{ bg: pal.bg, els }];
     },
   },
@@ -307,7 +308,7 @@ export const ARCHETYPES: Archetype[] = [
       const t = title(c, ev.title, W * 0.07, k.y + k.h + u * 0.02, W * 0.86, u * 0.15, { align: 'center', fill: pal.ink, maxLines: 3, maxH: H - (k.y + k.h + u * 0.02) - u * (lines(ev).length * 0.06 + (ev.cta ? 0.2 : 0.08)) });
       els.push(k, t);
       let y = t.y + t.h + u * 0.04;
-      const dt = details(c, W * 0.1, y, W * 0.8, { align: 'center', size: u * (c.portrait ? 0.048 : 0.042), fill: pal.muted, weight: 600 }, u * 0.015, H - u * 0.16 - u * 0.04);
+      const dt = details(c, W * 0.1, y, W * 0.8, { align: 'center', size: u * (H > W * 1.6 ? 0.058 : c.portrait ? 0.048 : 0.042), fill: pal.muted, weight: 600 }, u * 0.015, H - u * 0.16 - u * 0.04);
       els.push(...dt.els); y = dt.y;
       els.push(...pill(c, ev.cta, cx, Math.min(y + u * 0.05, H - u * 0.16), pal.secondary, pal.onPrimary, u * 0.034));
       if (c.portrait) centreBlock(els, u * 0.1, H - u * 0.1);
