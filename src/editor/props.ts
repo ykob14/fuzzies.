@@ -103,7 +103,7 @@ export function buildProps(ed: Editor): Props {
     if (!sel.length) { title.textContent = 'Page'; body.append(...pageProps()); return; }
     if (sel.length > 1) { title.textContent = `${sel.length} items`; body.append(...multiProps(sel)); return; }
     const e = sel[0];
-    title.textContent = { text: 'Text', shape: 'Shape', image: 'Photo', graphic: 'Graphic', emoji: 'Sticker', draw: 'Drawing', qr: 'QR code' }[e.type];
+    title.textContent = ed.isPageBackground(e) ? 'Background' : { text: 'Text', shape: 'Shape', image: 'Photo', graphic: 'Graphic', emoji: 'Sticker', draw: 'Drawing', qr: 'QR code' }[e.type];
     if (e.locked) body.append(h('div', { class: 'note' }, icon('lock', 16), 'This item is locked. ', h('button', { class: 'link', type: 'button', onclick: () => { e.locked = false; done(); render(); } }, 'Unlock')));
     if (e.type === 'text') body.append(...textProps(e));
     if (e.type === 'shape') body.append(...shapeProps(e));
@@ -401,6 +401,9 @@ export function buildProps(ed: Editor): Props {
 
   // ---------- smart toolbar ----------
   const bar = h('div', { class: 'ed-tools', role: 'toolbar', 'aria-label': 'Tools for the selection' });
+  // the tools scroll inside `track`; on phones Done sits outside it, pinned at the left, so it never scrolls away
+  const track = h('div', { class: 'tb-track' });
+  let lastBarKey = '';
   const sep = () => h('span', { class: 'tb-sep', 'aria-hidden': 'true' });
   const label = (t: string) => h('span', { class: 'tb-label' }, t);
   const tb = (o: { icon?: IconName; text?: string; title: string; on?: boolean; cls?: string; onClick: (b: HTMLButtonElement) => void }) => {
@@ -471,13 +474,16 @@ export function buildProps(ed: Editor): Props {
     if (bar.contains(document.activeElement) && document.activeElement instanceof HTMLInputElement) return;
     document.querySelector('.tb-pop')?.remove();
     const sel = ed.selected;
+    const selKey = ed.selection.join(',');
     ed.root.classList.toggle('has-sel', sel.length > 0);
     const items: (Node | null)[] = [];
     // phones: the toolbar covers the tool rail while something is selected; Done brings the tools back
-    if (sel.length) items.push(tb({ icon: 'check', title: 'Done', cls: 'tb-done', onClick: () => ed.select([]) }));
+    if (sel.length) items.push(tb({ icon: 'check', text: 'Done', title: 'Done', cls: 'tb-done', onClick: () => ed.select([]) }));
     if (!sel.length) {
+      const bgEl = ed.pageBackgroundEl();
       items.push(label('Page'),
         color(ed.page.background, (f) => (ed.page.background = f), { gradient: true, title: 'Background colour' }),
+        bgEl ? tb({ icon: 'image', text: 'Background', title: 'Select the background picture (replace it or change its colours)', onClick: () => ed.select([bgEl.id]) }) : null,
         tb({ icon: 'crop', text: 'Resize', title: 'Change the design size', onClick: () => open() }),
         tb({ icon: 'plus', text: 'Add page', title: 'Add a page', onClick: () => ed.addPage() }));
     } else if (sel.length > 1) {
@@ -496,8 +502,8 @@ export function buildProps(ed: Editor): Props {
       }
       if (e.type === 'image' && isSticker(e)) items.push(label('Sticker'), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters and adjustments', onClick: () => open() }));
       else if (e.type === 'image' && ed.cropping === e.id) items.push(label('Cropping'), h('span', { class: 'tb-hint' }, matchMedia('(pointer: coarse)').matches ? 'Drag to move · pinch to zoom' : 'Drag the photo to move it · scroll to zoom'), tb({ icon: 'check', text: 'Done', title: 'Finish cropping (Enter)', on: true, onClick: () => ed.endCrop() }));
-      else if (e.type === 'image') items.push(label('Photo'), ...(e.asset.startsWith('ph-') ? [] : [tb({ icon: 'crop', text: 'Crop', title: 'Move and zoom the photo inside its frame (or double-click it)', onClick: () => ed.startCrop(e) })]), tb({ icon: 'upload', text: e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', title: 'Pick a picture from your computer or phone', onClick: () => ed.pickPhotoFor(e) }), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
-      if (e.type === 'graphic') { const a = artById(e.art); items.push(label('Graphic'), tb({ icon: 'image', text: 'Replace', title: 'Swap this artwork for another', onClick: () => open() }), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
+      else if (e.type === 'image') items.push(label(ed.isPageBackground(e) ? 'Background' : 'Photo'), ...(e.asset.startsWith('ph-') ? [] : [tb({ icon: 'crop', text: 'Crop', title: 'Move and zoom the photo inside its frame (or double-click it)', onClick: () => ed.startCrop(e) })]), tb({ icon: 'upload', text: e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', title: 'Pick a picture from your computer or phone', onClick: () => ed.pickPhotoFor(e) }), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
+      if (e.type === 'graphic') { const a = artById(e.art); items.push(label(ed.isPageBackground(e) ? 'Background' : 'Graphic'), tb({ icon: 'image', text: 'Replace', title: 'Swap this artwork for another', onClick: () => open() }), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
       if (e.type === 'qr') items.push(label('QR code'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Squares' }), color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true, title: 'Background' }), tb({ icon: 'edit', text: 'Link', title: 'Change the link', onClick: () => open() }));
       if (e.type === 'draw') items.push(label('Drawing'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Stroke colour' }));
       if (e.type === 'emoji') items.push(label('Sticker'));
@@ -508,21 +514,25 @@ export function buildProps(ed: Editor): Props {
     // when the tools don't fit, a fade and an arrow at each cut-off end say there's more (and scroll to it)
     const arrow = (side: 'l' | 'r') => {
       const x = h('button', { type: 'button', class: `tb-scroll ${side}`, 'aria-label': side === 'l' ? 'More tools to the left' : 'More tools to the right', tabindex: '-1' }, icon(side === 'l' ? 'chevL' : 'chevR', 18));
-      x.addEventListener('click', () => bar.scrollBy({ left: (side === 'l' ? -1 : 1) * bar.clientWidth * 0.7, behavior: 'smooth' }));
+      x.addEventListener('click', () => track.scrollBy({ left: (side === 'l' ? -1 : 1) * track.clientWidth * 0.7, behavior: 'smooth' }));
       return x;
     };
     const nodes = items.filter((x): x is Node => !!x);
     const done = nodes[0] instanceof HTMLElement && nodes[0].classList.contains('tb-done') ? [nodes.shift()!] : [];
-    bar.replaceChildren(...done, arrow('l'), ...nodes, arrow('r'));
+    const keep = track.scrollLeft;
+    track.replaceChildren(arrow('l'), ...nodes, arrow('r'));
+    bar.replaceChildren(...done, track);
+    track.scrollLeft = sel.length && selKey === lastBarKey ? keep : 0; // same selection (a colour or size change): stay where you were
+    lastBarKey = selKey;
     edges();
   }
   function edges(): void {
-    const max = bar.scrollWidth - bar.clientWidth;
-    bar.classList.toggle('more-l', max > 2 && bar.scrollLeft > 2);
-    bar.classList.toggle('more-r', max > 2 && bar.scrollLeft < max - 2);
+    const max = track.scrollWidth - track.clientWidth;
+    bar.classList.toggle('more-l', max > 2 && track.scrollLeft > 2);
+    bar.classList.toggle('more-r', max > 2 && track.scrollLeft < max - 2);
   }
-  bar.addEventListener('scroll', edges, { passive: true });
-  new ResizeObserver(edges).observe(bar);
+  track.addEventListener('scroll', edges, { passive: true });
+  new ResizeObserver(edges).observe(track);
 
   ed.on('select', () => { if (!ed.selection.length && isPhone()) close(); render(); renderBar(); });
   ed.on('page', () => { render(); renderBar(); });

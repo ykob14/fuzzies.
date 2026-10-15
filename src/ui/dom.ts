@@ -191,6 +191,7 @@ export function toast(msg: string, kind: 'info' | 'good' | 'bad' | 'fuzzy' = 'in
 // ---------- modal ----------
 export interface ModalHandle { el: HTMLElement; close(): void }
 export function modal(title: string, body: Node, opts: { actions?: HTMLElement[]; wide?: boolean; onClose?: () => void } = {}): ModalHandle {
+  closeMenus(); // a menu left open (e.g. Download) mustn't float over the new window
   const backdrop = h('div', { class: 'modal-backdrop' });
   const close = () => {
     backdrop.classList.remove('in');
@@ -238,6 +239,24 @@ export function promptDialog(title: string, value: string, okLabel = 'Save'): Pr
 }
 
 /** Small popover menu anchored to an element. */
+/**
+ * Pop-up menus and popovers (`.popmenu`: menus, the font list, toolbar popovers) and other closers (the colour picker register
+ * theirs) close together: on Escape, when a dialog or tool sheet opens, and when the editor's selection changes.
+ */
+const menuClosers = new Set<() => void>();
+export function onCloseMenus(fn: () => void): void { menuClosers.add(fn); }
+export function closeMenus(): void {
+  document.querySelectorAll('.popmenu').forEach((m) => m.remove());
+  menuClosers.forEach((f) => f());
+}
+// Escape closes an open menu first (and only the menu — the selection or dialog underneath stays)
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !document.querySelector('.popmenu, .picker')) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  closeMenus();
+}, true);
+
 export function popMenu(anchor: HTMLElement, items: ({ label: string; icon?: IconName; danger?: boolean; onClick: () => void } | null)[]): void {
   document.querySelector('.popmenu')?.remove();
   const menu = h('div', { class: 'popmenu', role: 'menu' });

@@ -12,11 +12,12 @@ import { buildProps, type Props } from './props';
 import { openShare } from './share';
 import { openPreview, downloadMenu, checkTemplateRights } from './preview';
 import { onFontsLoaded } from '../content/fonts';
+import { showAssistant } from '../ui/assistant';
 import { db } from '../core/db';
 import { track } from '../core/missions';
 import { accounts } from '../core/account';
 import { clamp, debounce, deepClone, fileToImageData, uid } from '../core/util';
-import { h, btn, icon, toast, popMenu, pickFile, type IconName } from '../ui/dom';
+import { h, btn, icon, toast, popMenu, closeMenus, pickFile, type IconName } from '../ui/dom';
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rot';
 type Tool = 'select' | 'draw' | 'hand';
@@ -113,6 +114,7 @@ export class Editor {
   private spaceDown = false;
   private fitZoom = 0;
   private lastTap = { t: 0, id: '' };
+  private bgTapAt = 0;
   /** Set by a tap on a photo frame; the canvas `click` that follows opens the picker (phones only allow it from a real tap). */
   private pickOnClick: { id: string; t: number } | null = null;
   /** The photo being cropped in place (double-click a photo): drag moves the picture inside its frame, the wheel zooms it. */
@@ -153,6 +155,20 @@ export class Editor {
     const previewBtn = btn('Preview', { icon: 'play', kind: 'plain', title: 'Preview every page full screen', class: 'ed-preview', onClick: () => openPreview(this) });
     const dlBtn = btn(null, { icon: 'download', kind: 'ghost', title: 'Download (PNG, JPG, PDF)', class: 'ed-dl' });
     dlBtn.addEventListener('click', () => downloadMenu(this, dlBtn));
+    // phones: the secondary actions live in one ⋯ menu so the design name has room
+    const moreBtn = btn(null, { icon: 'more', kind: 'plain', title: 'More: preview, download, view, size', class: 'ed-more' });
+    moreBtn.setAttribute('aria-label', 'More actions');
+    moreBtn.addEventListener('click', () => {
+      this.finishTextEdit();
+      popMenu(moreBtn, [
+        { label: 'Preview', icon: 'play', onClick: () => openPreview(this) },
+        { label: 'Download', icon: 'download', onClick: () => downloadMenu(this, moreBtn) },
+        { label: 'View: grid & snapping', icon: 'grid', onClick: () => this.viewMenu(moreBtn) },
+        { label: `Resize · ${this.design.width} × ${this.design.height} px`, icon: 'crop', onClick: () => { this.select([]); this.props.open(); } },
+        null,
+        { label: 'Ask Fuzzy for help', icon: 'chat', onClick: () => showAssistant() },
+      ]);
+    });
     checkTemplateRights();
     const top = h('header', { class: 'ed-top' },
       btn(null, { icon: 'back', kind: 'plain', title: 'Back to home', onClick: () => this.exit() }),
@@ -161,6 +177,7 @@ export class Editor {
       h('div', { class: 'ed-top-right' },
         viewBtn, previewBtn, dlBtn,
         h('button', { class: 'ed-size', type: 'button', title: 'Resize the design', onclick: () => { this.select([]); this.props.open(); } }, `${design.width} × ${design.height} px`),
+        moreBtn,
         btn('Share', { icon: 'share', kind: 'primary', onClick: () => openShare(this) })));
 
     this.root = h('div', { class: 'editor' }, top, h('div', { class: 'ed-main' }));
@@ -170,6 +187,8 @@ export class Editor {
     this.panels = buildPanels(this);
     this.props = buildProps(this);
     // the smart toolbar sits above the canvas and follows the selection; the full inspector opens on demand
+    // opening a tool sheet closes any menu still open (on phones it floated over the sheet)
+    this.panels.rail.addEventListener('click', () => closeMenus(), true);
     this.root.querySelector('.ed-main')!.append(this.panels.rail, this.panels.panel, h('div', { class: 'ed-work' }, this.props.bar, this.stage), this.props.el);
 
     this.bindPointer();
@@ -345,7 +364,7 @@ export class Editor {
   private get bottomInset(): number { return this.cssW < 700 ? 76 : 70; }
 
   fit(): void {
-    const pad = this.cssW < 700 ? 20 : 48;
+    const pad = this.cssW < 500 ? 14 : this.cssW < 700 ? 20 : 48; // phones: the page uses nearly the full width
     const availH = this.cssH - this.bottomInset - pad;
     this.zoom = this.fitZoom = Math.max(0.02, Math.min((this.cssW - pad * 2) / this.design.width, (availH - pad) / this.design.height));
     this.panX = (this.cssW - this.design.width * this.zoom) / 2;
@@ -384,6 +403,33 @@ export class Editor {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const el of els) for (const [x, y] of this.corners(el)) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  /**
+   * Is this the page's background art? A picture / scene / rectangle that covers the whole page and sits at the bottom of
+   * the stack (only other backgrounds below it). A plain tap or a box-select on it acts like empty page space — it is still
+   * selectable from Layers, the page toolbar's Background button, a double-click / double-tap or the right-click menu.
+   */
+  isPageBackground(el: El): boolean {
+    if (el.hidden || !(el.type === 'graphic' || el.type === 'image' || (el.type === 'shape' && el.shape === 'rect'))) return false;
+    if (el.type === 'image' && (el.asset.startsWith('ph-') || isSticker(el))) return false; // empty photo frames stay tappable
+    if (el.rotation % 180 !== 0) return false;
+    const W = this.design.width, H = this.design.height;
+    if (el.x > W * 0.01 || el.y > H * 0.01 || el.x + el.w < W * 0.99 || el.y + el.h < H * 0.99) return false;
+    const els = this.page.elements;
+    const i = els.indexOf(el);
+    return i >= 0 && els.slice(0, i).every((b) => b.hidden || this.isPageBackground(b));
+  }
+  /** The page's top-most background layer (see `isPageBackground`), if it has one. */
+  pageBackgroundEl(): El | null {
+    let bg: El | null = null;
+    for (const el of this.page.elements) { if (this.isPageBackground(el)) bg = el; else if (!el.hidden) break; }
+    return bg;
+  }
+  /** `hitEl`, but the unselected page background counts as empty space. */
+  private hitContent(x: number, y: number): El | null {
+    const el = this.hitEl(x, y);
+    return el && this.isPageBackground(el) && !this.selection.includes(el.id) ? null : el;
   }
 
   private hitEl(x: number, y: number): El | null {
@@ -711,11 +757,15 @@ export class Editor {
   select(ids: string[]): void {
     if (this.editingText && !ids.includes(this.editingText.el.id)) this.finishTextEdit();
     if (this.cropping && !(ids.length === 1 && ids[0] === this.cropping)) this.cropping = null;
+    if (ids.length !== this.selection.length || ids.some((id, i) => id !== this.selection[i])) closeMenus(); // the font list etc. belong to the old selection
     this.selection = ids;
     this.emit('select');
     this.buildCtxBar();
     this.requestRender();
   }
+
+  /** Everything on the page except hidden layers and the page background (like Canva). */
+  selectAll(): void { this.select(this.page.elements.filter((x) => !x.hidden && !this.isPageBackground(x)).map((x) => x.id)); }
 
   private buildCtxBar(): void {
     const sel = this.selected;
@@ -796,6 +846,8 @@ export class Editor {
     c.addEventListener('dblclick', (e) => {
       const p = this.toDesign(e.clientX, e.clientY);
       const el = this.hitEl(p.x, p.y);
+      // double-click (or the double-tap that just selected it) on empty space = select the background, nothing more
+      if (el && this.isPageBackground(el) && (!this.selection.includes(el.id) || el.type !== 'image' || performance.now() - this.bgTapAt < 600)) { this.select([el.id]); return; }
       if (el?.type === 'text' && !el.locked) this.editText(el);
       else if (el?.type === 'image' && !el.locked) { if (!isEmptyFrame(el) && !isSticker(el)) this.startCrop(el); } // an empty frame already opened its picker on the first click
       else if (el) this.props.open();
@@ -830,8 +882,9 @@ export class Editor {
     c.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const p = this.toDesign(e.clientX, e.clientY);
-      const el = this.hitEl(p.x, p.y);
+      const el = this.hitContent(p.x, p.y);
       if (el && !this.selection.includes(el.id)) this.select([el.id]);
+      const bg = el ? null : this.pageBackgroundEl();
       const anchor = h('div', { style: `position:fixed;left:${e.clientX}px;top:${e.clientY}px;width:1px;height:1px` });
       document.body.append(anchor);
       popMenu(anchor, el ? [
@@ -844,7 +897,8 @@ export class Editor {
         { label: 'Delete', icon: 'trash', danger: true, onClick: () => this.deleteSelection() },
       ] : [
         { label: 'Paste', icon: 'clipboard', onClick: () => this.paste() },
-        { label: 'Select all', icon: 'grid', onClick: () => this.select(this.page.elements.filter((x) => !x.hidden).map((x) => x.id)) },
+        { label: 'Select all', icon: 'grid', onClick: () => this.selectAll() },
+        ...(bg ? [{ label: 'Select background', icon: 'image' as IconName, onClick: () => this.select([bg.id]) }] : []),
       ]);
       setTimeout(() => anchor.remove(), 100);
     });
@@ -896,7 +950,7 @@ export class Editor {
       return;
     }
 
-    const hit = this.hitEl(p.x, p.y);
+    const hit = this.hitContent(p.x, p.y);
     // a locked item (often a template's background) mustn't block box-selecting what's on top of it
     if (hit?.locked && e.pointerType === 'mouse' && !(e.shiftKey || e.metaKey || e.ctrlKey) && !this.selection.includes(hit.id)) {
       this.drag = { ...base, kind: 'marquee', additive: false, startSel: [], tapSelect: hit.id };
@@ -925,7 +979,13 @@ export class Editor {
       for (const el of this.selected) if (!el.locked) this.drag.orig.set(el.id, deepClone(el));
       return;
     }
-    // empty space: marquee on desktop, pan or deselect on touch
+    // empty space: marquee on desktop, pan or deselect on touch (a double-tap on the page background selects it)
+    if (e.pointerType !== 'mouse') {
+      const bg = this.hitEl(p.x, p.y);
+      const now = performance.now();
+      if (bg && this.lastTap.id === 'bg:' + bg.id && now - this.lastTap.t < 350) { this.lastTap = { t: 0, id: '' }; this.bgTapAt = now; this.select([bg.id]); this.drag = null; return; }
+      this.lastTap = { t: now, id: bg ? 'bg:' + bg.id : '' };
+    }
     if (e.pointerType === 'mouse') {
       this.drag = { ...base, kind: 'marquee', additive: e.shiftKey, startSel: [...this.selection] };
       if (!e.shiftKey) this.select([]);
@@ -943,7 +1003,7 @@ export class Editor {
     if (!d || d.id !== e.pointerId) {
       if (e.pointerType === 'mouse' && this.tool === 'select') {
         const hd = this.handles().find((x) => Math.hypot(x.x - p.sx, x.y - p.sy) <= HANDLE_R() + 6);
-        const hit = hd ? null : this.hitEl(p.x, p.y);
+        const hit = hd ? null : this.hitContent(p.x, p.y);
         const id = hit?.id ?? null;
         if (id !== this.hover) { this.hover = id; this.requestRender(); }
         this.canvas.style.cursor = hd ? (hd.h === 'rot' ? 'grab' : ({ nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' } as Record<string, string>)[hd.h]) : hit ? (hit.locked ? 'default' : 'move') : 'default';
@@ -979,7 +1039,7 @@ export class Editor {
         this.marquee = { x, y, w: Math.abs(p.x - d.px), h: Math.abs(p.y - d.py) };
         const m = this.marquee;
         const hit = this.page.elements.filter((el) => {
-          if (el.hidden || (d.tapSelect && el.locked)) return false;
+          if (el.hidden || (d.tapSelect && el.locked) || this.isPageBackground(el)) return false;
           const b = this.aabb([el])!;
           return b.x < m.x + m.w && b.x + b.w > m.x && b.y < m.y + m.h && b.y + b.h > m.y;
         }).map((el) => el.id);
@@ -1752,7 +1812,7 @@ export class Editor {
       if (mod && k === 'g') { e.preventDefault(); if (e.shiftKey) this.ungroup(); else this.group(); return; }
       if (mod && k === 'c') { if (this.selection.length) { e.preventDefault(); this.copy(); } return; }
       if (mod && k === 'x') { if (this.selection.length) { e.preventDefault(); this.copy(); this.deleteSelection(); } return; }
-      if (mod && k === 'a') { e.preventDefault(); this.select(this.page.elements.filter((x) => !x.hidden).map((x) => x.id)); return; }
+      if (mod && k === 'a') { e.preventDefault(); this.selectAll(); return; }
       if (mod && k === 's') { e.preventDefault(); void this.saveNow(); return; }
       if (mod && (k === '=' || k === '+')) { e.preventDefault(); this.zoomBy(1.2); return; }
       if (mod && k === '-') { e.preventDefault(); this.zoomBy(1 / 1.2); return; }

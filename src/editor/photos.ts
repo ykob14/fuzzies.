@@ -13,8 +13,13 @@ export interface PhotoPage { items: StockPhoto[]; more: boolean; provider: strin
 
 const PICSUM = 'https://picsum.photos';
 
+/** fetch, but a network failure becomes a "photos: …" error the panel words kindly (never the raw "Failed to fetch"). */
+async function get(url: string): Promise<Response> {
+  try { return await fetch(url); } catch { throw new Error('photos network'); }
+}
+
 async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const res = await get(url);
   const d = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw new Error(d.error || `photos ${res.status}`);
   return d;
@@ -23,7 +28,7 @@ async function getJson<T>(url: string): Promise<T> {
 /** Lorem Picsum: Unsplash-licensed photos, free to use, no key (browse only — it has no search). */
 async function picsum(page: number): Promise<PhotoPage> {
   const list = await getJson<{ id: string; author: string; width: number; height: number; url: string }[]>(`${PICSUM}/v2/list?page=${page}&limit=30`);
-  if (!Array.isArray(list)) throw new Error('photos: bad list');
+  if (!Array.isArray(list)) throw new Error('photos bad list');
   return {
     provider: 'Unsplash', providerUrl: 'https://unsplash.com', more: list.length === 30,
     items: list.map((p) => {
@@ -46,7 +51,7 @@ export async function findPhotos(q: string, page: number): Promise<PhotoPage> {
   if (searchWorks !== false) {
     try {
       const d = await getJson<PhotoPage>(`./api/assets?${new URLSearchParams({ q, page: String(page) })}`);
-      if (!Array.isArray(d.items)) throw new Error('photos: bad answer');
+      if (!Array.isArray(d.items)) throw new Error('photos bad answer');
       searchWorks = true;
       if (d.provider !== 'none') return { ...d, items: d.items.map((p) => ({ ...p, full: `./api/assets?img=${encodeURIComponent(p.full)}` })) };
     } catch (e) {
@@ -63,7 +68,7 @@ export const canSearch = () => searchWorks;
 
 /** Download a photo for use in a design (at most 1600 px on its long side). */
 export async function fetchPhoto(p: StockPhoto): Promise<{ src: string; w: number; h: number }> {
-  const res = await fetch(p.full);
+  const res = await get(p.full);
   if (!res.ok) {
     const d = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(d.error || `photo ${res.status}`);
