@@ -15,7 +15,17 @@ import { makeImage } from '../../../editor/doc';
 import type { El } from '../../../editor/types';
 import { photoAsset } from '../layouts';
 import type { Palette } from '../palettes';
-import { box, drop, text, type CollectionTemplate, type Kit } from './kit';
+import {box, drop, text as kitText, type CollectionTemplate, type Kit, type TOpts } from './kit';
+import { fitText } from '../../../editor/render';
+import type { TextEl } from '../../../editor/types';
+/** Live text measured with 4% slack: if a web font is still loading when a template is built, the real (wider) letters
+ * still fit on the lines that were measured, so a name never wraps onto the line below it. */
+const text = (c: Kit, s: string, x: number, y: number, w: number, o: TOpts): TextEl => {
+  const el = kitText(c, s, x, y, w * 0.96, o);
+  el.w = w;
+  fitText(el);
+  return el;
+};
 import { footer, header, NAMES, people, RA_TAGS, T, tpl, type Person, type Theme, type Words } from './team';
 
 /** Colours + fonts for the styles that don't use a header band. */
@@ -186,7 +196,7 @@ function arches(c: Kit, l: Look, o: Head & { footer: string }, ps: Person[], col
     box(c, ax + off, y + off, aw, ah, 'rgba(0,0,0,0)', { shape: 'arch', stroke: l.accent, strokeWidth: Math.max(2, u * 0.003), name: 'Arch outline' });
     lookPic(c, l, i, ax, y, aw, ah, 'arch');
     const n = text(c, ps[i][0], x, y + ah + off + u * 0.025, w, { font: l.tFont[0], weight: 700, size: Math.min(w * 0.11, u * 0.045), fill: l.ink, name: 'Name' });
-    text(c, ps[i][1], x, n.y + n.h + u * 0.008, w, { font: l.bFont, weight: 700, size: Math.min(w * 0.08, u * 0.03), fill: l.accent, upper: true, spacing: u * 0.003, name: 'Role' });
+    text(c, ps[i][1], x, n.y + n.h + u * 0.008, w, { font: l.bFont, weight: 700, size: Math.min(w * 0.095, u * 0.03), fill: l.accent, upper: true, spacing: u * 0.003, name: 'Role' });
   }, u * 0.03);
   box(c, W * 0.3, H - u * 0.085, W * 0.4, Math.max(2, u * 0.002), l.accent, { name: 'Footer rule' });
   const f = text(c, o.footer, W * 0.1, 0, W * 0.8, { font: l.bFont, weight: 700, size: u * 0.028, fill: l.muted, upper: true, spacing: u * 0.005, name: 'Footer text' });
@@ -261,7 +271,7 @@ export const STYLE_SETS: { sub: string; label: string; cover: string; list: Coll
     tpl('welcome-home-door-decs', 'Welcome Home Door Decs', 'flyer', 'flyer', 'Playful', ['pastel', 'pink', 'blue', 'yellow'], 'announcement', [...RA_TAGS, 'door decs', 'door tags', 'name tags', 'dorm door', 'welcome home', 'printable', 'cut out'],
       (c) => doorDecs(c, { title: 'Welcome Home!', sub: 'Maple Hall Floor 3  •  cut along the lines', greeting: 'Welcome home,' }, ['Ava', 'Mateo', 'Zara', 'Kai', 'Leila', 'Omar']), T.reslife),
     tpl('meet-your-ras-circles', 'Meet Your RAs — Clean Circles', 'post', 'social', 'Minimal', ['white', 'purple', 'gold'], 'announcement', [...RA_TAGS, 'circle photos', 'minimal', 'clean', 'instagram', '6 photos'],
-      (c) => circles(c, L.lilac, { kicker: 'Meet your', title: 'Resident Assistants', footer: 'Your College Name  •  ResLife' }, people(Array(6).fill('Resident Assistant')), 3, 0.062), T.reslife),
+      (c) => circles(c, L.lilac, { kicker: 'Meet your', title: 'Resident Assistants', footer: 'Your College Name  •  ResLife' }, people(['RA · Floor 1', 'RA · Floor 2', 'RA · Floor 3', 'RA · Floor 4', 'RA · Floor 5', 'RA · Floor 6']), 3, 0.062), T.reslife),
   ] },
   { sub: 'announcement', label: 'Team styles', cover: 'leadership-team-circles', list: [
     tpl('leadership-team-circles', 'Our Leadership Team', 'slides', 'poster', 'Minimal', ['white', 'blue', 'navy'], 'presentation', ['leadership team', 'executive team', 'management', 'our team', 'about us', 'company', 'presentation', 'circle photos', '4 photos'],
@@ -271,7 +281,7 @@ export const STYLE_SETS: { sub: string; label: string; cover: string; list: Coll
   ] },
   { sub: 'promotion', label: 'Salon & studio teams', cover: 'meet-the-stylists-arch', list: [
     tpl('meet-the-stylists-arch', 'Meet the Stylists', 'post', 'social', 'Elegant', ['cream', 'terracotta', 'brown'], 'announcement', ['meet the stylists', 'salon team', 'stylists', 'beauty', 'spa', 'boutique', 'small business', 'arch photos', 'instagram', '3 photos'],
-      (c) => arches(c, L.cream, { kicker: 'Meet the', title: 'Stylists', footer: 'Book your visit  •  Willow & Co. Salon' }, people(['Owner & Colorist', 'Senior Stylist', 'Lash Artist'], [NAMES[2], NAMES[6], NAMES[4]]), 3, 0.1), T.coral),
+      (c) => arches(c, L.cream, { kicker: 'Meet the', title: 'Stylists', footer: 'Book your visit  •  Willow & Co. Salon' }, people(['Owner', 'Senior Stylist', 'Lash Artist'], [NAMES[2], NAMES[6], NAMES[4]]), 3, 0.1), T.coral),
   ] },
   { sub: 'school-event', label: 'Staff directory', cover: 'school-staff-directory', list: [
     tpl('school-staff-directory', 'School Staff Directory', 'flyer', 'flyer', 'Playful', ['teal', 'yellow', 'white'], 'event', ['school staff', 'teachers', 'principal', 'counselor', 'back to school', 'parents', ...STAFF],

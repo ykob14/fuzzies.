@@ -8,7 +8,16 @@
  * - `banner`   name band across the top with the photo on its edge, experience left, a tinted column of extras right
  * - cards: `minimal`, `monogram` (dark), `band` (coloured side with initials) and `portrait` (round photo)
  */
-import { box, text, type CollectionTemplate, type Kit } from './kit';
+import {box, text as kitText, type CollectionTemplate, type Kit, type TOpts } from './kit';
+import { fitText } from '../../../editor/render';
+/** Live text measured with 4% slack: if a web font is still loading when a template is built, the real (wider) letters
+ * still fit on the lines that were measured, so a name never wraps onto the line below it. */
+const text = (c: Kit, s: string, x: number, y: number, w: number, o: TOpts): TextEl => {
+  const el = kitText(c, s, x, y, w * 0.96, o);
+  el.w = w;
+  fitText(el);
+  return el;
+};
 import type { TextEl } from '../../../editor/types';
 import { T, type Theme } from './team';
 import { themePic } from './teamStyles';
@@ -327,4 +336,8 @@ export const CAREER_SETS: { sub: string; label: string; cover: string; list: Col
 ];
 
 /** Font weights these templates use (previews wait for them so text is measured exactly). */
-export const CAREER_FONTS: [string, number][] = [['Inter', 500], ['Inter', 600], ['Inter', 700], ['Inter', 800], ['Playfair Display', 700], ['DM Serif Display', 400], ['Montserrat', 700], ['Poppins', 700], ['Poppins', 800], ['Nunito', 600], ['Nunito', 800], ['Nunito', 900]];
+export const CAREER_FONTS: [string, number][] = [
+  ...[500, 600, 700, 800].map((w) => ['Inter', w] as [string, number]), ...[500, 600, 700, 800].map((w) => ['Poppins', w] as [string, number]),
+  ...[500, 600, 700, 800, 900].map((w) => ['Montserrat', w] as [string, number]), ...[600, 700, 800, 900].map((w) => ['Nunito', w] as [string, number]),
+  ['Playfair Display', 700], ['DM Serif Display', 400],
+];

@@ -11,7 +11,17 @@
 import { photoAsset, widthOf, type Format } from '../layouts';
 import type { Palette } from '../palettes';
 import { makeImage } from '../../../editor/doc';
-import { box, text, type CollectionTemplate, type Kit, type Use } from './kit';
+import {box, text as kitText, type CollectionTemplate, type Kit, type Use, type TOpts } from './kit';
+import { fitText } from '../../../editor/render';
+import type { TextEl } from '../../../editor/types';
+/** Live text measured with 4% slack: if a web font is still loading when a template is built, the real (wider) letters
+ * still fit on the lines that were measured, so a name never wraps onto the line below it. */
+const text = (c: Kit, s: string, x: number, y: number, w: number, o: TOpts): TextEl => {
+  const el = kitText(c, s, x, y, w * 0.96, o);
+  el.w = w;
+  fitText(el);
+  return el;
+};
 
 export interface Theme {
   id: string;
@@ -39,11 +49,11 @@ export const T: Record<string, Theme> = {
   coral: { ...base, id: 'coral', head: '#1d2b53', bubble: '#ffe1d6', page: '#f7f8fc', frame: '#1d2b53', shadow: '#dfe3ef', bar: '#ff8a65', barInk: '#1d2b53', kicker: '#ff8a65', ink: '#1d2b53', muted: '#4b5675', footer: '#1d2b53', tFont: ['Poppins', 800], kFont: ['Poppins', 700], nFont: 'Poppins', nW: 700, photo: ['#5b6b9a', '#e6e9f4', '#ff8a65'], hs: 'left', foot: 'line', card: 'caption' },
   teal: { ...base, id: 'teal', head: '#0f6e78', bubble: '#d4efec', page: '#f4fbfa', frame: '#0f6e78', shadow: '#d4efec', bar: '#ffd34d', barInk: '#0d3c42', kicker: '#ffd34d', ink: '#0d3c42', footer: '#0f6e78', tFont: ['Nunito', 900], kFont: ['Nunito', 800], nFont: 'Nunito', nW: 900, rW: 700, photo: ['#3c9aa3', '#d4efec', '#ffd34d'] },
   luxe: { ...base, id: 'luxe', head: '#1c1c22', bubble: '#ece4cf', page: '#f8f6f0', frame: '#1c1c22', shadow: '#e6dfcc', bar: '#d2ae5a', barInk: '#1c1c22', kicker: '#d8b45c', ink: '#1c1c22', muted: '#6b5a2e', footer: '#1c1c22', tFont: ['DM Serif Display', 400], kFont: ['Montserrat', 700], nFont: 'Montserrat', upper: false, photo: ['#5a5650', '#ece4cf', '#d2ae5a'], hs: 'left', foot: 'line', card: 'caption' },
-  forest: { ...base, id: 'forest', head: '#1f4d3a', bubble: '#dcebdc', page: '#f6f8f3', frame: '#1f4d3a', shadow: '#dcebdc', bar: '#f4e3b5', barInk: '#1f3a2c', kicker: '#f4c95d', ink: '#1f3a2c', muted: '#3f6b55', footer: '#1f4d3a', tFont: ['Poppins', 800], kFont: ['Poppins', 700], nFont: 'Poppins', nW: 700, photo: ['#4f7d63', '#dcebdc', '#f4c95d'], hs: 'left', card: 'caption' },
+  forest: { ...base, id: 'forest', head: '#1f4d3a', bubble: '#dcebdc', page: '#f6f8f3', frame: '#1f4d3a', shadow: '#dcebdc', bar: '#f4e3b5', barInk: '#1f3a2c', kicker: '#f4c95d', ink: '#1f3a2c', muted: '#3f6b55', footer: '#1f4d3a', tFont: ['Poppins', 800], kFont: ['Poppins', 700], nFont: 'Poppins', nW: 700, photo: ['#4f7d63', '#dcebdc', '#f4c95d'], hs: 'left', foot: 'line', card: 'caption' },
   sport: { ...base, id: 'sport', head: '#b3122e', bubble: '#f6d3d9', page: '#f4f4f6', frame: '#111827', shadow: '#d9dbe0', bar: '#111827', barInk: '#ffffff', kicker: '#ffe0e5', ink: '#111827', footer: '#b3122e', tFont: ['Oswald', 700], kFont: ['Oswald', 600], nFont: 'Oswald', nW: 700, rW: 500, photo: ['#7a7f8c', '#e5e7eb', '#b3122e'], hs: 'slant', foot: 'line' },
-  sky: { ...base, id: 'sky', head: '#2563a6', bubble: '#dbe8f6', page: '#f5f8fc', frame: '#2563a6', shadow: '#dbe8f6', bar: '#ffa94d', barInk: '#17324f', kicker: '#ffc078', ink: '#17324f', footer: '#2563a6', tFont: ['Fredoka', 700], kFont: ['Fredoka', 600], nFont: 'Nunito', nW: 900, rW: 700, photo: ['#5a8cc4', '#dbe8f6', '#ffa94d'] },
+  sky: { ...base, id: 'sky', head: '#2563a6', bubble: '#dbe8f6', page: '#f5f8fc', frame: '#2563a6', shadow: '#dbe8f6', bar: '#ffa94d', barInk: '#17324f', kicker: '#ffc078', ink: '#17324f', footer: '#2563a6', tFont: ['Fredoka', 700], kFont: ['Fredoka', 600], nFont: 'Nunito', nW: 900, rW: 700, photo: ['#5a8cc4', '#dbe8f6', '#ffa94d'], hs: 'left', foot: 'line' },
   blush: { ...base, id: 'blush', head: '#8c5e63', bubble: '#f3e1dc', page: '#fbf7f4', frame: '#8c5e63', shadow: '#efdcd6', bar: '#f3e1dc', barInk: '#5e3a3e', kicker: '#8c5e63', ink: '#5e3a3e', muted: '#8c5e63', footer: '#8c5e63', tFont: ['Cormorant Garamond', 700], kFont: ['Montserrat', 600], nFont: 'Montserrat', nW: 700, rW: 500, upper: false, photo: ['#b08a8e', '#f3e1dc', '#e7c48f'], hs: 'clean', foot: 'line', card: 'caption' },
-  grad: { ...base, id: 'grad', head: '#14213d', bubble: '#e8e2cc', page: '#f7f6f2', frame: '#14213d', shadow: '#e2ddca', bar: '#fca311', barInk: '#14213d', kicker: '#fca311', ink: '#14213d', footer: '#14213d', tFont: ['Montserrat', 900], kFont: ['Montserrat', 800], nFont: 'Montserrat', photo: ['#4a5a7a', '#e8e2cc', '#fca311'], hs: 'left' },
+  grad: { ...base, id: 'grad', head: '#14213d', bubble: '#e8e2cc', page: '#f7f6f2', frame: '#14213d', shadow: '#e2ddca', bar: '#fca311', barInk: '#14213d', kicker: '#fca311', ink: '#14213d', footer: '#14213d', tFont: ['Montserrat', 900], kFont: ['Montserrat', 800], nFont: 'Montserrat', photo: ['#4a5a7a', '#e8e2cc', '#fca311'], hs: 'left', foot: 'line' },
 };
 
 /** A replaceable photo (soft placeholder in the theme's colours with a camera mark). */
@@ -252,7 +262,7 @@ const RA = 'Resident Assistant';
 export const RA_TAGS = ['resident assistants', 'resident assistant', 'ra', 'ras', 'reslife', 'residence life', 'dorm', 'residence hall', 'housing', 'student staff', 'staff photos', 'college', 'university', 'campus', 'welcome week', 'orientation'];
 const RA_WORDS: Words = { kicker: 'Meet your', title: 'Resident Assistants', sub: 'Your College Name  •  ResLife', footer: 'Here to help you feel at home' };
 const PURPLE = ['purple', 'gold', 'white'];
-const SIX_RAS = people(Array(6).fill(RA));
+const SIX_RAS = people(['RA · Floor 1', 'RA · Floor 2', 'RA · Floor 3', 'RA · Floor 4', 'RA · Floor 5', 'RA · Floor 6']);
 
 const RESLIFE: CollectionTemplate[] = [
   tpl('meet-your-resident-assistants', 'Meet Your Resident Assistants', 'poster', 'poster', 'Bold', PURPLE, 'announcement', [...RA_TAGS, 'poster', 'bulletin board', '6 photos'], posterGrid(T.reslife, RA_WORDS, SIX_RAS), T.reslife),
@@ -264,7 +274,7 @@ const RESLIFE: CollectionTemplate[] = [
   tpl('meet-your-ras-four-flyer', 'Meet Your Floor RAs Flyer', 'flyer', 'flyer', 'Bold', PURPLE, 'announcement', [...RA_TAGS, 'flyer', 'floor', '4 photos'],
     flyerGrid(T.reslife, { ...RA_WORDS, title: 'Floor RAs', sub: 'Maple Hall  •  Floors 1–4' }, people(['RA · Floor 1', 'RA · Floor 2', 'RA · Floor 3', 'RA · Floor 4']), 2), T.reslife),
   tpl('meet-the-reslife-team-eight', 'Meet the ResLife Team Poster', 'poster', 'poster', 'Bold', PURPLE, 'announcement', [...RA_TAGS, 'poster', 'residence staff', '8 photos'],
-    posterGrid(T.reslife, { ...RA_WORDS, kicker: 'Meet the', title: 'ResLife Team' }, people(['Hall Manager', 'Coordinator', RA, RA, RA, RA, RA, RA]), 3), T.reslife),
+    posterGrid(T.reslife, { ...RA_WORDS, kicker: 'Meet the', title: 'ResLife Team' }, people(['Hall Manager', 'Coordinator', 'RA · Floor 1', 'RA · Floor 2', 'RA · Floor 3', 'RA · Floor 4', 'RA · Floor 5', 'RA · Floor 6']), 3), T.reslife),
 ];
 
 const SCHOOL_TAGS = ['school', 'students', 'staff photos', 'leadership', 'officers', 'executives'];

@@ -7,7 +7,17 @@
  * - `quote`    a customer review: big quote mark, the words, five stars, a round photo, name and role on a light page.
  * Speaker line-ups and the RA duty rota reuse `circles` and `directory` from teamStyles.ts.
  */
-import { box, text, type CollectionTemplate, type Kit } from './kit';
+import {box, text as kitText, type CollectionTemplate, type Kit, type TOpts } from './kit';
+import { fitText } from '../../../editor/render';
+import type { TextEl } from '../../../editor/types';
+/** Live text measured with 4% slack: if a web font is still loading when a template is built, the real (wider) letters
+ * still fit on the lines that were measured, so a name never wraps onto the line below it. */
+const text = (c: Kit, s: string, x: number, y: number, w: number, o: TOpts): TextEl => {
+  const el = kitText(c, s, x, y, w * 0.96, o);
+  el.w = w;
+  fitText(el);
+  return el;
+};
 import { widthOf } from '../layouts';
 import { header, NAMES, RA_TAGS, T, tpl, type Theme } from './team';
 import { L, lookPic, pic, themePic, type Look } from './teamStyles';
@@ -104,7 +114,7 @@ function webinar(c: Kit, th: Theme, o: { chip: string; title: string; when: stri
   cta.y = H - m - cta.h;
   box(c, px - u * 0.016, py - u * 0.016, d + u * 0.032, d + u * 0.032, th.bar, { shape: 'ellipse', name: 'Photo ring' });
   themePic(c, th, 0, px, py, d, d, 'circle');
-  const hx = px, hw = W - hx - W * 0.05;
+  const hx = pw + W * 0.045, hw = W - hx - W * 0.05;
   const hl = caps(c, 'Your host', hx, py + d + u * 0.06, hw, th.frame, th.kFont[0], 0.026);
   const hn = text(c, o.host, hx, hl.y + hl.h + u * 0.01, hw, { font: th.nFont, weight: 900, size: u * 0.05, fill: th.ink, align: 'left', name: 'Host' });
   text(c, o.hostRole, hx, hn.y + hn.h + u * 0.008, hw, { font: th.nFont, weight: 600, size: u * 0.032, fill: th.ink, lines: 3, lh: 1.25, align: 'left', name: 'Host role' });
@@ -317,4 +327,8 @@ export const PRO_SETS: { sub: string; label: string; cover: string; list: Collec
 ];
 
 /** Font weights these templates use beyond the team kits (previews wait for them). */
-export const PRO_FONTS: [string, number][] = [['Inter', 900], ['Inter', 500], ['Montserrat', 900], ['Montserrat', 700], ['Nunito', 700], ['Nunito', 800], ['Nunito', 900], ['Poppins', 700], ['Poppins', 800], ['Poppins', 600], ['Nunito', 600], ['Montserrat', 600], ['Montserrat', 800], ['Playfair Display', 700], ['Inter', 600], ['Inter', 800]];
+export const PRO_FONTS: [string, number][] = [
+  ...[500, 600, 700, 800, 900].map((w) => ['Inter', w] as [string, number]), ...[500, 600, 700, 800, 900].map((w) => ['Montserrat', w] as [string, number]),
+  ...[500, 600, 700, 800].map((w) => ['Poppins', w] as [string, number]), ...[600, 700, 800, 900].map((w) => ['Nunito', w] as [string, number]),
+  ['Playfair Display', 700], ['DM Serif Display', 400],
+];
