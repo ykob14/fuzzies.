@@ -290,11 +290,13 @@ li:hover .fa .fa-coin { animation: fa-spin 1s linear infinite; }
 .dcard-meta small, .tcard-meta small { color: var(--muted); font-size: 12px; }
 .tcard { border: 0; padding: 0; background: none; text-align: left; }
 .tcard-thumb { position: relative; border-radius: 14px; overflow: hidden; background: var(--surface-2); box-shadow: 0 1px 3px rgba(0,0,0,.08); transition: transform .18s, box-shadow .18s; }
-.tcard-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tcard-thumb > img, .tcard-thumb > canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tcard-thumb .lock-badge { position: absolute; top: 8px; right: 8px; margin: 0; }
+.lock-badge img, .lock-badge svg { flex: none; }
 .tcard:hover .tcard-thumb { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
 .tcard-hover { position: absolute; left: 50%; bottom: 10px; transform: translate(-50%, 8px); opacity: 0; background: var(--surface); color: var(--text); padding: 6px 14px; border-radius: 99px; font-size: 12.5px; font-weight: 700; box-shadow: var(--shadow); transition: .18s; white-space: nowrap; }
 .tcard:hover .tcard-hover, .tcard:focus-visible .tcard-hover { opacity: 1; transform: translate(-50%, 0); }
-.tcard.locked .tcard-thumb img { filter: saturate(.85); }
+.tcard.locked .tcard-thumb > img { filter: saturate(.85); }
 .tcard-meta { padding: 8px 2px 0; }
 .game-promo { margin-top: 34px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; align-items: center; padding: 30px; border-radius: 26px; background: #18171c; color: #fff; overflow: hidden; box-shadow: var(--shadow-lg); }
 .game-promo .hero-kicker { color: #ff8fb4; }
@@ -619,7 +621,7 @@ li:hover .fa .fa-coin { animation: fa-spin 1s linear infinite; }
 .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; margin: 14px 0; }
 .theme-card { border: 0; background: none; padding: 0; display: grid; gap: 6px; font-size: 13px; font-weight: 600; text-align: center; }
 .theme-sw { height: 74px; border-radius: 14px; border: 2px solid var(--border); display: grid; place-items: center; color: #fff; position: relative; transition: transform .15s; }
-.theme-sw svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.theme-sw > svg { box-sizing: content-box; padding: 5px; border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 6px rgba(0,0,0,.25); } /* readable on any swatch, light or dark */
 .theme-card:hover .theme-sw { transform: translateY(-2px); }
 .theme-card.on .theme-sw { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--border); cursor: pointer; }
@@ -1263,6 +1265,7 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 .qf-empty { display: grid; justify-items: center; gap: 8px; padding: 34px 16px; color: var(--muted); }
 .qf-foot { display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
 .qf-foot kbd { margin-right: 2px; }
+@media (hover: none) { .qf-foot, .qf-esc { display: none; } } /* keyboard hints mean nothing on a touch screen */
 
 /* tablets: the sidebar becomes a slim icon rail (no bottom tab bar) */
 @media (min-width: 761px) and (max-width: 960px) {
@@ -1583,7 +1586,7 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 .lib-rel > .lt-frame, .lib-rel { justify-items: center; }
 .lib-rel .lt.tall { height: 120px; }
 .lib-rel .lt.wide { width: 120px; }
-.lib-rel span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-rel span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; justify-self: stretch; min-width: 0; text-align: center; }
 .modal.modal-wide:has(.lib-preview) { width: min(980px, 100%); }
 @media (max-width: 960px) {
   .lib-layout { grid-template-columns: minmax(0, 1fr); gap: 10px; }
@@ -2937,3 +2940,40 @@ html.mg-open, html.mg-open body { overflow: hidden; overscroll-behavior: none; }
   .pk-title img { width: 38px; height: 38px; }
 }
 :root[data-motion='reduce'] .pk *, :root[data-motion='reduce'] .pk { animation: none !important; }
+
+/* top bar: the title and the right-hand group take equal shares, so the search box stays put on every screen */
+@media (min-width: 761px) {
+  .topbar-title { flex: 1 1 0; overflow: hidden; text-overflow: ellipsis; }
+  .topbar-right { flex: 1 1 0; justify-content: flex-end; margin-left: 0; }
+  .topbar-search { flex: none; margin: 0; }
+}
+.badges-empty { margin: 4px 0 10px; }
+
+/* swatches keep an edge on any background (the near-black colour vanished on dark cards) */
+.swatch { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 16%, transparent); }
+
+/* touch screens: every control at least ~44 px to hit (Apple / Material guidance) */
+@media (pointer: coarse) {
+  .chip { min-height: 40px; padding: 9px 15px; }
+  .input-sm { height: 44px; }
+  .btn-sm:not(.btn-icon) { height: 40px; }
+  .lib-peek { width: 40px; height: 40px; }
+  .check { min-height: 44px; margin: 4px 0; }
+  .check input { width: 22px; height: 22px; }
+  .swatches { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 8px; }
+  .swatch { height: 40px; }
+  .switch { width: 52px; height: 32px; }
+  .switch::after { width: 26px; height: 26px; }
+  .switch:checked::after { transform: translateX(20px); }
+}
+/* one row for the accent colours on every width (the 9th used to sit alone on a second line on phones) */
+.swatches.swatches-row { grid-template-columns: repeat(9, minmax(0, 1fr)); max-width: 420px; }
+/* Home: the town card's picture is as tall as the game's (2 × 2 tiles), so the two cards line up; the size row shows it scrolls */
+.home-play .lp-art { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 760px) {
+  .home-kinds { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 24px; }
+}
+.home-strip { margin: 0 -2px; }
+.home-strip .lib-card { flex: none; width: 180px; border: 0; padding: 0; background: none; text-align: left; font: inherit; color: inherit; }
+@media (max-width: 760px) { .home-strip .lib-card { width: 150px; } .home-strip .lib-thumb { height: 170px; } }
+

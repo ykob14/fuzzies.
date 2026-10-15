@@ -147,9 +147,24 @@ let builtIn: TemplateMeta[] | null = null;
 const published = new Map<string, TemplateMeta>();
 const listeners = new Set<() => void>();
 
+/** A topic can use the same event text in several layouts ("3-on-3 Tournament" ×3): tell them apart by format, then style. */
+function distinctNames(list: TemplateMeta[]): TemplateMeta[] {
+  const groups = new Map<string, TemplateMeta[]>();
+  for (const m of list) { const k = `${m.sub}|${m.name}`; groups.set(k, [...(groups.get(k) ?? []), m]); }
+  for (const g of groups.values()) {
+    if (g.length < 2) continue;
+    const byFormat = new Set(g.map((m) => m.formatLabel)).size === g.length;
+    for (const m of g) {
+      const twin = g.filter((x) => x.formatLabel === m.formatLabel);
+      m.name = `${m.name} · ${byFormat || twin.length === 1 ? m.formatLabel : `${m.formatLabel} ${twin.indexOf(m) + 1}`}`;
+    }
+  }
+  return list;
+}
+
 /** Everything in the catalog right now (built-in first time it's asked for; published ones as they arrive). */
 export function catalog(): TemplateMeta[] {
-  builtIn ??= [...COLLECTION_SETS.flatMap((set) => set.list.map((t) => collectionMeta(set, t))), ...CATEGORIES_TREE.flatMap((c) => c.subcategories.flatMap((s) => plan(c, s))), ...classicTemplates().map(classicMeta)];
+  builtIn ??= distinctNames([...COLLECTION_SETS.flatMap((set) => set.list.map((t) => collectionMeta(set, t))), ...CATEGORIES_TREE.flatMap((c) => c.subcategories.flatMap((s) => plan(c, s))), ...classicTemplates().map(classicMeta)]);
   return published.size ? [...published.values(), ...builtIn] : builtIn;
 }
 export const metaById = (id: string): TemplateMeta | undefined => published.get(id) ?? catalog().find((m) => m.id === id);

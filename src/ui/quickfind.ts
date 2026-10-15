@@ -4,10 +4,11 @@ import { db } from '../core/db';
 import { rewards } from '../core/rewards';
 import { applyTheme, resolveTheme } from '../core/themes';
 import { templates } from '../content/templates';
-import { createDialog, useTemplate } from './create';
+import { createDialog, useTemplate, useCatalogTemplate } from './create';
+import type { TemplateMeta } from '../content/library/catalog';
 import { h, icon, fuzzyMark, type IconName } from './dom';
 
-interface Item { group: string; label: string; sub?: string; icon?: IconName; thumb?: string; keys?: string; run: () => void }
+interface Item { group: string; label: string; sub?: string; icon?: IconName; thumb?: string; keys?: string; run: () => void; found?: boolean }
 
 /** The screens, in the same groups as the sidebar (shared so both stay in step). */
 export const NAV_GROUPS: { label: string; items: { id: string; label: string; icon: IconName; keys?: string }[] }[] = [
@@ -52,6 +53,13 @@ export function openQuickFind(initial = ''): void {
       return { group: 'Templates', label: t.name, sub: locked ? `${t.category} · unlock for ${t.cost} Fuzzies` : t.category, icon: locked ? 'lock' : 'grid', keys: `template ${t.category}`, run: () => useTemplate(t) };
     }),
   ];
+  // the whole template library (lazy chunk): until it arrives the classic templates above answer
+  type Lib = { all: () => TemplateMeta[]; find: (q: string) => TemplateMeta[]; label: (m: TemplateMeta) => string };
+  let lib: Lib | null = null;
+  void Promise.all([import('../content/library/catalog'), import('../content/library/search'), import('../content/library/usage')]).then(([c, s, u]) => {
+    lib = { all: c.catalog, find: (q) => s.search(c.catalog(), q, {}, u.usage), label: (m) => c.subById(m.sub)?.sub.label ?? m.formatLabel };
+    if (open && input.value.trim()) fill();
+  }).catch(() => {});
   let designs: Item[] = [];
   void db.listDesigns(a.id).then((ds) => {
     designs = ds.map((d) => ({ group: 'My designs', label: d.name, sub: `${d.width} × ${d.height}`, thumb: d.thumb, keys: 'design', run: () => (location.hash = `#/edit/${d.id}`) }));
@@ -63,10 +71,19 @@ export function openQuickFind(initial = ''): void {
   function fill(): void {
     const q = input.value.trim().toLowerCase();
     const words = q.split(/\s+/).filter(Boolean);
-    const match = (it: Item) => words.every((w) => `${it.label} ${it.sub ?? ''} ${it.keys ?? ''}`.toLowerCase().includes(w));
-    const all = [...base.slice(0, 2), ...designs, ...base.slice(2)];
+    const match = (it: Item) => it.found || words.every((w) => `${it.label} ${it.sub ?? ''} ${it.keys ?? ''}`.toLowerCase().includes(w));
+    let all = [...base.slice(0, 2), ...designs, ...base.slice(2)];
+    let more: Item | null = null;
+    if (q && lib) {
+      const found = lib.find(input.value.trim());
+      all = [...all.filter((i) => i.group !== 'Templates'), ...found.slice(0, 8).map((m): Item => {
+        const locked = !rewards.isUnlocked(m.id, m.cost);
+        return { group: 'Templates', label: m.name, sub: locked ? `${lib!.label(m)} · unlock for ${m.cost} Fuzzies` : `${lib!.label(m)} · ${m.formatLabel}`, icon: locked ? 'lock' : 'grid', found: true, run: () => void useCatalogTemplate(m) };
+      })];
+      if (found.length) more = { group: 'Templates', label: `See all ${found.length} template${found.length === 1 ? '' : 's'} for “${input.value.trim()}”`, icon: 'search', found: true, run: () => (location.hash = `#/templates?q=${encodeURIComponent(input.value.trim())}`) };
+    }
     shown = q
-      ? all.filter(match).slice(0, 40)
+      ? [...all.filter(match), ...(more ? [more] : [])].slice(0, 40)
       // nothing typed yet: actions, your latest designs and the screens (templates are one word away)
       : [...base.filter((i) => i.group !== 'Templates'), ...designs.slice(0, 4)];
     at = Math.min(at, Math.max(0, shown.length - 1));

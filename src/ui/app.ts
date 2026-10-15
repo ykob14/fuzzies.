@@ -169,6 +169,9 @@ export function startApp(): void {
   applyTheme();
   accounts.onChange(() => {
     for (const b of document.querySelectorAll('.fz-balance')) b.textContent = String(rewards.balance());
+    // the top bar is built once per screen: keep its avatar in step with Profile changes
+    const me = accounts.current;
+    if (me) for (const b of document.querySelectorAll('.avatar-btn')) b.replaceChildren(avatarEl(me, 36));
   });
   rewards.onEarn((n, reason) => {
     if (reason === 'Fuzzy Crossing') return; // the game shows its own pop-ups

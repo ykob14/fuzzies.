@@ -171,7 +171,7 @@ export function mountAssistant(): void {
   loadFrames();
   const big = fuzzyFace(64);
   const mini = fuzzyFace(40);
-  const label = h('button', { class: 'fzc-hello', type: 'button' }, 'Hi! Need a hand? ', h('b', null, 'Ask me'));
+  const label = h('button', { class: 'fzc-hello', type: 'button', hidden: 'true' }, 'Hi! Need a hand? ', h('b', null, 'Ask me'));
   const launcher = h('button', { class: 'fzc-launch', type: 'button', 'aria-label': 'Ask Fuzzy, the helper', 'aria-expanded': 'false', title: 'Ask Fuzzy' }, big.el);
 
   const status = h('small', { class: 'fzc-status' }, 'Here to help');
@@ -202,7 +202,7 @@ export function mountAssistant(): void {
     voiceBtn.classList.toggle('on', p.voice);
     voiceBtn.title = p.voice ? 'Voice replies on — tap to mute' : 'Voice replies off — tap to hear Fuzzy';
     voiceBtn.setAttribute('aria-pressed', String(p.voice));
-    label.hidden = p.seen || open;
+    if (p.seen || open || away) label.hidden = true; // shown once, by the timer below
     if (!Recognition) micBtn.hidden = true;
   };
 
@@ -225,7 +225,7 @@ export function mountAssistant(): void {
     scroll();
   };
   const paintChips = () => {
-    const list = assistant.suggestions();
+    const list = assistant.suggestions().slice(0, assistant.messages.some((m) => m.role === 'user') ? 2 : 4); // fewer once you're chatting
     chips.replaceChildren(...list.map((q) => h('button', { class: 'fzc-chip', type: 'button', onclick: () => void send(q) }, q)));
     chips.hidden = !list.length || busy;
   };
@@ -254,7 +254,9 @@ export function mountAssistant(): void {
     const step = () => {
       i = Math.min(plain.length, i + perTick);
       p.textContent = plain.slice(0, i);
-      scroll();
+      // follow the typing, but never past the top of the answer (a long one used to end scrolled to its last line)
+      log.scrollTop = Math.min(log.scrollHeight, Math.max(0, b.offsetTop - log.offsetTop - 8));
+      if (b.offsetHeight < log.clientHeight) scroll();
       if (i < plain.length) { talkingTimer = window.setTimeout(step, 28); return; }
       p.replaceWith(md(m.text));
       if (spoken) stopTalking(); else setStatus('Talking…');
@@ -394,7 +396,15 @@ export function mountAssistant(): void {
   launcher.addEventListener('click', () => api.toggle());
   launcher.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !open) big.do('wink'); });
   label.addEventListener('click', () => api.open());
-  setTimeout(() => { if (!assistant.prefs.seen && !assistant.prefs.hidden && !inPlayArea()) { label.hidden = false; big.do('wave'); big.sparkle(); } }, 6000);
+  // the hello bubble says hi once per device, for a few seconds, and gets out of the way (it used to stay until the chat
+  // was opened, covering buttons and catching taps meant for the page)
+  const byeLabel = () => { if (label.hidden) return; label.hidden = true; assistant.setPrefs({ seen: true }); removeEventListener('scroll', byeLabel, true); };
+  setTimeout(() => {
+    if (assistant.prefs.seen || assistant.prefs.hidden || inPlayArea() || open) return;
+    label.hidden = false; big.do('wave'); big.sparkle();
+    addEventListener('scroll', byeLabel, { capture: true, passive: true });
+    setTimeout(byeLabel, 7000);
+  }, 6000);
   // alive while waiting: now and then a wink with a sparkle, or a tiny hop (never while the window is open or the tab is hidden)
   const fidget = () => {
     if (!open && !document.hidden && !assistant.prefs.hidden && !inPlayArea() && document.documentElement.dataset.motion !== 'reduce') {

@@ -44,6 +44,6 @@ export function achievementsGrid(compact = false): HTMLElement {
     h('b', null, x.name),
     compact ? null : h('small', null, x.desc),
     compact ? null : h('span', { class: 'badge-reward' }, fuzzyMark(12), `+${x.reward}`))));
-  if (compact && !list.length) grid.append(h('p', { class: 'muted' }, 'No badges yet — make a design or play a round to earn your first!'));
+  if (compact && !list.length) return h('p', { class: 'muted badges-empty' }, 'No badges yet — make a design or play a round to earn your first!');
   return grid;
 }

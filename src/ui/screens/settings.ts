@@ -121,7 +121,7 @@ export function settingsScreen(): Screen {
       h('section', { class: 'card' }, h('h3', null, 'Appearance'), h('p', { class: 'muted' }, 'Light, dark, or something colourful. Extra themes unlock with Fuzzies.'),
         h('div', { class: 'theme-grid' }, themeCard('system', 'Match device', 'linear-gradient(135deg,#ffffff 50%,#1b1825 50%)', 0), ...THEMES.map((t) => themeCard(t.id, t.name, t.swatch, t.cost))),
         h('div', { class: 'pnl-label' }, 'Accent colour'),
-        h('div', { class: 'swatches' }, ...ACCENTS.map((c) => h('button', { type: 'button', class: `swatch ${a.settings.accent === c ? 'on' : ''} ${c ? '' : 'auto'}`, style: c ? `background:${c}` : '', title: c || 'Theme default', 'aria-label': c || 'Theme default', onclick: () => set((s) => (s.accent = c)) }, c ? null : 'A')))),
+        h('div', { class: 'swatches swatches-row' }, ...ACCENTS.map((c) => h('button', { type: 'button', class: `swatch ${a.settings.accent === c ? 'on' : ''} ${c ? '' : 'auto'}`, style: c ? `background:${c}` : '', title: c || 'Theme default', 'aria-label': c || 'Theme default', onclick: () => set((s) => (s.accent = c)) }, c ? null : 'A')))),
       brandCard(),
       h('section', { class: 'card' }, h('h3', null, 'Preferences'),
         toggle('Snap to guides', 'Elements snap to the page centre, edges and each other while you drag.', a.settings.snap, (v) => set((s) => (s.snap = v))),
@@ -156,5 +156,5 @@ export function settingsScreen(): Screen {
     );
   }
   render();
-  return { el: h('div', { class: 'page' }, h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Settings'))), body) };
+  return { el: h('div', { class: 'page' }, h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Settings'), h('p', { class: 'muted' }, 'Look and feel, your brand kit, sounds and the app icon.'))), body) };
 }

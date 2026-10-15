@@ -65,7 +65,9 @@ export function libraryScreen(): Screen {
   function renderUses(base: TemplateMeta[]): void {
     const counts = new Map<string, number>();
     for (const m of base) if (m.use) counts.set(m.use, (counts.get(m.use) ?? 0) + 1);
-    if (!counts.size) { useRow.replaceChildren(); useRow.hidden = true; if (f.use) f.use = undefined; return; }
+    // only when the types describe most of what's shown ("All 7 · Posters 1" said nothing about the other six)
+    const typed = [...counts.values()].reduce((s, n) => s + n, 0);
+    if (!counts.size || (!f.use && typed < base.length * 0.6)) { useRow.replaceChildren(); useRow.hidden = true; if (f.use && !counts.size) f.use = undefined; return; }
     useRow.hidden = false;
     const chip = (id: string | undefined, label: string, n: number) => {
       const b = h('button', { type: 'button', class: `chip ${f.use === id ? 'on' : ''}`, 'aria-pressed': String(f.use === id) }, label, h('span', { class: 'chip-n' }, ` ${n}`));

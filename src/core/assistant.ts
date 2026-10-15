@@ -108,7 +108,14 @@ function push(m: Msg): Msg {
 function guideAnswer(q: string): string {
   const hits = searchHelp(q, 2, screen);
   if (!hits.length) return 'I couldn’t find that in my guide. Try other words, or have a look around [Settings](#/settings) and [Profile](#/profile).';
-  return hits.map((t) => `**${t.title}**\n${t.body.replace(/\s*\n\s*/g, ' ')}`).join('\n\n');
+  // one topic, its few sentences that match the question best (in their own order) — not whole topics run together
+  const [best, next] = hits;
+  const words = q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2);
+  const sentences = best.body.replace(/\s*\n\s*/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z(])/);
+  const score = (s: string) => words.reduce((n, w) => n + (s.toLowerCase().includes(w) ? 1 : 0), 0);
+  const keep = sentences.length <= 3 ? sentences
+    : sentences.map((s, i) => ({ s, i, n: score(s) + (i === 0 ? 0.5 : 0) })).sort((a, b) => b.n - a.n || a.i - b.i).slice(0, 3).sort((a, b) => a.i - b.i).map((x) => x.s);
+  return `**${best.title}**\n${keep.join(' ')}${next ? `\n\nAlso see: **${next.title}** — ask me about it.` : ''}`;
 }
 
 // a new log-in or sign-out starts a fresh chat (nothing about one person lingers for the next)
