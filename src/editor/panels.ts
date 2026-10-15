@@ -567,8 +567,15 @@ export function buildPanels(ed: Editor): Panels {
       const grip = h('span', { class: 'layer-grip', title: 'Drag to reorder', 'aria-hidden': 'true' }, '⋮⋮');
       const name = h('span', { class: 'layer-name', title: 'Double-click to rename' }, el.group ? h('span', { class: 'layer-group', title: 'Grouped' }, '🔗 ') : null, elLabel(el));
       const row = h('div', { class: `layer ${sel ? 'on' : ''} ${el.hidden ? 'dim' : ''}`, role: 'button', tabindex: '0', 'data-id': el.id }, grip, layerIcon(el), name, up, down, vis, lock);
-      row.addEventListener('click', (e) => { if (dragged) return; ed.select(e.shiftKey ? [...ed.selection, el.id] : [el.id]); fill(); });
-      name.addEventListener('dblclick', (e) => { e.stopPropagation(); rename(el, name); });
+      row.addEventListener('click', (e) => {
+        if (dragged) return;
+        // the first click re-draws the list, so a double-click is spotted here (two clicks on the same name), not with 'dblclick'
+        const now = performance.now(), onName = name.contains(e.target as Node);
+        const again = onName && lastNameClick.id === el.id && now - lastNameClick.t < 450;
+        lastNameClick = { id: onName ? el.id : '', t: now };
+        ed.select(e.shiftKey ? [...ed.selection, el.id] : [el.id]); fill();
+        if (again) { const span = list.querySelector<HTMLElement>(`.layer[data-id="${el.id}"] .layer-name`); if (span) rename(el, span); }
+      });
       row.addEventListener('keydown', (e) => { if (e.key === 'F2') { e.preventDefault(); rename(el, name); } });
       row.addEventListener('pointerdown', (e) => startDrag(e, el, row, e.target === grip || grip.contains(e.target as Node)));
       return row;
@@ -590,6 +597,7 @@ export function buildPanels(ed: Editor): Panels {
     };
     /** Drag a row up or down to restack (mouse: anywhere on the row; touch: by its grip, so the list still scrolls). */
     let dragged = false;
+    let lastNameClick = { id: '', t: 0 };
     const startDrag = (e: PointerEvent, el: El, row: HTMLElement, onGrip: boolean) => {
       if ((e.target as HTMLElement).closest('button, input') || (e.pointerType !== 'mouse' && !onGrip) || e.button > 0) return;
       const y0 = e.clientY;
