@@ -432,12 +432,12 @@ li:hover .fa .fa-coin { animation: fa-spin 1s linear infinite; }
 .pnl-sec { margin-top: 14px; }
 .pnl-sec:first-child { margin-top: 4px; }
 .ed-panel-body .input[type=search] { margin-bottom: 10px; }
-.el-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.el-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .el-item { aspect-ratio: 1; border: 1px solid var(--border); background: var(--surface-2); border-radius: 12px; padding: 8px; display: grid; place-items: center; transition: transform .12s, border .12s; }
 .el-item:hover { transform: scale(1.05); border-color: var(--accent); }
 .el-item canvas, .el-item img { width: 100%; height: 100%; object-fit: contain; }
 .el-grid.locked .el-item, .emoji-grid.locked .emoji-item { opacity: .45; filter: grayscale(.4); }
-.emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.emoji-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
 .emoji-item { aspect-ratio: 1; border: 0; background: none; font-size: 28px; border-radius: 10px; display: grid; place-items: center; transition: transform .1s; }
 .emoji-item:hover { background: var(--surface-2); transform: scale(1.15); }
 .text-add { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--surface-2); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; transition: border .12s; }
@@ -460,7 +460,7 @@ li:hover .fa .fa-coin { animation: fa-spin 1s linear infinite; }
 .tpl-card .lt { transition: transform .12s; }
 .tpl-card .lock-badge { position: absolute; top: 6px; right: 6px; margin: 0; }
 .tpl-name { display: block; font-size: 12px; font-weight: 600; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.up-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+.up-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
 .up-item { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 0; padding: 0; background: var(--surface-2); cursor: pointer; }
 .up-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .15s; }
 .up-item:hover img { transform: scale(1.06); }
@@ -489,7 +489,7 @@ li:hover .fa .fa-coin { animation: fa-spin 1s linear infinite; }
 .tgl.on { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .font-btn { width: 100%; height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); font-size: 17px; }
 .text-input { font-size: 14px; }
-.filter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .filter-item { border: 2px solid transparent; background: none; padding: 0; border-radius: 10px; overflow: hidden; font-size: 11.5px; font-weight: 600; }
 .filter-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
 .filter-item span { display: block; padding: 3px 0; }
@@ -684,10 +684,10 @@ li:hover .fa .fa-coin { animation: fa-spin 1s linear infinite; }
   .ed-panel-head { padding-top: 16px; }
   .ed-bottom { padding: 8px; }
   .zoom-ctl .btn { display: none; }
-  .tpl-grid { grid-template-columns: repeat(3, 1fr); }
-  .el-grid { grid-template-columns: repeat(5, 1fr); }
-  .emoji-grid { grid-template-columns: repeat(7, 1fr); }
-  .up-grid { grid-template-columns: repeat(4, 1fr); }
+  .tpl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .el-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .emoji-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .up-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .share { grid-template-columns: 1fr; }
   .share-preview { min-height: 160px; }
   .share-preview canvas { max-height: 220px; }
@@ -1306,7 +1306,7 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 .ed-name { font-size: 14.5px; font-weight: 650; }
 .ed-size { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 10px; font-weight: 600; transition: border-color .15s, color .15s, background .15s; }
 .ed-size:hover { border-color: color-mix(in srgb, var(--text) 18%, var(--border)); color: var(--text); background: var(--surface-2); }
-.ed-rail { width: 76px; gap: 2px; padding: 8px 6px; }
+@media (min-width: 761px) { .ed-rail { width: 76px; gap: 2px; padding: 8px 6px; } } /* phones keep their full-width bottom rail */
 .rail-btn { border-radius: 10px; transition: background .15s, color .15s; }
 .rail-btn:hover { background: var(--hover); }
 .ed-panel:not([hidden]) { animation: panel-in .2s var(--ease); }
@@ -2544,7 +2544,7 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .adv-forest-grid { margin-bottom: 8px; }
 
 /* Fuzzy Friends (the owner's 40 characters): sticker grid in the editor, avatar choices in Profile */
-.friend-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.friend-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
 .friend-item { aspect-ratio: 1; border: 0; background: var(--surface-2); border-radius: 12px; padding: 4px; cursor: pointer; transition: transform .1s, background .15s; }
 .friend-item img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .friend-item:hover { background: var(--hover); transform: scale(1.08); }
@@ -2977,3 +2977,16 @@ html.mg-open, html.mg-open body { overflow: hidden; overscroll-behavior: none; }
 .home-strip .lib-card { flex: none; width: 180px; border: 0; padding: 0; background: none; text-align: left; font: inherit; color: inherit; }
 @media (max-width: 760px) { .home-strip .lib-card { width: 150px; } .home-strip .lib-thumb { height: 170px; } }
 
+
+/* editor: the helper steps aside while the inspector (or, on phones, a tool sheet) is open — it covered effects and filters */
+html[data-screen='edit']:has(.editor.props-open) .fz-assist:not(.open) { display: none; }
+@media (max-width: 760px) { html[data-screen='edit']:has(.editor.panel-open) .fz-assist:not(.open) { display: none; } }
+
+/* editor toolbar: arrows at a cut-off end (sticky, so they ride along while the bar scrolls) */
+.tb-scroll { display: none; position: sticky; z-index: 2; flex: none; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); place-items: center; cursor: pointer; }
+.tb-scroll:hover { color: var(--accent); }
+.tb-scroll.l { left: 0; margin-right: -36px; }
+.tb-scroll.r { right: 0; margin-left: -36px; }
+.ed-tools.more-l .tb-scroll.l, .ed-tools.more-r .tb-scroll.r { display: grid; }
+@media (pointer: coarse) { .tb-scroll { width: 40px; height: 40px; } .tb-scroll.l { margin-right: -40px; } .tb-scroll.r { margin-left: -40px; } }
+@media (pointer: coarse) { .ctxbar .btn { width: 40px; height: 40px; } }

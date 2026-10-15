@@ -7,7 +7,7 @@ import { TEXT_FX, applyTextFx, currentFx } from './textfx';
 import { colorButton, firstColor } from './colors';
 import { SHAPE_KINDS } from './shapes';
 import { qrMatrix } from './qr';
-import { SIZE_PRESETS } from './doc';
+import { SIZE_PRESETS, isSticker } from './doc';
 import { FONT_PACKS, ensureFont } from '../content/fonts';
 import { ARTS, artById, artDataUrl } from '../content/art';
 import { assetsIn, collectionOf } from '../content/assets';
@@ -250,7 +250,7 @@ export function buildProps(ed: Editor): Props {
       sec('Crop', slider('Zoom', e.zoom, 1, 4, 0.01, (v) => (e.zoom = v), (v) => v.toFixed(2)), slider('Move ↔', e.panX, -1, 1, 0.01, (v) => (e.panX = v), (v) => v.toFixed(2)), slider('Move ↕', e.panY, -1, 1, 0.01, (v) => (e.panY = v), (v) => v.toFixed(2)), h('p', { class: 'hint' }, 'Tip: drag the side handles to crop the frame.')),
       sec('Shape', masks, e.mask === 'none' ? slider('Corner radius', e.radius, 0, Math.min(e.w, e.h) / 2, 1, (v) => (e.radius = v)) : null),
       sec('Border', row('Colour', color(e.stroke, (f) => (e.stroke = firstColor(f)))), slider('Width', e.strokeWidth, 0, 80, 1, (v) => (e.strokeWidth = v))),
-      h('div', { class: 'btn-row' }, replace, btn('Set as background', { kind: 'ghost', icon: 'image', size: 'sm', onClick: () => ed.imageToBackground(e) })),
+      ...(isSticker(e) ? [] : [h('div', { class: 'btn-row' }, replace, btn('Set as background', { kind: 'ghost', icon: 'image', size: 'sm', onClick: () => ed.imageToBackground(e) }))]),
     ];
   }
 
@@ -462,7 +462,8 @@ export function buildProps(ed: Editor): Props {
         items.push(label(SHAPE_KINDS.find((k) => k.kind === e.shape)?.label ?? 'Shape'), color(e.fill, (f) => (e.fill = f), { gradient: true, allowNone: !lineish, title: lineish ? 'Colour' : 'Fill colour' }),
           lineish ? null : color(e.stroke, (f) => { e.stroke = firstColor(f); if (!e.strokeWidth) e.strokeWidth = Math.max(2, Math.round(Math.min(e.w, e.h) * 0.03)); }, { title: 'Border colour' }));
       }
-      if (e.type === 'image') items.push(label('Photo'), tb({ icon: 'upload', text: e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', title: 'Pick a picture from your computer or phone', onClick: () => ed.pickPhotoFor(e) }), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
+      if (e.type === 'image' && isSticker(e)) items.push(label('Sticker'), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters and adjustments', onClick: () => open() }));
+      else if (e.type === 'image') items.push(label('Photo'), tb({ icon: 'upload', text: e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', title: 'Pick a picture from your computer or phone', onClick: () => ed.pickPhotoFor(e) }), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
       if (e.type === 'graphic') { const a = artById(e.art); items.push(label('Graphic'), tb({ icon: 'image', text: 'Replace', title: 'Swap this artwork for another', onClick: () => open() }), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
       if (e.type === 'qr') items.push(label('QR code'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Squares' }), color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true, title: 'Background' }), tb({ icon: 'edit', text: 'Link', title: 'Change the link', onClick: () => open() }));
       if (e.type === 'draw') items.push(label('Drawing'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Stroke colour' }));
@@ -471,8 +472,22 @@ export function buildProps(ed: Editor): Props {
     }
     items.push(h('span', { class: 'tb-grow' }),
       tb({ icon: 'edit', text: isOpen() ? 'Hide options' : 'All options', title: isOpen() ? 'Hide the options panel' : 'Show every option for this', on: isOpen(), cls: 'tb-more', onClick: () => toggle() }));
-    bar.replaceChildren(...items.filter((x): x is Node => !!x));
+    // when the tools don't fit, a fade and an arrow at each cut-off end say there's more (and scroll to it)
+    const arrow = (side: 'l' | 'r') => {
+      const x = h('button', { type: 'button', class: `tb-scroll ${side}`, 'aria-label': side === 'l' ? 'More tools to the left' : 'More tools to the right', tabindex: '-1' }, icon(side === 'l' ? 'chevL' : 'chevR', 18));
+      x.addEventListener('click', () => bar.scrollBy({ left: (side === 'l' ? -1 : 1) * bar.clientWidth * 0.7, behavior: 'smooth' }));
+      return x;
+    };
+    bar.replaceChildren(arrow('l'), ...items.filter((x): x is Node => !!x), arrow('r'));
+    edges();
   }
+  function edges(): void {
+    const max = bar.scrollWidth - bar.clientWidth;
+    bar.classList.toggle('more-l', max > 2 && bar.scrollLeft > 2);
+    bar.classList.toggle('more-r', max > 2 && bar.scrollLeft < max - 2);
+  }
+  bar.addEventListener('scroll', edges, { passive: true });
+  new ResizeObserver(edges).observe(bar);
 
   ed.on('select', () => { if (!ed.selection.length && isPhone()) close(); render(); renderBar(); });
   ed.on('page', () => { render(); renderBar(); });

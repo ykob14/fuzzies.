@@ -5,7 +5,7 @@
  */
 import type { Design, El, Fill, ImageEl, Page, TextEl } from './types';
 import { drawBackground, drawElement, drawStroke, fitText, fontString, onAssetsLoaded, renderPage, thumbnail } from './render';
-import { cloneEls, makeDraw, makeEmoji, makeGraphic, makeImage, makeShape, makeText, newPage, makeQr } from './doc';
+import { cloneEls, makeDraw, makeEmoji, makeGraphic, makeImage, makeShape, makeText, newPage, makeQr, isSticker } from './doc';
 import { firstColor, closePicker } from './colors';
 import { buildPanels, type Panels } from './panels';
 import { buildProps, type Props } from './props';
@@ -719,7 +719,7 @@ export class Editor {
     const items: HTMLElement[] = [];
     items.push(b('edit', 'Edit', () => this.props.open(), 'ctx-edit'));
     if (single?.type === 'text') items.push(b('text', 'Edit text', () => this.editText(single)));
-    if (single?.type === 'image' && !single.locked) items.push(b('upload', isEmptyFrame(single) ? 'Add your photo' : 'Replace photo', () => this.pickPhotoFor(single)));
+    if (single?.type === 'image' && !single.locked && !isSticker(single)) items.push(b('upload', isEmptyFrame(single) ? 'Add your photo' : 'Replace photo', () => this.pickPhotoFor(single)));
     if (this.canGroup) items.push(b('group', 'Group (Ctrl+G)', () => this.group()));
     else if (this.canUngroup) items.push(b('grid', 'Ungroup (Ctrl+Shift+G)', () => this.ungroup()));
     items.push(b('copy', 'Duplicate (Ctrl+D)', () => this.duplicate()));
@@ -736,7 +736,7 @@ export class Editor {
       { label: 'Flip vertical', icon: 'flipV', onClick: () => { for (const e of this.selected) e.flipY = !e.flipY; this.commit(); } },
       { label: 'Copy', icon: 'clipboard', onClick: () => this.copy() },
       { label: 'Hide', icon: 'eyeOff', onClick: () => this.hideSelection() },
-      ...(single?.type === 'image' ? [{ label: 'Set as background', icon: 'image' as IconName, onClick: () => this.imageToBackground(single) }] : []),
+      ...(single?.type === 'image' && !isSticker(single) ? [{ label: 'Set as background', icon: 'image' as IconName, onClick: () => this.imageToBackground(single) }] : []),
     ]));
     items.push(more);
     this.ctxBar.append(...items);
@@ -779,7 +779,7 @@ export class Editor {
       const p = this.toDesign(e.clientX, e.clientY);
       const el = this.hitEl(p.x, p.y);
       if (el?.type === 'text' && !el.locked) this.editText(el);
-      else if (el?.type === 'image' && !el.locked) { if (!isEmptyFrame(el)) this.pickPhotoFor(el); } // an empty frame already opened it on the first click
+      else if (el?.type === 'image' && !el.locked) { if (!isEmptyFrame(el) && !isSticker(el)) this.pickPhotoFor(el); } // an empty frame already opened it on the first click
       else if (el) this.props.open();
     });
     c.addEventListener('click', () => {
@@ -792,7 +792,11 @@ export class Editor {
       e.preventDefault();
       const p = this.toDesign(e.clientX, e.clientY);
       this.markGesture();
-      if (e.ctrlKey || e.metaKey) this.zoomBy(Math.exp(-e.deltaY * 0.01), p.sx, p.sy);
+      if (e.ctrlKey || e.metaKey) {
+        // a mouse notch (~100) is about ×1.4, a trackpad pinch (small deltas) stays smooth; lines/pages count as a notch
+        const d = Math.max(-60, Math.min(60, e.deltaMode ? Math.sign(e.deltaY) * 60 : e.deltaY));
+        this.zoomBy(Math.exp(-d * 0.006), p.sx, p.sy);
+      }
       else { this.panX -= e.deltaX; this.panY -= e.deltaY; this.requestRender(); }
     }, { passive: false });
     c.addEventListener('contextmenu', (e) => {
@@ -1142,7 +1146,8 @@ export class Editor {
     this.positionTextArea();
     this.requestRender();
     ta.focus();
-    ta.select();
+    // caret at the end, not everything selected — the first key used to wipe the whole text (tap inside to move the caret)
+    ta.setSelectionRange(ta.value.length, ta.value.length);
     this.ctxBar.style.opacity = '0';
   }
 

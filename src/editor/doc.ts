@@ -97,12 +97,15 @@ export function instantiate(src: Design, owner: string, name?: string, templateI
   return d;
 }
 
+/** Fuzzy Friends stickers are pictures too, but not photos: no Replace photo / Set as background for them. */
+export const isSticker = (el: El | null | undefined): boolean => !!el && el.type === 'image' && el.asset.startsWith('friend-');
+
 export function elLabel(el: El): string {
   if (el.name) return el.name;
   switch (el.type) {
     case 'text': return el.text.split('\n')[0].slice(0, 28) || 'Text';
     case 'shape': return el.shape[0].toUpperCase() + el.shape.slice(1);
-    case 'image': return 'Photo';
+    case 'image': return isSticker(el) ? 'Sticker' : 'Photo';
     case 'graphic': return artById(el.art)?.name ?? 'Graphic';
     case 'emoji': return `Sticker ${el.char}`;
     case 'draw': return el.highlighter ? 'Highlighter' : 'Drawing';
