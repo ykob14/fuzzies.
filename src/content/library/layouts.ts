@@ -182,6 +182,7 @@ function photo(c: Ctx, i: number, x: number, y: number, w: number, h: number, o:
 }
 const pill = (c: Ctx, s: string, cx: number, y: number, fill: string, ink: string, size: number, align: 'center' | 'left' = 'center', x0 = 0): El[] => {
   if (!s) return [];
+  if (fill.startsWith('#') && ink.startsWith('#') && contrast(fill, ink) < 4.5) ink = contrast(fill, '#ffffff') >= contrast(fill, '#18171c') ? '#ffffff' : '#18171c';
   const t = txt(c, s, 0, 0, 10_000, { font: c.f.body, weight: 700, size, fill: ink, align: 'center' });
   const est = Math.min(c.W * 0.86, s.length * size * 0.62 + size * 2.2);
   t.w = est; fitText(t);
@@ -290,12 +291,10 @@ export const ARCHETYPES: Archetype[] = [
       const { W, H, u, pal, ev } = c;
       const cx = W / 2;
       // the badge gives up size when the words need the room (long details used to end up under the button)
-      const need = u * (0.07 + 0.16 + lines(ev).length * 0.065 + (ev.cta ? 0.21 : 0.06));
+      const need = u * (0.07 + 0.16 + lines(ev).length * 0.075 + (ev.cta ? 0.21 : 0.06));
       const r = Math.max(u * 0.12, Math.min(u * (c.portrait ? 0.3 : 0.26), (H - need - u * 0.14) / 2.36));
       const by = Math.max(u * 0.08 + r * 0.18, Math.min(H * (c.portrait ? 0.3 : 0.36) - r, H - need - r * 2.25 - u * 0.03));
       const els: El[] = [
-        art('dots', -u * 0.04, -u * 0.04, u * 0.28, u * 0.28, [alpha(pal.secondary, 0.35)]),
-        art('dots', W - u * 0.24, H - u * 0.24, u * 0.28, u * 0.28, [alpha(pal.secondary, 0.35)]),
         // a sunburst suits sports / shows / sales; celebrations and community get a soft halo (a crescent in a spiky sun read wrong)
         ['sports', 'entertainment', 'business'].includes(c.kind)
           ? shp('burst', cx - r * 1.18, by - r * 0.18, r * 2.36, r * 2.36, pal.accent, { rotation: 8 })
@@ -311,7 +310,7 @@ export const ARCHETYPES: Archetype[] = [
       const dt = details(c, W * 0.1, y, W * 0.8, { align: 'center', size: u * (c.portrait ? 0.048 : 0.042), fill: pal.muted, weight: 600 }, u * 0.015, H - u * 0.16 - u * 0.04);
       els.push(...dt.els); y = dt.y;
       els.push(...pill(c, ev.cta, cx, Math.min(y + u * 0.05, H - u * 0.16), pal.secondary, pal.onPrimary, u * 0.034));
-      if (c.portrait) centreBlock(els.slice(2), u * 0.1, H - u * 0.1); // the corner dots stay put
+      if (c.portrait) centreBlock(els, u * 0.1, H - u * 0.1);
       return [{ bg: pal.bg, els }];
     },
   },
@@ -524,21 +523,21 @@ export const ARCHETYPES: Archetype[] = [
     kinds: ['celebrations', 'community', 'business', 'education', 'sports', 'creators'],
     build(c) {
       const { W, H, u, pal, ev } = c;
-      const els: El[] = [art('confetti', 0, 0, W, W / 1.5, [alpha(pal.primary, 0.35), alpha(pal.accent, 0.5), alpha(pal.secondary, 0.3)])];
+      const els: El[] = [c.land ? shp('rect', 0, 0, W * 0.58, H, alpha(pal.secondary, pal.dark ? 0.4 : 0.16)) : shp('rect', 0, 0, W, H * (c.portrait ? 0.5 : 0.42), alpha(pal.secondary, pal.dark ? 0.4 : 0.16))]; // one calm colour field (confetti read as filler)
       const frame = { stroke: '#ffffff', strokeWidth: u * 0.018, shadow: { color: 'rgba(0,0,0,0.22)', blur: u * 0.03, x: 0, y: u * 0.012 } };
       if (c.land) {
         els.push(photo(c, 0, W * 0.05, H * 0.1, W * 0.34, H * 0.62, { ...frame, rotation: -4 } as Partial<ImageEl>),
           photo(c, 1, W * 0.33, H * 0.22, W * 0.26, H * 0.5, { ...frame, rotation: 5 } as Partial<ImageEl>));
       } else {
-        const ph = H * (c.portrait ? 0.3 : 0.38);
+        const ph = H * (c.portrait ? 0.3 : 0.3);
         els.push(photo(c, 0, W * 0.06, H * 0.06, W * 0.56, ph, { ...frame, rotation: -4 } as Partial<ImageEl>),
           photo(c, 1, W * 0.52, H * 0.1, W * 0.42, ph * 0.8, { ...frame, rotation: 5 } as Partial<ImageEl>),
           photo(c, 2, W * 0.3, H * 0.06 + ph * 0.72, W * 0.4, ph * 0.62, { ...frame, rotation: -1 } as Partial<ImageEl>));
       }
       const bx = c.land ? W * 0.62 : W * 0.07, bw = c.land ? W * 0.33 : W * 0.86;
-      const by = c.land ? H * 0.16 : H * (c.portrait ? 0.62 : 0.66);
-      const k = txt(c, ev.kicker, bx, by, bw, { font: c.f.script ?? c.f.display, weight: 400, size: u * 0.06, fill: pal.primary, align: c.land ? 'left' : 'center' });
-      const t = title(c, ev.title, bx, k.y + k.h + u * 0.01, bw, u * 0.13, { fill: pal.ink, align: c.land ? 'left' : 'center', maxLines: 3, maxH: H - (k.y + k.h) - u * 0.26 });
+      const by = c.land ? H * 0.16 : H * (c.portrait ? 0.62 : 0.56);
+      const k = txt(c, ev.kicker, bx, by, bw, { font: c.f.script ?? c.f.display, weight: 400, size: u * (c.portrait || c.land ? 0.06 : 0.052), fill: pal.primary, align: c.land ? 'left' : 'center' });
+      const t = title(c, ev.title, bx, k.y + k.h + u * 0.01, bw, u * 0.13, { fill: pal.ink, align: c.land ? 'left' : 'center', maxLines: c.portrait || c.land ? 3 : 2, maxH: H - (k.y + k.h) - u * (0.1 + lines(ev).length * 0.055 + (ev.cta ? 0.09 : 0)) });
       els.push(k, t);
       let y = t.y + t.h + u * 0.03;
       for (const d of lines(ev)) { const e = txt(c, d, bx, y, bw, { size: u * 0.038, weight: 600, fill: pal.muted, align: c.land ? 'left' : 'center' }); els.push(e); y += e.h + u * 0.01; }
@@ -635,8 +634,8 @@ export const ARCHETYPES: Archetype[] = [
     kinds: ['celebrations', 'education', 'business', 'community'],
     build(c) {
       const { W, H, u, pal, ev } = c;
-      const d0 = u * (c.portrait ? 0.62 : 0.5);
-      const cx = W / 2, cy = H * (c.portrait ? 0.32 : 0.33);
+      const d0 = u * (c.portrait ? 0.62 : 0.4);
+      const cx = W / 2, cy = H * (c.portrait ? 0.32 : 0.27);
       const els: El[] = [
         shp('rect', 0, 0, W, cy + d0 * 0.15, alpha(pal.secondary, pal.dark ? 0.5 : 0.18)),
         shp('ring', cx - d0 / 2 - u * 0.035, cy - d0 / 2 - u * 0.035, d0 + u * 0.07, d0 + u * 0.07, 'rgba(0,0,0,0)', { stroke: pal.accent, strokeWidth: u * 0.008 }),
@@ -644,11 +643,11 @@ export const ARCHETYPES: Archetype[] = [
         art('sparkle', cx + d0 * 0.36, cy - d0 * 0.52, u * 0.09, u * 0.09, [pal.accent, pal.surface]),
         art('sparkle', cx - d0 * 0.56, cy + d0 * 0.3, u * 0.06, u * 0.06, [pal.accent, pal.surface]),
       ];
-      const k = txt(c, ev.kicker, W * 0.1, cy + d0 / 2 + u * 0.08, W * 0.8, { align: 'center', size: u * 0.036, fill: pal.muted, weight: 600, uppercase: true, letterSpacing: u * 0.008 });
-      const t = title(c, ev.title, W * 0.08, k.y + k.h + u * 0.02, W * 0.84, u * 0.13, { align: 'center', fill: pal.ink, maxLines: 3, maxH: H - (k.y + k.h) - u * 0.24 });
+      const k = txt(c, ev.kicker, W * 0.1, cy + d0 / 2 + u * (c.portrait ? 0.08 : 0.06), W * 0.8, { align: 'center', size: u * 0.036, fill: pal.muted, weight: 600, uppercase: true, letterSpacing: u * 0.008 });
+      const t = title(c, ev.title, W * 0.08, k.y + k.h + u * 0.02, W * 0.84, u * 0.13, { align: 'center', fill: pal.ink, maxLines: 3, maxH: H - (k.y + k.h) - u * (0.12 + lines(ev).length * 0.055 + (ev.cta ? 0.06 : 0)) });
       els.push(k, t);
       let y = t.y + t.h + u * 0.035;
-      const dt = details(c, W * 0.1, y, W * 0.8, { align: 'center', size: u * 0.038, fill: pal.ink, font: c.f.body }, u * 0.01, H - u * 0.1 - u * 0.025);
+      const dt = details(c, W * 0.1, y, W * 0.8, { align: 'center', size: u * 0.04, fill: pal.ink, font: c.f.body }, u * 0.01, H - u * 0.1 - u * 0.025);
       els.push(...dt.els); y = dt.y;
       if (ev.cta) els.push(txt(c, ev.cta, W * 0.1, Math.min(y + u * 0.04, H - u * 0.1), W * 0.8, { align: 'center', size: u * 0.034, fill: pal.primary, weight: 700 }));
       return [{ bg: pal.surface, els }];
