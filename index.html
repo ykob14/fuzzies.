@@ -15,10 +15,10 @@
     <link id="fz-fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=DM+Sans:ital,wght@1,500&display=swap" media="print" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="image" href="./splash-fuzzy.svg" />
+    <link rel="preload" as="image" href="./art/fuzzy-hero.webp" />
     <style>
       /* Launch screen: the Fuzzy pops in and bounces, the name glides up, then everything melts into the app. */
-      #splash { --sp-bg: #18171c; --sp-ink: #fff; --sp-soft: rgba(255,255,255,.62); --sz: min(42vw, 190px);
+      #splash { --sp-bg: #18171c; --sp-ink: #fff; --sp-soft: rgba(255,255,255,.62); --sz: min(56vw, 250px);
         position: fixed; inset: 0; z-index: 9999; display: grid; place-content: center; justify-items: center; gap: 0;
         background: var(--sp-bg); color: var(--sp-ink); overflow: hidden; cursor: pointer; -webkit-tap-highlight-color: transparent;
         transition: opacity .55s cubic-bezier(.4,0,.2,1), visibility 0s linear .55s; }
@@ -31,7 +31,14 @@
       #splash.out .sp-stage, #splash.out .sp-text { transform: translateY(-10px) scale(1.04); }
       #splash .sp-jump { position: absolute; left: 0; right: 0; bottom: calc(var(--sz) * .14); height: var(--sz); transform: scale(0); }
       #splash .sp-squash { width: 100%; height: 100%; transform-origin: 50% 100%; }
+      #splash .sp-squash { position: relative; }
       #splash .sp-squash img { width: 100%; height: 100%; display: block; -webkit-user-drag: none; user-select: none; }
+      #splash .sp-squash img.sp-wink { position: absolute; inset: 0; opacity: 0; transition: opacity 60ms linear; }
+      #splash.winking .sp-squash img.sp-wink { opacity: 1; }
+      #splash .sp-tilt { width: 100%; height: 100%; transform-origin: 50% 90%; }
+      #splash.go .sp-tilt { animation: sp-tilt 1.1s 1.5s cubic-bezier(.45,0,.55,1) forwards, sp-breathe 2.4s 2.6s ease-in-out infinite; }
+      @keyframes sp-tilt { 0% { transform: rotate(0); } 30% { transform: rotate(-7deg) scale(1.03); } 62% { transform: rotate(3deg); } 100% { transform: rotate(0); } }
+      @keyframes sp-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025, .985); } }
       #splash .sp-shadow { position: absolute; left: 22%; right: 22%; bottom: calc(var(--sz) * .07); height: calc(var(--sz) * .09); border-radius: 50%;
         background: radial-gradient(closest-side, rgba(0,0,0,.5), transparent); opacity: 0; transform: scaleX(.2); }
       #splash.light .sp-shadow { background: radial-gradient(closest-side, rgba(0,0,0,.22), transparent); }
@@ -69,7 +76,7 @@
       /* calmer version for people who asked their device for less motion */
       #splash.still .sp-jump { animation: sp-fade .5s forwards; transform: none; opacity: 0; }
       #splash.still .sp-shadow, #splash.still .sp-glow { animation: sp-fade .5s forwards; transform: none; }
-      #splash.still .sp-squash, #splash.still .sp-star { animation: none; }
+      #splash.still .sp-squash, #splash.still .sp-star, #splash.still .sp-tilt { animation: none; }
       #splash.still .sp-word span { animation: sp-letter .5s .2s forwards; transform: none; filter: none; }
       #splash.still .sp-quote { animation: sp-fade .5s .3s forwards; }
     </style>
@@ -81,7 +88,7 @@
       <div class="sp-stage">
         <span class="sp-star s1"></span><span class="sp-star s2"></span><span class="sp-star s3"></span><span class="sp-star s4"></span>
         <div class="sp-shadow"></div>
-        <div class="sp-jump"><div class="sp-squash"><img id="sp-img" src="./splash-fuzzy.svg" alt="" /></div></div>
+        <div class="sp-jump"><div class="sp-squash"><div class="sp-tilt"><img id="sp-img" src="./art/fuzzy-hero.webp" alt="" /><img class="sp-wink" src="./art/fuzzy-hero-wink.webp" alt="" /></div></div></div>
       </div>
       <div class="sp-text">
         <div class="sp-word"><span style="--i:0">f</span><span style="--i:1">u</span><span style="--i:2">z</span><span style="--i:3">z</span><span style="--i:4">i</span><span style="--i:5">e</span><span style="--i:6">s</span></div>
