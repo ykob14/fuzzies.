@@ -3019,10 +3019,37 @@ html[data-screen='edit']:has(.editor.props-open) .fz-assist:not(.open) { display
 
 /* phone editor: Done stays reachable when the tool bar scrolls (the left arrow sits beside it, not on it) */
 @media (max-width: 760px) {
-  .ed-tools .tb-done { position: sticky; left: 0; z-index: 3; background: var(--surface); box-shadow: 8px 0 8px -6px rgba(0,0,0,.15); }
-  .ed-tools .tb-done ~ .tb-scroll.l { left: 48px; }
   html[data-screen='edit']:has(.editor.has-sel) .fz-assist:not(.open) { display: none; } /* keep the canvas clear while editing */
 }
 /* phones: the helper slides mostly out of the way while you scroll down, and back when you scroll up */
 .fz-assist.tucked:not(.open) .fzc-launch { transform: translateX(62%); opacity: .7; transition: transform .25s var(--ease), opacity .25s; }
 .fz-assist .fzc-launch { transition: transform .25s var(--ease), opacity .25s; }
+
+/* editor toolbar: the tools scroll inside .tb-track; on phones a pinned Done sits outside it (it used to scroll under the fade) */
+.ed-tools { overflow: hidden; padding: 0; }
+.tb-track { flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: 4px; padding: 0 12px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; }
+.tb-track::-webkit-scrollbar { display: none; }
+.tb-track > * { animation: tb-in .18s var(--ease) both; }
+@media (max-width: 760px) {
+  .ed-tools { padding: 6px 0 calc(6px + var(--safe-b)) 8px; gap: 0; }
+  .tb-track { padding: 0 8px; }
+  .ed-tools .tb-done { flex: none; height: 40px; padding: 0 14px 0 10px; margin-right: 6px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-weight: 700; box-shadow: var(--shadow-xs); }
+  .ed-tools .tb-done:hover, .ed-tools .tb-done:active { background: var(--accent); color: var(--on-accent); filter: brightness(1.06); }
+  .ed-tools .tb-done + .tb-track { border-left: 1px solid var(--border); }
+  .tb-track .tb-scroll.l { left: 0; }
+  .tb-track .tb-btn { height: 40px; min-width: 40px; }
+  .tb-track .tb-more span { display: inline; }
+}
+/* phone editor top bar: back · name · undo/redo · ⋯ · Share — Preview, Download, View and Resize live in the ⋯ menu */
+.ed-more { display: none; }
+@media (max-width: 760px) {
+  .ed-top { gap: 2px; }
+  .ed-top .ed-view, .ed-top .ed-preview, .ed-top .ed-dl { display: none; }
+  .ed-top .ed-more { display: inline-flex; width: 40px; padding: 0; }
+  .ed-top-mid .btn { width: 38px; padding: 0; }
+  .ed-title { gap: 0; }
+  .ed-name { padding: 6px 4px; font-size: 15px; text-overflow: ellipsis; }
+  .ed-top-right { gap: 4px; }
+  /* the helper stays off the phone canvas in the editor (⋯ → Ask Fuzzy opens it) */
+  html[data-screen='edit'] .fz-assist:not(.open) { display: none; }
+}

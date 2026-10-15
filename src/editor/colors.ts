@@ -1,6 +1,6 @@
 /** Colour + gradient picker popover used across the editor. */
 import type { Fill, Gradient } from './types';
-import { h } from '../ui/dom';
+import { h, onCloseMenus } from '../ui/dom';
 import { cssColor, fillToCss } from './render';
 import { accounts } from '../core/account';
 
@@ -29,6 +29,7 @@ export interface PickerOpts {
 let open: { el: HTMLElement; close: () => void } | null = null;
 
 export function closePicker(): void { open?.close(); }
+onCloseMenus(closePicker);
 
 const toHex = (c: string): string => {
   if (/^#[0-9a-f]{6}$/i.test(c)) return c;

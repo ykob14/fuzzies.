@@ -100,11 +100,23 @@ export function instantiate(src: Design, owner: string, name?: string, templateI
 /** Fuzzy Friends stickers are pictures too, but not photos: no Replace photo / Set as background for them. */
 export const isSticker = (el: El | null | undefined): boolean => !!el && el.type === 'image' && el.asset.startsWith('friend-');
 
+const SHAPE_NAMES: Record<ShapeKind, string> = {
+  rect: 'Rectangle', ellipse: 'Ellipse', triangle: 'Triangle', diamond: 'Diamond', pentagon: 'Pentagon', hexagon: 'Hexagon', star: 'Star',
+  burst: 'Burst', heart: 'Heart', arrow: 'Arrow', line: 'Line', bubble: 'Speech bubble', cross: 'Plus', arch: 'Arch', blob: 'Blob', ring: 'Ring',
+};
+/** A friendly name for a shape layer ("Rounded rectangle", "Circle"…) instead of the internal kind ("Rect"). */
+function shapeName(el: ShapeEl): string {
+  const square = Math.abs(el.w - el.h) <= Math.max(2, Math.min(el.w, el.h) * 0.02);
+  if (el.shape === 'rect') return `${el.radius > 0 ? 'Rounded ' : ''}${square ? 'square' : 'rectangle'}`.replace(/^./, (c) => c.toUpperCase());
+  if (el.shape === 'ellipse') return square ? 'Circle' : 'Ellipse';
+  return SHAPE_NAMES[el.shape] ?? 'Shape';
+}
+
 export function elLabel(el: El): string {
   if (el.name) return el.name;
   switch (el.type) {
     case 'text': return el.text.split('\n')[0].slice(0, 28) || 'Text';
-    case 'shape': return el.shape[0].toUpperCase() + el.shape.slice(1);
+    case 'shape': return shapeName(el);
     case 'image': return isSticker(el) ? 'Sticker' : 'Photo';
     case 'graphic': return artById(el.art)?.name ?? 'Graphic';
     case 'emoji': return `Sticker ${el.char}`;
