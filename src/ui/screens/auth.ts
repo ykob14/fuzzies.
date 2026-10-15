@@ -130,7 +130,7 @@ export function authScreen(mode: 'welcome' | 'login' | 'signup'): Screen {
     ['play', 'Play & unlock', 'Earn Fuzzies in Fuzzy Crossing and Fuzzies Land to unlock rewards'],
   ];
   // "Tickle me!" until someone does
-  const tickleSpot = h('div', { class: 'auth-mascot' }, mascot(120), h('span', { class: 'auth-tickle' }, 'Tickle me! 🪶'));
+  const tickleSpot = h('div', { class: 'auth-mascot' }, mascot(140, { photo: true }), h('span', { class: 'auth-tickle' }, 'Tickle me! 🪶'));
   let rubbed = 0;
   tickleSpot.addEventListener('pointermove', () => { if (++rubbed > 25) tickleSpot.classList.add('tickled'); });
   tickleSpot.addEventListener('click', () => tickleSpot.classList.add('tickled'));
@@ -171,7 +171,7 @@ export function resetScreen(resetToken: string): Screen {
     } catch (x) { err.textContent = (x as Error).message; } finally { b.disabled = false; }
   });
   const card = h('div', { class: 'auth-card auth-reset-card' },
-    h('div', { class: 'auth-reset-head' }, mascot(64, { sparkles: true }), h('div', null, h('h2', null, 'Choose a new password'), h('small', { class: 'muted' }, 'You’ll be logged in right after.'))),
+    h('div', { class: 'auth-reset-head' }, mascot(64, { sparkles: true, photo: true }), h('div', null, h('h2', null, 'Choose a new password'), h('small', { class: 'muted' }, 'You’ll be logged in right after.'))),
     form,
     h('div', { class: 'auth-alt' }, h('a', { class: 'link', href: '#/login' }, 'Back to log in')));
   if (!cloud.enabled) card.replaceChildren(h('h2', null, 'Password reset isn’t available'), h('p', { class: 'muted' }, 'Accounts on this site are saved on each device.'), h('a', { class: 'link', href: '#/login' }, 'Back to log in'));

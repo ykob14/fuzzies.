@@ -3,7 +3,8 @@
  * and fuzzy puffs, winks at you every few seconds, and hops + chimes when you tap it.
  * Move the mouse over it (or tap three times quickly) to tickle it: it squirms and giggles "tee hee hee, ha ha ha".
  * While you hover, its sparkles twinkle with little bell sounds.
- * Starts with a flat drawing and swaps to photos of the real 3D game model once they're rendered.
+ * Starts with a flat drawing and swaps to photos of the real 3D game model once they're rendered;
+ * `photo: true` shows the owner's own Fuzzy picture instead (the log-in screen, like the launch screen).
  */
 import { h, fuzzySvg, useRealMarks } from './dom';
 import { accounts } from '../core/account';
@@ -16,6 +17,8 @@ const svgUrl = (face: Face) => 'data:image/svg+xml;charset=utf-8,' + encodeURICo
 let frames: Frames = { open: svgUrl('open'), wink: svgUrl('wink'), blink: svgUrl('blink'), giggle: svgUrl('giggle') };
 let realistic = false;
 const live = new Set<{ img: HTMLImageElement; face: Face }>();
+/** The owner's own Fuzzy picture (public/art, also on the launch screen): open + a winking copy. */
+const PHOTO: Frames = { open: '/art/fuzzy-hero.webp', wink: '/art/fuzzy-hero-wink.webp', blink: '/art/fuzzy-hero.webp', giggle: '/art/fuzzy-hero-wink.webp' };
 
 // warm the browser cache so face swaps never flicker
 const preload = (f: Frames) => Object.values(f).forEach((src) => { const i = new Image(); i.src = src; });
@@ -69,10 +72,12 @@ export type MascotMove = 'wink' | 'hop' | 'cheer' | 'wave';
 const moves = new WeakMap<HTMLElement, (m: MascotMove) => void>();
 export function mascotDo(el: HTMLElement | null | undefined, m: MascotMove): void { if (el) moves.get(el)?.(m); }
 
-export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean; interactive?: boolean } = {}): HTMLElement {
-  const img = h('img', { class: 'mascot-img', src: frames.open, alt: '', draggable: 'false' });
+export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean; interactive?: boolean; photo?: boolean } = {}): HTMLElement {
+  const own = opts.photo ? PHOTO : null; // the owner's picture never swaps to the rendered frames
+  if (own) preload(own);
+  const img = h('img', { class: 'mascot-img', src: (own ?? frames).open, alt: '', draggable: 'false' });
   const state = { img, face: 'open' as Face };
-  live.add(state);
+  if (!own) live.add(state);
   const squash = h('div', { class: 'mascot-squash' }, img);
   const jump = h('div', { class: 'mascot-jump' }, squash);
   const fx = h('div', { class: 'mascot-fx', 'aria-hidden': 'true' });
@@ -82,12 +87,12 @@ export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean
     for (let i = 0; i < 3; i++) fx.append(h('span', { class: `mascot-puff pf${i}` }));
   }
   const el = h('div', {
-    class: `mascot ${opts.small ? 'mascot-sm' : ''} ${realistic ? 'real' : ''}`,
+    class: `mascot ${opts.small ? 'mascot-sm' : ''} ${realistic || own ? 'real' : ''} ${own ? 'photo' : ''}`,
     style: `--s:${size}px; --delay:${(-Math.random() * 2).toFixed(2)}s`,
     role: 'img', 'aria-label': 'Fuzzies mascot',
   }, h('div', { class: 'mascot-shadow' }), fx, jump);
 
-  const setFace = (f: Face) => { state.face = f; img.src = frames[f]; };
+  const setFace = (f: Face) => { state.face = f; img.src = (own ?? frames)[f]; };
   const burst = () => {
     for (let i = 0; i < 7; i++) {
       const a = (i / 7) * Math.PI * 2 + Math.random() * 0.5;
