@@ -31,6 +31,8 @@ export interface CollectionTemplate {
   id: string; name: string; format: Format; style: string; colors: string[]; occasion: string; tags: string[];
   use?: Use;
   build(c: Kit): void;
+  /** Extra pages after the first (decks, carousels): each draws onto its own page of the same size. */
+  more?: ((c: Kit) => void)[];
 }
 
 // ---------- composition kit ----------
@@ -94,5 +96,11 @@ export function buildCollectionDoc(sub: string, t: CollectionTemplate, addedAt: 
   const f = FORMATS[t.format];
   const c: Kit = { W: f.w, H: f.h, u: Math.min(f.w, f.h), els: [], bg, assets: {} };
   t.build(c);
-  return { v: DOC_VERSION, id: `tpl_${sub}--${t.id}`, owner: 'system', name: t.name, width: f.w, height: f.h, pages: [newPage(c.bg, c.els)], assets: c.assets, template: `${sub}--${t.id}`, createdAt: addedAt, updatedAt: addedAt };
+  const pages = [newPage(c.bg, c.els)];
+  for (const draw of t.more ?? []) {
+    const p: Kit = { W: f.w, H: f.h, u: Math.min(f.w, f.h), els: [], bg, assets: c.assets };
+    draw(p);
+    pages.push(newPage(p.bg, p.els));
+  }
+  return { v: DOC_VERSION, id: `tpl_${sub}--${t.id}`, owner: 'system', name: t.name, width: f.w, height: f.h, pages, assets: c.assets, template: `${sub}--${t.id}`, createdAt: addedAt, updatedAt: addedAt };
 }

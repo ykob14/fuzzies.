@@ -239,7 +239,7 @@ function cardPortrait(c: Kit, k: Card, th: Theme): void {
 
 /** Lay a page out as large as it fits: draw it, and if any words run past the bottom margin, draw it again a little smaller
  * (every size and gap here comes from `u`, so scaling `u` scales the type and spacing together). */
-function fitPage(c: Kit, draw: (c: Kit) => void): void {
+export function fitPage(c: Kit, draw: (c: Kit) => void): void {
   for (let k = 1.15; ; k *= 0.94) { // short ones may grow a little to fill the page
     const t: Kit = { ...c, u: c.u * k, els: [], assets: {} };
     draw(t);

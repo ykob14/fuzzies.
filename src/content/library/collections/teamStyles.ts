@@ -29,7 +29,7 @@ export const L = {
 } satisfies Record<string, Look>;
 
 /** A placeholder photo in a shape ('none' + radius, 'circle' or 'arch'). */
-function pic(c: Kit, key: string, tint: [string, string, string], i: number, x: number, y: number, w: number, h: number, mask: 'none' | 'circle' | 'arch', radius = 0): El {
+export function pic(c: Kit, key: string, tint: [string, string, string], i: number, x: number, y: number, w: number, h: number, mask: 'none' | 'circle' | 'arch', radius = 0): El {
   const id = `ph-${key}-${i % 3}`;
   c.assets[id] ??= photoAsset({ id: key, primary: tint[0], secondary: tint[1], accent: tint[2] } as Palette, i % 3);
   const el = makeImage(id, w, h, { mask, radius });

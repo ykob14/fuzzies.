@@ -142,7 +142,7 @@ function collectionMeta(set: CollectionSet, t: CollectionTemplate): TemplateMeta
   const f = FORMATS[t.format], s = subById(set.sub);
   return {
     id: `${set.sub}--${t.id}`, name: t.name, category: s?.cat.id ?? 'celebrations', sub: set.sub, format: t.format, formatLabel: f.label,
-    width: f.w, height: f.h, pages: 1, style: t.style, colors: t.colors, occasion: t.occasion, tags: [...t.tags, 'illustrated'], use: t.use,
+    width: f.w, height: f.h, pages: 1 + (t.more?.length ?? 0), style: t.style, colors: t.colors, occasion: t.occasion, tags: [...t.tags, 'illustrated'], use: t.use,
     cost: 0, source: 'collection', addedAt: set.addedAt, version: 1,
     words: wordsOf(t.name, t.tags, s?.sub.label, s?.cat.label, s?.sub.keywords, t.style, t.colors, f.label, t.occasion, 'illustrated', t.use ? USE_WORDS[t.use] : []),
   };

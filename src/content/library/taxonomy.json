@@ -4737,6 +4737,68 @@
               "occasion": "career"
             }
           ]
+        },
+        {
+          "id": "menu",
+          "label": "Menus",
+          "emoji": "🍽️",
+          "keywords": [
+            "menu",
+            "menus",
+            "restaurant menu",
+            "cafe menu",
+            "coffee menu",
+            "food menu",
+            "drinks menu",
+            "price list",
+            "menu board",
+            "brunch menu",
+            "dinner menu"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Menus",
+              "kicker": "",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "restaurant"
+            }
+          ]
+        },
+        {
+          "id": "office",
+          "label": "Newsletters, Invoices & Letterheads",
+          "emoji": "🗂️",
+          "keywords": [
+            "newsletter",
+            "newsletters",
+            "invoice",
+            "invoices",
+            "bill",
+            "receipt",
+            "letterhead",
+            "letter",
+            "stationery",
+            "office",
+            "business letter"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Newsletters, Invoices & Letterheads",
+              "kicker": "",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "business"
+            }
+          ]
         }
       ]
     },
@@ -4746,6 +4808,40 @@
       "emoji": "🎒",
       "kind": "education",
       "subcategories": [
+        {
+          "id": "planner",
+          "label": "Planners & Calendars",
+          "emoji": "🗓️",
+          "keywords": [
+            "planner",
+            "planners",
+            "calendar",
+            "calendars",
+            "weekly planner",
+            "monthly calendar",
+            "to do list",
+            "to-do list",
+            "todo",
+            "checklist",
+            "habit tracker",
+            "printable",
+            "organizer",
+            "schedule"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Planners & Calendars",
+              "kicker": "",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "planning"
+            }
+          ]
+        },
         {
           "id": "residence-life",
           "label": "Residence Life",
@@ -5295,6 +5391,34 @@
           ],
           "generate": false,
           "events": []
+        },
+        {
+          "id": "carousel",
+          "label": "Instagram Carousels",
+          "emoji": "🎠",
+          "keywords": [
+            "carousel",
+            "carousels",
+            "instagram carousel",
+            "swipe post",
+            "multi page post",
+            "slides post",
+            "tips post",
+            "educational post"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Carousel",
+              "kicker": "",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "social"
+            }
+          ]
         }
       ]
     }
