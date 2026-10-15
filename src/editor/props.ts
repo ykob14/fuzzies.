@@ -8,13 +8,13 @@ import { colorButton, firstColor } from './colors';
 import { SHAPE_KINDS } from './shapes';
 import { qrMatrix } from './qr';
 import { SIZE_PRESETS, isSticker } from './doc';
-import { FONT_PACKS, ensureFont } from '../content/fonts';
+import { ALL_FONTS, FONT_GROUPS, ensureFont, fontPackOf, fontSample, isScriptOnly } from '../content/fonts';
 import { ARTS, artById, artDataUrl } from '../content/art';
 import { assetsIn, collectionOf } from '../content/assets';
 import { rewards } from '../core/rewards';
 import { accounts } from '../core/account';
 import { unlockDialog } from '../ui/unlock';
-import { h, btn, icon, fuzzyMark, popMenu, toast, type IconName } from '../ui/dom';
+import { h, btn, icon, popMenu, toast, type IconName } from '../ui/dom';
 import { creditLine } from './photos';
 
 /** `el` is the full inspector; `bar` is the smart toolbar above the canvas (only what fits the current selection). */
@@ -129,10 +129,14 @@ export function buildProps(ed: Editor): Props {
       find.addEventListener('keydown', (ev) => ev.stopPropagation());
       const list = h('div', { class: 'font-list' });
       pop.append(find, list);
-      const item = (f: string, pack: (typeof FONT_PACKS)[number]) => {
+      const item = (f: string) => {
+        const pack = fontPackOf(f);
         const locked = !rewards.isUnlocked(pack.id, pack.cost);
         ensureFont(f, 400, false);
-        const it = h('button', { type: 'button', class: `popmenu-item font-item ${f === e.font ? 'on' : ''} ${locked ? 'locked' : ''}`, style: `font-family:"${f}"`, 'data-font': f.toLowerCase() }, f, locked ? icon('lock', 14) : null);
+        const sample = fontSample(f);
+        const it = h('button', { type: 'button', class: `popmenu-item font-item ${f === e.font ? 'on' : ''} ${locked ? 'locked' : ''}`, 'data-font': f.toLowerCase(), title: f },
+          h('span', { class: 'font-name', style: isScriptOnly(f) ? '' : `font-family:"${f}"` }, f),
+          sample ? h('span', { class: 'font-sample', style: `font-family:"${f}"` }, sample) : null, locked ? icon('lock', 14) : null);
         it.addEventListener('click', () => {
           pop.remove();
           if (locked) { unlockDialog({ id: pack.id, name: `${pack.name} fonts`, cost: pack.cost, kind: `Font pack · ${pack.fonts.join(', ')}`, preview: h('div', { class: 'unlock-font', style: `font-family:"${pack.fonts[0]}"` }, 'Aa Bb Cc') }, render); return; }
@@ -143,24 +147,33 @@ export function buildProps(ed: Editor): Props {
         });
         return it;
       };
-      const packOf = (f: string) => FONT_PACKS.find((p) => p.fonts.includes(f));
-      const recent = recentFonts().filter((f) => packOf(f));
-      if (recent.length) list.append(h('div', { class: 'pnl-label font-sec' }, 'Recently used'), ...recent.map((f) => item(f, packOf(f)!)));
-      for (const pack of FONT_PACKS) {
-        const locked = !rewards.isUnlocked(pack.id, pack.cost);
-        list.append(h('div', { class: 'pnl-label font-sec' }, pack.name, locked ? h('span', { class: 'lock-badge' }, fuzzyMark(14), String(pack.cost)) : null), ...pack.fonts.map((f) => item(f, pack)));
-      }
+      const head = (label: string) => h('div', { class: 'pnl-label font-sec' }, label);
+      // fonts already in this design (most used first), your recent ones, then every font by its look and by script
+      const known = new Set(ALL_FONTS);
+      const uses = new Map<string, number>();
+      for (const p of ed.design.pages) for (const t of p.elements) if (t.type === 'text' && known.has(t.font)) uses.set(t.font, (uses.get(t.font) ?? 0) + 1);
+      const inDesign = [...uses].sort((x, y) => y[1] - x[1]).map(([f]) => f);
+      if (inDesign.length) list.append(head('Fonts in this design'), ...inDesign.map(item));
+      const recent = recentFonts().filter((f) => known.has(f) && !inDesign.includes(f));
+      if (recent.length) list.append(head('Recently used'), ...recent.map(item));
+      for (const g of FONT_GROUPS) list.append(head(g.label), ...g.fonts.map(item));
       const none = h('p', { class: 'muted font-none', hidden: 'true' }, 'No font by that name.');
       list.append(none);
       find.addEventListener('input', () => {
         const q = find.value.trim().toLowerCase();
         let any = false;
-        for (const it of list.querySelectorAll<HTMLElement>('.font-item')) { const show = !q || it.dataset.font!.includes(q); it.hidden = !show; any ||= show; }
+        const seen = new Set<string>(); // a font can sit in two groups (Heebo: Sans + Hebrew) — list it once while searching
+        for (const it of list.querySelectorAll<HTMLElement>('.font-item')) {
+          const f = it.dataset.font!;
+          const show = !q || (f.includes(q) && !seen.has(f));
+          if (q && show) seen.add(f);
+          it.hidden = !show; any ||= show;
+        }
         // a heading shows only while one of its fonts does
-        for (const head of list.querySelectorAll<HTMLElement>('.font-sec')) {
-          let n = head.nextElementSibling as HTMLElement | null, vis = false;
+        for (const hd of list.querySelectorAll<HTMLElement>('.font-sec')) {
+          let n = hd.nextElementSibling as HTMLElement | null, vis = false;
           while (n && !n.classList.contains('font-sec') && !n.classList.contains('font-none')) { vis ||= !n.hidden; n = n.nextElementSibling as HTMLElement | null; }
-          head.hidden = !!q && !vis;
+          hd.hidden = !!q && !vis;
         }
         none.hidden = any;
       });

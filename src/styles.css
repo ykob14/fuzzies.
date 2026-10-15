@@ -3026,3 +3026,39 @@ html[data-screen='edit']:has(.editor.props-open) .fz-assist:not(.open) { display
 /* phones: the helper slides mostly out of the way while you scroll down, and back when you scroll up */
 .fz-assist.tucked:not(.open) .fzc-launch { transform: translateX(62%); opacity: .7; transition: transform .25s var(--ease), opacity .25s; }
 .fz-assist .fzc-launch { transition: transform .25s var(--ease), opacity .25s; }
+
+/* ---------- Editor tools pass (2026-10-15): one Download panel, grouped fonts, design-aware panels ---------- */
+.dl-panel { position: fixed; z-index: 160; width: 360px; max-width: calc(100vw - 16px); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 6px 16px 16px; overflow-y: auto; opacity: 0; transform: translateY(-4px); transition: opacity .15s var(--ease), transform .15s var(--ease); }
+.dl-panel.in { opacity: 1; transform: none; }
+.dl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0 2px; }
+.dl-head b { font-size: 16px; }
+.dl-head .sheet-grip { display: none; }
+.dl-panel .share-opts { margin: 0; }
+.dl-panel .pnl-label { margin-top: 12px; }
+.dl-panel .fmt { min-height: 48px; }
+.dl-panel .seg button { flex: 1 1 auto; }
+.dl-panel .dl-go { margin-top: 14px; }
+.dl-page-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 0 10px; max-height: 160px; overflow-y: auto; }
+.dl-page-list .check { margin: 6px 0; }
+.dl-note { margin: 2px 0 0; }
+.dl-extras { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.dl-extras .link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.dl-scrim { position: fixed; inset: 0; z-index: 159; background: rgba(20, 18, 28, .32); }
+.dl-panel.sheet { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; max-height: 86vh; border-radius: 20px 20px 0 0; padding: 4px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(16px); }
+.dl-panel.sheet.in { transform: none; }
+.dl-panel.sheet .dl-head { flex-wrap: wrap; }
+.dl-panel.sheet .sheet-grip { display: block; flex-basis: 100%; margin: 4px auto 2px; }
+.dl-panel.sheet .seg button { min-height: 40px; }
+.share .seg button { flex: 1 1 auto; }
+
+/* font picker: groups, names in their own font, a sample for other scripts */
+.font-pop { width: 280px; }
+.font-pop .font-sec { position: sticky; top: 38px; z-index: 1; background: var(--surface); margin: 0; padding: 10px 10px 4px; }
+.font-item { gap: 10px; min-height: 40px; }
+.font-item .font-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.font-item .font-sample { margin-left: auto; font-size: 17px; color: var(--muted); white-space: nowrap; }
+.font-item.on { color: var(--accent); background: var(--hover); }
+
+/* editor panels lead with the design's own topic */
+.tpl-for { margin: 4px 0 8px; }
+.el-suggest .el-grid { margin-bottom: 4px; }

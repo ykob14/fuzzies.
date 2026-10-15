@@ -1,11 +1,10 @@
-/** Full-screen preview of a design (every page, as it will export) and the quick Download menu in the editor's top bar. */
+/** Full-screen preview of a design (every page, as it will export) and the editor top bar's Download button. */
 import type { Editor } from './editor';
 import { pageCanvas, prepare } from './render';
-import { exportFiles, download, type ExportFormat } from './export';
-import { rewards } from '../core/rewards';
-import { h, btn, icon, modal, popMenu, toast } from '../ui/dom';
+import { h, btn, icon, modal, toast } from '../ui/dom';
 import { creditLine } from './photos';
-import { knownRights, templateRights } from '../content/library/admin';
+import { openDownload } from './download';
+import { templateRights } from '../content/library/admin';
 import type { Credit, Design } from './types';
 
 export function openPreview(ed: Editor): void {
@@ -53,33 +52,9 @@ export function openPreview(ed: Editor): void {
   requestAnimationFrame(() => { wrap.classList.add('in'); void show(); close.focus(); });
 }
 
-/** One-tap downloads with sensible defaults (the Share dialog keeps the full options). */
+/** The top bar's Download button: one Download panel with every option (the Share dialog uses the same controls). */
 export function downloadMenu(ed: Editor, anchor: HTMLElement): void {
-  const d = ed.design;
-  const run = async (fmt: ExportFormat, pages?: number[]) => {
-    ed.finishTextEdit();
-    ed.save.flush();
-    try {
-      const files = await exportFiles(d, fmt, { pages, scale: fmt === 'png' || fmt === 'jpg' ? 2 : undefined });
-      download(files);
-      if (fmt !== 'fuzzies') rewards.exported();
-    } catch (e) {
-      console.error(e);
-      toast('Could not export this design — please try again.', 'bad');
-    }
-  };
-  const many = d.pages.length > 1;
-  const credits = photoCredits(d);
-  popMenu(anchor, [
-    ...(credits.length ? [{ label: `Photo credits (${credits.length})`, icon: 'heart' as const, onClick: () => showCredits(credits) }, null] : []),
-    { label: many ? 'PNG · this page' : 'PNG image', icon: 'image', onClick: () => void run('png', [ed.pageIndex]) },
-    ...(many ? [{ label: 'PNG · all pages', icon: 'pages' as const, onClick: () => void run('png', d.pages.map((_, i) => i)) }] : []),
-    { label: 'JPG image', icon: 'image', onClick: () => void run('jpg', [ed.pageIndex]) },
-    { label: many ? 'PDF · all pages' : 'PDF document', icon: 'file', onClick: () => void run('pdf') },
-    null,
-    { label: 'Project file (.fuzzies)', icon: 'folder', onClick: () => void run('fuzzies') },
-    ...(knownRights().admin ? [null, { label: d.template?.startsWith('pub-') ? 'Update template…' : 'Publish as template…', icon: 'upload' as const, onClick: () => void import('./publish').then((m) => m.publishDialog(ed)) }] : []),
-  ]);
+  openDownload(ed, anchor);
 }
 /** Ask early (in the background) whether this account manages templates, so the menu can show it instantly. */
 export const checkTemplateRights = (): void => void templateRights();
@@ -91,7 +66,7 @@ export function photoCredits(d: Design): Credit[] {
   return [...seen.values()];
 }
 
-function showCredits(list: Credit[]): void {
+export function showCredits(list: Credit[]): void {
   const text = list.map(creditLine).join('\n');
   const need = list.some((c) => c.required);
   const copy = btn('Copy all credits', { kind: 'primary', icon: 'copy', onClick: () => void (navigator.clipboard?.writeText(text) ?? Promise.reject(new Error('no clipboard'))).then(() => toast('Credits copied', 'good'), () => toast('Select the text and copy it', 'info')) });

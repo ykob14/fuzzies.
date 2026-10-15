@@ -8,6 +8,7 @@ import { makeText, elLabel } from './doc';
 import { colorButton, GRADIENTS, PALETTE } from './colors';
 import { ART_PACKS, ARTS, artDataUrl } from '../content/art';
 import { COLLECTIONS, assetsIn, isLoaded, loadCollection, searchAssets, type AssetDef } from '../content/assets';
+import { designContext, relevance, type DesignContext } from './designContext';
 import { STICKER_PACKS } from '../content/stickers';
 import { FRIENDS, friendUrl, friendData } from '../content/friends';
 import { TEXT_STYLES, FX_PACK } from '../content/textstyles';
@@ -202,11 +203,14 @@ export function buildPanels(ed: Editor): Panels {
   const openCollections = new Set<string>(); // collections opened with "See all" (kept while the editor is open)
   function elementsPanel(): HTMLElement {
     const wrap = h('div');
-    const search = h('input', { class: 'input', placeholder: 'Search graphics — “bat”, “pumpkin”, “moon”…', value: elQuery, type: 'search', 'aria-label': 'Search shapes and graphics' });
+    const search = h('input', { class: 'input', placeholder: 'Search graphics, e.g. “cake”', value: elQuery, type: 'search', 'aria-label': 'Search shapes and graphics' });
     const list = h('div');
     const PREVIEW = 8, SEARCH_MAX = 24;
+    let ctx: DesignContext | null = null; // what the design is about (worked out on first open)
     const renderCollection = (col: (typeof COLLECTIONS)[number], sec: HTMLElement, q: string) => {
-      const all = q ? searchAssets(q).filter((a) => a.id.startsWith(col.prefix)) : assetsIn(col);
+      let all = q ? searchAssets(q).filter((a) => a.id.startsWith(col.prefix)) : assetsIn(col);
+      // inside a collection, the pieces that fit this design come first (birthday cake before pumpkin pie)
+      if (!q && ctx) { const c = ctx; all = all.map((a, i) => ({ a, i, n: relevance(a, c) })).sort((x, y) => y.n - x.n || x.i - y.i).map((x) => x.a); }
       const art = all.filter((a) => a.kind !== 'background');
       const scenes = all.filter((a) => a.kind === 'background' && a.id.endsWith('-sq'));
       if (!art.length && !scenes.length) { sec.remove(); if (!list.childElementCount) list.append(h('p', { class: 'muted' }, 'Nothing found.')); return; }
@@ -227,9 +231,41 @@ export function buildPanels(ed: Editor): Panels {
       sec.replaceChildren(...parts);
     };
     let fillTimer = 0;
+    /** "For your design": art that fits the design's topic, from the collections it ranks first (loaded at once — 3 at most). */
+    const suggestions = (c: DesignContext) => {
+      const sec = h('section', { class: 'pnl-sec el-suggest' }, h('div', { class: 'pnl-label' }, c.label ? `For your design · ${c.label}` : 'For your design'), h('div', { class: 'ph-status' }, h('span', { class: 'ph-spin' }), 'Loading…'));
+      const from = [...new Set([...(c.sub ? [COLLECTIONS.find((x) => x.id === 'icons')!] : []), ...c.ranked.slice(0, 2)])];
+      void Promise.all(from.map((col) => loadCollection(col).catch(() => {}))).then(() => {
+        if (!sec.isConnected) return;
+        const picks = from.flatMap((col) => assetsIn(col)).filter((a) => a.kind !== 'background')
+          .map((a) => ({ a, n: relevance(a, c) })).filter((x) => x.n >= 2).sort((x, y) => y.n - x.n).slice(0, 12).map((x) => x.a);
+        if (!picks.length) { sec.remove(); return; }
+        sec.replaceChildren(sec.firstChild!, h('div', { class: 'el-grid' }, ...picks.map((a) => {
+          const b = h('button', { class: 'el-item', type: 'button', title: `${a.name} · ${a.license}`, 'aria-label': a.name, 'data-art': a.id }, h('img', { src: artDataUrl(a.id, a.colors), alt: '', loading: 'lazy', decoding: 'async' }));
+          b.addEventListener('click', () => { ed.addGraphic(a.id); afterAdd(); });
+          draggable(b, { kind: 'art', art: a.id });
+          return b;
+        })));
+      });
+      return sec;
+    };
     const fill = () => {
       list.replaceChildren();
       const q = elQuery.toLowerCase();
+      if (!q && !ctx) {
+        // work out what the design is about first (a quick lazy import), then lay the panel out around it
+        list.append(h('div', { class: 'ph-status' }, h('span', { class: 'ph-spin' }), 'Loading…'));
+        void designContext(ed.design).then((c) => { ctx = c; if (list.isConnected && !elQuery) fill(); }, () => { ctx = { sub: '', cat: '', label: '', strong: [], weak: [], extra: [], ranked: COLLECTIONS }; if (list.isConnected) fill(); });
+        return;
+      }
+      if (!q && ctx && (ctx.sub || ctx.strong.length)) list.append(suggestions(ctx));
+      const shapes = SHAPE_KINDS.filter((s) => !q || s.label.toLowerCase().includes(q));
+      if (shapes.length) list.append(section('Shapes & lines', h('div', { class: 'el-grid' }, ...shapes.map((s) => {
+        const b = h('button', { class: 'el-item', type: 'button', title: s.label, 'aria-label': s.label }, shapeIcon(s.kind));
+        b.addEventListener('click', () => { ed.addShape(s.kind); afterAdd(); });
+        draggable(b, { kind: 'shape', shape: s.kind });
+        return b;
+      }))));
       if (!q || 'qr code link'.includes(q)) {
         const link = h('input', { class: 'input input-sm', placeholder: 'Paste a link, e.g. https://…', 'aria-label': 'Link for the QR code' });
         const add = () => {
@@ -241,18 +277,11 @@ export function buildPanels(ed: Editor): Panels {
         link.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
         list.append(section('QR code', h('div', { class: 'qr-add' }, link, btn('Add', { kind: 'primary', size: 'sm', icon: 'plus', onClick: add }))));
       }
-      const shapes = SHAPE_KINDS.filter((s) => !q || s.label.toLowerCase().includes(q));
-      if (shapes.length) list.append(section('Shapes & lines', h('div', { class: 'el-grid' }, ...shapes.map((s) => {
-        const b = h('button', { class: 'el-item', type: 'button', title: s.label, 'aria-label': s.label }, shapeIcon(s.kind));
-        b.addEventListener('click', () => { ed.addShape(s.kind); afterAdd(); });
-        draggable(b, { kind: 'shape', shape: s.kind });
-        return b;
-      }))));
-      // illustration collections: each one loads when its section scrolls into view (or at once for a search), redraws only
-      // itself when it arrives, and shows a short preview with "See all" — opening Elements used to load all 13 collections
-      // and rebuild the whole list after each one (hundreds of pictures; a phone could stall for minutes)
-      for (const col of COLLECTIONS) {
-        const sec = h('section', { class: 'pnl-sec' }, h('div', { class: 'pnl-label' }, col.name), h('div', { class: 'ph-status' }, h('span', { class: 'ph-spin' }), 'Loading…'));
+      // illustration collections, most related to this design first: each one loads when its section scrolls into view
+      // (or at once for a search), redraws only itself when it arrives, and shows a short preview with "See all" — opening
+      // Elements used to load all 13 collections and rebuild the whole list after each one (a phone could stall for minutes)
+      for (const col of ctx?.ranked ?? COLLECTIONS) {
+        const sec = h('section', { class: 'pnl-sec', 'data-col': col.id }, h('div', { class: 'pnl-label' }, col.name), h('div', { class: 'ph-status' }, h('span', { class: 'ph-spin' }), 'Loading…'));
         list.append(sec);
         const show = () => { if (sec.isConnected) renderCollection(col, sec, q); };
         if (isLoaded(col)) { show(); continue; }
