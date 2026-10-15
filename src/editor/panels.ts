@@ -45,6 +45,10 @@ const TABS: { id: string; label: string; icon: IconName }[] = [
 
 const lockBadge = (cost: number) => h('span', { class: 'lock-badge' }, fuzzyMark(14), String(cost));
 
+
+/** Layers: the last click on a layer name (kept outside the panel, which is re-drawn on every pick) and the current panel's rename. */
+let lastNameClick = { id: '', t: 0 };
+let renameLayer: (el: El, span: HTMLElement) => void = () => {};
 export function buildPanels(ed: Editor): Panels {
   let active: string | null = null;
   const rail = h('nav', { class: 'ed-rail', 'aria-label': 'Editor tools' });
@@ -574,12 +578,14 @@ export function buildPanels(ed: Editor): Panels {
         const again = onName && lastNameClick.id === el.id && now - lastNameClick.t < 450;
         lastNameClick = { id: onName ? el.id : '', t: now };
         ed.select(e.shiftKey ? [...ed.selection, el.id] : [el.id]); fill();
-        if (again) { const span = list.querySelector<HTMLElement>(`.layer[data-id="${el.id}"] .layer-name`); if (span) rename(el, span); }
+        // picking a layer re-draws the whole panel: find the fresh row in the document, not in this (old) list
+        if (again) { const span = document.querySelector<HTMLElement>(`.layers .layer[data-id="${el.id}"] .layer-name`); if (span) renameLayer(el, span); }
       });
       row.addEventListener('keydown', (e) => { if (e.key === 'F2') { e.preventDefault(); rename(el, name); } });
       row.addEventListener('pointerdown', (e) => startDrag(e, el, row, e.target === grip || grip.contains(e.target as Node)));
       return row;
     };
+    renameLayer = (el: El, span: HTMLElement) => rename(el, span);
     /** Rename a layer in place (an empty name goes back to the automatic one). */
     const rename = (el: El, span: HTMLElement) => {
       const input = h('input', { class: 'input input-sm layer-rename', value: el.name ?? elLabel(el), maxlength: '60', 'aria-label': 'Layer name' });
@@ -597,7 +603,6 @@ export function buildPanels(ed: Editor): Panels {
     };
     /** Drag a row up or down to restack (mouse: anywhere on the row; touch: by its grip, so the list still scrolls). */
     let dragged = false;
-    let lastNameClick = { id: '', t: 0 };
     const startDrag = (e: PointerEvent, el: El, row: HTMLElement, onGrip: boolean) => {
       if ((e.target as HTMLElement).closest('button, input') || (e.pointerType !== 'mouse' && !onGrip) || e.button > 0) return;
       const y0 = e.clientY;
