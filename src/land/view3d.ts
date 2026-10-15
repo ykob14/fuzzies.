@@ -22,6 +22,9 @@ import { trophyLook } from './trophies';
 
 const PITCH = THREE.MathUtils.degToRad(50);
 const YAW = THREE.MathUtils.degToRad(45);
+/** the town opens no further out than this (you can still zoom out to see the whole island) */
+const OPEN_MAX = 30;
+const easeOut = (k: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
 const ease = (k: number) => { k = Math.min(1, Math.max(0, k)); return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; };
 const SKINS: [string, string][] = [['#ff86bb', '#b8235f'], ['#7dffcf', '#22b5a0'], ['#ffe066', '#ff8c42'], ['#7ad7ff', '#2f7fe0'], ['#ff6b8b', '#b0004f'], ['#ffb3d9', '#d6337f'], ['#ffffff', '#b9c2cf'], ['#ffc078', '#e8590c'], ['#b8f28a', '#4f9e2f']];
 /** Each Fuzzy's look and character: an outfit, and how fast, chatty, hoppy and home-loving they are. */
@@ -64,8 +67,8 @@ export class LandView {
   readonly renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(30, 1, 0.5, 900);
-  private sun = new THREE.DirectionalLight(0xfff0d8, 2.7);
-  private hemi = new THREE.HemisphereLight(0xdcefff, 0x8a8a6a, 0.9);
+  private sun = new THREE.DirectionalLight(0xffe6c4, 3.05);
+  private hemi = new THREE.HemisphereLight(0xdcefff, 0x6f8a4a, 0.68);
   private sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(40), THREE.MathUtils.degToRad(215));
   private composer: EffectComposer;
   private shadowHalf = 0;
@@ -104,7 +107,9 @@ export class LandView {
   // camera: looks at `target` from a fixed angle; `dist` is the zoom
   target = new THREE.Vector3(MAP / 2, 0, MAP / 2);
   dist = 24;
-  private fly: { from: THREE.Vector3; to: THREE.Vector3; d0: number; d1: number; t: number; dur: number; done?: () => void } | null = null;
+  /** Tapping a ready bubble (the screen collects / harvests that building). */
+  onBubble: ((id: number) => void) | null = null;
+  private fly: { from: THREE.Vector3; to: THREE.Vector3; d0: number; d1: number; t: number; dur: number; done?: () => void; out?: boolean } | null = null;
   /** The Fuzzy the camera is keeping company with (Fuzzies Adventures): the view glides after it until released. */
   private focus: number | null = null;
   private ray = new THREE.Raycaster();
@@ -116,7 +121,7 @@ export class LandView {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // neutral tone mapping keeps our colours saturated (ART.md)
     this.renderer.toneMapping = THREE.NeutralToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = 0.95;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -126,7 +131,7 @@ export class LandView {
     s.shadow.mapSize.set(mobile ? 1536 : 2048, mobile ? 1536 : 2048);
     s.shadow.bias = -0.0005;
     s.shadow.normalBias = 0.025;
-    s.shadow.radius = 4;
+    s.shadow.radius = 2.5;
     this.scene.add(s, s.target, this.hemi);
     this.buildWorld();
 
@@ -671,7 +676,7 @@ export class LandView {
   /** Zoom by a factor, towards the point under the cursor/fingers if given. */
   zoom(f: number, cx?: number, cy?: number): void {
     this.fly = null; this.focus = null;
-    this.zoomGoal = THREE.MathUtils.clamp(this.zoomGoal * f, 9, 56);
+    this.zoomGoal = THREE.MathUtils.clamp(this.zoomGoal * f, 9, 42);
     if (cx !== undefined && cy !== undefined) {
       const g = this.ground(cx, cy);
       this.zoomAnchor = g ? new THREE.Vector3(g.x, 0, g.y) : null;
@@ -691,20 +696,38 @@ export class LandView {
   }
 
   /** Glide the camera to a spot (used for the swoop-in and for zooming into the Crossing Gate). */
-  flyTo(x: number, z: number, dist: number, dur = 1.4, done?: () => void): void {
+  flyTo(x: number, z: number, dist: number, dur = 1.4, done?: () => void, out = false): void {
     this.vel.set(0, 0);
     this.zoomAnchor = null;
-    this.fly = { from: this.target.clone(), to: new THREE.Vector3(x, 0, z), d0: this.dist, d1: dist, t: 0, dur, done };
+    this.fly = { from: this.target.clone(), to: new THREE.Vector3(x, 0, z), d0: this.dist, d1: dist, t: 0, dur, done, out };
   }
 
-  /** Start far above the clouds and swoop down onto the town. */
-  swoopIn(): void {
+  /**
+   * Opening the town. A first visit swoops down from above the clouds onto the main street (an ease-out arc — it moves from the
+   * first frame, no frozen start). Coming back opens straight on your own town where you left it: a short 0.7 s settle in from a
+   * little further out (a view you left very far out is brought in to a comfortable distance).
+   */
+  swoopIn(saved?: { x: number; z: number; d: number } | null): void {
     const c = MAP / 2;
+    if (saved) {
+      const d = THREE.MathUtils.clamp(saved.d, 12, OPEN_MAX);
+      this.target.set(saved.x, 0, saved.z); this.clampTarget(true);
+      this.dist = d * 1.3; this.zoomGoal = this.dist;
+      this.flyTo(this.target.x, this.target.z, d, 0.7, undefined, true);
+      return;
+    }
     this.target.set(c + 3, 0, c + 3);
-    this.dist = 110;
+    this.dist = 90;
     // frames the main street, the Town Hall and the cottages; tall phone screens look a little further up
-    if (this.camera.aspect < 0.8) this.flyTo(c - 1, c - 2, 25, 2.4);
-    else this.flyTo(c - 0.5, c - 1.8, 21, 2.4);
+    if (this.camera.aspect < 0.8) this.flyTo(c - 1, c - 2, 20, 1.9, undefined, true);
+    else this.flyTo(c - 0.5, c - 1.8, 18, 1.9, undefined, true);
+  }
+  /** Without motion: put the camera on the saved view (or the opening view) at once. */
+  placeAt(saved?: { x: number; z: number; d: number } | null): void {
+    const c = MAP / 2;
+    if (saved) { this.target.set(saved.x, 0, saved.z); this.clampTarget(true); this.dist = THREE.MathUtils.clamp(saved.d, 12, OPEN_MAX); }
+    else { const phone = this.camera.aspect < 0.8; this.target.set(phone ? c - 1 : c - 0.5, 0, phone ? c - 2 : c - 1.8); this.dist = phone ? 20 : 18; }
+    this.zoomGoal = this.dist;
   }
 
   // ---------- picking ----------
@@ -913,6 +936,8 @@ export class LandView {
     this.grid.visible = on || !!this.ghost;
   }
   /** Pieces that were just moved or placed back drop onto their spot with a little squash (a satisfying "plop"). */
+  /** A quick happy squash on a building (a harvest, a collect, a replant). */
+  bounce(id: number): void { const b = this.built.get(id); if (b && b.node.userData.grow === undefined && b.node.userData.drop === undefined) b.node.userData.boing = 0; }
   settle(ids: number[]): void {
     for (const id of ids) {
       const b = this.built.get(id);
@@ -924,7 +949,7 @@ export class LandView {
 
   // ---------- seasonal atmosphere (land/events.ts says what's on) ----------
   private season: Season | null = null;
-  private sunBase = new THREE.Color(0xfff0d8);
+  private sunBase = new THREE.Color(0xffe6c4);
   private hemiBase = new THREE.Color(0xdcefff);
   /**
    * Holiday weather: falling leaves, snow, petals, hearts, floating lanterns, sparks or fireflies around the camera, a
@@ -1148,7 +1173,7 @@ export class LandView {
     if (this.fly) {
       const f = this.fly;
       f.t += dt;
-      const k = ease(f.t / f.dur);
+      const k = f.out ? easeOut(f.t / f.dur) : ease(f.t / f.dur);
       this.target.lerpVectors(f.from, f.to, k);
       this.dist = f.d0 + (f.d1 - f.d0) * k;
       this.zoomGoal = this.dist;
@@ -1189,8 +1214,10 @@ export class LandView {
       const n = b.node;
       if (n.userData.grow !== undefined) {
         n.userData.grow += dt;
-        const k = Math.min(1, n.userData.grow / 0.6);
-        n.scale.setScalar(k < 1 ? 1 + Math.sin(k * Math.PI) * 0.18 - (1 - k) * 0.9 : 1);
+        // pops up past full size, lands with a squash, then wobbles to rest (a damped spring)
+        const k = Math.min(1, n.userData.grow / 0.75);
+        if (k < 0.4) { const e = easeOut(k / 0.4) * 1.14; n.scale.set(e * 0.94, e * 1.08, e * 0.94); }
+        else if (k < 1) { const u = (k - 0.4) / 0.6, w = Math.cos(u * Math.PI * 3) * (1 - u) * 0.14; n.scale.set(1 + w * 0.6, 1 + w, 1 + w * 0.6); }
         if (k >= 1) { n.scale.setScalar(1); delete n.userData.grow; this.sparkle(n.position.x, 0.4, n.position.z, 14); }
       }
       if (n.userData.drop !== undefined) {
@@ -1263,10 +1290,18 @@ export class LandView {
       }
       // a little icon bubble over anything ready to collect
       if (badge) {
-        if (!b.bubble) { b.bubble = document.createElement('div'); this.overlay.append(b.bubble); }
+        if (!b.bubble) {
+          // the bubble itself is a big, tappable button: it pops in, squashes when pressed, and collects like a tap on the building
+          const el = document.createElement('div'), inner = document.createElement('span');
+          el.append(inner); this.overlay.append(el); b.bubble = el;
+          const id = p.id;
+          el.addEventListener('pointerdown', (e) => { if (!el.classList.contains('land-timer')) e.stopPropagation(); });
+          el.addEventListener('click', (e) => { if (el.classList.contains('land-timer')) return; e.stopPropagation(); this.onBubble?.(id); });
+        }
         const cls = timer ? 'land-ready land-timer' : 'land-ready';
         if (b.bubble.className !== cls) b.bubble.className = cls;
-        if (b.bubble.textContent !== badge) b.bubble.textContent = badge;
+        const inner = b.bubble.firstElementChild as HTMLElement;
+        if (inner.textContent !== badge) inner.textContent = badge;
         this.toScreen(b.bubble, new THREE.Vector3(n.position.x, p.item === 'field' ? 0.85 : p.doneAt ? 1.6 : 2.1, n.position.z), timer ? 0 : Math.sin(T * 4 + p.id) * 4);
       } else if (b.bubble) { b.bubble.remove(); b.bubble = undefined; }
     }

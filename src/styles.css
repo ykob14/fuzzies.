@@ -876,7 +876,13 @@ a.mission:hover { transform: translateX(3px); }
 .land-nogl { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 24px; color: var(--text); }
 .land-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .land-overlay > * { position: absolute; left: 0; top: 0; will-change: transform; }
-.land-ready { width: 40px; height: 40px; display: grid; place-items: center; font-size: 22px; background: #fff; border-radius: 50% 50% 50% 8px; box-shadow: 0 4px 12px rgba(0,0,0,.22); }
+.land-ready { width: 40px; height: 40px; display: grid; place-items: center; font-size: 22px; pointer-events: none; }
+/* the white bubble is the inner span: it pops in, and (when something is ready) it's a 48 px tap target that squashes when pressed */
+.land-ready > span { display: grid; place-items: center; width: 40px; height: 40px; background: #fff; border-radius: 50% 50% 50% 8px; box-shadow: 0 4px 12px rgba(0,0,0,.22); animation: land-ready-in .32s cubic-bezier(.2,1.6,.4,1) both; transition: transform .12s; }
+.land-ready:not(.land-timer) { pointer-events: auto; cursor: pointer; padding: 4px; margin: -4px; width: 48px; height: 48px; }
+.land-ready:not(.land-timer):active > span { transform: scale(.86); }
+@keyframes land-ready-in { from { transform: scale(0); } 60% { transform: scale(1.18); } to { transform: scale(1); } }
+.land-fly-good { font-size: 26px; line-height: 1; filter: drop-shadow(0 3px 4px rgba(0,0,0,.25)); }
 .land-say { max-width: 190px; padding: 7px 11px; border-radius: 14px; background: #fff; color: #18171c; font: 600 13px/1.25 var(--ui); box-shadow: 0 4px 14px rgba(0,0,0,.18); animation: land-say-in .35s cubic-bezier(.2,.9,.3,1.3); margin-top: -10px; }
 .land-say::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; background: #fff; transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
 @keyframes land-say-in { from { opacity: 0; scale: .6; } }
@@ -933,7 +939,8 @@ a.mission:hover { transform: translateX(3px); }
 .travel-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: travel-dot 1s ease-in-out infinite; }
 .travel-dots span:nth-child(2) { animation-delay: .15s; } .travel-dots span:nth-child(3) { animation-delay: .3s; }
 @keyframes travel-dot { 0%, 100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-6px); opacity: 1; } }
-.land-ready.land-timer { width: auto; height: auto; padding: 4px 10px; border-radius: 999px; font: 700 12.5px var(--ui); color: #18171c; font-variant-numeric: tabular-nums; }
+.land-ready.land-timer { width: auto; height: auto; }
+.land-ready.land-timer > span { width: auto; height: auto; padding: 4px 10px; border-radius: 999px; font: 700 12.5px var(--ui); color: #18171c; font-variant-numeric: tabular-nums; animation: none; }
 .land-away { position: absolute; left: 50%; top: 80px; transform: translateX(-50%); width: min(380px, calc(100% - 24px)); display: grid; gap: 10px; padding: 16px 18px 18px; border-radius: 26px; background: var(--lc); color: var(--link); box-shadow: 0 5px 0 var(--llip), 0 16px 40px rgba(60,40,20,.25); animation: land-sheet-in .45s cubic-bezier(.2,.9,.3,1.2); z-index: 4; }
 .land-away-head { display: flex; gap: 12px; align-items: center; }
 .land-away-head b { font-family: var(--brand); font-size: 18px; display: block; }

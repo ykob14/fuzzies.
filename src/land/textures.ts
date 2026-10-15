@@ -28,8 +28,9 @@ export function shade(hex: string, amt: number): string {
 
 /** Rows of rounded clay roof shingles with a soft shadow under each row. One tile of texture ≈ 0.7 units. */
 export function roofTiles(color: string): THREE.CanvasTexture {
-  return memo('roof2' + color, () => {
-    const S = 256, rows = 6, cols = 6;
+  return memo('roof3' + color, () => {
+    // smaller shingles with more variation read as a real tiled roof from the game's height (big ones looked like wallpaper)
+    const S = 256, rows = 9, cols = 9;
     const [c, x] = canvas(S, S);
     const r = rng(3);
     x.fillStyle = shade(color, -0.3); x.fillRect(0, 0, S, S);
@@ -37,7 +38,7 @@ export function roofTiles(color: string): THREE.CanvasTexture {
     for (let j = 0; j < rows; j++) for (let i = -1; i <= cols; i++) {
       const ox = (j % 2) * tw / 2;
       const px = i * tw + ox, py = j * th;
-      const v = (r() - 0.5) * 0.08;
+      const v = (r() - 0.5) * 0.15;
       const g = x.createLinearGradient(0, py, 0, py + th);
       g.addColorStop(0, shade(color, -0.08 + v)); g.addColorStop(0.55, shade(color, 0.06 + v)); g.addColorStop(1, shade(color, -0.02 + v));
       x.fillStyle = g;
@@ -49,8 +50,8 @@ export function roofTiles(color: string): THREE.CanvasTexture {
     // the shadow each row casts on the one below
     for (let j = 1; j <= rows; j++) {
       const g = x.createLinearGradient(0, j * th - 1, 0, j * th + 7);
-      g.addColorStop(0, 'rgba(0,0,0,0.28)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-      x.fillStyle = g; x.fillRect(0, j * th - 1, S, 8);
+      g.addColorStop(0, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = g; x.fillRect(0, j * th - 1, S, 6);
     }
     return tex(c);
   });

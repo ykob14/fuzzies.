@@ -193,6 +193,34 @@ export function landScreen(): Screen {
   }
   const screenAt = (id: number) => { const p = view?.screenOf(id); return p ? { x: p.x, y: p.y } : null; };
 
+  /**
+   * Harvested crops / workshop goods hop out of the building, bounce once, then stream into the Barn button, which pulses and
+   * fills (DOM animation — nothing for the 3D scene to draw). Several buildings at once ripple one after another.
+   */
+  function burstGoods(goods: string[], at: number, delay = 0): void {
+    const from = screenAt(at);
+    if (!from || !goods.length || a.settings.reduceMotion) return;
+    const to = tools.querySelector('.land-dock-btn.is-barn .land-dock-ic') as HTMLElement | null ?? dockTab;
+    const r = to.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const visible = r.width > 0 && r.bottom > sr.top && r.top < sr.bottom;
+    const tx = (visible ? r.left + r.width / 2 : sr.left + sr.width / 2) - sr.left, ty = (visible ? r.top + r.height / 2 : sr.bottom - 40) - sr.top;
+    goods.slice(0, 6).forEach((gid, i) => {
+      const el = h('span', { class: 'land-fly land-fly-good' }, L.good(gid).emoji);
+      stage.append(el);
+      const sx = from.x + (i - (Math.min(6, goods.length) - 1) / 2) * 18, sy = from.y;
+      const hopY = sy - 46 - Math.random() * 18;
+      const anim = el.animate([
+        { transform: `translate(${from.x}px, ${from.y}px) scale(.3)`, opacity: 0 },
+        { transform: `translate(${sx}px, ${hopY}px) scale(1.25)`, opacity: 1, offset: 0.2 },
+        { transform: `translate(${sx}px, ${sy - 8}px) scale(1, .85)`, opacity: 1, offset: 0.32 },
+        { transform: `translate(${sx}px, ${sy - 14}px) scale(1)`, opacity: 1, offset: 0.42 },
+        { transform: `translate(${(sx + tx) / 2}px, ${Math.min(sy, ty) - 70}px) scale(1.05)`, opacity: 1, offset: 0.7 },
+        { transform: `translate(${tx}px, ${ty}px) scale(.55)`, opacity: 0.85 },
+      ], { duration: 1050, easing: 'cubic-bezier(.4,0,.3,1)', delay: delay + i * 55 });
+      anim.onfinish = () => { el.remove(); if (visible) { to.classList.remove('land-hit'); void to.offsetWidth; to.classList.add('land-hit'); } };
+    });
+  }
+
   function gain(g: L.Gain, at: number, label?: string): void {
     if (label) view?.float(label, at);
     if (g.coins) burst('coin', screenAt(at), Math.ceil(g.coins / 8));
@@ -277,6 +305,7 @@ export function landScreen(): Screen {
     const fill = Math.min(1, L.barnUsed(s) / L.barnCap(s.level));
     tools.replaceChildren(...[
       waiting ? tool('collect', 'basket', 'Collect', collectAllNow, waiting) : null,
+      replantN() ? tool('replant', 'wheat', 'Replant', replantNow, replantN()) : null,
       tool('build', 'build', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
       E.activeEvents(now()).length ? tool('events', 'festival', E.activeEvents(now())[0].holiday.short, () => openPanel({ kind: 'events', tab: E.activeEvents(now())[0].key }), E.claimable(s, now())) : null,
       tool('orders', 'parcel', 'Orders', () => openPanel({ kind: 'orders' }), ready),
@@ -284,6 +313,19 @@ export function landScreen(): Screen {
     dockTab.classList.toggle('alert', waiting > 0 || ready > 0);
   }
   const badges = new Map<string, number>();
+
+  /** Empty fields that remember their crop (what the Replant button would sow). */
+  const replantN = () => L.replantable(s).ids.length;
+  /** Sow every empty field again with what grew there last, in one tap (as far as the coins go). */
+  function replantNow(): void {
+    const r = L.replantAll(s);
+    if (!r.planted.length) { toast('Not enough coins for seeds.', 'info'); return; }
+    sfx.plant();
+    r.planted.forEach((id, i) => setTimeout(() => { if (!alive) return; view?.bounce(id); const f = s.buildings.find((b) => b.id === id); if (f?.crop) view?.float(L.good(f.crop.good).emoji, id); }, i * 70));
+    if (r.left) toast(`Planted ${r.planted.length} — not enough coins for the other ${r.left}.`, 'info');
+    save();
+    tut.emit('plant');
+  }
 
   /** Harvest, collect and open everything that's ready, in one tap. */
   function collectAllNow(): void {
@@ -295,7 +337,11 @@ export function landScreen(): Screen {
     if (!parts.length && !r.built.length) { if (r.full) toast('Your barn is full — fill some orders first.', 'info'); return; }
     sfx.collect();
     const hall = s.buildings.find((b) => b.item === 'hall');
-    gain({ xp: r.xp, levelUps: r.levelUps }, hall?.id ?? 0, parts.join(' ') || '✨');
+    // a ripple across the town, left to right: each building bounces and sends its goods to the barn
+    const order = r.each.map((e) => ({ ...e, x: screenAt(e.id)?.x ?? 0 })).sort((p, q) => p.x - q.x);
+    order.slice(0, 12).forEach((e, i) => setTimeout(() => { if (!alive) return; view?.bounce(e.id); if (e.goods.length) { view?.float(e.goods.map((g) => L.good(g).emoji).slice(0, 3).join(''), e.id); burstGoods(e.goods, e.id); } }, i * 75));
+    if (order.length > 12 && hall) setTimeout(() => alive && burstGoods(order.slice(12).flatMap((e) => e.goods), hall.id), 12 * 75);
+    gain({ xp: r.xp, levelUps: r.levelUps }, hall?.id ?? 0, order.length ? undefined : (parts.join(' ') || '✨'));
     for (const it of r.built) toast(`${L.item(it).emoji} ${L.item(it).name} is ready!`, 'good');
     if (r.full) toast('Your barn is full — a few things are still waiting.', 'info');
     save();
@@ -683,6 +729,7 @@ export function landScreen(): Screen {
         if (drop) setTimeout(() => toast(`+1 ${drop.event.holiday.short} token 🎟️`, 'good'), 700);
         sfx.collect();
         gain(g, id, `+${g.n} ${L.good(g.good).emoji}`);
+        view?.bounce(id); burstGoods(Array(g.n).fill(g.good), id);
         save();
         if (panel?.kind === 'building' && panel.id === id) openPanel(null);
         tut.emit('harvest');
@@ -692,6 +739,7 @@ export function landScreen(): Screen {
         const g = L.collect(s, id);
         sfx.collect();
         gain(g, id, g.goods.map((x) => L.good(x).emoji).join(' '));
+        view?.bounce(id); burstGoods(g.goods, id);
         save();
         if (panel?.kind === 'building') renderPanel();
         tut.emit('collect');
@@ -1998,6 +2046,8 @@ export function landScreen(): Screen {
     void import('../../land/view3d').then(({ LandView }) => {
       if (!alive) return;
       view = new LandView(canvas, overlay, isTouch(), phrase);
+      // a tap on a ready bubble = a tap on its building (bigger, easier target than the building itself)
+      view.onBubble = (id) => { if (!placing && !selMode && !talk && !playing) tapBuilding(id); };
       view.sync(s);
       applySeason();
       paintDaily();
@@ -2006,12 +2056,11 @@ export function landScreen(): Screen {
       void syncMissions();
       // the owner's 3D Fuzzy model: swapped in once it has loaded (off in Settings → Deluxe 3D Fuzzies)
       if (accounts.current?.settings.fuzzyLook !== 'classic') void import('../../game/fuzzyGlb').then((m) => m.loadFuzzyGlb()).then((g) => { if (g && alive && view) view.useDeluxe(true); });
-      try {
-        const cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null') as { x: number; z: number; d: number } | null;
-        if (cam) { view.target.set(cam.x, 0, cam.z); view.dist = cam.d; }
-      } catch { /* first visit */ }
+      // where you left the camera last time (none on a first visit): the town opens right there
+      let cam: { x: number; z: number; d: number } | null = null;
+      try { cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null'); if (!cam || !Number.isFinite(cam.x) || !Number.isFinite(cam.z) || !Number.isFinite(cam.d)) cam = null; } catch { cam = null; }
       if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), openShop: (tab: 'decor') => openPanel({ kind: 'shop', tab }), trophies: TR, adv: A, openParking, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, devSet, syncMissions, setStatus: () => A.setStatus(s, now()), talking: () => !!talk, playing: () => playing }; // for tests
-      if (!a.settings.reduceMotion) view.swoopIn();
+      if (a.settings.reduceMotion) view.placeAt(cam); else view.swoopIn(cam);
       setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
       setTimeout(() => { if (alive) startTutorial(); }, a.settings.reduceMotion ? 300 : 2200);

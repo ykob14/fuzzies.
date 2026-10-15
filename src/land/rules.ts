@@ -35,6 +35,8 @@ export interface Placed {
   id: number; item: string; x: number; z: number; rot: Rot;
   /** fields: what's growing and when it was planted */
   crop?: { good: string; at: number };
+  /** fields: the last crop planted here (so "Replant" can sow it again in one tap) */
+  last?: string;
   /** workshops: goods being made, in order; each has its own finish time */
   queue?: { good: string; end: number }[];
   builtAt: number;
@@ -462,6 +464,29 @@ export function plant(s: LandState, id: number, goodId: string, now = Date.now()
   if (s.coins < (g.seed ?? 0)) throw new Error('Not enough coins for seeds.');
   s.coins -= g.seed ?? 0;
   f.crop = { good: goodId, at: now };
+  f.last = goodId;
+}
+
+/** Empty, finished fields that remember a crop you can still grow (level) — what "Replant" would sow, and what the seeds cost. */
+export function replantable(s: LandState): { ids: number[]; cost: number } {
+  const ids: number[] = []; let cost = 0;
+  for (const b of s.buildings) {
+    if (b.crop || b.doneAt || !b.last || item(b.item).kind !== 'field') continue;
+    const g = GOODS.find((x) => x.id === b.last);
+    if (!g || g.at !== 'field' || s.level < g.level) continue;
+    ids.push(b.id); cost += g.seed ?? 0;
+  }
+  return { ids, cost };
+}
+/** Sow every empty field with its last crop, as far as the coins go. Returns the fields planted and the fields left (no coins). */
+export function replantAll(s: LandState, now = Date.now()): { planted: number[]; left: number } {
+  const { ids } = replantable(s);
+  const planted: number[] = [];
+  for (const id of ids) {
+    const f = s.buildings.find((o) => o.id === id)!;
+    try { plant(s, id, f.last!, now); planted.push(id); } catch { /* not enough coins */ }
+  }
+  return { planted, left: ids.length - planted.length };
 }
 
 export function harvest(s: LandState, id: number, now = Date.now()): Gain & { good: string; n: number } {
@@ -471,6 +496,7 @@ export function harvest(s: LandState, id: number, now = Date.now()): Gain & { go
   const n = g.yield ?? 2;
   if (barnUsed(s) + n > barnCap(s.level)) throw new Error('Your barn is full — fill some orders first.');
   s.barn[g.id] = (s.barn[g.id] ?? 0) + n;
+  f.last = g.id; // fields planted before "Replant" existed learn their crop on the first harvest
   f.crop = undefined;
   s.stats.harvests++;
   return { good: g.id, n, xp: g.xp, levelUps: addXp(s, g.xp) };
@@ -626,17 +652,19 @@ export function awaySummary(s: LandState, now = Date.now()): Away {
 }
 
 /** Harvest every ripe field, collect every workshop and open every finished building (as far as the barn allows). */
-export function collectAll(s: LandState, now = Date.now()): Gain & { got: Record<string, number>; built: string[]; full: boolean } {
+export function collectAll(s: LandState, now = Date.now()): Gain & { got: Record<string, number>; built: string[]; full: boolean; each: { id: number; goods: string[]; built?: boolean }[] } {
   const got: Record<string, number> = {};
   const built: string[] = [];
+  /** what each building gave, in town order (the screen ripples its effects across the town) */
+  const each: { id: number; goods: string[]; built?: boolean }[] = [];
   let xp = 0, full = false;
   const ups: number[] = [];
   for (const b of s.buildings) {
     try {
-      if (b.doneAt && b.doneAt <= now) { const g = finishBuild(s, b.id, now); xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); built.push(b.item); }
-      if (b.crop && cropProgress(b, now) >= 1) { const g = harvest(s, b.id, now); got[g.good] = (got[g.good] ?? 0) + g.n; xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); }
-      if (finished(b, now).length) { const g = collect(s, b.id, now); for (const k of g.goods) got[k] = (got[k] ?? 0) + 1; xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); }
+      if (b.doneAt && b.doneAt <= now) { const g = finishBuild(s, b.id, now); xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); built.push(b.item); each.push({ id: b.id, goods: [], built: true }); }
+      if (b.crop && cropProgress(b, now) >= 1) { const g = harvest(s, b.id, now); got[g.good] = (got[g.good] ?? 0) + g.n; xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); each.push({ id: b.id, goods: Array(g.n).fill(g.good) }); }
+      if (finished(b, now).length) { const g = collect(s, b.id, now); for (const k of g.goods) got[k] = (got[k] ?? 0) + 1; xp += g.xp ?? 0; ups.push(...(g.levelUps ?? [])); each.push({ id: b.id, goods: g.goods }); }
     } catch { full = true; }
   }
-  return { got, built, xp, levelUps: ups, full };
+  return { got, built, xp, levelUps: ups, full, each };
 }

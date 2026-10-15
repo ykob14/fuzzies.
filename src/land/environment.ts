@@ -14,7 +14,7 @@ export const CENTER = MAP / 2;
 export const PALETTE = {
   grass: '#79bd55', grassLight: '#a6d97a', grassShade: '#5c9c45',
   sand: '#f3dca2', cliff: '#c9a77e', rock: '#8e7a66',
-  shallow: '#7fe6dd', mid: '#2fbad0', deep: '#1b7fae',
+  shallow: '#7fe6dd', mid: '#2fbad0', deep: '#16709f',
   skyTop: '#64b9f2', horizon: '#d9f1ff',
   bark: '#8a5a3a', leafLight: '#9fdc6a', leaf: '#5cb547', leafDark: '#2f7d3a', pine: '#2e8a5a', pineLight: '#57b37a',
 };
@@ -157,14 +157,19 @@ export function buildWater(time: { value: number }): THREE.Mesh {
         float n = noise(vW.xz * 0.45 + vec2(t * 0.12, t * 0.07)) * 0.6 + noise(vW.xz * 1.3 - vec2(t * 0.18, -t * 0.1)) * 0.4;
         vec3 c = mix(uDeep, uMid, smoothstep(0.0, 0.45, wide));
         c = mix(c, uShallow, smoothstep(0.45, 0.95, wide));
-        // soft wave highlights
-        c += vec3(0.10, 0.14, 0.14) * smoothstep(0.62, 0.9, n);
+        // how far the camera is: small detail (highlights, glints) fades out when seen from far away, so the sea never turns to static
+        float far = smoothstep(16.0, 34.0, distance(cameraPosition, vW));
+        // soft wave highlights: broad, warped bands rather than speckle
+        float nb = noise(vW.xz * 0.18 + vec2(n * 1.6, t * 0.05));
+        c += vec3(0.07, 0.10, 0.10) * smoothstep(0.55, 0.85, mix(n, nb, 0.6)) * (1.0 - far * 0.6);
+        // slow cloud shadows drifting over the water sell the scale
+        c *= mix(0.86, 1.0, smoothstep(0.32, 0.62, noise(vW.xz * 0.035 + vec2(t * 0.012, t * 0.006))));
         // foam: a bright line on the beach plus soft bands washing in
         float band = sin(wide * 26.0 - t * 1.5 + n * 3.0) * 0.5 + 0.5;
         float foam = smoothstep(0.55, 0.85, tight) + smoothstep(0.82, 1.0, band) * smoothstep(0.5, 0.92, wide) * 0.55;
         c = mix(c, vec3(1.0), clamp(foam, 0.0, 1.0) * 0.85);
         // little sun glints
-        c += vec3(1.0) * smoothstep(0.93, 0.99, noise(vW.xz * 2.4 + t * 0.4)) * 0.35 * (1.0 - wide);
+        c += vec3(1.0) * smoothstep(0.93, 0.99, noise(vW.xz * 2.4 + t * 0.4)) * 0.3 * (1.0 - wide) * (1.0 - far);
         // fade into the haze far away
         float d = length(vW.xz - uOrigin);
         c = mix(c, uHorizon, smoothstep(55.0, 120.0, d));
