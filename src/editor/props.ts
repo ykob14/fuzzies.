@@ -115,27 +115,55 @@ export function buildProps(ed: Editor): Props {
   }
 
   // ---------- text ----------
+  const FONT_KEY = 'fz.ed.fonts';
+  const recentFonts = (): string[] => { try { const v = JSON.parse(localStorage.getItem(FONT_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, 6) : []; } catch { return []; } };
+  const rememberFont = (f: string) => { try { localStorage.setItem(FONT_KEY, JSON.stringify([f, ...recentFonts().filter((x) => x !== f)].slice(0, 6))); } catch { /* private mode */ } };
+
   function fontPicker(e: TextEl): HTMLElement {
     const b = h('button', { type: 'button', class: 'font-btn', style: `font-family:"${e.font}"` }, h('span', null, e.font), icon('down', 16));
     b.addEventListener('click', () => {
       document.querySelector('.font-pop')?.remove();
       const pop = h('div', { class: 'font-pop popmenu' });
+      // a search box and your recent fonts on top (68 fonts in one long list was hard to use)
+      const find = h('input', { class: 'input input-sm font-find', type: 'search', placeholder: 'Search fonts', 'aria-label': 'Search fonts', autocomplete: 'off' });
+      find.addEventListener('keydown', (ev) => ev.stopPropagation());
+      const list = h('div', { class: 'font-list' });
+      pop.append(find, list);
+      const item = (f: string, pack: (typeof FONT_PACKS)[number]) => {
+        const locked = !rewards.isUnlocked(pack.id, pack.cost);
+        ensureFont(f, 400, false);
+        const it = h('button', { type: 'button', class: `popmenu-item font-item ${f === e.font ? 'on' : ''} ${locked ? 'locked' : ''}`, style: `font-family:"${f}"`, 'data-font': f.toLowerCase() }, f, locked ? icon('lock', 14) : null);
+        it.addEventListener('click', () => {
+          pop.remove();
+          if (locked) { unlockDialog({ id: pack.id, name: `${pack.name} fonts`, cost: pack.cost, kind: `Font pack · ${pack.fonts.join(', ')}`, preview: h('div', { class: 'unlock-font', style: `font-family:"${pack.fonts[0]}"` }, 'Aa Bb Cc') }, render); return; }
+          for (const t of ed.selected) if (t.type === 'text') { t.font = f; fitText(t); }
+          ensureFont(f, e.weight, e.italic);
+          rememberFont(f);
+          done(); render();
+        });
+        return it;
+      };
+      const packOf = (f: string) => FONT_PACKS.find((p) => p.fonts.includes(f));
+      const recent = recentFonts().filter((f) => packOf(f));
+      if (recent.length) list.append(h('div', { class: 'pnl-label font-sec' }, 'Recently used'), ...recent.map((f) => item(f, packOf(f)!)));
       for (const pack of FONT_PACKS) {
         const locked = !rewards.isUnlocked(pack.id, pack.cost);
-        pop.append(h('div', { class: 'pnl-label' }, pack.name, locked ? h('span', { class: 'lock-badge' }, fuzzyMark(14), String(pack.cost)) : null));
-        for (const f of pack.fonts) {
-          ensureFont(f, 400, false);
-          const it = h('button', { type: 'button', class: `popmenu-item font-item ${f === e.font ? 'on' : ''} ${locked ? 'locked' : ''}`, style: `font-family:"${f}"` }, f, locked ? icon('lock', 14) : null);
-          it.addEventListener('click', () => {
-            pop.remove();
-            if (locked) { unlockDialog({ id: pack.id, name: `${pack.name} fonts`, cost: pack.cost, kind: `Font pack · ${pack.fonts.join(', ')}`, preview: h('div', { class: 'unlock-font', style: `font-family:"${pack.fonts[0]}"` }, 'Aa Bb Cc') }, render); return; }
-            for (const t of ed.selected) if (t.type === 'text') { t.font = f; fitText(t); }
-            ensureFont(f, e.weight, e.italic);
-            done(); render();
-          });
-          pop.append(it);
-        }
+        list.append(h('div', { class: 'pnl-label font-sec' }, pack.name, locked ? h('span', { class: 'lock-badge' }, fuzzyMark(14), String(pack.cost)) : null), ...pack.fonts.map((f) => item(f, pack)));
       }
+      const none = h('p', { class: 'muted font-none', hidden: 'true' }, 'No font by that name.');
+      list.append(none);
+      find.addEventListener('input', () => {
+        const q = find.value.trim().toLowerCase();
+        let any = false;
+        for (const it of list.querySelectorAll<HTMLElement>('.font-item')) { const show = !q || it.dataset.font!.includes(q); it.hidden = !show; any ||= show; }
+        // a heading shows only while one of its fonts does
+        for (const head of list.querySelectorAll<HTMLElement>('.font-sec')) {
+          let n = head.nextElementSibling as HTMLElement | null, vis = false;
+          while (n && !n.classList.contains('font-sec') && !n.classList.contains('font-none')) { vis ||= !n.hidden; n = n.nextElementSibling as HTMLElement | null; }
+          head.hidden = !!q && !vis;
+        }
+        none.hidden = any;
+      });
       document.body.append(pop);
       const r = b.getBoundingClientRect();
       const ph = Math.min(420, innerHeight - 24);
@@ -143,6 +171,7 @@ export function buildProps(ed: Editor): Props {
       pop.style.left = `${Math.min(r.left, innerWidth - pop.offsetWidth - 8)}px`;
       pop.style.top = `${Math.max(8, Math.min(r.bottom + 6, innerHeight - ph - 12))}px`;
       pop.querySelector('.on')?.scrollIntoView({ block: 'center' });
+      if (matchMedia('(hover: hover)').matches) find.focus({ preventScroll: true }); // no keyboard pop-up on phones
       const off = (ev: Event) => { if (!pop.contains(ev.target as Node)) { pop.remove(); removeEventListener('pointerdown', off, true); } };
       setTimeout(() => addEventListener('pointerdown', off, true));
     });
@@ -401,6 +430,7 @@ export function buildProps(ed: Editor): Props {
     { label: 'Align top', icon: 'alignT', onClick: () => ed.align('top') },
     { label: 'Align middle', icon: 'alignM', onClick: () => ed.align('middle') },
     { label: 'Align bottom', icon: 'alignB', onClick: () => ed.align('bottom') },
+    ...(ed.selected.length > 2 ? [null, { label: 'Space evenly across', icon: 'alignC' as IconName, onClick: () => ed.distribute('x') }, { label: 'Space evenly down', icon: 'alignM' as IconName, onClick: () => ed.distribute('y') }] : []),
     null,
     { label: 'Bring to front', icon: 'front', onClick: () => ed.reorder('front') },
     { label: 'Bring forward', icon: 'up', onClick: () => ed.reorder('up') },
@@ -426,12 +456,12 @@ export function buildProps(ed: Editor): Props {
     const font = fontPicker(e);
     font.classList.add('tb-font');
     return [
-      font, sizeControl(e), color(e.fill, (f) => (e.fill = f), { gradient: true, title: 'Text colour' }), sep(),
-      tb({ text: 'B', cls: 'tb-bold', title: 'Bold', on: e.weight >= 700, onClick: () => { set((t) => (t.weight = t.weight >= 700 ? 400 : 700)); ensureFont(e.font, e.weight, e.italic); } }),
-      tb({ text: 'I', title: 'Italic', on: e.italic, cls: 'tb-italic', onClick: () => { set((t) => (t.italic = !t.italic)); ensureFont(e.font, e.weight, e.italic); } }),
-      tb({ text: 'U', title: 'Underline', on: e.underline, cls: 'tb-under', onClick: () => set((t) => (t.underline = !t.underline)) }),
-      tb({ text: 'aA', title: 'Uppercase', on: e.uppercase, onClick: () => set((t) => (t.uppercase = !t.uppercase)) }),
-      tb({ icon: e.align === 'left' ? 'alignL' : e.align === 'center' ? 'alignC' : 'alignR', title: `Text alignment: ${e.align}`, onClick: () => set((t) => (t.align = nextAlign[e.align])) }),
+      font, sizeControl(e), color(e.fill, (f) => { for (const t of ed.selected) if (t.type === 'text') t.fill = f; }, { gradient: true, title: 'Text colour' }), sep(),
+      tb({ text: 'B', cls: 'tb-bold', title: 'Bold', on: e.weight >= 700, onClick: () => { const on = e.weight < 700; set((t) => (t.weight = on ? 700 : 400)); ensureFont(e.font, e.weight, e.italic); } }),
+      tb({ text: 'I', title: 'Italic', on: e.italic, cls: 'tb-italic', onClick: () => { const on = !e.italic; set((t) => (t.italic = on)); ensureFont(e.font, e.weight, e.italic); } }),
+      tb({ text: 'U', title: 'Underline', on: e.underline, cls: 'tb-under', onClick: () => { const on = !e.underline; set((t) => (t.underline = on)); } }),
+      tb({ text: 'aA', title: 'Uppercase', on: e.uppercase, onClick: () => { const on = !e.uppercase; set((t) => (t.uppercase = on)); } }),
+      tb({ icon: e.align === 'left' ? 'alignL' : e.align === 'center' ? 'alignC' : 'alignR', title: `Text alignment: ${e.align}`, onClick: () => { const a = nextAlign[e.align]; set((t) => (t.align = a)); } }),
       tb({ icon: 'sparkles', text: 'Effects', title: 'Shadow, neon, hollow, echo, curve…', on: currentFx(e) !== 'none' || !!e.curve, onClick: () => open() }),
     ];
   }
@@ -451,6 +481,8 @@ export function buildProps(ed: Editor): Props {
         tb({ icon: 'crop', text: 'Resize', title: 'Change the design size', onClick: () => open() }),
         tb({ icon: 'plus', text: 'Add page', title: 'Add a page', onClick: () => ed.addPage() }));
     } else if (sel.length > 1) {
+      // several text boxes: the same font / size / colour / style tools apply to all of them
+      if (sel.every((x) => x.type === 'text')) items.push(...textTools(sel[0] as TextEl).filter((n) => !(n instanceof HTMLElement && n.title.startsWith('Shadow, neon'))), sep());
       items.push(label(`${sel.length} items`),
         ed.canGroup ? tb({ icon: 'group', text: 'Group', title: 'Group (Ctrl+G)', onClick: () => ed.group() }) : ed.canUngroup ? tb({ icon: 'grid', text: 'Ungroup', title: 'Ungroup (Ctrl+Shift+G)', onClick: () => ed.ungroup() }) : null,
         sep(), tb({ icon: 'layers', text: 'Position', title: 'Align and arrange', onClick: (b) => positionMenu(b, null) }), transparency(sel));
@@ -463,7 +495,8 @@ export function buildProps(ed: Editor): Props {
           lineish ? null : color(e.stroke, (f) => { e.stroke = firstColor(f); if (!e.strokeWidth) e.strokeWidth = Math.max(2, Math.round(Math.min(e.w, e.h) * 0.03)); }, { title: 'Border colour' }));
       }
       if (e.type === 'image' && isSticker(e)) items.push(label('Sticker'), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters and adjustments', onClick: () => open() }));
-      else if (e.type === 'image') items.push(label('Photo'), tb({ icon: 'upload', text: e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', title: 'Pick a picture from your computer or phone', onClick: () => ed.pickPhotoFor(e) }), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
+      else if (e.type === 'image' && ed.cropping === e.id) items.push(label('Cropping'), h('span', { class: 'tb-hint' }, 'Drag the photo to move it · scroll to zoom'), tb({ icon: 'check', text: 'Done', title: 'Finish cropping (Enter)', on: true, onClick: () => ed.endCrop() }));
+      else if (e.type === 'image') items.push(label('Photo'), ...(e.asset.startsWith('ph-') ? [] : [tb({ icon: 'crop', text: 'Crop', title: 'Move and zoom the photo inside its frame (or double-click it)', onClick: () => ed.startCrop(e) })]), tb({ icon: 'upload', text: e.asset.startsWith('ph-') ? 'Add your photo' : 'Replace photo', title: 'Pick a picture from your computer or phone', onClick: () => ed.pickPhotoFor(e) }), tb({ icon: 'wand', text: 'Filters & adjust', title: 'Filters, adjustments and crop', onClick: () => open() }), tb({ icon: 'image', text: 'Set as background', title: 'Use this photo as the page background', onClick: () => ed.imageToBackground(e) }));
       if (e.type === 'graphic') { const a = artById(e.art); items.push(label('Graphic'), tb({ icon: 'image', text: 'Replace', title: 'Swap this artwork for another', onClick: () => open() }), ...(a?.colors ?? []).map((_, i) => color(e.colors[i] ?? a!.colors[i], (f) => { e.colors = [...e.colors]; e.colors[i] = firstColor(f); }, { title: `Colour ${i + 1}` }))); }
       if (e.type === 'qr') items.push(label('QR code'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Squares' }), color(e.bg, (f) => (e.bg = firstColor(f)), { allowNone: true, title: 'Background' }), tb({ icon: 'edit', text: 'Link', title: 'Change the link', onClick: () => open() }));
       if (e.type === 'draw') items.push(label('Drawing'), color(e.color, (f) => (e.color = firstColor(f)), { title: 'Stroke colour' }));

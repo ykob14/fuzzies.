@@ -4,7 +4,7 @@
  * panels.ts and props.ts and talk to this class.
  */
 import type { Design, El, Fill, ImageEl, Page, TextEl } from './types';
-import { drawBackground, drawElement, drawStroke, fitText, fontString, onAssetsLoaded, renderPage, thumbnail } from './render';
+import { drawBackground, drawElement, drawStroke, fitText, fontString, getImage, onAssetsLoaded, renderPage, thumbnail } from './render';
 import { cloneEls, makeDraw, makeEmoji, makeGraphic, makeImage, makeShape, makeText, newPage, makeQr, isSticker } from './doc';
 import { firstColor, closePicker } from './colors';
 import { buildPanels, type Panels } from './panels';
@@ -26,7 +26,7 @@ interface Box { x: number; y: number; w: number; h: number }
 const VIEW_KEY = 'fz.ed.view';
 
 interface Drag {
-  kind: 'move' | 'resize' | 'rotate' | 'marquee' | 'pan' | 'draw' | 'erase';
+  kind: 'move' | 'resize' | 'rotate' | 'marquee' | 'pan' | 'draw' | 'erase' | 'crop';
   id: number;
   sx: number; sy: number; // screen start (CSS px, canvas-relative)
   px: number; py: number; // design start
@@ -40,6 +40,10 @@ interface Drag {
   startSel?: string[];
   /** Clicking an already-selected group without dragging drills in to this single member. */
   single?: string;
+  /** Alt/Option-drag: copy the selection on the first movement and drag the copies (the originals stay). */
+  dup?: boolean;
+  /** A marquee that began on a locked item: a click without dragging still selects that item. */
+  tapSelect?: string;
   /** A tap (no drag) on this photo opens the picture picker: an empty template frame, or a double-tap on a photo. */
   pickPhoto?: string;
 }
@@ -109,6 +113,9 @@ export class Editor {
   private lastTap = { t: 0, id: '' };
   /** Set by a tap on a photo frame; the canvas `click` that follows opens the picker (phones only allow it from a real tap). */
   private pickOnClick: { id: string; t: number } | null = null;
+  /** The photo being cropped in place (double-click a photo): drag moves the picture inside its frame, the wheel zooms it. */
+  cropping: string | null = null;
+  private cropCommit = 0;
   panels!: Panels;
   props!: Props;
   readonly save: ReturnType<typeof debounce<[]>>;
@@ -396,7 +403,7 @@ export class Editor {
   /** Handle positions in screen space for the current selection. */
   private handles(): { h: Handle; x: number; y: number }[] {
     const sel = this.selected;
-    if (!sel.length || this.editingText) return [];
+    if (!sel.length || this.editingText || this.cropping) return [];
     if (sel.length === 1) {
       const el = sel[0];
       if (el.locked) return [];
@@ -419,7 +426,7 @@ export class Editor {
     const b = this.aabb(sel.filter((e) => !e.locked));
     if (!b) return [];
     const [x0, y0] = this.toScreen(b.x, b.y), [x1, y1] = this.toScreen(b.x + b.w, b.y + b.h);
-    return [{ h: 'nw', x: x0, y: y0 }, { h: 'ne', x: x1, y: y0 }, { h: 'se', x: x1, y: y1 }, { h: 'sw', x: x0, y: y1 }];
+    return [{ h: 'nw', x: x0, y: y0 }, { h: 'ne', x: x1, y: y0 }, { h: 'se', x: x1, y: y1 }, { h: 'sw', x: x0, y: y1 }, { h: 'rot', x: (x0 + x1) / 2, y: y1 + 30 }];
   }
 
   // ---------- rendering ----------
@@ -485,6 +492,8 @@ export class Editor {
     }
 
     if (this.view.grid) this.drawGrid();
+    const cropEl = this.cropping ? this.byId(this.cropping) : null;
+    if (cropEl?.type === 'image') this.drawCropGhost(cropEl);
 
     // live pen stroke
     const d = this.drag;
@@ -675,7 +684,7 @@ export class Editor {
   private layerCache: { key: string; below: HTMLCanvasElement; above: HTMLCanvasElement } | null = null;
   private dragLayers(sel: El[]): { below: HTMLCanvasElement; above: HTMLCanvasElement } | null {
     const d = this.drag;
-    if (!d || !d.moved || !(d.kind === 'move' || d.kind === 'resize' || d.kind === 'rotate') || !sel.length || this.editingText) { this.layerCache = null; return null; }
+    if (!d || !d.moved || !(d.kind === 'move' || d.kind === 'resize' || d.kind === 'rotate' || d.kind === 'crop') || !sel.length || this.editingText) { this.layerCache = null; return null; }
     const els = this.page.elements;
     const idx = sel.map((e) => els.indexOf(e)).sort((a, b) => a - b);
     if (idx[0] < 0 || idx[idx.length - 1] - idx[0] !== idx.length - 1) return null;
@@ -699,6 +708,7 @@ export class Editor {
   // ---------- selection ----------
   select(ids: string[]): void {
     if (this.editingText && !ids.includes(this.editingText.el.id)) this.finishTextEdit();
+    if (this.cropping && !(ids.length === 1 && ids[0] === this.cropping)) this.cropping = null;
     this.selection = ids;
     this.emit('select');
     this.buildCtxBar();
@@ -717,6 +727,12 @@ export class Editor {
     };
     const single = sel.length === 1 ? sel[0] : null;
     const items: HTMLElement[] = [];
+    if (this.cropping && single?.type === 'image') {
+      items.push(b('check', 'Done cropping (Enter)', () => this.endCrop()), b('upload', 'Replace photo', () => this.pickPhotoFor(single)));
+      this.ctxBar.replaceChildren(...items);
+      this.positionCtxBar();
+      return;
+    }
     items.push(b('edit', 'Edit', () => this.props.open(), 'ctx-edit'));
     if (single?.type === 'text') items.push(b('text', 'Edit text', () => this.editText(single)));
     if (single?.type === 'image' && !single.locked && !isSticker(single)) items.push(b('upload', isEmptyFrame(single) ? 'Add your photo' : 'Replace photo', () => this.pickPhotoFor(single)));
@@ -779,7 +795,7 @@ export class Editor {
       const p = this.toDesign(e.clientX, e.clientY);
       const el = this.hitEl(p.x, p.y);
       if (el?.type === 'text' && !el.locked) this.editText(el);
-      else if (el?.type === 'image' && !el.locked) { if (!isEmptyFrame(el) && !isSticker(el)) this.pickPhotoFor(el); } // an empty frame already opened it on the first click
+      else if (el?.type === 'image' && !el.locked) { if (!isEmptyFrame(el) && !isSticker(el)) this.startCrop(el); } // an empty frame already opened its picker on the first click
       else if (el) this.props.open();
     });
     c.addEventListener('click', () => {
@@ -792,6 +808,16 @@ export class Editor {
       e.preventDefault();
       const p = this.toDesign(e.clientX, e.clientY);
       this.markGesture();
+      const crop = this.cropping ? this.byId(this.cropping) : null;
+      if (crop?.type === 'image' && !(e.ctrlKey || e.metaKey)) {
+        // cropping: the wheel zooms the picture inside its frame
+        const dz = Math.max(-60, Math.min(60, e.deltaMode ? Math.sign(e.deltaY) * 60 : e.deltaY));
+        crop.zoom = clamp(crop.zoom * Math.exp(-dz * 0.004), 1, 4);
+        this.requestRender();
+        clearTimeout(this.cropCommit);
+        this.cropCommit = window.setTimeout(() => this.commit(), 400);
+        return;
+      }
       if (e.ctrlKey || e.metaKey) {
         // a mouse notch (~100) is about ×1.4, a trackpad pinch (small deltas) stays smooth; lines/pages count as a notch
         const d = Math.max(-60, Math.min(60, e.deltaMode ? Math.sign(e.deltaY) * 60 : e.deltaY));
@@ -847,6 +873,17 @@ export class Editor {
       return;
     }
 
+    // cropping: a drag on the photo moves the picture inside its frame; anywhere else finishes cropping
+    if (this.cropping) {
+      const el = this.byId(this.cropping);
+      if (el?.type === 'image' && this.inside(el, p.x, p.y)) {
+        this.drag = { ...base, kind: 'crop' };
+        this.drag.orig.set(el.id, deepClone(el));
+        return;
+      }
+      this.endCrop();
+    }
+
     // handles first
     const r = HANDLE_R() + 6;
     const hd = this.handles().find((x) => Math.hypot(x.x - p.sx, x.y - p.sy) <= r);
@@ -858,6 +895,11 @@ export class Editor {
     }
 
     const hit = this.hitEl(p.x, p.y);
+    // a locked item (often a template's background) mustn't block box-selecting what's on top of it
+    if (hit?.locked && e.pointerType === 'mouse' && !(e.shiftKey || e.metaKey || e.ctrlKey) && !this.selection.includes(hit.id)) {
+      this.drag = { ...base, kind: 'marquee', additive: false, startSel: [], tapSelect: hit.id };
+      return;
+    }
     if (hit) {
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
       const members = hit.group && !e.altKey ? this.groupMembers(hit.group) : [hit.id];
@@ -873,9 +915,10 @@ export class Editor {
         return;
       }
       const twice = this.lastTap.id === hit.id && now - this.lastTap.t < 350;
-      const pickPhoto = !additive && !hit.locked && hit.type === 'image' && (isEmptyFrame(hit) || (e.pointerType !== 'mouse' && twice)) ? hit.id : undefined;
+      if (!additive && !hit.locked && hit.type === 'image' && !isEmptyFrame(hit) && !isSticker(hit) && e.pointerType !== 'mouse' && twice) { this.lastTap = { t: 0, id: '' }; this.drag = null; this.startCrop(hit); return; }
+      const pickPhoto = !additive && !hit.locked && hit.type === 'image' && isEmptyFrame(hit) ? hit.id : undefined;
       this.lastTap = { t: now, id: hit.id };
-      this.drag = { ...base, kind: 'move', single: wholeGroupSelected && !additive ? hit.id : undefined, pickPhoto };
+      this.drag = { ...base, kind: 'move', single: wholeGroupSelected && !additive ? hit.id : undefined, pickPhoto, dup: e.altKey && e.pointerType === 'mouse' };
       for (const el of this.selected) if (!el.locked) this.drag.orig.set(el.id, deepClone(el));
       return;
     }
@@ -912,7 +955,20 @@ export class Editor {
         this.panX = d.panX! + (p.sx - d.sx);
         this.panY = d.panY! + (p.sy - d.sy);
         break;
-      case 'move': this.doMove(d, p.x - d.px, p.y - d.py, e.shiftKey); break;
+      case 'move':
+        if (d.dup) {
+          d.dup = false;
+          const src = [...d.orig.keys()].map((id) => this.byId(id)).filter((x): x is El => !!x);
+          if (src.length) {
+            const copies = cloneEls(src);
+            copies.forEach((c) => (c.locked = false));
+            this.page.elements.push(...copies);
+            d.orig = new Map(copies.map((c) => [c.id, deepClone(c)]));
+            d.single = undefined;
+            this.selection = copies.map((c) => c.id);
+          }
+        }
+        this.doMove(d, p.x - d.px, p.y - d.py, e.shiftKey); break;
       case 'resize': this.doResize(d, p.x, p.y, e.shiftKey); break;
       case 'rotate': this.doRotate(d, p.x, p.y, e.shiftKey); break;
       case 'marquee': {
@@ -920,7 +976,7 @@ export class Editor {
         this.marquee = { x, y, w: Math.abs(p.x - d.px), h: Math.abs(p.y - d.py) };
         const m = this.marquee;
         const hit = this.page.elements.filter((el) => {
-          if (el.hidden) return false;
+          if (el.hidden || (d.tapSelect && el.locked)) return false;
           const b = this.aabb([el])!;
           return b.x < m.x + m.w && b.x + b.w > m.x && b.y < m.y + m.h && b.y + b.h > m.y;
         }).map((el) => el.id);
@@ -934,6 +990,7 @@ export class Editor {
         break;
       }
       case 'erase': this.eraseAt(p.x, p.y); break;
+      case 'crop': this.doCrop(d, p.x - d.px, p.y - d.py); break;
     }
     this.requestRender();
   }
@@ -951,10 +1008,10 @@ export class Editor {
     if (d.kind === 'move' && !d.moved && d.pickPhoto) { this.select([d.pickPhoto]); this.pickOnClick = { id: d.pickPhoto, t: performance.now() }; }
     this.guides = [];
     this.canvas.style.cursor = '';
-    if (d.kind === 'marquee') { this.marquee = null; this.emit('select'); this.buildCtxBar(); }
+    if (d.kind === 'marquee') { this.marquee = null; if (!d.moved && d.tapSelect) this.select([d.tapSelect]); else { this.emit('select'); this.buildCtxBar(); } }
     if (d.kind === 'draw') this.finishStroke(d.points!);
     if (d.kind === 'erase') this.commit();
-    if ((d.kind === 'move' || d.kind === 'resize' || d.kind === 'rotate') && d.moved) {
+    if ((d.kind === 'move' || d.kind === 'resize' || d.kind === 'rotate' || d.kind === 'crop') && d.moved) {
       this.commit();
       this.props.refresh();
     }
@@ -1070,8 +1127,9 @@ export class Editor {
       }
       el.w = nw; el.h = nh;
       el.x = wx - nw / 2; el.y = wy - nh / 2;
-      if (el.type === 'draw' && o.type === 'draw' && keepRatio) el.width = o.width * (nw / o.w);
-      if (el.type === 'shape' && o.type === 'shape' && keepRatio && o.strokeWidth) el.strokeWidth = o.strokeWidth * (nw / o.w);
+      if (this.snapEnabled && !o.rotation) this.snapResize(d, el, hx, hy, keepRatio);
+      if (el.type === 'draw' && o.type === 'draw' && keepRatio) el.width = o.width * (el.w / o.w);
+      if (el.type === 'shape' && o.type === 'shape' && keepRatio && o.strokeWidth) el.strokeWidth = o.strokeWidth * (el.w / o.w);
       return;
     }
     // group: uniform scale from the opposite corner of the group box
@@ -1088,8 +1146,138 @@ export class Editor {
     }
   }
 
-  private doRotate(d: Drag, px: number, py: number, shift: boolean): void {
+  /** Is a design point inside this element's (rotated) box? */
+  private inside(el: El, x: number, y: number): boolean {
+    const cx = el.x + el.w / 2, cy = el.y + el.h / 2, a = (-el.rotation * Math.PI) / 180;
+    const dx = x - cx, dy = y - cy;
+    return Math.abs(dx * Math.cos(a) - dy * Math.sin(a)) <= el.w / 2 && Math.abs(dx * Math.sin(a) + dy * Math.cos(a)) <= el.h / 2;
+  }
+
+  /** How far the picture overflows its frame on each axis (half of it), in design units — what panX/panY ±1 mean. */
+  private cropSlack(el: ImageEl): { sx: number; sy: number; dw: number; dh: number } | null {
+    const img = getImage(this.design.assets[el.asset] ?? '');
+    if (!img) return null;
+    const s = Math.max(el.w / img.naturalWidth, el.h / img.naturalHeight) * el.zoom;
+    const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+    return { sx: (dw - el.w) / 2, sy: (dh - el.h) / 2, dw, dh };
+  }
+
+  startCrop(el: ImageEl): void {
+    if (el.locked || el.asset.startsWith('ph-') || isSticker(el)) return; // empty frames and stickers have nothing to crop
+    this.select([el.id]);
+    this.cropping = el.id;
+    this.buildCtxBar();
+    this.emit('select');
+    this.requestRender();
+  }
+
+  endCrop(): void {
+    if (!this.cropping) return;
+    this.cropping = null;
+    this.buildCtxBar();
+    this.emit('select');
+    this.requestRender();
+  }
+
+  private doCrop(d: Drag, dx: number, dy: number): void {
     const o = [...d.orig.values()][0];
+    if (!o || o.type !== 'image') return;
+    const el = this.byId(o.id);
+    if (el?.type !== 'image') return;
+    const slack = this.cropSlack(el);
+    if (!slack) return;
+    // the pointer moves in design space; the picture moves in the frame's own (possibly rotated, flipped) space
+    const a = (-el.rotation * Math.PI) / 180;
+    let lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
+    if (el.flipX) lx = -lx;
+    if (el.flipY) ly = -ly;
+    el.panX = slack.sx > 0.5 ? clamp(o.panX - lx / slack.sx, -1, 1) : 0;
+    el.panY = slack.sy > 0.5 ? clamp(o.panY - ly / slack.sy, -1, 1) : 0;
+  }
+
+  /** While cropping: the hidden part of the picture, faded, around its frame (design space). */
+  private drawCropGhost(el: ImageEl): void {
+    const img = getImage(this.design.assets[el.asset] ?? '');
+    const slack = this.cropSlack(el);
+    if (!img || !slack) return;
+    const ctx = this.ctx;
+    const ox = (el.w - slack.dw) / 2 + slack.sx * -el.panX, oy = (el.h - slack.dh) / 2 + slack.sy * -el.panY;
+    ctx.save();
+    ctx.translate(el.x + el.w / 2, el.y + el.h / 2);
+    ctx.rotate((el.rotation * Math.PI) / 180);
+    ctx.scale(el.flipX ? -1 : 1, el.flipY ? -1 : 1);
+    ctx.translate(-el.w / 2, -el.h / 2);
+    ctx.beginPath();
+    ctx.rect(ox, oy, slack.dw, slack.dh);
+    ctx.rect(0, 0, el.w, el.h);
+    ctx.save();
+    ctx.clip('evenodd');
+    ctx.globalAlpha = 0.4;
+    ctx.drawImage(img, ox, oy, slack.dw, slack.dh);
+    ctx.restore();
+    ctx.lineWidth = 1.5 / this.zoom;
+    ctx.setLineDash([6 / this.zoom, 4 / this.zoom]);
+    ctx.strokeStyle = this.accent();
+    ctx.strokeRect(ox, oy, slack.dw, slack.dh);
+    ctx.restore();
+  }
+
+  /** While resizing an unrotated item, the moving edges snap to the page and to other items' edges and centres (with guides). */
+  private snapResize(d: Drag, el: El, hx: number, hy: number, keepRatio: boolean): void {
+    this.guides = [];
+    const thr = 7 / this.zoom, min = 6 / this.zoom, ratio = el.w / el.h;
+    const xs = [0, this.design.width / 2, this.design.width], ys = [0, this.design.height / 2, this.design.height];
+    for (const o of this.page.elements) {
+      if (d.orig.has(o.id) || o.hidden) continue;
+      const b = this.aabb([o])!;
+      xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h);
+    }
+    const near = (v: number, ts: number[]) => { let best: number | null = null; for (const t of ts) if (Math.abs(t - v) < thr && (best === null || Math.abs(t - v) < Math.abs(best - v))) best = t; return best; };
+    let snappedX = false;
+    if (hx) {
+      const edge = hx > 0 ? el.x + el.w : el.x, t = near(edge, xs);
+      if (t !== null) {
+        const nw = hx > 0 ? t - el.x : el.x + el.w - t;
+        if (nw > min) {
+          if (hx < 0) el.x = t;
+          el.w = nw; snappedX = true; this.guides.push({ x: t });
+          if (keepRatio) { const nh = el.w / ratio; if (hy < 0) el.y += el.h - nh; el.h = nh; }
+        }
+      }
+    }
+    if (hy && !(keepRatio && snappedX)) {
+      const edge = hy > 0 ? el.y + el.h : el.y, t = near(edge, ys);
+      if (t !== null) {
+        const nh = hy > 0 ? t - el.y : el.y + el.h - t;
+        if (nh > min) {
+          if (hy < 0) el.y = t;
+          el.h = nh; this.guides.push({ y: t });
+          if (keepRatio) { const nw = el.h * ratio; if (hx < 0) el.x += el.w - nw; el.w = nw; }
+        }
+      }
+    }
+  }
+
+  private doRotate(d: Drag, px: number, py: number, shift: boolean): void {
+    const origs = [...d.orig.values()];
+    if (origs.length > 1 && d.group) {
+      // several items turn together around the middle of their box
+      const g = d.group, cx = g.x + g.w / 2, cy = g.y + g.h / 2;
+      const a0 = Math.atan2(d.py - cy, d.px - cx);
+      let deg = ((Math.atan2(py - cy, px - cx) - a0) * 180) / Math.PI;
+      if (shift) deg = Math.round(deg / 15) * 15;
+      else { const near = Math.round(deg / 45) * 45; if (Math.abs(deg - near) < 4) deg = near; }
+      const r = (deg * Math.PI) / 180, cos = Math.cos(r), sin = Math.sin(r);
+      for (const o of origs) {
+        const el = this.byId(o.id); if (!el) continue;
+        const ox = o.x + o.w / 2 - cx, oy = o.y + o.h / 2 - cy;
+        el.x = cx + ox * cos - oy * sin - o.w / 2;
+        el.y = cy + ox * sin + oy * cos - o.h / 2;
+        el.rotation = (((Math.round((o.rotation + deg) * 10) / 10) % 360) + 540) % 360 - 180;
+      }
+      return;
+    }
+    const o = origs[0];
     if (!o) return;
     const el = this.byId(o.id)!;
     const cx = o.x + o.w / 2, cy = o.y + o.h / 2;
@@ -1542,6 +1730,7 @@ export class Editor {
       if (e.type !== 'keydown' || isTyping(e.target)) return;
       const mod = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();
+      if (this.cropping && (k === 'escape' || k === 'enter')) { e.preventDefault(); this.endCrop(); return; }
       if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
       if (mod && k === 'y') { e.preventDefault(); this.redo(); return; }
       if (mod && k === 'd') { e.preventDefault(); this.duplicate(); return; }

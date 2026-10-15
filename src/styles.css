@@ -2990,3 +2990,18 @@ html[data-screen='edit']:has(.editor.props-open) .fz-assist:not(.open) { display
 .ed-tools.more-l .tb-scroll.l, .ed-tools.more-r .tb-scroll.r { display: grid; }
 @media (pointer: coarse) { .tb-scroll { width: 40px; height: 40px; } .tb-scroll.l { margin-right: -40px; } .tb-scroll.r { margin-left: -40px; } }
 @media (pointer: coarse) { .ctxbar .btn { width: 40px; height: 40px; } }
+
+/* font picker: search on top (stays put while the list scrolls), recent fonts first */
+.font-pop { padding-top: 0; }
+.font-pop .font-find { position: sticky; top: 0; z-index: 1; width: 100%; margin: 0 0 4px; border-radius: 0; border-width: 0 0 1px; background: var(--surface); }
+.font-none { padding: 10px 12px; margin: 0; }
+
+/* Layers: drag to restack, double-click to rename */
+.layers { position: relative; }
+.layer-grip { flex: none; width: 14px; color: var(--muted); font-size: 11px; letter-spacing: -2px; cursor: grab; touch-action: none; user-select: none; opacity: .55; }
+.layer:hover .layer-grip { opacity: 1; }
+.layer.lifted { position: relative; z-index: 2; background: var(--surface); box-shadow: var(--shadow-md); cursor: grabbing; }
+.layer-drop { position: absolute; left: 6px; right: 6px; height: 3px; border-radius: 3px; background: var(--accent); pointer-events: none; }
+.layer-rename { flex: 1; min-width: 0; height: 30px; }
+@media (pointer: coarse) { .layer-grip { width: 28px; font-size: 14px; opacity: 1; text-align: center; } }
+.tb-hint { color: var(--muted); font-size: 12.5px; white-space: nowrap; padding: 0 6px; }

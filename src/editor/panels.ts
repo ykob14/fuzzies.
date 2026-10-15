@@ -564,9 +564,63 @@ export function buildPanels(ed: Editor): Panels {
       const lock = btn(null, { icon: el.locked ? 'lock' : 'unlock', kind: 'plain', size: 'sm', title: el.locked ? 'Unlock' : 'Lock', onClick: (e) => { e.stopPropagation(); el.locked = !el.locked; ed.commit(); fill(); } });
       const up = btn(null, { icon: 'up', kind: 'plain', size: 'sm', title: 'Move up', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('up'); fill(); } });
       const down = btn(null, { icon: 'down', kind: 'plain', size: 'sm', title: 'Move down', onClick: (e) => { e.stopPropagation(); ed.select([el.id]); ed.reorder('down'); fill(); } });
-      const row = h('div', { class: `layer ${sel ? 'on' : ''} ${el.hidden ? 'dim' : ''}`, role: 'button', tabindex: '0' }, layerIcon(el), h('span', { class: 'layer-name' }, el.group ? h('span', { class: 'layer-group', title: 'Grouped' }, '🔗 ') : null, elLabel(el)), up, down, vis, lock);
-      row.addEventListener('click', (e) => { ed.select(e.shiftKey ? [...ed.selection, el.id] : [el.id]); fill(); });
+      const grip = h('span', { class: 'layer-grip', title: 'Drag to reorder', 'aria-hidden': 'true' }, '⋮⋮');
+      const name = h('span', { class: 'layer-name', title: 'Double-click to rename' }, el.group ? h('span', { class: 'layer-group', title: 'Grouped' }, '🔗 ') : null, elLabel(el));
+      const row = h('div', { class: `layer ${sel ? 'on' : ''} ${el.hidden ? 'dim' : ''}`, role: 'button', tabindex: '0', 'data-id': el.id }, grip, layerIcon(el), name, up, down, vis, lock);
+      row.addEventListener('click', (e) => { if (dragged) return; ed.select(e.shiftKey ? [...ed.selection, el.id] : [el.id]); fill(); });
+      name.addEventListener('dblclick', (e) => { e.stopPropagation(); rename(el, name); });
+      row.addEventListener('keydown', (e) => { if (e.key === 'F2') { e.preventDefault(); rename(el, name); } });
+      row.addEventListener('pointerdown', (e) => startDrag(e, el, row, e.target === grip || grip.contains(e.target as Node)));
       return row;
+    };
+    /** Rename a layer in place (an empty name goes back to the automatic one). */
+    const rename = (el: El, span: HTMLElement) => {
+      const input = h('input', { class: 'input input-sm layer-rename', value: el.name ?? elLabel(el), maxlength: '60', 'aria-label': 'Layer name' });
+      span.replaceWith(input);
+      input.focus(); input.select();
+      let done = false;
+      const finish = (keep: boolean) => {
+        if (done) return; done = true;
+        if (keep) { const v = input.value.trim(); if (v) el.name = v; else delete el.name; ed.commit(); }
+        fill();
+      };
+      input.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
+      input.addEventListener('blur', () => finish(true));
+      input.addEventListener('click', (e) => e.stopPropagation());
+    };
+    /** Drag a row up or down to restack (mouse: anywhere on the row; touch: by its grip, so the list still scrolls). */
+    let dragged = false;
+    const startDrag = (e: PointerEvent, el: El, row: HTMLElement, onGrip: boolean) => {
+      if ((e.target as HTMLElement).closest('button, input') || (e.pointerType !== 'mouse' && !onGrip) || e.button > 0) return;
+      const y0 = e.clientY;
+      let on = false, to = -1;
+      const rows = () => [...list.querySelectorAll<HTMLElement>('.layer')];
+      const line = h('div', { class: 'layer-drop' });
+      const move = (ev: PointerEvent) => {
+        if (!on && Math.abs(ev.clientY - y0) < 5) return;
+        if (!on) { on = true; dragged = true; row.classList.add('lifted'); list.append(line); try { row.setPointerCapture(ev.pointerId); } catch { /* gone */ } }
+        ev.preventDefault();
+        row.style.transform = `translateY(${ev.clientY - y0}px)`;
+        const rs = rows().filter((r) => r !== row);
+        to = rs.findIndex((r) => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+        if (to < 0) to = rs.length;
+        const lr = list.getBoundingClientRect();
+        const ref = rs[to]?.getBoundingClientRect() ?? rs[rs.length - 1]?.getBoundingClientRect();
+        line.style.top = `${(rs[to] ? ref!.top : ref ? ref.bottom : lr.top) - lr.top + list.scrollTop - 2}px`;
+      };
+      const up = () => {
+        removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+        line.remove(); row.style.transform = ''; row.classList.remove('lifted');
+        setTimeout(() => { dragged = false; });
+        if (!on) return;
+        // rows are front-first; the page keeps back-first
+        const order = [...ed.page.elements].reverse().filter((x) => x !== el);
+        order.splice(to, 0, el);
+        const next = order.reverse();
+        if (next.some((x, i) => x !== ed.page.elements[i])) { ed.page.elements = next; ed.select([el.id]); ed.commit(); }
+        fill();
+      };
+      addEventListener('pointermove', move, { passive: false }); addEventListener('pointerup', up); addEventListener('pointercancel', up);
     };
     fill();
     return h('div', null, h('p', { class: 'hint' }, 'Top of the list = front of the design.'), list);
