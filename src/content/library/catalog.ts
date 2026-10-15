@@ -109,19 +109,19 @@ function plan(cat: CatDef, sub: SubDef): TemplateMeta[] {
 // The original hand-made templates, placed in the new categories (their designs are untouched).
 const CLASSIC_PLACES: Record<string, [string, string, string, string[]]> = { // id: [category, sub, style, colours]
   'summer-sale': ['business', 'sale', 'Bold', ['orange', 'pink']], 'quote-classic': ['creators', 'quote', 'Elegant', ['cream', 'orange']],
-  'new-drop': ['business', 'announcement', 'Bold', ['black', 'pink']], motivation: ['creators', 'quote', 'Playful', ['purple', 'pink']],
-  'cafe-special': ['business', 'restaurant', 'Retro', ['cream', 'orange']], giveaway: ['creators', 'giveaway', 'Playful', ['purple', 'pink']],
-  'this-or-that': ['creators', 'quote', 'Playful', ['cream', 'pink']], 'birthday-story': ['celebrations', 'birthday', 'Playful', ['pink', 'purple']],
-  'travel-story': ['creators', 'travel', 'Photo', ['blue', 'teal']], 'story-announce': ['business', 'announcement', 'Bold', ['black', 'pink']],
+  'new-drop': ['business', 'announcement', 'Bold', ['black', 'pink']], motivation: ['creators', 'quote', 'Playful', ['cream', 'orange']],
+  'cafe-special': ['business', 'restaurant', 'Retro', ['cream', 'orange']], giveaway: ['creators', 'giveaway', 'Playful', ['yellow', 'black']],
+  'this-or-that': ['creators', 'quote', 'Playful', ['cream', 'pink']], 'birthday-story': ['celebrations', 'birthday', 'Playful', ['pink', 'cream']],
+  'travel-story': ['creators', 'travel', 'Photo', ['cream', 'blue']], 'story-announce': ['business', 'announcement', 'Bold', ['black', 'pink']],
   exhibition: ['community', 'local-event', 'Modern', ['white', 'orange']], 'spring-fair': ['community', 'festival', 'Playful', ['cream', 'pink']],
   'live-music': ['entertainment', 'concert', 'Bold', ['black', 'yellow']], 'retro-poster': ['entertainment', 'dj-night', 'Retro', ['orange', 'cream']],
   'yard-sale': ['community', 'market', 'Playful', ['yellow', 'black']], 'yoga-class': ['sports', 'yoga', 'Minimal', ['green', 'cream']],
   'lost-pet': ['community', 'local-event', 'Bold', ['yellow', 'black']], 'yt-top10': ['creators', 'youtube', 'Bold', ['black', 'yellow']],
-  'yt-vlog': ['creators', 'youtube', 'Playful', ['blue', 'pink']], 'pitch-deck': ['business', 'presentation', 'Modern', ['blue', 'white']],
-  'creative-deck': ['business', 'presentation', 'Playful', ['pink', 'yellow']], 'card-modern': ['creators', 'branding', 'Minimal', ['black', 'white']],
-  'card-pastel': ['creators', 'branding', 'Playful', ['pink', 'blue']], 'party-invite': ['celebrations', 'birthday', 'Playful', ['pink', 'purple']],
+  'yt-vlog': ['creators', 'youtube', 'Playful', ['yellow', 'black']], 'pitch-deck': ['business', 'presentation', 'Modern', ['blue', 'white']],
+  'creative-deck': ['business', 'presentation', 'Playful', ['cream', 'orange']], 'card-modern': ['creators', 'branding', 'Minimal', ['black', 'white']],
+  'card-pastel': ['creators', 'branding', 'Playful', ['pink', 'blue']], 'party-invite': ['celebrations', 'birthday', 'Playful', ['blue', 'pink']],
   'save-the-date': ['milestones', 'wedding', 'Elegant', ['cream', 'green']], 'logo-badge': ['creators', 'branding', 'Retro', ['orange', 'cream']],
-  'logo-gradient': ['creators', 'branding', 'Modern', ['purple', 'pink']], 'wallpaper-dream': ['creators', 'wallpaper', 'Playful', ['pink', 'purple']],
+  'logo-gradient': ['creators', 'branding', 'Modern', ['black', 'pink']], 'wallpaper-dream': ['creators', 'wallpaper', 'Playful', ['blue', 'pink']],
 };
 
 function classicMeta(t: Template): TemplateMeta {
