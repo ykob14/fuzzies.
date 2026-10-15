@@ -229,9 +229,9 @@ const LIST: CollectionTemplate[] = [
     const items: [string, string, string][] = [['Pumpkin Soup', 'Roasted squash, sage, pepitas', '$8'], ['Witch Fingers', 'Herb breadsticks, almond nails', '$6'], ['Graveyard Pie', 'Chocolate, cookie soil', '$9'], ['Spiced Cider', 'Warm apple, cinnamon', '$5']];
     items.forEach(([name, desc, price], i) => {
       const y = H * (0.32 + i * 0.1);
-      text(c, name, W * 0.08, y, W * 0.6, { font: 'Playfair Display', weight: 700, size: u * 0.05, fill: WHITE, align: 'left' });
-      text(c, price, W * 0.64, y, W * 0.28, { font: 'Playfair Display', weight: 700, size: u * 0.05, fill: GOLD, align: 'right' });
-      text(c, desc, W * 0.08, y + u * 0.065, W * 0.62, { font: 'Montserrat', weight: 600, size: u * 0.03, fill: '#c9bfd6', align: 'left' });
+      text(c, name, W * 0.08, y, W * 0.56, { font: 'Playfair Display', weight: 700, size: u * 0.05, fill: WHITE, align: 'left' });
+      text(c, price, W * 0.7, y, W * 0.22, { font: 'Playfair Display', weight: 700, size: u * 0.05, fill: GOLD, align: 'right' });
+      text(c, desc, W * 0.08, y + u * 0.065, W * 0.6, { font: 'Montserrat', weight: 600, size: u * 0.03, fill: '#c9bfd6', align: 'left' });
     });
     art(c, 'hw-cat', W * 0.62, H * 0.72, W * 0.26);
     art(c, 'hw-candles', W * 0.06, H * 0.78, W * 0.2);
