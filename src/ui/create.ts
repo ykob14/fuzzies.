@@ -71,7 +71,8 @@ export async function useCatalogTemplate(m: TemplateMeta): Promise<void> {
     return;
   }
   try {
-    const [{ loadTemplateDoc }, { recordUse }] = await Promise.all([import('../content/library/catalog'), import('../content/library/usage')]);
+    const [{ loadTemplateDoc }, { recordUse }, { waitFonts }] = await Promise.all([import('../content/library/catalog'), import('../content/library/usage'), import('./libthumbs')]);
+    if (m.source === 'library' || m.source === 'collection') await waitFonts(); // text is sized by measuring the real fonts
     const doc = await loadTemplateDoc(m);
     track('template');
     recordUse(m.id);

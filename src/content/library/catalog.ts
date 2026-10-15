@@ -61,12 +61,17 @@ const wordsOf = (...parts: (string | string[] | undefined)[]) => [...new Set(par
 
 function hash(s: string): number { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
+/** Layouts a critic review found amateur next to Canva (racing-flag strips on wedding invites, "ADMIT ONE" on greetings,
+ * numbers that mean nothing, balloons on every occasion): no longer used to generate templates. Their code stays so a
+ * design made from one still has its source, and they can come back once redesigned. */
+const RETIRED = new Set(['burst', 'confetti', 'ticket', 'bignum']);
+
 /** Choose 4–5 genuinely different layouts per subcategory (different archetypes, formats and palettes). */
 function plan(cat: CatDef, sub: SubDef): TemplateMeta[] {
   if (sub.generate === false || !sub.events.length) return [];
   const h = hash(sub.id);
   // a layout must suit the category and at least one of the topic's texts
-  const eligible = ARCHETYPES.filter((a) => (a.kinds.includes(cat.kind) || a.also?.includes(sub.id)) && (!a.fits || sub.events.some((e) => a.fits!(e))));
+  const eligible = ARCHETYPES.filter((a) => !RETIRED.has(a.id) && (a.kinds.includes(cat.kind) || a.also?.includes(sub.id)) && (!a.fits || sub.events.some((e) => a.fits!(e))));
   const special = eligible.filter((a) => a.also?.includes(sub.id) && !a.kinds.length); // certificates, slides: the reason this topic exists
   const rest = eligible.filter((a) => !special.includes(a)).map((a) => ({ a, k: hash(sub.id + a.id) })).sort((x, y) => x.k - y.k).map((x) => x.a);
   const want = sub.events.length >= 3 ? 5 : 4;

@@ -128,9 +128,9 @@ function art(id: string, x: number, y: number, w: number, h: number, colors: str
   Object.assign(el, { x, y, w, h, colors, rotation });
   return el;
 }
-function photo(c: Ctx, i: number, x: number, y: number, w: number, h: number, o: Partial<ImageEl> = {}): ImageEl {
-  const id = `ph-${c.pal.id}-${(c.seed + i) % 7}`;
-  c.assets[id] = photoAsset(c.pal, (c.seed + i) % 7);
+function photo(c: Ctx, i: number, x: number, y: number, w: number, h: number, o: Partial<ImageEl> = {}, mark = true): ImageEl {
+  const id = `ph-${c.pal.id}-${(c.seed + i) % 7}${mark ? '' : '-plain'}`;
+  c.assets[id] = photoAsset(c.pal, (c.seed + i) % 7, mark);
   const el = makeImage(id, w, h, o);
   Object.assign(el, { x, y, w, h });
   el.name = 'Photo — tap to add yours';
@@ -153,8 +153,8 @@ const alpha = (hex: string, a: number) => {
 
 // ---------- procedural "photo" placeholders (soft, on-palette, clearly replaceable) ----------
 const photoCache = new Map<string, string>();
-export function photoAsset(p: Palette, seed: number): string {
-  const key = `${p.id}-${seed}`;
+export function photoAsset(p: Palette, seed: number, mark = true): string {
+  const key = `${p.id}-${seed}${mark ? '' : '-plain'}`;
   const hit = photoCache.get(key);
   if (hit) return hit;
   const W = 960, H = 720;
@@ -174,11 +174,14 @@ export function photoAsset(p: Palette, seed: number): string {
     rg.addColorStop(1, alpha(col.startsWith('#') && col.length === 7 ? col : '#ffffff', 0));
     x.fillStyle = rg; x.fillRect(0, 0, W, H);
   }
-  // a small camera mark says "put your photo here"
+  // a small camera mark says "put your photo here" (not on full-page backgrounds, where the title sits over the middle;
+  // the editor's "+ Add photo" button marks those)
+  if (mark) {
   x.globalAlpha = 0.5; x.strokeStyle = '#ffffff'; x.lineWidth = 10; x.lineJoin = 'round';
   x.beginPath(); x.roundRect(W / 2 - 70, H / 2 - 44, 140, 98, 18); x.stroke();
   x.beginPath(); x.arc(W / 2, H / 2 + 5, 26, 0, Math.PI * 2); x.stroke();
   x.beginPath(); x.moveTo(W / 2 - 30, H / 2 - 44); x.lineTo(W / 2 - 18, H / 2 - 62); x.lineTo(W / 2 + 18, H / 2 - 62); x.lineTo(W / 2 + 30, H / 2 - 44); x.stroke();
+  }
   const url = cv.toDataURL('image/jpeg', 0.8);
   photoCache.set(key, url);
   return url;
@@ -194,7 +197,7 @@ export const ARCHETYPES: Archetype[] = [
     build(c) {
       const { W, H, u, pal, ev } = c;
       const pad = u * 0.08;
-      const top = H * (c.land ? 0.62 : c.portrait ? 0.56 : 0.58);
+      const top = H * (c.land ? 0.5 : c.portrait ? 0.56 : 0.58); // banners: half and half, so the details below get room
       const els: El[] = [
         shp('rect', 0, 0, W, top, pal.primary),
         shp('rect', -W * 0.1, top - u * 0.1, W * 1.2, u * 0.2, pal.primary, { rotation: -4 }),
@@ -204,18 +207,20 @@ export const ARCHETYPES: Archetype[] = [
       const t = title(c, ev.title, pad, k.y + k.h + u * 0.03, W - pad * 2 - (c.land ? W * 0.18 : u * 0.06), u * (c.portrait ? 0.24 : 0.2), { fill: pal.onPrimary, uppercase: true, maxLines: 3, maxH: top - (k.y + k.h + u * 0.03) - u * 0.22 });
       els.push(k, t, emoji(c, W - u * 0.32 - pad * 0.5, top - u * 0.2, u * 0.32, 12));
       // the details shrink until they and the pill fit above the bottom edge (long ones used to push the pill off the page)
-      const pillH = u * 0.11, floor = H - pad * 0.6 - pillH;
+      // banners put the button on the right of the details row; other shapes keep it under them
+      const pillH = u * 0.11, floor = c.land ? H - pad * 0.6 : H - pad * 0.6 - pillH;
       let y = 0, det: El[] = [];
-      for (const k2 of [1, 0.86, 0.74, 0.62]) {
-        y = top + u * 0.16 * Math.max(0.6, k2); det = [];
+      for (const k2 of [1, 0.86, 0.74, 0.62, 0.52]) {
+        y = top + u * 0.16 * Math.max(0.6, k2) + W * (c.land ? 0.035 : 0.03); det = []; // wide pages: below the tilted stripe's low end
         for (const [i, d] of lines(ev).entries()) {
-          const e = txt(c, d, pad, y, W * 0.78, { weight: i ? 500 : 800, size: u * (i ? 0.042 : 0.054) * k2, fill: i ? pal.muted : pal.ink });
+          const e = txt(c, d, pad, y, W * (c.land ? 0.5 : 0.78), { weight: i ? 500 : 800, size: u * (i ? 0.042 : 0.054) * k2, fill: i ? pal.muted : pal.ink });
           det.push(e); y += e.h + u * 0.025 * k2;
         }
         if (y + u * 0.03 <= floor) break;
       }
       els.push(...det);
-      els.push(...pill(c, ev.cta, 0, Math.min(floor, Math.max(y + u * 0.03, H - pad - pillH)), pal.secondary, pal.onPrimary, u * 0.036, 'left', pad));
+      if (c.land) { const ps = u * 0.036, est = Math.min(W * 0.86, ev.cta.length * ps * 0.62 + ps * 2.2); els.push(...pill(c, ev.cta, 0, H - pad - pillH, pal.secondary, pal.onPrimary, ps, 'left', W - pad - est)); }
+      else els.push(...pill(c, ev.cta, 0, Math.min(floor, Math.max(y + u * 0.03, H - pad - pillH)), pal.secondary, pal.onPrimary, u * 0.036, 'left', pad));
       return [{ bg: pal.bg, els }];
     },
   },
@@ -232,7 +237,10 @@ export const ARCHETYPES: Archetype[] = [
       const els: El[] = [
         art('dots', -u * 0.04, -u * 0.04, u * 0.28, u * 0.28, [alpha(pal.secondary, 0.35)]),
         art('dots', W - u * 0.24, H - u * 0.24, u * 0.28, u * 0.28, [alpha(pal.secondary, 0.35)]),
-        shp('burst', cx - r * 1.18, by - r * 0.18, r * 2.36, r * 2.36, pal.accent, { rotation: 8 }),
+        // a sunburst suits sports / shows / sales; celebrations and community get a soft halo (a crescent in a spiky sun read wrong)
+        ['sports', 'entertainment', 'business'].includes(c.kind)
+          ? shp('burst', cx - r * 1.18, by - r * 0.18, r * 2.36, r * 2.36, pal.accent, { rotation: 8 })
+          : shp('ellipse', cx - r * 1.16, by - r * 0.16, r * 2.32, r * 2.32, alpha(pal.accent, 0.45)),
         shp('ellipse', cx - r, by, r * 2, r * 2, pal.primary),
         shp('ring', cx - r * 0.86, by + r * 0.14, r * 1.72, r * 1.72, 'rgba(0,0,0,0)', { stroke: pal.onPrimary, strokeWidth: u * 0.008, dash: true }),
         emoji(c, cx - r * 0.55, by + r * 0.45, r * 1.1),
@@ -254,7 +262,7 @@ export const ARCHETYPES: Archetype[] = [
       const { W, H, u, pal, ev } = c;
       const pad = u * 0.08;
       const els: El[] = [
-        photo(c, 0, 0, 0, W, H),
+        photo(c, 0, 0, 0, W, H, {}, false),
         shp('rect', 0, H * 0.35, W, H * 0.65, lin('rgba(0,0,0,0)', 'rgba(0,0,0,0.78)')),
         shp('rect', pad, pad, u * 0.012, u * 0.14, pal.accent),
       ];
@@ -463,7 +471,7 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: 'certificate', label: 'Certificate', style: 'Elegant', voices: ['elegant', 'serif'], formats: ['certificate'],
-    kinds: [], also: ['certificate', 'awards', 'marathon', 'martial-arts', 'graduation'],
+    kinds: [], also: ['certificate', 'awards'], // only real certificates (party invites on a certificate frame read wrong)
     build(c) {
       const { W, H, u, pal, ev } = c;
       const m = u * 0.05;

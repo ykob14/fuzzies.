@@ -6,7 +6,7 @@
  * themed files (islamic, jewish, christian, cultural, baby, milestones, events) and a topic to taxonomy.json.
  */
 import type { CollectionTemplate } from './kit';
-import { fontsOf, themed, type ThemedSet } from './themed';
+import { fontsOf, nativeSamples, themed, type ThemedSet } from './themed';
 import { HALLOWEEN, HALLOWEEN_FONTS } from './halloween';
 import { CHRISTMAS, CHRISTMAS_FONTS } from './christmas';
 import { HANUKKAH, HANUKKAH_FONTS } from './hanukkah';
@@ -41,3 +41,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
 /** Every font the collections use (previews wait for them so text is measured exactly). */
 export const COLLECTION_FONTS: [string, number][] = [...HALLOWEEN_FONTS, ...CHRISTMAS_FONTS, ...HANUKKAH_FONTS, ...PASSOVER_FONTS, ...TEAM_FONTS, ...STYLE_FONTS, ...PRO_FONTS, ...CAREER_FONTS, ...fontsOf(THEMED.flatMap((s) => s.specs))];
 export { buildCollectionDoc, USES, type Use } from './kit';
+/** Font + the actual non-Latin words set in it (loading by text fetches the right script subsets before measuring). */
+export const COLLECTION_TEXT: [string, number, string][] = [
+  ...nativeSamples(THEMED.flatMap((s) => s.specs)),
+  // hand-made Hebrew lines (Hanukkah, Passover) use these fonts
+  ...(['Frank Ruhl Libre', 'David Libre', 'Suez One', 'Secular One', 'Bellefair', 'Heebo', 'Rubik', 'Amatic SC'] as const).flatMap((f) => [400, 700].map((w) => [f, w, 'חג שמח חנוכה פסח אורים נס גדול היה שם לשנה הבאה בירושלים כשר ליל סדר'] as [string, number, string])),
+];
+

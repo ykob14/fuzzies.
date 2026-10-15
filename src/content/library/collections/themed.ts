@@ -62,6 +62,12 @@ export function fontsOf(specs: ThemedSpec[]): [string, number][] {
   return [...out.values()];
 }
 
+/** Each greeting in its own script with its font: preloading a font by name only fetches its Latin part, so the
+ * Devanagari / Arabic / Hebrew / Chinese letters were measured with a stand-in font and wrapped into the title. */
+export function nativeSamples(specs: ThemedSpec[]): [string, number, string][] {
+  return specs.flatMap((s) => (s.words.native ? [[s.words.native.font[0], s.words.native.font[1], s.words.native.text] as [string, number, string]] : []));
+}
+
 const RTL: Script[] = ['ar', 'he', 'fa'];
 /** The same look with its panel text colours as the main ones (for words placed on a panel, arch or medallion). */
 const onPanel = (L: Look): Look => ({ ...L, pal: { ...L.pal, title: L.pal.panelTitle ?? L.pal.title, ink: L.pal.panelInk ?? L.pal.ink, muted: L.pal.panelMuted ?? L.pal.muted } });
