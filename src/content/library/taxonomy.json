@@ -4679,6 +4679,64 @@
               "occasion": "promotion"
             }
           ]
+        },
+        {
+          "id": "resume",
+          "label": "Résumés & CVs",
+          "emoji": "📄",
+          "keywords": [
+            "resume",
+            "résumé",
+            "resumes",
+            "cv",
+            "cvs",
+            "curriculum vitae",
+            "job application",
+            "career",
+            "work history",
+            "professional profile",
+            "cover"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Résumé",
+              "kicker": "",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "career"
+            }
+          ]
+        },
+        {
+          "id": "business-card",
+          "label": "Business cards",
+          "emoji": "💼",
+          "keywords": [
+            "business card",
+            "business cards",
+            "visiting card",
+            "contact card",
+            "name card",
+            "calling card",
+            "networking"
+          ],
+          "generate": false,
+          "events": [
+            {
+              "title": "Business card",
+              "kicker": "",
+              "details": [
+                "",
+                ""
+              ],
+              "cta": "",
+              "occasion": "career"
+            }
+          ]
         }
       ]
     },

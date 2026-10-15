@@ -10,7 +10,7 @@ import { ensureFont } from '../fonts';
 import type { FontPair, Palette } from './palettes';
 
 export type Kind = 'sports' | 'entertainment' | 'celebrations' | 'community' | 'business' | 'education' | 'creators';
-export type Format = 'post' | 'story' | 'poster' | 'flyer' | 'landscape' | 'card' | 'certificate' | 'slides';
+export type Format = 'post' | 'story' | 'poster' | 'flyer' | 'landscape' | 'card' | 'certificate' | 'slides' | 'document' | 'bizcard';
 
 export const FORMATS: Record<Format, { w: number; h: number; label: string }> = {
   post: { w: 1080, h: 1080, label: 'Social post' },
@@ -21,6 +21,8 @@ export const FORMATS: Record<Format, { w: number; h: number; label: string }> = 
   card: { w: 1500, h: 2100, label: 'Invitation' },
   certificate: { w: 2000, h: 1414, label: 'Certificate' },
   slides: { w: 1920, h: 1080, label: 'Presentation' },
+  document: { w: 1275, h: 1650, label: 'Document' },      // US Letter, résumés & CVs
+  bizcard: { w: 1050, h: 600, label: 'Business card' },  // 3.5 × 2 in at 300 dpi
 };
 
 export interface EventText { title: string; kicker: string; details: string[]; cta: string; occasion: string }
@@ -48,6 +50,17 @@ export interface Archetype {
 
 // ---------- element helpers ----------
 const lines = (ev: EventText) => ev.details.filter((d) => d && d.trim());
+/** The detail lines, one under another, shrunk until they end above `floor` (where the call-to-action sits) — long details
+ * used to run into the button underneath them. */
+function details(c: Ctx, x: number, y: number, w: number, o: Partial<TextEl> & { size: number }, gap: number, floor: number): { els: El[]; y: number } {
+  let els: El[] = [], end = y;
+  for (const k of [1, 0.88, 0.77, 0.67, 0.58]) {
+    els = []; end = y;
+    for (const d of lines(c.ev)) { const e = txt(c, d, x, end, w, { ...o, size: o.size * k }); els.push(e); end += e.h + gap * k; }
+    if (end <= floor) break;
+  }
+  return { els, y: end };
+}
 
 function txt(c: Ctx, s: string, x: number, y: number, w: number, o: Partial<TextEl> = {}): TextEl {
   const el = makeText(s, { w, align: 'left', font: c.f.body, weight: 500, fill: c.pal.ink, lineHeight: 1.2, ...o });
@@ -190,12 +203,19 @@ export const ARCHETYPES: Archetype[] = [
       const k = txt(c, ev.kicker, pad, pad, W * 0.7, { weight: 700, size: u * 0.04, fill: pal.onPrimary, uppercase: true, letterSpacing: u * 0.006, opacity: 0.92 });
       const t = title(c, ev.title, pad, k.y + k.h + u * 0.03, W - pad * 2 - (c.land ? W * 0.18 : u * 0.06), u * (c.portrait ? 0.24 : 0.2), { fill: pal.onPrimary, uppercase: true, maxLines: 3, maxH: top - (k.y + k.h + u * 0.03) - u * 0.22 });
       els.push(k, t, emoji(c, W - u * 0.32 - pad * 0.5, top - u * 0.2, u * 0.32, 12));
-      let y = top + u * 0.16;
-      for (const [i, d] of lines(ev).entries()) {
-        const e = txt(c, d, pad, y, W * 0.78, { weight: i ? 500 : 800, size: u * (i ? 0.042 : 0.054), fill: i ? pal.muted : pal.ink });
-        els.push(e); y += e.h + u * 0.025;
+      // the details shrink until they and the pill fit above the bottom edge (long ones used to push the pill off the page)
+      const pillH = u * 0.11, floor = H - pad * 0.6 - pillH;
+      let y = 0, det: El[] = [];
+      for (const k2 of [1, 0.86, 0.74, 0.62]) {
+        y = top + u * 0.16 * Math.max(0.6, k2); det = [];
+        for (const [i, d] of lines(ev).entries()) {
+          const e = txt(c, d, pad, y, W * 0.78, { weight: i ? 500 : 800, size: u * (i ? 0.042 : 0.054) * k2, fill: i ? pal.muted : pal.ink });
+          det.push(e); y += e.h + u * 0.025 * k2;
+        }
+        if (y + u * 0.03 <= floor) break;
       }
-      els.push(...pill(c, ev.cta, 0, Math.max(y + u * 0.04, H - pad - u * 0.11), pal.secondary, pal.onPrimary, u * 0.036, 'left', pad));
+      els.push(...det);
+      els.push(...pill(c, ev.cta, 0, Math.min(floor, Math.max(y + u * 0.03, H - pad - pillH)), pal.secondary, pal.onPrimary, u * 0.036, 'left', pad));
       return [{ bg: pal.bg, els }];
     },
   },
@@ -205,8 +225,10 @@ export const ARCHETYPES: Archetype[] = [
     build(c) {
       const { W, H, u, pal, ev } = c;
       const cx = W / 2;
-      const r = u * (c.portrait ? 0.3 : 0.26);
-      const by = H * (c.portrait ? 0.3 : 0.36) - r;
+      // the badge gives up size when the words need the room (long details used to end up under the button)
+      const need = u * (0.07 + 0.16 + lines(ev).length * 0.065 + (ev.cta ? 0.21 : 0.06));
+      const r = Math.max(u * 0.12, Math.min(u * (c.portrait ? 0.3 : 0.26), (H - need - u * 0.14) / 2.36));
+      const by = Math.max(u * 0.08 + r * 0.18, Math.min(H * (c.portrait ? 0.3 : 0.36) - r, H - need - r * 2.25 - u * 0.03));
       const els: El[] = [
         art('dots', -u * 0.04, -u * 0.04, u * 0.28, u * 0.28, [alpha(pal.secondary, 0.35)]),
         art('dots', W - u * 0.24, H - u * 0.24, u * 0.28, u * 0.28, [alpha(pal.secondary, 0.35)]),
@@ -219,7 +241,8 @@ export const ARCHETYPES: Archetype[] = [
       const t = title(c, ev.title, W * 0.07, k.y + k.h + u * 0.02, W * 0.86, u * 0.15, { align: 'center', fill: pal.ink, maxLines: 3, maxH: H - (k.y + k.h + u * 0.02) - u * (lines(ev).length * 0.06 + (ev.cta ? 0.2 : 0.08)) });
       els.push(k, t);
       let y = t.y + t.h + u * 0.04;
-      for (const d of lines(ev)) { const e = txt(c, d, W * 0.1, y, W * 0.8, { align: 'center', size: u * 0.04, fill: pal.muted, weight: 600 }); els.push(e); y += e.h + u * 0.015; }
+      const dt = details(c, W * 0.1, y, W * 0.8, { align: 'center', size: u * 0.04, fill: pal.muted, weight: 600 }, u * 0.015, H - u * 0.16 - u * 0.04);
+      els.push(...dt.els); y = dt.y;
       els.push(...pill(c, ev.cta, cx, Math.min(y + u * 0.05, H - u * 0.16), pal.secondary, pal.onPrimary, u * 0.034));
       return [{ bg: pal.bg, els }];
     },
@@ -320,7 +343,8 @@ export const ARCHETYPES: Archetype[] = [
         emoji(c, c.land ? W / 2 - u * 0.06 : W - u * 0.2, c.land ? midTop + midH - u * 0.16 : midTop + u * 0.03, u * 0.12, 10));
       let y = midTop + midH + u * 0.05;
       const d = lines(ev).join('  ·  ');
-      if (d) { const e = txt(c, d, u * 0.06, y, W - u * 0.12, { align: 'center', weight: 700, size: u * 0.042, fill: pal.onPrimary }); els.push(e); y += e.h + u * 0.02; }
+      // the joined details stay on one line so the call to action keeps its place inside the page
+      if (d) { const e = txt(c, d, u * 0.06, y, W - u * 0.12, { align: 'center', weight: 700, size: fitSize(d, c.f.body, 700, W - u * 0.12, u * 0.042, 1), fill: pal.onPrimary }); els.push(e); y += e.h + u * 0.02; }
       if (ev.cta) els.push(txt(c, ev.cta, u * 0.06, y, W - u * 0.12, { align: 'center', weight: 600, size: u * 0.032, fill: pal.accent, uppercase: true, letterSpacing: u * 0.006 }));
       els.unshift(k, t);
       return [{ bg: pal.dark ? pal.bg : '#14141c', els }];
@@ -364,9 +388,16 @@ export const ARCHETYPES: Archetype[] = [
       const k = pill(c, ev.kicker, cx, H * (c.portrait ? 0.12 : 0.09), pal.ink, pal.surface, u * 0.034);
       const t = title(c, ev.title, W * 0.08, 0, W * 0.84, u * (c.portrait ? 0.21 : 0.17), { align: 'center', fill: pal.surface, uppercase: true, strokeColor: pal.ink, strokeWidth: u * 0.008, maxLines: 3, maxH: H * 0.36 });
       t.y = cy - t.h / 2;
-      els.push(...k, emoji(c, cx - u * 0.1, t.y - u * 0.24, u * 0.2, -8), t);
+      const floor = H - u * 0.26 - u * 0.03;
       let y = t.y + t.h + u * 0.06;
-      for (const d of lines(ev)) { const e = txt(c, d, W * 0.1, y, W * 0.8, { align: 'center', weight: 800, size: u * 0.045, fill: pal.ink }); els.push(e); y += e.h + u * 0.012; }
+      const dt = details(c, W * 0.1, y, W * 0.8, { align: 'center', weight: 800, size: u * 0.045, fill: pal.ink }, u * 0.012, floor);
+      // still too tall: lift the title and details together (never into the kicker), so nothing hides behind the button
+      const kBottom = Math.max(...k.map((e) => e.y + e.h));
+      const lift = Math.max(0, Math.min(dt.y - floor, t.y - kBottom - u * 0.03));
+      t.y -= lift; for (const e of dt.els) e.y -= lift;
+      y = dt.y - lift;
+      const ey = t.y - u * 0.24;
+      els.push(...k, ...(ey > kBottom + u * 0.01 ? [emoji(c, cx - u * 0.1, ey, u * 0.2, -8)] : []), t, ...dt.els);
       els.push(...pill(c, ev.cta, cx, Math.min(y + u * 0.04, H - u * 0.26), pal.secondary, pal.onPrimary, u * 0.034));
       return [{ bg: pal.primary, els }];
     },
@@ -389,12 +420,17 @@ export const ARCHETYPES: Archetype[] = [
         els.push(txt(c, word, pad, y0 + i * lh * 0.98, W - pad * 2, { font: c.f.display, weight: c.f.displayWeight, size, lineHeight: 0.92, uppercase: true, align: 'center',
           fill: solid ? pal.primary : 'rgba(0,0,0,0)', strokeColor: solid ? '' : pal.ink, strokeWidth: solid ? 0 : Math.max(2, size * 0.02), opacity: solid ? 1 : 0.22 + i * 0.16 }));
       }
-      const k = txt(c, ev.kicker, pad, pad, W * 0.6, { weight: 700, size: u * 0.034, fill: pal.ink, uppercase: true, letterSpacing: u * 0.008 });
-      const full = txt(c, ev.title, pad, H * 0.72 + u * 0.05, W - pad * 2 - u * 0.2, { font: c.f.display, weight: c.f.displayWeight, size: u * 0.07, fill: pal.onPrimary, uppercase: true, lineHeight: 1 });
+      // kicker top-left and call to action top-right each keep their own half (they used to overlap in the middle)
+      const half = (W - pad * 2) / 2 - u * 0.02;
+      const k = txt(c, ev.kicker, pad, pad, half, { weight: 700, size: fitSize(ev.kicker, c.f.body, 700, half, u * 0.034, 2, { upper: true, spacing: u * 0.008 }), fill: pal.ink, uppercase: true, letterSpacing: u * 0.008 });
+      const fw = W - pad * 2 - u * 0.2, band = H * 0.28 - u * 0.08;
+      const fs = fitSize(ev.title, c.f.display, c.f.displayWeight, fw, u * 0.07, 2, { upper: true, maxH: band * 0.45, lh: 1 });
+      const full = txt(c, ev.title, pad, H * 0.72 + u * 0.05, fw, { font: c.f.display, weight: c.f.displayWeight, size: fs, fill: pal.onPrimary, uppercase: true, lineHeight: 1 });
       let y = full.y + full.h + u * 0.025;
       els.push(k, full, emoji(c, W - pad - u * 0.16, H * 0.72 + u * 0.05, u * 0.15, 8));
-      for (const d of lines(ev)) { const e = txt(c, d, pad, y, W - pad * 2, { size: u * 0.034, weight: 600, fill: pal.onPrimary, opacity: 0.9 }); els.push(e); y += e.h + u * 0.008; }
-      if (ev.cta) els.push(txt(c, ev.cta.toUpperCase(), W * 0.4, pad, W * 0.6 - pad, { align: 'right', size: u * 0.03, weight: 700, fill: pal.primary, letterSpacing: u * 0.006 }));
+      const ds = lines(ev), room2 = H - pad * 0.6 - y, dsSize = Math.min(u * 0.034, room2 / Math.max(1, ds.length) / 1.35);
+      for (const d of ds) { const e = txt(c, d, pad, y, W - pad * 2, { size: dsSize, weight: 600, fill: pal.onPrimary, opacity: 0.9 }); els.push(e); y += e.h + u * 0.008; }
+      if (ev.cta) els.push(txt(c, ev.cta.toUpperCase(), W - pad - half, pad, half, { align: 'right', size: fitSize(ev.cta, c.f.body, 700, half, u * 0.03, 2, { upper: true, spacing: u * 0.006 }), weight: 700, fill: pal.primary, letterSpacing: u * 0.006 }));
       return [{ bg: pal.bg, els }];
     },
   },
@@ -440,9 +476,12 @@ export const ARCHETYPES: Archetype[] = [
       ];
       const t = title(c, ev.title.toUpperCase(), W * 0.12, H * 0.14, W * 0.76, u * 0.09, { align: 'center', fill: pal.primary, letterSpacing: u * 0.006, maxLines: 1 });
       const k = txt(c, ev.kicker, W * 0.15, t.y + t.h + u * 0.06, W * 0.7, { align: 'center', size: u * 0.036, fill: pal.muted, italic: true, font: c.f.body });
-      const name = txt(c, d[0] ?? 'Your Name', W * 0.1, k.y + k.h + u * 0.04, W * 0.8, { align: 'center', font: c.f.script ?? c.f.display, weight: 400, size: u * 0.12, fill: pal.ink });
+      // the name stays on one line and the description on two, so neither runs into the date / signature lines
+      const nm = d[0] ?? 'Your Name', nf = c.f.script ?? c.f.display;
+      const name = txt(c, nm, W * 0.1, k.y + k.h + u * 0.04, W * 0.8, { align: 'center', font: nf, weight: 400, size: fitSize(nm, nf, 400, W * 0.8, u * 0.12, 1), fill: pal.ink });
       const line = shp('line', W * 0.25, name.y + name.h + u * 0.02, W * 0.5, u * 0.01, pal.secondary, { strokeWidth: u * 0.003 });
-      const desc = txt(c, d[1] ?? '', W * 0.15, line.y + u * 0.05, W * 0.7, { align: 'center', size: u * 0.034, fill: pal.ink, font: c.f.body });
+      const ds = d[1] ?? '';
+      const desc = txt(c, ds, W * 0.15, line.y + u * 0.05, W * 0.7, { align: 'center', size: fitSize(ds || ' ', c.f.body, 400, W * 0.7, u * 0.034, 2), fill: pal.ink, font: c.f.body });
       els.push(t, k, name, line, desc);
       const sy = H - m * 2 - u * 0.17;
       for (const [i, lab] of [ev.cta || 'Date', 'Signature'].entries()) {
@@ -476,7 +515,8 @@ export const ARCHETYPES: Archetype[] = [
       const t = title(c, ev.title, pad, ty, W * (c.land ? 0.6 : 0.84), u * 0.13, { fill: ink, uppercase: true, maxLines: 3, maxH: H - ty - u * (0.12 + lines(ev).length * 0.055 + (ev.cta ? 0.12 : 0)) });
       els.push(k, bigEl, t);
       let y = t.y + t.h + u * 0.04;
-      for (const d of lines(ev)) { const e = txt(c, d, pad, y, W * 0.8, { size: u * 0.04, weight: 600, fill: ink, opacity: 0.88 }); els.push(e); y += e.h + u * 0.012; }
+      const dt = details(c, pad, y, W * 0.8, { size: u * 0.04, weight: 600, fill: ink, opacity: 0.88 }, u * 0.012, H - pad - u * 0.1 - u * 0.04);
+      els.push(...dt.els); y = dt.y;
       els.push(...pill(c, ev.cta, 0, Math.min(y + u * 0.05, H - pad - u * 0.1), pal.accent, pal.dark ? pal.bg : pal.ink, u * 0.034, 'left', pad));
       if (!isEmoji) els.push(emoji(c, W - pad - u * 0.16, H - pad - u * 0.2, u * 0.16, 10));
       return [{ bg: pal.dark ? pal.bg : pal.secondary, els }];
@@ -499,7 +539,8 @@ export const ARCHETYPES: Archetype[] = [
       const t = title(c, ev.title, W * 0.12, k.y + k.h + u * 0.015, W * 0.76, u * 0.15, { align: 'center', fill: pal.ink, maxLines: 3, maxH: H * 0.76 - (k.y + k.h) - u * 0.22 });
       els.push(k, t);
       let y = t.y + t.h + u * 0.035;
-      for (const d of lines(ev)) { const e = txt(c, d, W * 0.12, y, W * 0.76, { align: 'center', size: u * 0.04, weight: 600, fill: pal.muted }); els.push(e); y += e.h + u * 0.01; }
+      const dt = details(c, W * 0.12, y, W * 0.76, { align: 'center', size: u * 0.04, weight: 600, fill: pal.muted }, u * 0.01, H * 0.76 - u * 0.12 - u * 0.03);
+      els.push(...dt.els); y = dt.y;
       els.push(...pill(c, ev.cta, cx, Math.min(y + u * 0.04, H * 0.76 - u * 0.12), pal.primary, pal.onPrimary, u * 0.032));
       return [{ bg: pal.bg, els }];
     },
@@ -522,7 +563,8 @@ export const ARCHETYPES: Archetype[] = [
       const t = title(c, ev.title, W * 0.08, k.y + k.h + u * 0.02, W * 0.84, u * 0.13, { align: 'center', fill: pal.ink, maxLines: 3, maxH: H - (k.y + k.h) - u * 0.24 });
       els.push(k, t);
       let y = t.y + t.h + u * 0.035;
-      for (const d of lines(ev)) { const e = txt(c, d, W * 0.1, y, W * 0.8, { align: 'center', size: u * 0.038, fill: pal.ink, font: c.f.body }); els.push(e); y += e.h + u * 0.01; }
+      const dt = details(c, W * 0.1, y, W * 0.8, { align: 'center', size: u * 0.038, fill: pal.ink, font: c.f.body }, u * 0.01, H - u * 0.1 - u * 0.025);
+      els.push(...dt.els); y = dt.y;
       if (ev.cta) els.push(txt(c, ev.cta, W * 0.1, Math.min(y + u * 0.04, H - u * 0.1), W * 0.8, { align: 'center', size: u * 0.034, fill: pal.primary, weight: 700 }));
       return [{ bg: pal.surface, els }];
     },

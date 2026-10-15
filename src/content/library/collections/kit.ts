@@ -42,7 +42,7 @@ const colorsOf = new Map(ALL_ASSETS.map((a) => [a.id, a.colors]));
 export const sceneColor = (base: string): string | undefined => colorsOf.get(`${base}-sq`)?.[0];
 /** Width ÷ height of an illustration (1 if unknown). */
 export const ratio = (id: string) => ratioOf.get(id) ?? 1;
-const SHAPE: Record<Format, string> = { post: 'sq', story: 'st', poster: 'po', flyer: 'po', card: 'po', landscape: 'ls', certificate: 'ls', slides: 'ls' };
+const SHAPE: Record<Format, string> = { post: 'sq', story: 'st', poster: 'po', flyer: 'po', card: 'po', landscape: 'ls', certificate: 'ls', slides: 'ls', document: 'po', bizcard: 'ls' };
 
 /** An illustration at (x, y), `w` wide (height from its shape unless given). */
 export function art(c: Kit, id: string, x: number, y: number, w: number, o: { h?: number; colors?: string[]; rot?: number; opacity?: number; flip?: boolean; name?: string } = {}): void {

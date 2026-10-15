@@ -21,6 +21,7 @@ import { EVENTS } from './events';
 import { TEAM_SETS, TEAM_FONTS } from './team';
 import { STYLE_SETS, STYLE_FONTS } from './teamStyles';
 import { PRO_SETS, PRO_FONTS } from './proStyles';
+import { CAREER_SETS, CAREER_FONTS } from './careers';
 
 export interface CollectionSet { sub: string; label: string; cover: string; list: CollectionTemplate[]; addedAt: number }
 const THEMED: ThemedSet[] = [...ISLAMIC, ...JEWISH, ...CHRISTIAN, ...CULTURAL, ...BABY, ...MILESTONES, ...EVENTS];
@@ -33,9 +34,10 @@ export const COLLECTION_SETS: CollectionSet[] = [
   ...TEAM_SETS.map((s) => ({ ...s, addedAt: Date.UTC(2026, 9, 13, 18) })),
   ...STYLE_SETS.map((s) => ({ ...s, addedAt: Date.UTC(2026, 9, 13, 20) })),
   ...PRO_SETS.map((s) => ({ ...s, addedAt: Date.UTC(2026, 9, 13, 22) })),
+  ...CAREER_SETS.map((s) => ({ ...s, addedAt: Date.UTC(2026, 9, 15, 12) })),
   { sub: 'halloween', label: 'Halloween', cover: 'haunted-house-party', list: HALLOWEEN, addedAt: Date.UTC(2026, 9, 11, 12) },
   ...THEMED.map((s) => ({ sub: s.sub, label: s.label, cover: s.specs[0].id, list: s.specs.map(themed), addedAt: ADDED })),
 ];
 /** Every font the collections use (previews wait for them so text is measured exactly). */
-export const COLLECTION_FONTS: [string, number][] = [...HALLOWEEN_FONTS, ...CHRISTMAS_FONTS, ...HANUKKAH_FONTS, ...PASSOVER_FONTS, ...TEAM_FONTS, ...STYLE_FONTS, ...PRO_FONTS, ...fontsOf(THEMED.flatMap((s) => s.specs))];
+export const COLLECTION_FONTS: [string, number][] = [...HALLOWEEN_FONTS, ...CHRISTMAS_FONTS, ...HANUKKAH_FONTS, ...PASSOVER_FONTS, ...TEAM_FONTS, ...STYLE_FONTS, ...PRO_FONTS, ...CAREER_FONTS, ...fontsOf(THEMED.flatMap((s) => s.specs))];
 export { buildCollectionDoc, USES, type Use } from './kit';
