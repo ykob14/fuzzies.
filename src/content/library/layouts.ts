@@ -323,6 +323,7 @@ export const ARCHETYPES: Archetype[] = [
       const els: El[] = [
         photo(c, 0, 0, 0, W, H, {}, false),
         shp('rect', 0, H * 0.35, W, H * 0.65, lin('rgba(0,0,0,0)', 'rgba(0,0,0,0.78)')),
+        shp('rect', 0, 0, W, H * 0.24, lin('rgba(0,0,0,0.42)', 'rgba(0,0,0,0)')), // the kicker stays readable on a light photo
         shp('rect', pad, pad, u * 0.012, u * 0.14, pal.accent),
       ];
       const k = txt(c, ev.kicker, pad + u * 0.04, pad, W * 0.7, { weight: 700, size: u * 0.04, fill: '#ffffff', uppercase: true, letterSpacing: u * 0.006 });
@@ -428,7 +429,8 @@ export const ARCHETYPES: Archetype[] = [
       const { W, H, u, pal, ev } = c;
       const m = u * 0.05, pad = u * 0.12;
       const els: El[] = [shp('rect', m, m, W - m * 2, H - m * 2, 'rgba(0,0,0,0)', { stroke: alpha(pal.ink.length === 7 ? pal.ink : '#000000', 0.25), strokeWidth: u * 0.003 })];
-      const k = txt(c, ev.kicker.toUpperCase(), pad, pad, W - pad * 2, { size: u * 0.03, weight: 600, fill: pal.muted, letterSpacing: u * 0.012 });
+      const tall = H > W * 1.6;
+      const k = txt(c, ev.kicker.toUpperCase(), pad, pad, W - pad * 2, { size: u * (tall ? 0.036 : 0.03), weight: 600, fill: pal.muted, letterSpacing: u * 0.012 });
       const t = title(c, ev.title, pad, k.y + k.h + u * 0.05, W - pad * 2 - (c.land ? W * 0.2 : 0), u * (c.portrait ? 0.22 : c.land ? 0.21 : 0.15), { fill: pal.ink, maxLines: c.portrait ? 4 : 3, lineHeight: 1.05, maxH: H * (c.portrait ? 0.45 : 0.42) });
       const rule = shp('line', pad, t.y + t.h + u * 0.05, u * 0.2, u * 0.02, pal.primary, { strokeWidth: u * 0.008 });
       els.push(k, t, rule);
@@ -436,24 +438,28 @@ export const ARCHETYPES: Archetype[] = [
       let y = rule.y + u * 0.07;
       const colW = c.land ? (W - pad * 2) / 2 - u * 0.03 : W - pad * 2;
       d.forEach((s, i) => {
-        const e = txt(c, s, c.land && i ? pad + colW + u * 0.06 : pad, c.land ? y : y, colW, { size: u * (c.portrait ? 0.05 : 0.044), fill: pal.ink, weight: i ? 400 : 600, font: c.f.body });
+        const e = txt(c, s, c.land && i ? pad + colW + u * 0.06 : pad, c.land ? y : y, colW, { size: u * (tall ? 0.058 : c.portrait ? 0.05 : 0.044), fill: pal.ink, weight: i ? 400 : 600, font: c.f.body });
         els.push(e); if (!c.land) y += e.h + u * 0.02; else if (i === d.length - 1) y += e.h;
       });
-      const cta = ev.cta ? txt(c, `${ev.cta}  →`, pad, Math.max(y + u * 0.06, H - pad - u * 0.06), W - pad * 2, { size: u * 0.04, weight: 700, fill: pal.primary }) : null;
+      const cta = ev.cta ? txt(c, `${ev.cta}  →`, pad, Math.max(y + u * 0.06, H - pad - u * 0.06), W - pad * 2, { size: u * (tall ? 0.046 : 0.04), weight: 700, fill: pal.primary }) : null;
       if (cta) els.push(cta);
-      if (c.portrait) { // tall pages: details sit on the bottom margin and the title takes the middle (no empty half-page)
+      let feature = false;
+      if (c.portrait) { // tall pages: details sit on the bottom margin; the gap above them holds the topic's art (no empty half-page)
         const det = els.slice(els.indexOf(rule) + 1, cta ? els.indexOf(cta) : undefined);
         const dh = det.length ? det[det.length - 1].y + det[det.length - 1].h - det[0].y : 0;
         const dTop = (cta ? cta.y - u * 0.07 : H - pad) - dh;
-        const shift = dTop - (det[0]?.y ?? dTop);
-        if (shift > 0) {
-          for (const e of det) e.y += shift;
-          rule.y = dTop - u * 0.07;
-          const free = rule.y - u * 0.06 - (k.y + k.h + u * 0.05) - t.h;
-          if (free > 0) t.y = k.y + k.h + u * 0.05 + free * 0.45;
-        }
+        const shift = det.length ? dTop - det[0].y : 0;
+        if (shift > 0) for (const e of det) e.y += shift;
+        if (shift > 0 || !det.length) rule.y = (det.length ? dTop : H - pad - u * 0.1) - u * 0.07;
+        const tEnd = t.y + t.h, gap = rule.y - u * 0.06 - tEnd;
+        if (gap > u * 0.28) {
+          const sz = Math.min(gap * 0.72, u * 0.46);
+          els.push(emoji(c, pad, tEnd + (gap - sz) / 2 + u * 0.02, sz, 0, pal.surface));
+          feature = true;
+        } else if (gap > 0) t.y += gap * 0.45;
+        if (!det.length && !cta) els.splice(els.indexOf(rule), 1); // a greeting: no rule hanging under nothing
       }
-      els.push(emoji(c, W - pad - u * 0.11, H - pad - u * 0.12, u * 0.11, 0, pal.surface));
+      if (!feature) els.push(emoji(c, W - pad - u * 0.11, H - pad - u * 0.12, u * 0.11, 0, pal.surface));
       return [{ bg: pal.surface, els }];
     },
   },
@@ -492,28 +498,30 @@ export const ARCHETYPES: Archetype[] = [
     build(c) {
       const { W, H, u, pal, ev } = c;
       const pad = u * 0.07;
-      const word = ev.title.split(/\s+/).sort((a, b) => b.length - a.length)[0].replace(/[^\p{L}\p{N}!?&'-]/gu, '') || ev.title;
-      const els: El[] = [shp('rect', 0, H * 0.72, W, H * 0.28, pal.primary)];
-      const rows = c.portrait ? 5 : 3;
-      const y0 = H * (c.portrait ? 0.2 : 0.16);
-      const room = H * 0.72 - y0 - u * 0.04;
-      const size = Math.min(fitSize(word, c.f.display, c.f.displayWeight, W - pad * 2, u * 0.5, 1, { upper: true }), room / (rows * 0.9));
-      const lh = size * 0.92;
-      for (let i = 0; i < rows; i++) {
-        const solid = i === rows - 1;
-        els.push(txt(c, word, pad, y0 + i * lh * 0.98, W - pad * 2, { font: c.f.display, weight: c.f.displayWeight, size, lineHeight: 0.92, uppercase: true, align: 'center',
-          fill: solid ? pal.primary : 'rgba(0,0,0,0)', strokeColor: solid ? '' : pal.ink, strokeWidth: solid ? 0 : Math.max(2, size * 0.02), opacity: solid ? 1 : 0.22 + i * 0.16 }));
-      }
-      // kicker top-left and call to action top-right each keep their own half (they used to overlap in the middle)
+      // a typographic poster: each word of the title on its own line, sized to fill the width (justified type),
+      // alternating solid and outlined — it used to repeat one word five times, which read as a gimmick
+      const words = ev.title.split(/\s+/).filter(Boolean).slice(0, 5);
+      const bandY = H * (H > W * 1.6 ? 0.66 : 0.72); // stories: a taller band, the words can't grow past the width anyway
+      const els: El[] = [shp('rect', 0, bandY, W, H - bandY, pal.primary)];
       const half = (W - pad * 2) / 2 - u * 0.02;
       const k = txt(c, ev.kicker, pad, pad, half, { weight: 700, size: fitSize(ev.kicker, c.f.body, 700, half, u * 0.034, 2, { upper: true, spacing: u * 0.008 }), fill: pal.ink, uppercase: true, letterSpacing: u * 0.008 });
-      const fw = W - pad * 2 - u * 0.2, band = H * 0.28 - u * 0.08;
-      const fs = fitSize(ev.title, c.f.display, c.f.displayWeight, fw, u * 0.07, 2, { upper: true, maxH: band * 0.45, lh: 1 });
-      const full = txt(c, ev.title, pad, H * 0.72 + u * 0.05, fw, { font: c.f.display, weight: c.f.displayWeight, size: fs, fill: pal.onPrimary, uppercase: true, lineHeight: 1 });
-      let y = full.y + full.h + u * 0.025;
-      els.push(k, full, emoji(c, W - pad - u * 0.16, H * 0.72 + u * 0.05, u * 0.15, 8, pal.primary));
-      const ds = lines(ev), room2 = H - pad * 0.6 - y, dsSize = Math.min(u * 0.034, room2 / Math.max(1, ds.length) / 1.35);
-      for (const d of ds) { const e = txt(c, d, pad, y, W - pad * 2, { size: dsSize, weight: 600, fill: pal.onPrimary, opacity: 0.9 }); els.push(e); y += e.h + u * 0.008; }
+      const y0 = Math.max(H * (c.portrait ? 0.15 : 0.13), k.y + k.h + u * 0.05), room = bandY - y0 - u * 0.05, gap = u * 0.012;
+      let sizes = words.map((w) => fitSize(w, c.f.display, c.f.displayWeight, W - pad * 2, u * (w.length <= 3 ? 0.2 : 0.34), 1, { upper: true }));
+      const total = sizes.reduce((s0, v) => s0 + v * 0.9 + gap, 0);
+      if (total > room) sizes = sizes.map((v) => v * room / total);
+      let wy = y0 + Math.max(0, (room - sizes.reduce((s0, v) => s0 + v * 0.9 + gap, 0)) / 2);
+      words.forEach((w, i) => {
+        const solid = i % 2 === (words.length % 2 ? 0 : 1) || words.length === 1;
+        els.push(txt(c, w, pad, wy, W - pad * 2, { font: c.f.display, weight: c.f.displayWeight, size: sizes[i], lineHeight: 0.9, uppercase: true, align: 'left',
+          fill: solid ? (i === words.length - 1 ? pal.primary : pal.ink) : 'rgba(0,0,0,0)', strokeColor: solid ? '' : pal.ink, strokeWidth: solid ? 0 : Math.max(2, sizes[i] * 0.025), name: 'Title' }));
+        wy += sizes[i] * 0.9 + gap;
+      });
+      // kicker top-left (above) and call to action top-right each keep their own half (they used to overlap in the middle)
+      const top2 = bandY + u * 0.06;
+      let y = top2;
+      els.push(k, emoji(c, W - pad - u * 0.16, bandY + u * 0.05, u * 0.15, 8, pal.primary));
+      const ds = lines(ev), room2 = H - pad * 0.6 - y, dsSize = Math.min(u * 0.05, room2 / Math.max(1, ds.length) / 1.3);
+      for (const [i, d] of ds.entries()) { const e = txt(c, d, pad, y, W - pad * 2 - u * 0.2, { size: dsSize * (i ? 0.8 : 1), weight: i ? 500 : 800, fill: pal.onPrimary, opacity: i ? 0.88 : 1 }); els.push(e); y += e.h + u * 0.012; }
       if (ev.cta) els.push(txt(c, ev.cta.toUpperCase(), W - pad - half, pad, half, { align: 'right', size: fitSize(ev.cta, c.f.body, 700, half, u * 0.03, 2, { upper: true, spacing: u * 0.006 }), weight: 700, fill: pal.primary, letterSpacing: u * 0.006 }));
       return [{ bg: pal.bg, els }];
     },
