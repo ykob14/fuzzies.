@@ -1,4 +1,4 @@
-/** Font library. Free fonts plus font packs unlocked with Fuzzies. Loaded from Google Fonts. */
+/** Font library. Every font is free (owner, 2026-10-15); packs only group them. Loaded from Google Fonts. */
 
 export interface FontPack { id: string; name: string; cost: number; fonts: string[] }
 
@@ -77,9 +77,9 @@ const FONT_DEFS: [string, string][] = [
 
 export const FONT_PACKS: FontPack[] = [
   { id: 'fonts-basic', name: 'Essentials', cost: 0, fonts: ['Inter', 'DM Sans', 'Poppins', 'Montserrat', 'Nunito', 'Fredoka', 'Space Grotesk', 'Playfair Display', 'Lora', 'DM Serif Display', 'Oswald', 'Bebas Neue', 'Archivo Black', 'Caveat', 'Pacifico'] },
-  { id: 'fonts-script', name: 'Script & Love', cost: 25, fonts: ['Dancing Script', 'Great Vibes', 'Satisfy', 'Lobster'] },
-  { id: 'fonts-display', name: 'Big & Bold', cost: 25, fonts: ['Abril Fatface', 'Anton', 'Righteous', 'Bungee', 'Shrikhand'] },
-  { id: 'fonts-retro', name: 'Retro Arcade', cost: 35, fonts: ['Monoton', 'Permanent Marker', 'Press Start 2P', 'Rubik Mono One', 'Bungee Shade'] },
+  { id: 'fonts-script', name: 'Script & Love', cost: 0, fonts: ['Dancing Script', 'Great Vibes', 'Satisfy', 'Lobster'] },
+  { id: 'fonts-display', name: 'Big & Bold', cost: 0, fonts: ['Abril Fatface', 'Anton', 'Righteous', 'Bungee', 'Shrikhand'] },
+  { id: 'fonts-retro', name: 'Retro Arcade', cost: 0, fonts: ['Monoton', 'Permanent Marker', 'Press Start 2P', 'Rubik Mono One', 'Bungee Shade'] },
   { id: 'fonts-spooky', name: 'Spooky Season', cost: 0, fonts: ['Creepster', 'Griffy', 'Henny Penny', 'Mystery Quest', 'Jolly Lodger'] },
   { id: 'fonts-festive', name: 'Festive & Elegant', cost: 0, fonts: ['Mountains of Christmas', 'Cinzel', 'Cormorant Garamond', 'Pinyon Script', 'Berkshire Swash', 'Marcellus'] },
   { id: 'fonts-hebrew', name: 'Hebrew (עברית)', cost: 0, fonts: ['Frank Ruhl Libre', 'David Libre', 'Heebo', 'Rubik', 'Suez One', 'Secular One', 'Bellefair', 'Amatic SC'] },

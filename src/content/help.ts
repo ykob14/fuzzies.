@@ -17,7 +17,7 @@ export interface HelpTopic {
 
 export const APP_FACTS = `Fuzzies ("Dream it fuzzy. Make it sharp.") is a design app for phones and computers with a built-in game, Fuzzy Crossing,
 and a town-builder, Fuzzies Land. Fuzzies (the tokens) are earned by designing, playing and showing up every day, or bought; they unlock
-premium templates, graphics, stickers, fonts, text effects, app themes and game looks. The mascot (a fluffy Fuzzy) lives in the logo.
+premium templates, graphics, stickers, text effects, app themes and game looks (every font is free). The mascot (a fluffy Fuzzy) lives in the logo.
 Screens: Home (#/home), Templates (#/templates), My designs (#/projects), the editor (#/edit/<id>), Play = Fuzzy Crossing (#/play),
 Fuzzies Land (#/land), Rewards (#/rewards), Profile (#/profile), Settings (#/settings). On phones the tab bar at the bottom has
 Home, Templates, + (create), Designs, Play and Fland (your profile is the picture at the top right). On computers the menu is on the left (it folds into icons with the arrow button).
@@ -96,7 +96,7 @@ Each export earns a few Fuzzies (once per day per design). Download → Photo cr
     body: `Your Fuzzies balance is the pink chip at the top (tap it for Rewards). Ways to earn: a daily bonus for showing up (bigger with a streak),
 2–10 Fuzzies for every 30 minutes you actively use the app, 1–5 for every 30 minutes playing Fuzzy Crossing or Fuzzies Land, points in Fuzzy
 Crossing, exports, daily missions (3 a day plus a bonus for all three), achievements, and every level in Fuzzies Land. Rewards lists the premium
-templates, graphic packs, sticker packs, fonts, text effects, app themes and game looks you can unlock, with a Use button once unlocked.
+templates, graphic packs, sticker packs, text effects, app themes and game looks you can unlock, with a Use button once unlocked. All fonts are free.
 "Get more Fuzzies" sells packs: 100 for $0.99, 550 for $4.99, 1,200 for $9.99 and 3,000 for $19.99 (see Buying Fuzzies).`,
     asks: ['How do I earn Fuzzies faster?', 'What can I unlock?', 'Where is my daily bonus?'],
   },

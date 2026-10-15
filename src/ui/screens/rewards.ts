@@ -85,7 +85,7 @@ export function rewardsScreen(): Screen {
         ['🎯', 'Missions & badges', '3 new missions a day, plus one-time achievement rewards'],
       ].map(([e, t, s]) => h('div', { class: 'earn' }, h('span', { class: 'earn-ic' }, e), h('div', null, h('b', null, t), h('small', null, s))))),
       h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, `Badges · ${a.achievements.length}/${ACHIEVEMENTS.length}`), h('span', { class: 'muted' }, 'Each one pays out once')), achievementsGrid()),
-      ...gs.map((g) => h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, g.title), h('span', { class: 'muted' }, g.blurb)), h('div', { class: 'rw-grid' }, ...g.items.map(card)))),
+      ...gs.filter((g) => g.items.length).map((g) => h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, g.title), h('span', { class: 'muted' }, g.blurb)), h('div', { class: 'rw-grid' }, ...g.items.map(card)))),
     );
   }
   render();
