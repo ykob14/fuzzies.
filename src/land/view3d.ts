@@ -719,14 +719,14 @@ export class LandView {
     this.target.set(c + 3, 0, c + 3);
     this.dist = 90;
     // frames the main street, the Town Hall and the cottages; tall phone screens look a little further up
-    if (this.camera.aspect < 0.8) this.flyTo(c - 1, c - 2, 20, 1.9, undefined, true);
+    if (this.camera.aspect < 0.8) this.flyTo(c + 0.6, c - 1.6, 20, 1.9, undefined, true); // centred on the Hall and the main street
     else this.flyTo(c - 0.5, c - 1.8, 18, 1.9, undefined, true);
   }
   /** Without motion: put the camera on the saved view (or the opening view) at once. */
   placeAt(saved?: { x: number; z: number; d: number } | null): void {
     const c = MAP / 2;
     if (saved) { this.target.set(saved.x, 0, saved.z); this.clampTarget(true); this.dist = THREE.MathUtils.clamp(saved.d, 12, OPEN_MAX); }
-    else { const phone = this.camera.aspect < 0.8; this.target.set(phone ? c - 1 : c - 0.5, 0, phone ? c - 2 : c - 1.8); this.dist = phone ? 20 : 18; }
+    else { const phone = this.camera.aspect < 0.8; this.target.set(phone ? c + 0.6 : c - 0.5, 0, phone ? c - 1.6 : c - 1.8); this.dist = phone ? 20 : 18; }
     this.zoomGoal = this.dist;
   }
 
