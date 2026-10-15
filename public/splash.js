@@ -69,16 +69,23 @@
     if (started) return;
     started = true; t0 = performance.now();
     sp.classList.add('go');
-    try { if (!muted) tryAudio(); } catch (e) {} // most browsers only allow sound after a tap — then it plays on the first tap
+    // browsers only allow sound after a tap: the audio engine is made only when it is allowed (never blocks the page)
+    try { if (!muted && navigator.getAutoplayPolicy && navigator.getAutoplayPolicy('audiocontext') === 'allowed') tryAudio(); } catch (e) {}
     setTimeout(wink, 1650);
     setTimeout(exit, still ? 1300 : 3000);
   }
   if (img.complete && img.naturalWidth) start(); else { img.onload = start; img.onerror = start; setTimeout(start, 600); }
-  // a tap: if the browser held the sound back, it plays now (with a wink) and the screen leaves a moment later; otherwise skip
+  // a tap on the launch screen: the hello plays now (with a wink) and the screen leaves a moment later
   sp.addEventListener('pointerdown', function () {
     if (!played && !muted) { try { tryAudio(); } catch (e) {} wink(); setTimeout(exit, 900); } else exit();
   });
-  addEventListener('keydown', exit, { once: true });
+  addEventListener('keydown', function () { try { if (!muted) tryAudio(); } catch (e) {} exit(); }, { once: true });
+  // missed it? the Fuzzy still giggles hello on the first tap in the next few seconds
+  var bootAt = Date.now();
+  addEventListener('pointerdown', function first() {
+    removeEventListener('pointerdown', first, true);
+    if (!played && !muted && Date.now() - bootAt < 9000) { try { tryAudio(); } catch (e) {} }
+  }, true);
 })();
 
 // the web fonts load without blocking the first paint (no inline handler, so the strict security policy allows it)
