@@ -51,7 +51,9 @@ async function draw(m: TemplateMeta, max: number): Promise<string> {
 }
 
 // ---------- previews kept between visits (Cache Storage; silently skipped where unavailable) ----------
-const STORE = 'fz-template-previews-v1', KEEP = 900;
+const STORE = 'fz-template-previews-v2', KEEP = 900;
+// previews made with the old photo placeholders: drop them once
+try { void caches?.delete('fz-template-previews-v1').catch(() => {}); } catch { /* no Cache Storage */ }
 function hash(s: string): string { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
 async function fromStore(url: string): Promise<Blob | null> {
   try { const r = await (await caches.open(STORE)).match(url); return r ? await r.blob() : null; } catch { return null; }

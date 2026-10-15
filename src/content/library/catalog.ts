@@ -172,6 +172,15 @@ export function catalog(): TemplateMeta[] {
   builtIn ??= distinctNames([...COLLECTION_SETS.flatMap((set) => set.list.map((t) => collectionMeta(set, t))), ...CATEGORIES_TREE.flatMap((c) => c.subcategories.flatMap((s) => plan(c, s))), ...classicTemplates().map(classicMeta)]);
   return published.size ? [...published.values(), ...builtIn] : builtIn;
 }
+/** How polished a template is (0–3), for ordering only — nothing is hidden. Hand-made collections first, then the
+ * classics, then the generated layouts by how well each archetype holds up next to professional templates. */
+const ARCH_QUALITY: Record<string, number> = { photo: 1.2, matchup: 1.0, split: 0.8, stack: 0.6, collage: 0.5, circle: 0.5, editorial: 0.4, badge: 0.3, certificate: 0.6, slides: 0 };
+export function quality(m: TemplateMeta): number {
+  if (m.source === 'collection') return 3;
+  if (m.source === 'published') return 2.5;
+  if (m.source === 'classic') return 1.5;
+  return ARCH_QUALITY[m.recipe?.arch ?? ''] ?? 0.5;
+}
 export const metaById = (id: string): TemplateMeta | undefined => published.get(id) ?? catalog().find((m) => m.id === id);
 
 /** Add/refresh templates published from the template manager (server). */
@@ -199,7 +208,7 @@ export function templateDoc(m: TemplateMeta): Design {
     const r = m.recipe;
     const s = subById(m.sub)!;
     const a = ARCHETYPES.find((x) => x.id === r.arch)!;
-    const { pages, assets, w, h } = buildPages(a, { pal: paletteById(r.pal), f: FONTS[r.voice], ev: s.sub.events[r.event], motif: s.sub.emoji, label: s.sub.label, kind: s.cat.kind, seed: hash(m.id) % 97 }, r.format);
+    const { pages, assets, w, h } = buildPages(a, { pal: paletteById(r.pal), f: FONTS[r.voice], ev: s.sub.events[r.event], motif: s.sub.emoji, topic: s.sub.id, label: s.sub.label, kind: s.cat.kind, seed: hash(m.id) % 97 }, r.format);
     d = { v: DOC_VERSION, id: `tpl_${m.id}`, owner: 'system', name: m.name, width: w, height: h, pages, assets, template: m.id, createdAt: m.addedAt, updatedAt: m.addedAt };
   } else throw new Error('Published templates are loaded with loadTemplateDoc()');
   docs.set(m.id, d);
@@ -237,7 +246,7 @@ export function draftDesigns(subId: string, ev: EventText, n = 4, seed = 0): { l
     .map((a) => ({ a, k: hash(a.id + h0) })).sort((x, y) => x.k - y.k).slice(0, n).map((x) => x.a);
   return picks.map((a, i) => {
     const format = a.formats[(h0 + i) % a.formats.length];
-    const { pages, assets, w, h } = buildPages(a, { pal: paletteById(pals[(h0 + i) % pals.length]), f: FONTS[a.voices[(h0 + i) % a.voices.length]], ev, motif: s.sub.emoji, label: s.sub.label, kind: s.cat.kind, seed: (h0 + i) % 97 }, format);
+    const { pages, assets, w, h } = buildPages(a, { pal: paletteById(pals[(h0 + i) % pals.length]), f: FONTS[a.voices[(h0 + i) % a.voices.length]], ev, motif: s.sub.emoji, topic: s.sub.id, label: s.sub.label, kind: s.cat.kind, seed: (h0 + i) % 97 }, format);
     const now = Date.now();
     return { label: `${a.label} · ${FORMATS[format].label}`, style: a.style, design: { v: DOC_VERSION, id: `draft_${i}`, owner: 'system', name: ev.title, width: w, height: h, pages, assets, createdAt: now, updatedAt: now } };
   });

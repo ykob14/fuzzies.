@@ -2,7 +2,7 @@
  * Template search: every query word must match (prefix match, small typos forgiven), results ranked by where
  * the words matched (name > topic > tags) and then by real usage. Filters are facets over the catalog metadata.
  */
-import type { TemplateMeta } from './catalog';
+import { quality, type TemplateMeta } from './catalog';
 
 export interface Filters { category?: string; sub?: string; format?: string; style?: string; color?: string; occasion?: string; free?: boolean; use?: string }
 export interface Usage { uses(id: string): number }
@@ -62,7 +62,7 @@ export function search(all: TemplateMeta[], query: string, f: Filters, usage?: U
   const list = all.filter((m) => (!f.category || m.category === f.category) && (!f.sub || m.sub === f.sub) && (!f.format || m.format === f.format)
     && (!f.style || m.style === f.style) && (!f.use || m.use === f.use) && (!f.color || m.colors.includes(f.color)) && (!f.occasion || m.occasion === f.occasion) && (!f.free || m.cost === 0));
   const qWords = norm(query).split(' ').filter(Boolean);
-  if (!qWords.length) return usage ? [...list].sort((a, b) => usage.uses(b.id) - usage.uses(a.id)) : list;
+  if (!qWords.length) return [...list].sort((a, b) => (usage ? usage.uses(b.id) - usage.uses(a.id) : 0) || quality(b) - quality(a));
   const groups = qWords.map((w) => [w, ...(SYNONYMS[w] ?? [])]);
   const scored: { m: TemplateMeta; s: number }[] = [];
   for (const m of list) {
@@ -75,7 +75,7 @@ export function search(all: TemplateMeta[], query: string, f: Filters, usage?: U
     }
     if (!ok) continue;
     if (norm(m.name).includes(norm(query))) total += 3; // the whole phrase in the title
-    scored.push({ m, s: total + Math.min(2, (usage?.uses(m.id) ?? 0) / 25) + (m.source === 'collection' ? 1.5 : 0) });
+    scored.push({ m, s: total + Math.min(2, (usage?.uses(m.id) ?? 0) / 25) + quality(m) * 0.6 });
   }
   return scored.sort((a, b) => b.s - a.s).map((x) => x.m);
 }

@@ -6,7 +6,7 @@
 import type { Screen } from '../app';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
-import { catalog, CATEGORIES_TREE, metaById, onCatalogChange, subById, type TemplateMeta } from '../../content/library/catalog';
+import { catalog, CATEGORIES_TREE, metaById, onCatalogChange, quality, subById, type TemplateMeta } from '../../content/library/catalog';
 import { COLLECTION_SETS, USES } from '../../content/library/collections';
 import { search, facets, related, type Filters } from '../../content/library/search';
 import { usage, loadStats } from '../../content/library/usage';
@@ -211,7 +211,7 @@ export function libraryScreen(): Screen {
         row('Trending this week', pick(usage.trending().map(([id]) => id)), undefined, 'Most used by everyone in the last 7 days'),
         row('Popular', pick(usage.popular().map(([id]) => id)), undefined, 'Most used of all time'),
         row('Recently added', onePerTopic([...all].sort((a, b) => b.addedAt - a.addedAt)).slice(0, 12)),
-        ...CATEGORIES_TREE.map((cat) => row(`${cat.emoji} ${cat.label}`, onePerTopic(all.filter((m) => m.category === cat.id).sort((a, b) => usage.uses(b.id) - usage.uses(a.id))).slice(0, 12),
+        ...CATEGORIES_TREE.map((cat) => row(`${cat.emoji} ${cat.label}`, onePerTopic(all.filter((m) => m.category === cat.id).sort((a, b) => usage.uses(b.id) - usage.uses(a.id) || quality(b) - quality(a))).slice(0, 12),
           () => { f.category = cat.id; open.add(cat.id); shown = PAGE; fill(); })),
       ].filter((x): x is HTMLElement => !!x));
       return;

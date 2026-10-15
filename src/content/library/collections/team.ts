@@ -49,14 +49,14 @@ export function photo(c: Kit, th: Theme, i: number, x: number, y: number, w: num
 
 /** One person card: soft shadow, coloured frame, photo, name bar with the name and role. */
 function card(c: Kit, th: Theme, i: number, name: string, role: string, x: number, y: number, w: number, h: number): void {
-  const r = w * 0.05, b = Math.max(4, w * 0.016), barH = Math.min(h * 0.3, w * 0.24);
+  const r = w * 0.05, b = Math.max(4, w * 0.016), barH = Math.min(h * 0.32, w * 0.27);
   box(c, x + w * 0.02, y + w * 0.025, w, h, th.shadow, { radius: r, name: 'Card shadow' });
   box(c, x, y, w, h, th.frame, { radius: r, name: 'Card frame' });
   photo(c, th, i, x + b, y + b, w - b * 2, h - b * 2 - barH * 0.6, r - b);
   const by = y + h - b - barH;
   box(c, x + b, by, w - b * 2, barH, th.bar, { radius: r - b, name: 'Name bar' });
-  const n = text(c, name, x + w * 0.07, 0, w * 0.86, { font: th.nFont, weight: th.nW, size: w * 0.068, fill: th.barInk, upper: true, spacing: w * 0.003, name: 'Name' });
-  const t = text(c, role, x + w * 0.07, 0, w * 0.86, { font: th.nFont, weight: th.rW, size: w * 0.054, fill: th.barInk, upper: true, spacing: w * 0.002, name: 'Role' });
+  const n = text(c, name, x + w * 0.07, 0, w * 0.86, { font: th.nFont, weight: th.nW, size: w * 0.082, fill: th.barInk, upper: true, spacing: w * 0.003, name: 'Name' });
+  const t = text(c, role, x + w * 0.07, 0, w * 0.86, { font: th.nFont, weight: th.rW, size: w * 0.064, fill: th.barInk, upper: true, spacing: w * 0.002, name: 'Role' });
   const gap = barH * 0.08, total = n.h + gap + t.h;
   n.y = by + (barH - total) / 2;
   t.y = n.y + n.h + gap;
