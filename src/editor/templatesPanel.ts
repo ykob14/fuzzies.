@@ -10,6 +10,7 @@ import { lazyThumb } from '../ui/libthumbs';
 import { unlockDialog } from '../ui/unlock';
 import { rewards } from '../core/rewards';
 import { h, btn, toast, confirmDialog } from '../ui/dom';
+import { designContext, type DesignContext } from './designContext';
 
 let tplCat = '';
 let tplQuery = '';
@@ -20,8 +21,19 @@ export function templatesPanelBody(ed: Editor, o: { afterAdd: () => void; rerend
   const render = o.rerender;
   function panel(): HTMLElement {
     const wrap = h('div');
-    const search = h('input', { class: 'input', placeholder: 'Search 300+ templates', value: tplQuery, type: 'search', 'aria-label': 'Search templates' });
+    // one real count everywhere (the gallery shows the same number)
+    const search = h('input', { class: 'input', placeholder: `Search ${catalog().length.toLocaleString()} templates`, value: tplQuery, type: 'search', 'aria-label': 'Search templates' });
     const chips = h('div', { class: 'chips' });
+    const note = h('div', { class: 'pnl-label tpl-for', hidden: true });
+    let ctx: DesignContext | null = null;
+    void designContext(ed.design).then((c) => { ctx = c; if (wrap.isConnected) fill(); }, () => {});
+    /** Same topic first, then the same category, then the same page shape — the design's own neighbours lead. */
+    const near = (m: TemplateMeta) => {
+      if (!ctx) return 0;
+      const d = ed.design;
+      return (ctx.sub && m.sub === ctx.sub ? 4 : 0) + (ctx.cat && m.category === ctx.cat ? 2 : 0)
+        + (Math.abs(m.width / m.height - d.width / d.height) < 0.02 ? 1.5 : 0);
+    };
     const grid = h('div', { class: 'tpl-grid' });
     const more = btn('Show more', { kind: 'ghost', class: 'btn-block', onClick: () => { tplShown += 40; fill(); } });
     const fill = () => {
@@ -30,7 +42,11 @@ export function templatesPanelBody(ed: Editor, o: { afterAdd: () => void; rerend
         b.addEventListener('click', () => { tplCat = id; tplShown = 40; fill(); });
         return b;
       }));
-      const list = searchTemplates(catalog(), tplQuery, { category: tplCat || undefined }, usage);
+      let list = searchTemplates(catalog(), tplQuery, { category: tplCat || undefined }, usage);
+      if (ctx && !tplQuery.trim()) list = list.map((m, i) => ({ m, i, n: near(m) })).sort((a, b) => b.n - a.n || a.i - b.i).map((x) => x.m);
+      const lead = ctx && !tplQuery.trim() && (ctx.sub || ctx.cat) && list[0] && near(list[0]) >= 2;
+      note.hidden = !lead;
+      note.textContent = lead ? `For your design${ctx!.label ? ` · ${ctx!.label}` : ''} first` : '';
       void searchPublished(tplQuery, { category: tplCat || undefined });
       grid.replaceChildren(...list.slice(0, tplShown).map((m) => tplCard(m)));
       if (!list.length) grid.append(h('p', { class: 'muted' }, 'No templates match.'));
@@ -42,7 +58,7 @@ export function templatesPanelBody(ed: Editor, o: { afterAdd: () => void; rerend
     // published templates arrive from the server a moment later
     const off = onCatalogChange(() => { if (wrap.isConnected) fill(); else off(); });
     void loadPublished();
-    wrap.append(search, chips, grid, more);
+    wrap.append(search, chips, note, grid, more);
     return wrap;
   }
 

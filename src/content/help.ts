@@ -17,7 +17,7 @@ export interface HelpTopic {
 
 export const APP_FACTS = `Fuzzies ("Dream it fuzzy. Make it sharp.") is a design app for phones and computers with a built-in game, Fuzzy Crossing,
 and a town-builder, Fuzzies Land. Fuzzies (the tokens) are earned by designing, playing and showing up every day, or bought; they unlock
-premium templates, graphics, stickers, text effects, app themes and game looks (every font is free). The mascot (a fluffy Fuzzy) lives in the logo.
+premium templates, graphics, stickers, app themes and game looks (every font and text style is free). The mascot (a fluffy Fuzzy) lives in the logo.
 Screens: Home (#/home), Templates (#/templates), My designs (#/projects), the editor (#/edit/<id>), Play = Fuzzy Crossing (#/play),
 Fuzzies Land (#/land), Rewards (#/rewards), Profile (#/profile), Settings (#/settings). On phones the tab bar at the bottom has
 Home, Templates, + (create), Designs, Play and Fland (your profile is the picture at the top right). On computers the menu is on the left (it folds into icons with the arrow button).
@@ -85,9 +85,10 @@ Ctrl/Cmd+S saves right away. Brand colours and fonts (Settings → Brand kit) ap
   {
     id: 'export', title: 'Download & share', screens: ['edit', 'projects'],
     keywords: ['download', 'export', 'png', 'jpg', 'pdf', 'share', 'link', 'print', 'save to phone', 'instagram', 'file', 'fuzzies file', 'credit'],
-    body: `In the editor, Download offers PNG, JPG, PDF (all pages) and a .fuzzies project file (reopen or send to a friend). Share makes a link
+    body: `In the editor, the Download button (arrow at the top) opens one panel: choose PNG, JPG, PDF or a .fuzzies project file (reopen or send to a friend),
+the size (1×–3×) or PDF quality, a transparent background for PNG, and which pages (all, this page, or pick some). Share has the same options and also makes a link
 anyone can open without an account to view, download or remix the design; on phones the share sheet sends it straight to apps.
-Each export earns a few Fuzzies (once per day per design). Download → Photo credits lists the stock photos you used.`,
+Each export earns a few Fuzzies (once per day per design). The Download panel's Photo credits link lists the stock photos you used.`,
     asks: ['How do I download as PDF?', 'How do I share a design with a friend?'],
   },
   {
@@ -96,7 +97,7 @@ Each export earns a few Fuzzies (once per day per design). Download → Photo cr
     body: `Your Fuzzies balance is the pink chip at the top (tap it for Rewards). Ways to earn: a daily bonus for showing up (bigger with a streak),
 2–10 Fuzzies for every 30 minutes you actively use the app, 1–5 for every 30 minutes playing Fuzzy Crossing or Fuzzies Land, points in Fuzzy
 Crossing, exports, daily missions (3 a day plus a bonus for all three), achievements, and every level in Fuzzies Land. Rewards lists the premium
-templates, graphic packs, sticker packs, text effects, app themes and game looks you can unlock, with a Use button once unlocked. All fonts are free.
+templates, graphic packs, sticker packs, app themes and game looks you can unlock, with a Use button once unlocked. All fonts and text styles are free.
 "Get more Fuzzies" sells packs: 100 for $0.99, 550 for $4.99, 1,200 for $9.99 and 3,000 for $19.99 (see Buying Fuzzies).`,
     asks: ['How do I earn Fuzzies faster?', 'What can I unlock?', 'Where is my daily bonus?'],
   },
