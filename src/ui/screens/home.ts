@@ -45,8 +45,9 @@ export function homeScreen(): Screen {
       h('span', { class: 'home-kind-ic' }, plus ? icon('plus', 24) : h('span', { class: 'home-kind-shape', style: `width:${bw.toFixed(1)}px;height:${bh.toFixed(1)}px` })),
       h('span', { class: 'home-kind-label' }, label));
   };
+  const bm = h('div', { class: 'home-banner-mascot', 'aria-hidden': 'true' }, mascot(76));
   const banner = h('section', { class: 'home-banner' },
-    h('div', { class: 'home-banner-mascot', 'aria-hidden': 'true' }, mascot(76)),
+    bm,
     h('p', { class: 'home-banner-kicker' }, `${greet}, ${a.name.split(' ')[0]} 👋`),
     h('h1', null, 'What will you design today?'),
     h('label', { class: 'home-search' }, icon('search', 20), search),
@@ -127,6 +128,20 @@ export function homeScreen(): Screen {
       btn('Visit my town', { kind: 'primary', size: 'lg', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) })));
 
   // your work first, then ideas, then play
+  // the banner Fuzzy turns toward your mouse, and sends up hearts when you tap it
+  banner.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse' || document.documentElement.dataset.motion === 'reduce') return;
+    const r = bm.getBoundingClientRect();
+    const dx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / 500));
+    bm.style.setProperty('--tilt', `${(dx * 9).toFixed(1)}deg`);
+  });
+  bm.addEventListener('click', () => {
+    if (document.documentElement.dataset.motion === 'reduce') return;
+    for (let i = 0; i < 6; i++) {
+      const hr = h('span', { class: 'home-heart', style: `--dx:${((Math.random() - 0.5) * 90).toFixed(0)}px;--dl:${i * 80}ms` }, '♥');
+      bm.append(hr); setTimeout(() => hr.remove(), 1500);
+    }
+  });
   const el = h('div', { class: 'page home' }, banner, dailyCard, recentSec,
     h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, featuredHead, h('a', { href: '#/templates', class: 'link' }, 'Browse all')), featured),
     h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Play & earn Fuzzies')), h('div', { class: 'home-play' }, game, landCard)),

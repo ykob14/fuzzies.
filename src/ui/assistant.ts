@@ -34,7 +34,7 @@ function furFilter(): void {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('id', 'fz-fur-svg'); svg.setAttribute('width', '0'); svg.setAttribute('height', '0'); svg.setAttribute('aria-hidden', 'true');
   svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
-  svg.innerHTML = '<filter id="fz-fur" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.035 0.05" numOctaves="2" seed="3" result="n"><animate attributeName="baseFrequency" dur="5s" repeatCount="indefinite" values="0.035 0.05;0.05 0.035;0.035 0.05"/></feTurbulence><feDisplacementMap in="SourceGraphic" in2="n" scale="9" xChannelSelector="R" yChannelSelector="G"/></filter>';
+  svg.innerHTML = '<filter id="fz-fur" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.035 0.05" numOctaves="2" seed="3" result="n"><animate attributeName="baseFrequency" dur="5s" repeatCount="indefinite" values="0.035 0.05;0.05 0.035;0.035 0.05"/></feTurbulence><feDisplacementMap in="SourceGraphic" in2="n" scale="13" xChannelSelector="R" yChannelSelector="G"/></filter>';
   document.body.append(svg);
 }
 
@@ -88,9 +88,26 @@ function fuzzyFace(size: number) {
       else if (m === 'listen') set('listen');
       else { set('open'); timer = window.setTimeout(idle, 1500 + Math.random() * 2000); }
     },
-    do(move: 'wave' | 'cheer' | 'giggle' | 'wink') {
+    /** Turn the head a little toward a point on the screen (the helper looks at your mouse). */
+    look(x: number, y: number) {
+      const r = el.getBoundingClientRect();
+      const dx = (x - (r.left + r.width / 2)) / Math.max(240, innerWidth * 0.5), dy = (y - (r.top + r.height / 2)) / Math.max(240, innerHeight * 0.5);
+      const c = (v: number, m: number) => Math.max(-m, Math.min(m, v));
+      el.style.setProperty('--tilt', `${(c(dx, 1) * 10).toFixed(1)}deg`);
+      el.style.setProperty('--lx', `${(c(dx, 1) * 5).toFixed(1)}%`);
+      el.style.setProperty('--ly', `${(c(dy, 1) * 4).toFixed(1)}%`);
+    },
+    hearts(n = 5) {
+      for (let i = 0; i < n; i++) {
+        const hr = h('span', { class: 'fza-heart', style: `--dx:${((Math.random() - 0.5) * 1.1).toFixed(2)};--dl:${(i * 90 + Math.random() * 80).toFixed(0)}ms;--sz:${(0.7 + Math.random() * 0.7).toFixed(2)}` }, '♥');
+        el.append(hr);
+        setTimeout(() => hr.remove(), 1500);
+      }
+    },
+    do(move: 'wave' | 'cheer' | 'giggle' | 'wink' | 'wiggle') {
       if (document.documentElement.dataset.motion === 'reduce') return;
-      el.classList.remove('wave', 'cheer');
+      el.classList.remove('wave', 'cheer', 'wiggle');
+      if (move === 'wiggle') { void el.offsetWidth; el.classList.add('wiggle'); set('wide'); setTimeout(() => { el.classList.remove('wiggle'); if (mode === 'idle') set('open'); }, 900); return; }
       void el.offsetWidth;
       if (move === 'wave') { el.classList.add('wave'); set('wink'); setTimeout(() => { if (mode === 'idle') set('open'); }, 900); }
       else if (move === 'cheer') { el.classList.add('cheer'); set('giggle'); setTimeout(() => { if (mode === 'idle') set('open'); }, 900); }
@@ -428,7 +445,21 @@ export function mountAssistant(): void {
     if (innerWidth <= 760 && Math.abs(y - lastY) > 12) { root.classList.toggle('tucked', y > lastY && y > 120); lastY = y; }
   }, { passive: true });
   launcher.addEventListener('click', () => api.toggle());
-  launcher.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !open) big.do('wink'); });
+  launcher.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !open) { big.do('wiggle'); big.hearts(4); if (soundOn()) sfx.twinkle(); } });
+  // the helper's head follows the mouse a little, and now and then it does a happy wiggle with a few hearts
+  let lookQueued = false, lx = 0, ly = 0;
+  addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse' || lookQueued || open || document.documentElement.dataset.motion === 'reduce') return;
+    lx = e.clientX; ly = e.clientY; lookQueued = true;
+    requestAnimationFrame(() => { lookQueued = false; if (!root.hidden) big.look(lx, ly); });
+  }, { passive: true });
+  const happy = () => {
+    if (!open && !document.hidden && !assistant.prefs.hidden && !inPlayArea() && document.documentElement.dataset.motion !== 'reduce') { big.do('wiggle'); if (Math.random() < 0.5) big.hearts(3); }
+    setTimeout(happy, 7000 + Math.random() * 6000);
+  };
+  setTimeout(happy, 5000);
+  // tapping the little face in the chat header makes it giggle
+  mini.el.addEventListener('click', () => { mini.do('wiggle'); mini.hearts(4); if (soundOn()) sfx.giggle(); });
   label.addEventListener('click', () => api.open());
   // the hello bubble says hi once per device, for a few seconds, and gets out of the way (it used to stay until the chat
   // was opened, covering buttons and catching taps meant for the page)
