@@ -10,7 +10,7 @@ import { h, icon, popMenu, toast } from './dom';
 import { assistant, type Msg } from '../core/assistant';
 import { accounts } from '../core/account';
 import { sfx } from '../game/sound';
-export type AssistFace = 'open' | 'wink' | 'blink' | 'giggle' | 'talkA' | 'talkB' | 'think' | 'listen';
+export type AssistFace = 'open' | 'wink' | 'blink' | 'giggle' | 'talkA' | 'talkB' | 'wide' | 'small' | 'oh' | 'think' | 'listen';
 export type AssistFrames = Record<AssistFace, string>;
 
 /** Screens where the helper never shows (the owner's choice: website only, not the play areas). */
@@ -20,7 +20,7 @@ const PLAY_SCREENS = new Set(['play', 'land']);
 const PIC = (n: string) => `/art/helper/${n}.webp`;
 const frames: AssistFrames = {
   open: PIC('open'), wink: PIC('wink'), blink: PIC('blink'), giggle: PIC('wink'),
-  talkA: PIC('talkA'), talkB: PIC('talkB'), think: PIC('open'), listen: PIC('open'),
+  talkA: PIC('talkA'), talkB: PIC('talkB'), wide: PIC('mouthWide'), small: PIC('mouthSmall'), oh: PIC('mouthO'), think: PIC('mouthSmall'), listen: PIC('mouthO'),
 };
 const real = true; // the picture never swaps for a rendered model
 const faces = new Set<{ img: HTMLImageElement; face: AssistFace }>();
@@ -28,13 +28,26 @@ function loadFrames(): void {
   Object.values(frames).forEach((src) => { const i = new Image(); i.src = src; }); // so face swaps never flicker
 }
 
+/** One hidden SVG filter shared by every helper face: it makes the fur edge ripple like it's alive. */
+function furFilter(): void {
+  if (document.getElementById('fz-fur-svg')) return;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('id', 'fz-fur-svg'); svg.setAttribute('width', '0'); svg.setAttribute('height', '0'); svg.setAttribute('aria-hidden', 'true');
+  svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+  svg.innerHTML = '<filter id="fz-fur" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.035 0.05" numOctaves="2" seed="3" result="n"><animate attributeName="baseFrequency" dur="5s" repeatCount="indefinite" values="0.035 0.05;0.05 0.035;0.035 0.05"/></feTurbulence><feDisplacementMap in="SourceGraphic" in2="n" scale="9" xChannelSelector="R" yChannelSelector="G"/></filter>';
+  document.body.append(svg);
+}
+
 /** A blue Fuzzy face that can be told what to do: idle blinking, talking, thinking, listening, a wave or a cheer. */
 function fuzzyFace(size: number) {
   const img = h('img', { class: 'fza-img', src: frames.open, alt: '', draggable: 'false' });
   const st = { img, face: 'open' as AssistFace };
   faces.add(st);
+  furFilter();
+  // a second copy of the picture with only the fluffy edge showing, rippling on top: the fur looks alive while the face stays steady
+  const fur = h('img', { class: 'fza-img fza-fur', src: frames.open, alt: '', draggable: 'false' });
   const el = h('div', { class: `fza ${real ? 'real' : ''}`, style: `--s:${size}px`, 'aria-hidden': 'true' },
-    h('div', { class: 'fza-shadow' }), h('div', { class: 'fza-body' }, img));
+    h('div', { class: 'fza-shadow' }), h('div', { class: 'fza-body' }, img, fur));
   let mode: 'idle' | 'talk' | 'think' | 'listen' = 'idle';
   let timer = 0;
   const set = (f: AssistFace) => { st.face = f; img.src = frames[f]; };
@@ -43,15 +56,23 @@ function fuzzyFace(size: number) {
     stopTimer();
     if (mode !== 'idle') return;
     const r = Math.random();
-    set(r < 0.18 ? 'wink' : 'blink');
-    timer = window.setTimeout(() => { if (mode === 'idle') { set('open'); timer = window.setTimeout(idle, 2200 + Math.random() * 3800); } }, r < 0.18 ? 600 : 140);
+    if (r > 0.62) {
+      // a little chatter to itself: the mouth moves, not just the eyes
+      const seq: AssistFace[] = Math.random() < 0.5 ? ['small', 'wide', 'small', 'open'] : ['oh', 'wide', 'talkA', 'small', 'open'];
+      let k = 0;
+      const step = () => { if (mode !== 'idle') return; set(seq[k++]); if (k < seq.length) timer = window.setTimeout(step, 170 + Math.random() * 90); else timer = window.setTimeout(idle, 1400 + Math.random() * 2400); };
+      step();
+      return;
+    }
+    set(r < 0.2 ? 'wink' : 'blink');
+    timer = window.setTimeout(() => { if (mode === 'idle') { set('open'); timer = window.setTimeout(idle, 1200 + Math.random() * 2600); } }, r < 0.2 ? 600 : 140);
   };
   const talk = () => {
     stopTimer();
     if (mode !== 'talk') return;
-    const seq: AssistFace[] = ['talkA', 'open', 'talkB', 'talkA', 'open'];
+    const seq: AssistFace[] = ['talkA', 'wide', 'small', 'talkB', 'oh', 'open', 'wide', 'talkA', 'small'];
     set(seq[Math.floor(Math.random() * seq.length)]);
-    timer = window.setTimeout(talk, 110 + Math.random() * 90);
+    timer = window.setTimeout(talk, 90 + Math.random() * 80);
   };
   const api = {
     el,
