@@ -76,10 +76,12 @@
 .fzl-pic { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; border-radius: 13px; background: radial-gradient(circle at 50% 58%, var(--surface) 0%, var(--surface-2) 75%); overflow: hidden; box-shadow: inset 0 -4px 0 var(--rar); }
 .fzl-pic img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .fzl-pic img.fzl-flat { width: 80%; height: 80%; }
-.fzl-card.locked .fzl-pic { background: radial-gradient(circle at 50% 56%, #3a393f 0%, #212024 80%); }
+.fzl-card.locked .fzl-pic { background: radial-gradient(circle at 50% 56%, color-mix(in srgb, var(--rar) 10%, #fff) 0%, color-mix(in srgb, var(--rar) 28%, var(--surface-2)) 85%); }
+.fzl-card.locked .fzl-pic img:not(.fzl-flat) { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--rar) 70%, transparent)) brightness(1.5) contrast(.8); opacity: .82; }
+.fzl-card.locked .fzl-pic::after { content: ''; position: absolute; right: 6px; bottom: 9px; width: 22px; height: 22px; border-radius: 50%; background: var(--rar) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='7' y='14' width='18' height='13' rx='3.4' fill='white'/%3E%3Cpath d='M11 14v-3.5a5 5 0 0 1 10 0V14' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E") center / 13px no-repeat; box-shadow: 0 2px 0 rgba(0,0,0,.18); }
 .fzl-card.locked .fzl-flat, .fzl-fallback.locked .fzl-flat { filter: brightness(0) drop-shadow(0 0 3px var(--rar)); opacity: .9; }
 .fzl-blob { width: 64%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 38% 32%, var(--c0), var(--c1)); box-shadow: inset 0 -6px 12px rgba(0,0,0,.18); }
-.fzl-card.locked .fzl-blob { background: radial-gradient(circle at 50% 45%, #1a191d, #0c0b0e); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rar) 70%, transparent), 0 0 14px color-mix(in srgb, var(--rar) 55%, transparent); }
+.fzl-card.locked .fzl-blob { background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--rar) 55%, #fff), color-mix(in srgb, var(--rar) 80%, #000)); opacity: .7; }
 .fzl-q { position: absolute; font: 700 30px/1 var(--brand); color: var(--rar); text-shadow: 0 0 12px var(--rar); }
 .fzl-cname { font: 700 14px/1.2 var(--brand); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 5px; }
 .fzl-cmeta { min-height: 16px; margin-top: 2px; font: 700 12px/1 var(--brand); color: var(--muted); display: inline-flex; align-items: center; gap: 3px; max-width: 100%; overflow: hidden; white-space: nowrap; }
