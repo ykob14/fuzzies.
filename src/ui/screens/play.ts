@@ -74,7 +74,8 @@ export function playScreen(): Screen {
     for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => b.classList.remove('on'));
     return b;
   };
-  const controls = h('div', { class: `dpad-wrap ${isTouch() ? '' : 'desktop'}` }, pad('up', 'up'), pad('left', 'back'), pad('right', 'play'), pad('down', 'down'));
+  // on a phone the whole board is the control (tap = hop forward, swipe = sideways / back), so the little arrow buttons are gone
+  const controls = h('div', { class: 'dpad-wrap desktop' }, pad('up', 'up'), pad('left', 'back'), pad('right', 'play'), pad('down', 'down'));
 
   const eventFx = createEventFx(isTouch());
   let game: Crossing | null = null;
@@ -576,16 +577,28 @@ export function playScreen(): Screen {
     if (!overlay.hidden && !game?.paused) begin();
     game?.input(d);
   };
-  let sw: { x: number; y: number; id: number } | null = null;
-  wrap.addEventListener('pointerdown', (e) => { sw = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+  // touch / mouse on the board: a tap hops forward, a swipe goes that way — the move happens as soon as the swipe is long enough
+  let sw: { x: number; y: number; id: number; fired: boolean } | null = null;
+  const SWIPE = 24;
+  const swipeDir = (dx: number, dy: number): Dir => (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up');
+  wrap.addEventListener('pointerdown', (e) => { sw = { x: e.clientX, y: e.clientY, id: e.pointerId, fired: false }; });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!sw || sw.id !== e.pointerId || introRunning || levelCard || !overlay.hidden) return;
+    const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+    if (Math.hypot(dx, dy) < SWIPE) return;
+    game?.input(swipeDir(dx, dy));
+    sw.fired = true; sw.x = e.clientX; sw.y = e.clientY; // a long drag can hop again
+  });
   wrap.addEventListener('pointerup', (e) => {
     if (!sw || sw.id !== e.pointerId) return;
-    const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+    const dx = e.clientX - sw.x, dy = e.clientY - sw.y, fired = sw.fired;
     sw = null;
     if (introRunning) { skipIntro(); return; }
+    if (fired) return;
     if (Math.hypot(dx, dy) < 14) { game?.input('up'); return; } // tap = hop forward
-    game?.input(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up');
+    game?.input(swipeDir(dx, dy));
   });
+  wrap.addEventListener('pointercancel', () => { sw = null; });
   addEventListener('keydown', onKey);
   const ro = new ResizeObserver(() => game?.resize());
   ro.observe(wrap);

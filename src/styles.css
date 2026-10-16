@@ -3302,3 +3302,10 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
 /* Home: Fuzzies Land is the one place to play (Fuzzy Crossing lives inside it), so its card spans the row */
 .home-play { grid-template-columns: 1fr; }
 @media (min-width: 761px) { .home-play .land-promo { grid-template-columns: 1fr 1fr; } .home-play .lp-art { height: 100%; min-height: 232px; } }
+
+/* Fuzzy Crossing on a phone: the board is the whole play area (no arrow buttons — tap to hop, swipe to turn) */
+@media (max-width: 760px) and (pointer: coarse) {
+  .game-wrap { aspect-ratio: auto; width: 100%; height: calc(100dvh - 210px); max-height: none; min-height: 320px; }
+  .game-canvas { border-radius: 18px; }
+  .game-shell:has(.fzx-lobby) .game-wrap { height: auto; }
+}

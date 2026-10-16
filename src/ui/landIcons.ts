@@ -5,7 +5,7 @@
 export type LandIcon =
   | 'coin' | 'star' | 'pop' | 'hammer' | 'crate' | 'barn' | 'sparkles' | 'music' | 'musicOff'
   | 'zoomIn' | 'zoomOut' | 'back' | 'house' | 'wheat' | 'workshop' | 'flower' | 'clock' | 'lock'
-  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn' | 'festival' | 'token' | 'boat' | 'compass' | 'car' | 'close' | 'check' | 'undo' | 'redo' | 'hand' | 'help' | 'upload';
+  | 'basket' | 'build' | 'parcel' | 'barnBig' | 'portal' | 'chevDown' | 'chevUp' | 'chevRight' | 'chevLeft' | 'rotate' | 'trash' | 'select' | 'edit' | 'box' | 'boxIn' | 'festival' | 'token' | 'boat' | 'compass' | 'car' | 'close' | 'check' | 'undo' | 'redo' | 'hand' | 'help' | 'upload' | 'eye' | 'orbit' | 'tiltUp' | 'tiltDown';
 
 const O = 'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"';
 const HL = 'fill="#fff" opacity=".55"';
@@ -126,6 +126,10 @@ const ART: Record<LandIcon, string> = {
   chevUp: `<path d="M9 20l7-7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevRight: `<path d="M12 9l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`,
   chevLeft: `<path d="M20 9l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  eye: `<path d="M2.5 16C6 9.5 11 7 16 7s10 2.5 13.5 9C26 22.5 21 25 16 25S6 22.5 2.5 16z" fill="currentColor" opacity=".18"/><path d="M2.5 16C6 9.5 11 7 16 7s10 2.5 13.5 9C26 22.5 21 25 16 25S6 22.5 2.5 16z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><circle cx="16" cy="16" r="4.6" fill="currentColor"/><circle cx="17.6" cy="14.4" r="1.4" fill="#fff"/>`,
+  orbit: `<ellipse cx="16" cy="19" rx="11" ry="5" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M26 15.5l1.8 3.2-3.6.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="10" r="4.6" fill="currentColor"/>`,
+  tiltUp: `<path d="M5 22l11-12 11 12" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+  tiltDown: `<path d="M5 10l11 12 11-12" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`,
   rotate: `<path d="M24 12a9 9 0 1 0 1.5 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M25.5 5.5v7h-7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
   // chunky white-on-colour glyphs for the edit toolbar and buttons (filled strokes, no thin outlines)
   close: `<path d="M9 9l14 14M23 9L9 23" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/>`,

@@ -783,6 +783,7 @@ export function landScreen(): Screen {
     if (!b || placing) { quick.hidden = true; return; }
     quick.replaceChildren(
       btn(h('span', { class: 'row' }, landIcon('hand', 20), 'Move'), { kind: 'soft', size: 'sm', title: 'Move (or press and hold it)', onClick: () => startPlacing(b.item, b.id) }),
+      btn(h('span', { class: 'row' }, landIcon('eye', 20), 'Look'), { kind: 'soft', size: 'sm', title: 'A close-up — then stroll round it', onClick: () => { openPanel(null); view?.lookAtBuilding(b.id); } }),
       btn(landIcon('select', 22), { kind: 'soft', size: 'sm', title: 'Edit town (select several, store, rearrange)', onClick: () => enterSelect(b.id) }),
       ...(canTurn(b.item) ? [btn(h('span', { class: 'row' }, landIcon('rotate', 20), 'Turn'), { kind: 'soft', size: 'sm', title: 'Turn (R)', onClick: () => turnInPlace(b.id) })] : []));
     quick.hidden = false;
@@ -1302,6 +1303,9 @@ export function landScreen(): Screen {
   let drag: { moved: boolean; sx: number; sy: number; ghost: boolean; painted?: boolean; picked?: boolean; touch: boolean; off?: { x: number; z: number };
     group?: { g0: { x: number; y: number }; dx0: number; dz0: number }; box?: boolean; boxTimer?: number; shift?: boolean } | null = null;
   let pinch = 0;
+  let pinchAng: number | null = null;
+  /** Right / middle / Alt-drag with a mouse turns and tilts the view. */
+  let orbitDrag: { x: number; y: number } | null = null;
   let pinchMid: { x: number; y: number } | null = null;
   let lastPtr: { x: number; y: number } | null = null;
   const FINGER_LIFT = 64; // on touch screens the carried building sits above the finger, not under it
@@ -1338,12 +1342,19 @@ export function landScreen(): Screen {
   }
   const lastTap = { t: 0, x: 0, y: 0 };
   function onDown(e: PointerEvent): void {
+    if (e.pointerType === 'mouse' && (e.button === 2 || e.button === 1 || (e.button === 0 && e.altKey)) && !placing) {
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      orbitDrag = { x: e.clientX, y: e.clientY }; view?.stopGlide(); wrap.classList.add('panning'); cancelHold();
+      return;
+    }
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 2) {
       const [p1, p2] = [...pts.values()];
       pinch = Math.hypot(p1.x - p2.x, p1.y - p2.y);
       pinchMid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      pinchAng = Math.atan2(p2.y - p1.y, p2.x - p1.x);
       drag = null; cancelHold(); view?.stopGlide();
       return;
     }
@@ -1416,6 +1427,11 @@ export function landScreen(): Screen {
   }
   let hoverAt = 0;
   function onMove(e: PointerEvent): void {
+    if (orbitDrag && view) {
+      view.orbit(-(e.clientX - orbitDrag.x) * 0.006, (e.clientY - orbitDrag.y) * 0.004);
+      orbitDrag = { x: e.clientX, y: e.clientY }; paintLook();
+      return;
+    }
     const prev = pts.get(e.pointerId);
     if (!view) return;
     if (!prev) {
@@ -1434,6 +1450,10 @@ export function landScreen(): Screen {
       const [p1, p2] = [...pts.values()];
       const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
       const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      // twisting the two fingers turns the town round
+      const ang = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      if (pinchAng !== null) { let da = ang - pinchAng; if (da > Math.PI) da -= Math.PI * 2; else if (da < -Math.PI) da += Math.PI * 2; if (Math.abs(da) > 0.004) { view.orbit(-da); paintLook(); } }
+      pinchAng = ang;
       if (pinchMid) view.nudge(mid.x - pinchMid.x, mid.y - pinchMid.y);
       if (pinch && d > 0) { view.zoom(pinch / d, mid.x, mid.y); if (Math.abs(pinch - d) > 2) tut.emit('zoom'); }
       pinch = d; pinchMid = mid;
@@ -1454,8 +1474,9 @@ export function landScreen(): Screen {
     else { view.pan(e.clientX - prev.x, e.clientY - prev.y); if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 60) tut.emit('pan'); }
   }
   function onUp(e: PointerEvent): void {
+    if (orbitDrag) { orbitDrag = null; wrap.classList.remove('panning'); return; }
     pts.delete(e.pointerId);
-    if (pts.size < 2) { pinch = 0; pinchMid = null; }
+    if (pts.size < 2) { pinch = 0; pinchMid = null; pinchAng = null; }
     const d = drag;
     drag = null;
     lastPtr = null;
@@ -1798,7 +1819,7 @@ export function landScreen(): Screen {
   wrap.addEventListener('pointerdown', onDown);
   wrap.addEventListener('pointermove', onMove);
   wrap.addEventListener('pointerup', onUp);
-  wrap.addEventListener('pointercancel', (e) => { pts.delete(e.pointerId); drag = null; pinch = 0; pinchMid = null; lastPtr = null; cancelAnimationFrame(edgeRaf); wrap.classList.remove('panning'); cancelHold(); });
+  wrap.addEventListener('pointercancel', (e) => { pts.delete(e.pointerId); orbitDrag = null; drag = null; pinch = 0; pinchMid = null; pinchAng = null; lastPtr = null; cancelAnimationFrame(edgeRaf); wrap.classList.remove('panning'); cancelHold(); });
   wrap.addEventListener('pointerleave', () => { if (!pts.size) { view?.hover(null); wrap.style.cursor = ''; } });
   wrap.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -1818,6 +1839,9 @@ export function landScreen(): Screen {
     const y = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
     view?.setKeyPan(x, y);
     if (x || y) tut.emit('pan');
+    // Q / E turn the town, F / V tilt it
+    view?.setKeyOrbit((keys.has('e') ? 1 : 0) - (keys.has('q') ? 1 : 0), (keys.has('f') ? 1 : 0) - (keys.has('v') ? 1 : 0));
+    paintLook();
   };
   function onKeyDown(e: KeyboardEvent): void {
     if (playing) return; // a game is open on top of the town
@@ -1847,7 +1871,7 @@ export function landScreen(): Screen {
     if (k === 'r') { if (placing) rotatePlacing(); else if (panel?.kind === 'building') turnInPlace(panel.id); return; }
     if (k === '+' || k === '=') { view?.zoom(0.8); tut.emit('zoom'); return; }
     if (k === '-' || k === '_') { view?.zoom(1.25); tut.emit('zoom'); return; }
-    if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { e.preventDefault(); keys.add(k); applyKeys(); }
+    if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', 'f', 'v'].includes(k)) { e.preventDefault(); keys.add(k); applyKeys(); }
   }
   function onKeyUp(e: KeyboardEvent): void { if (keys.delete(e.key.toLowerCase())) applyKeys(); }
   const onBlur = () => { keys.clear(); applyKeys(); };
@@ -2008,8 +2032,8 @@ export function landScreen(): Screen {
 
   // ---------- setup ----------
   const stage = h('div', { class: 'land-wrap' }, wrap, overlay, quick, hud, editTag, side, bar, dockTab, placeBar, drawer, editBar, sheet);
-  const round = (ic: Node, title: string, onClick: () => void, cls = '') => {
-    const b = h('button', { class: `land-round ${cls}`, type: 'button', title, 'aria-label': title }, ic);
+  const round = (ic: Node, title: string, onClick: () => void, cls = '', label = '') => {
+    const b = h('button', { class: `land-round ${cls} ${label ? 'labeled' : ''}`, type: 'button', title, 'aria-label': title }, ic, label ? h('span', { class: 'land-round-l' }, label) : null);
     b.addEventListener('click', onClick);
     return b;
   };
@@ -2026,13 +2050,33 @@ export function landScreen(): Screen {
   paintMusic();
   // browsers only allow sound after a tap/click: start the music on the first one if it couldn't start yet
   stage.addEventListener('pointerdown', () => { if (!music.playing) setTimeout(() => music.start(), 50); });
+  // "Look around": turn the town, tilt it and get close — like walking round a toy town
+  const lookBtn = (ic: Parameters<typeof landIcon>[0], title: string, on: () => void, flip = false) => {
+    const b = h('button', { class: `land-look-b ${flip ? 'flip' : ''}`, type: 'button', title, 'aria-label': title }, landIcon(ic, 26));
+    b.addEventListener('click', () => { on(); paintLook(); });
+    return b;
+  };
+  const lookResetBtn = lookBtn('undo', 'Back to the usual view', () => view?.resetView());
+  const lookPop = h('div', { class: 'land-look', hidden: true },
+    lookBtn('rotate', 'Turn left', () => view?.turnBy(-45), true), lookBtn('rotate', 'Turn right', () => view?.turnBy(45)),
+    lookBtn('tiltUp', 'Look from higher up', () => view?.tiltBy(10)), lookBtn('tiltDown', 'Look from lower down', () => view?.tiltBy(-10)),
+    lookBtn('zoomIn', 'Closer', () => view?.zoom(0.7)), lookBtn('zoomOut', 'Farther', () => view?.zoom(1.4)),
+    lookResetBtn,
+    h('small', null, isTouch() ? 'Twist two fingers to turn' : 'Right-drag or Q / E to turn'));
+  stage.append(lookPop);
+  function paintLook(): void {
+    lookResetBtn.classList.toggle('on', !!view?.turned);
+    stage.querySelector('.land-lookbtn')?.classList.toggle('turned', !!view?.turned);
+  }
+  function toggleLook(): void { lookPop.hidden = !lookPop.hidden; stage.querySelector('.land-lookbtn')?.classList.toggle('open', !lookPop.hidden); }
   const sideToggle = h('button', { class: 'land-side-toggle', type: 'button' }, landIcon('chevRight', 18));
   const sideBody = h('div', { class: 'land-side-body' }, ...[
     musicBtn,
     round(landIcon('compass', 30), 'Adventures — today’s mission', () => (panel?.kind === 'adventures' ? openPanel(null) : openPanel({ kind: 'adventures' })), 'land-adv-btn'),
     round(landIcon('edit', 30), 'Edit town — move, store & rearrange', () => (selMode ? saveLayout() : enterSelect()), 'land-select'),
     round(landIcon('car', 32), 'Parking Escape — the puzzle game', () => openParking(), 'land-park-btn'),
-    round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play'),
+    round(landIcon('orbit', 30), 'Look around — turn, tilt and get close', () => toggleLook(), 'land-lookbtn', 'Look'),
+    round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play', 'Crossing'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
       round(landIcon('zoomIn', 20), 'Zoom in', () => { view?.zoom(0.8); tut.emit('zoom'); }),
       round(landIcon('zoomOut', 20), 'Zoom out', () => { view?.zoom(1.25); tut.emit('zoom'); }))].filter((x) => x !== null) as HTMLElement[]);

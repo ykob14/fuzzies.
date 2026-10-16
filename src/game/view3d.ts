@@ -268,7 +268,8 @@ export class View3D implements View {
     this.camera.aspect = w / hh;
     // Wide screens fit the whole 11-column board across; tall phone screens show ~9.5 columns and pan with the player.
     const dist = Math.hypot(CAM_H, CAM_BACK);
-    this.halfW = THREE.MathUtils.clamp(4.75 + (this.camera.aspect - 0.7) * 3.5, 4.75, 6.4);
+    // a tall phone screen looks a little closer in (the Fuzzy and the traffic come out bigger) and still pans with the player
+    this.halfW = this.camera.aspect < 0.75 ? THREE.MathUtils.clamp(3.7 + (this.camera.aspect - 0.45) * 3, 3.7, 4.4) : THREE.MathUtils.clamp(4.75 + (this.camera.aspect - 0.7) * 3.5, 4.75, 6.4);
     const hfov = 2 * Math.atan(this.halfW / dist);
     const vfov = 2 * Math.atan(Math.tan(hfov / 2) / this.camera.aspect);
     this.gameFov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(vfov), 34, 78);

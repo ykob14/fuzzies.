@@ -20,8 +20,12 @@ import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { MAP, NAMES, bounds, cropProgress, finished, item, footprint, good, population, walkway, type LandState, type Placed } from './rules';
 import { trophyLook } from './trophies';
 
-const PITCH = THREE.MathUtils.degToRad(50);
-const YAW = THREE.MathUtils.degToRad(45);
+const PITCH0 = THREE.MathUtils.degToRad(50);
+const YAW0 = THREE.MathUtils.degToRad(45);
+/** How low the camera may sink (a close-up from the side) and how high it may rise (straight down). */
+const PITCH_MIN = THREE.MathUtils.degToRad(14), PITCH_MAX = THREE.MathUtils.degToRad(82);
+/** The closest the camera may come (a Fuzzy fills the screen) and the farthest it goes. */
+const ZOOM_MIN = 3, ZOOM_MAX = 42;
 /** the town opens no further out than this (you can still zoom out to see the whole island) */
 const OPEN_MAX = 30;
 const easeOut = (k: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
@@ -107,6 +111,15 @@ export class LandView {
   // camera: looks at `target` from a fixed angle; `dist` is the zoom
   target = new THREE.Vector3(MAP / 2, 0, MAP / 2);
   dist = 24;
+  /** Which way and how steeply the camera looks (you can turn it right round and tilt it down to the street). */
+  yaw = YAW0;
+  pitch = PITCH0;
+  private yawGoal = YAW0;
+  private pitchGoal = PITCH0;
+  /** A slow walk round whatever you are looking at (radians a second); any touch of the view stops it. */
+  private autoOrbit = 0;
+  private pitchBeforeFocus: number | null = null;
+  private keyOrbit = new THREE.Vector2();
   /** Tapping a ready bubble (the screen collects / harvests that building). */
   onBubble: ((id: number) => void) | null = null;
   private fly: { from: THREE.Vector3; to: THREE.Vector3; d0: number; d1: number; t: number; dur: number; done?: () => void; out?: boolean } | null = null;
@@ -579,7 +592,7 @@ export class LandView {
       scene.environmentIntensity = 0.6;
       this.thumbRig = { scene, cam: new THREE.PerspectiveCamera(28, 1, 0.1, 100) };
     }
-    return this.snap(LM.modelFor(itemId, 3), key, THREE.MathUtils.degToRad(56), YAW, 0.9);
+    return this.snap(LM.modelFor(itemId, 3), key, THREE.MathUtils.degToRad(56), YAW0, 0.9);
   }
 
   /** Photograph any node with the thumbnail rig: `polar` = how high the camera sits, `azimuth` = from which side, `fit` = how tightly framed. */
@@ -625,7 +638,7 @@ export class LandView {
   }
 
   private placeCamera(): void {
-    const off = new THREE.Vector3().setFromSphericalCoords(this.dist, Math.PI / 2 - PITCH, YAW);
+    const off = new THREE.Vector3().setFromSphericalCoords(this.dist, Math.PI / 2 - this.pitch, this.yaw);
     this.camera.position.copy(this.target).add(off);
     this.camera.lookAt(this.target);
   }
@@ -637,11 +650,11 @@ export class LandView {
 
   /** Move the view by a screen drag (pixels). Letting go keeps a little glide (see release()). */
   pan(dx: number, dy: number): void {
-    this.fly = null; this.focus = null;
+    this.fly = null; this.focus = null; this.autoOrbit = 0;
     const k = this.unitsPerPx();
-    const right = new THREE.Vector3(Math.cos(YAW), 0, -Math.sin(YAW));
-    const fwd = new THREE.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
-    const step = new THREE.Vector3().addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k / Math.sin(PITCH));
+    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    const fwd = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    const step = new THREE.Vector3().addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k / Math.sin(this.pitch));
     this.target.add(step);
     const now = performance.now();
     const dt = Math.max(8, now - this.lastPan) / 1000;
@@ -652,11 +665,11 @@ export class LandView {
 
   /** Move the view without any glide afterwards (two-finger drag, edge scrolling, keyboard). */
   nudge(dx: number, dy: number): void {
-    this.fly = null; this.focus = null;
+    this.fly = null; this.focus = null; this.autoOrbit = 0;
     const k = this.unitsPerPx();
-    const right = new THREE.Vector3(Math.cos(YAW), 0, -Math.sin(YAW));
-    const fwd = new THREE.Vector3(-Math.sin(YAW), 0, -Math.cos(YAW));
-    this.target.addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k / Math.sin(PITCH));
+    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    const fwd = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    this.target.addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k / Math.sin(this.pitch));
     this.vel.set(0, 0);
     this.clampTarget(false);
   }
@@ -676,11 +689,38 @@ export class LandView {
   /** Zoom by a factor, towards the point under the cursor/fingers if given. */
   zoom(f: number, cx?: number, cy?: number): void {
     this.fly = null; this.focus = null;
-    this.zoomGoal = THREE.MathUtils.clamp(this.zoomGoal * f, 9, 42);
+    this.autoOrbit = 0;
+    this.zoomGoal = THREE.MathUtils.clamp(this.zoomGoal * f, ZOOM_MIN, ZOOM_MAX);
     if (cx !== undefined && cy !== undefined) {
       const g = this.ground(cx, cy);
       this.zoomAnchor = g ? new THREE.Vector3(g.x, 0, g.y) : null;
     } else this.zoomAnchor = null;
+  }
+
+  /** Turn the view round the town (radians; positive = the world swings to the right) and tilt it (positive = more from above). */
+  orbit(dYaw: number, dPitch = 0): void {
+    this.autoOrbit = 0;
+    this.yawGoal += dYaw;
+    this.pitchGoal = THREE.MathUtils.clamp(this.pitchGoal + dPitch, PITCH_MIN, PITCH_MAX);
+  }
+  /** Turn by a number of degrees with a smooth glide (the rotate buttons). */
+  turnBy(deg: number): void { this.orbit(THREE.MathUtils.degToRad(deg)); }
+  tiltBy(deg: number): void { this.orbit(0, THREE.MathUtils.degToRad(deg)); }
+  /** Hold-to-turn from the keyboard: x = turn, y = tilt, each -1, 0 or 1. */
+  setKeyOrbit(x: number, y: number): void { this.keyOrbit.set(x, y); if (x || y) this.autoOrbit = 0; }
+  /** Back to the classic town view (the angle everything was designed for). */
+  resetView(): void { this.autoOrbit = 0; this.pitchBeforeFocus = null; this.yawGoal = YAW0 + Math.round((this.yawGoal - YAW0) / (Math.PI * 2)) * Math.PI * 2; this.pitchGoal = PITCH0; }
+  get turned(): boolean { return Math.abs(this.yawGoal - YAW0) > 0.02 || Math.abs(this.pitchGoal - PITCH0) > 0.02; }
+  /** Glide in for a close-up of a building and then stroll slowly round it; touching the view stops it. */
+  lookAtBuilding(id: number): void {
+    const n = this.built.get(id)?.node;
+    if (!n) return;
+    const box = new THREE.Box3().setFromObject(n);
+    const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    const dist = THREE.MathUtils.clamp(Math.max(sz.x, sz.z, sz.y * 0.9) * 1.7 + 2.5, 5.5, 14);
+    this.pitchGoal = THREE.MathUtils.degToRad(30);
+    this.focus = null;
+    this.flyTo(c.x, c.z, dist, 1.1, () => { this.autoOrbit = 0.22; });
   }
 
   /** Keep the view over the island (a soft pull back if you drift past the coast). */
@@ -1054,7 +1094,7 @@ export class LandView {
     const prev = this.focus !== null ? this.residents[this.focus] : null;
     if (prev && (i === null || this.residents[i] !== prev) && prev.mode === 'greet') { prev.mode = 'idle'; prev.timer = 1 + Math.random(); prev.mood = 'normal'; }
     this.focus = i;
-    if (i === null) return;
+    if (i === null) { if (this.pitchBeforeFocus !== null) { this.pitchGoal = this.pitchBeforeFocus; this.pitchBeforeFocus = null; } return; }
     const r = this.residents[i];
     if (!r) { this.focus = null; return; }
     r.mode = 'greet'; r.hop = 0; r.path = []; r.goal = null; r.y = 0; r.mood = 'happy'; r.timer = 0;
@@ -1062,10 +1102,18 @@ export class LandView {
     if (hello) this.say(r, hello, 4);
     this.vel.set(0, 0);
     this.zoomAnchor = null;
-    const dist = this.mobile ? 8.5 : 7.5;
-    this.fly = { from: this.target.clone(), to: new THREE.Vector3(r.pos.x, 0, r.pos.y), d0: this.dist, d1: dist, t: 0, dur: Math.min(1.6, 0.6 + this.target.distanceTo(new THREE.Vector3(r.pos.x, 0, r.pos.y)) * 0.05) };
+    if (this.pitchBeforeFocus === null) this.pitchBeforeFocus = this.pitchGoal;
+    this.pitchGoal = Math.min(this.pitchGoal, THREE.MathUtils.degToRad(34)); // a close-up from near eye level
+    this.autoOrbit = 0;
+    const dist = this.mobile ? 5.6 : 5;
+    this.fly = { from: this.target.clone(), to: this.focusPoint(r.pos.x, r.pos.y), d0: this.dist, d1: dist, t: 0, dur: Math.min(1.6, 0.6 + this.target.distanceTo(new THREE.Vector3(r.pos.x, 0, r.pos.y)) * 0.05) };
   }
   get focused(): number | null { return this.focus; }
+  /** Where the camera looks to keep a Fuzzy company: a little nearer than the Fuzzy, so it stands in the upper half of the screen (the chat card sits below). */
+  private focusPoint(x: number, z: number): THREE.Vector3 {
+    const k = Math.min(1.4, this.zoomGoal * 0.2 + 0.2);
+    return new THREE.Vector3(x + Math.sin(this.yawGoal) * k, 0, z + Math.cos(this.yawGoal) * k);
+  }
 
   /** A lasting badge over a resident's head — a drawn tick and a word ("Completed"); `null` removes it. */
   setMark(i: number, text: string | null): void {
@@ -1182,7 +1230,7 @@ export class LandView {
       const d0 = this.dist;
       // keeping a Fuzzy company: drift after it (it mostly stands still, but it can shuffle)
       const fr = this.focus !== null ? this.residents[this.focus] : null;
-      if (fr) this.target.lerp(new THREE.Vector3(fr.pos.x, 0, fr.pos.y), Math.min(1, dt * 3));
+      if (fr) this.target.lerp(this.focusPoint(fr.pos.x, fr.pos.y), Math.min(1, dt * 3));
       else if (this.focus !== null) this.focus = null;
       this.dist += (this.zoomGoal - this.dist) * Math.min(1, dt * 10);
       // keep the point under the cursor in place while zooming
@@ -1199,6 +1247,12 @@ export class LandView {
       }
       this.clampTarget(false);
     }
+    // turning and tilting ease towards where you asked for them (and a close-up strolls slowly round)
+    if (this.keyOrbit.lengthSq() > 0) { this.yawGoal -= this.keyOrbit.x * dt * 1.4; this.pitchGoal = THREE.MathUtils.clamp(this.pitchGoal + this.keyOrbit.y * dt * 0.9, PITCH_MIN, PITCH_MAX); }
+    if (this.autoOrbit) this.yawGoal += this.autoOrbit * dt;
+    const ek = Math.min(1, dt * 9);
+    this.yaw += (this.yawGoal - this.yaw) * ek;
+    this.pitch += (this.pitchGoal - this.pitch) * ek;
     this.placeCamera();
     // the sun's shadow box follows the view, so shadows stay crisp at any zoom
     this.sun.position.copy(this.target).addScaledVector(this.sunDir, 60);
