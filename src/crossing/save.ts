@@ -22,7 +22,8 @@ export interface CrossingSave {
   /** `${world}-${level}` → best stars (1–3) */
   worlds: Record<string, number>;
   flawlessWorlds: number[];
-  endless: { best: number; runs: number; bestCoins: number };
+  /** `best` = farthest ever (rows), `bestCoins` = most Crossing Coins in one run; `today` = today's (UTC) road: its date, your best distance on it and how many times you ran it */
+  endless: { best: number; runs: number; bestCoins: number; today: { day: string; best: number; runs: number } };
   /** best weekly leaderboard placement ever (0 = never placed; smaller is better) */
   weeklyBest: number;
   /** daily/weekly missions (see missions.ts) */
@@ -41,7 +42,7 @@ export function freshCrossing(): CrossingSave {
     equipped: { character: START_CHARACTER, ...DEFAULT_COSMETIC },
     passClaimed: [], seen: [], pending: [],
     stats: { games: 0, crossings: 0, pickups: 0, goldPickups: 0, nests: 0, levelsCleared: 0, lives: 0, splashes: 0, crashes: 0, coinsSpent: 0, distinctPlayed: [], trainsSurvived: 0, noDeathLevels: 0 },
-    achievements: [], worlds: {}, flawlessWorlds: [], endless: { best: 0, runs: 0, bestCoins: 0 }, weeklyBest: 0,
+    achievements: [], worlds: {}, flawlessWorlds: [], endless: { best: 0, runs: 0, bestCoins: 0, today: { day: '', best: 0, runs: 0 } }, weeklyBest: 0,
     missions: { day: '', ids: [], progress: {}, claimed: [], week: '', weekIds: [], weekProgress: {}, weekClaimed: [] },
     bought: {}, events: {}, trophies: [],
   };
@@ -50,7 +51,7 @@ export function freshCrossing(): CrossingSave {
 /** Fill in anything missing in a saved copy; the old Fuzzy Crossing skins a player already unlocked become characters they own. */
 export function migrateCrossing(raw: Partial<CrossingSave> | undefined, unlocked: string[] = [], oldSkin = 'classic'): CrossingSave {
   const f = freshCrossing();
-  const s: CrossingSave = { ...f, ...(raw ?? {}), stats: { ...f.stats, ...(raw?.stats ?? {}) }, equipped: { ...f.equipped, ...(raw?.equipped ?? {}) }, endless: { ...f.endless, ...(raw?.endless ?? {}) }, missions: { ...f.missions, ...(raw?.missions ?? {}) } };
+  const s: CrossingSave = { ...f, ...(raw ?? {}), stats: { ...f.stats, ...(raw?.stats ?? {}) }, equipped: { ...f.equipped, ...(raw?.equipped ?? {}) }, endless: { ...f.endless, ...(raw?.endless ?? {}), today: { ...f.endless.today, ...(raw?.endless?.today ?? {}) } }, missions: { ...f.missions, ...(raw?.missions ?? {}) } };
   const uniq = (xs: string[]) => [...new Set(xs)];
   s.owned = uniq([START_CHARACTER, ...s.owned.filter((id) => CHARACTER_BY_ID[id])]);
   if (!raw) for (const c of CHARACTERS) if (c.legacy && c.legacy !== 'classic' && unlocked.includes(`skin-${c.legacy}`)) s.owned.push(c.id);

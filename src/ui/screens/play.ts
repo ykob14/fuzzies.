@@ -17,13 +17,21 @@ import { coinMark, rarityTag, newDot } from '../../crossing/ui/kit';
 import { friendUrl } from '../../content/friends';
 import '../../crossing/ui/hub.css';
 import '../../crossing/ui/worlds.css';
+import '../../crossing/ui/endless.css';
+import { Road } from '../../crossing/road';
+import { MAX_LIVES, ROWS_PER_STRETCH, dailySeed, distanceOf, endlessRewards, freshSeed, livesAfter, utcDay, withLives, type Stretch } from '../../crossing/endless';
+import type { LevelDef } from '../../crossing/sim';
 import { getLevel, MILESTONE_ICON, MILESTONE_NAME } from '../../crossing/levels';
 import { WORLDS, WORLD_BONUS, LEVELS_PER_WORLD, WORLD_COUNT, levelOpen, worldOpen, worldFlawless, clearedIn } from '../../crossing/worlds';
 import { worldCleared } from '../../crossing/store';
 
 type Dir = 'up' | 'down' | 'left' | 'right';
+/** the row the Fuzzy starts on (rows reached = START_ROW_ − row) */
+const START_ROW_ = 12;
+/** one Endless Crossing run in progress */
+interface ERun { road: Road; seed: number; daily: boolean; day: string; /** stretch being played (0-based) */ n: number; lives: number; score: number; cleared: number; /** rows reached in the stretch being played (best of this stretch's lives) */ progress: number; coinsAtStart: number; xpAtStart: number; passAtStart: number; ending: boolean; /** between two stretches (the next one is being set up) */ between: boolean }
 /** what the next game is: the Classic endless loop or one world level */
-type PlayMode = { kind: 'classic' } | { kind: 'world'; world: number; level: number };
+type PlayMode = { kind: 'classic' } | { kind: 'world'; world: number; level: number } | { kind: 'endless'; def: LevelDef };
 /** seconds the "World 3 · Level 7" banner shows before a world level starts (the level clock is primed to reach 0 then) */
 const BANNER = 1.7;
 
@@ -39,6 +47,7 @@ export function playScreen(): Screen {
     score: h('b', null, '0'), best: h('b', null, String(a.stats.bestScore)), level: h('b', null, '1'),
     lives: h('span', { class: 'lives' }), fz: h('b', null, '0'), time: h('div', { class: 'timebar-fill' }),
   };
+  const lvlLabel = h('small', null, 'Level');
   const pauseBtn = btn(null, { icon: 'pause', kind: 'soft', size: 'sm', title: 'Pause (P)', onClick: () => togglePause() });
   const soundBtn = btn(null, { icon: a.settings.sound ? 'sound' : 'mute', kind: 'soft', size: 'sm', title: 'Sound', onClick: () => {
     accounts.update((x) => (x.settings.sound = !x.settings.sound));
@@ -47,7 +56,7 @@ export function playScreen(): Screen {
   const hudBar = h('div', { class: 'game-hud' },
     h('div', { class: 'hud-item' }, h('small', null, 'Score'), hud.score),
     h('div', { class: 'hud-item' }, h('small', null, 'Best'), hud.best),
-    h('div', { class: 'hud-item' }, h('small', null, 'Level'), hud.level),
+    h('div', { class: 'hud-item' }, lvlLabel, hud.level),
     h('div', { class: 'hud-item' }, h('small', null, 'Lives'), hud.lives),
     h('div', { class: 'hud-item hud-fz', title: 'Crossing Coins this run' }, coinMark(20), hud.fz),
     h('div', { class: 'hud-actions' }, soundBtn, pauseBtn));
@@ -69,15 +78,23 @@ export function playScreen(): Screen {
   /** coins and XP earned in the game that is being played (shown on the game over card) */
   let runCoins = 0, runStartCoins = 0, runStartXp = 0, runStartPass = 1;
 
+  /** Endless Crossing: the run being played (null in Classic and the worlds) */
+  let erun: ERun | null = null;
   function setHud(s: Hud): void {
-    hud.score.textContent = String(s.score);
-    hud.best.textContent = String(s.best);
-    hud.level.textContent = s.goal && mode.kind === 'world' ? `${mode.world}-${mode.level}` : String(s.level);
+    const e = erun;
+    hud.score.textContent = String((e?.score ?? 0) + s.score);
+    hud.best.textContent = e ? String(Math.max(store.save().endless.best, distanceOf(e.cleared, e.progress))) : String(s.best);
+    hud.level.textContent = e ? String(distanceOf(e.cleared, e.progress)) : s.goal && mode.kind === 'world' ? `${mode.world}-${mode.level}` : String(s.level);
+    lvlLabel.textContent = e ? 'Rows' : 'Level';
     hud.fz.textContent = String(runCoins);
-    const maxLives = s.goal?.maxLives ?? 3;
+    const maxLives = e ? MAX_LIVES : s.goal?.maxLives ?? 3;
     hud.lives.textContent = '❤'.repeat(Math.max(0, s.lives)) + '♡'.repeat(Math.max(0, maxLives - s.lives));
-    goalPill.hidden = !s.goal;
-    if (s.goal) {
+    if (e) {
+      goalPill.hidden = false;
+      const key = `e${e.n}`;
+      if (goalPill.dataset.k !== key) { goalPill.dataset.k = key; goalPill.replaceChildren(h('span', { class: 'fze-pill', title: 'Stretch' }, '🏁 ', h('b', null, `Stretch ${e.n + 1}`), e.daily ? h('i', null, ' · daily road') : null)); }
+    } else goalPill.hidden = !s.goal;
+    if (s.goal && !e) {
       const g = s.goal;
       const parts: Node[] = [h('span', { class: 'nests', title: 'Nests' }, '🪺 ', ...Array.from({ length: g.nestsNeed }, (_, i) => h('i', { class: i < g.nests ? 'on' : '' }, '●')))];
       if (g.coinsNeed) parts.push(h('span', { title: 'Coins to open the nests' }, coinMark(14), ` ${Math.min(g.coins ?? 0, g.coinsNeed)}/${g.coinsNeed}`));
@@ -129,18 +146,20 @@ export function playScreen(): Screen {
     skipBtn.hidden = true;
     bannerEl?.remove();
     levelCard = false;
+    pauseBtn.replaceChildren(icon('pause', 16));
     game?.destroy();
     game = null;
     mode = m;
+    if (m.kind !== 'endless' && erun) { erun.road.destroy(); erun = null; }
     const v = await makeView();
     if (my !== gen) return; // a newer request replaced this one
-    const def = m.kind === 'world' ? getLevel(m.world, m.level) : undefined;
+    const def = m.kind === 'world' ? getLevel(m.world, m.level) : m.kind === 'endless' ? m.def : undefined;
     game = new Crossing(v, skinOf(), a.stats.bestScore, {
       hud: setHud,
       fuzzy: (n) => { rewards.earn(n, 'Fuzzy Crossing', true); track('gameFuzzies', n); },
       over: (r) => showOver(r),
       event: (e) => onGameEvent(e),
-      levelEnd: (r) => showLevelEnd(r),
+      levelEnd: (r) => (erun ? endlessStretchEnd(r) : showLevelEnd(r)),
     }, def ? { mode: 'world', level: def } : { mode: 'classic' });
     runCoins = 0;
     setHud({ score: 0, level: 1, lives: def?.lives ?? 3, fuzzies: 0, time: 1, best: a.stats.bestScore, goal: def ? { nests: 0, nestsNeed: def.goal.nests, coins: def.goal.coins ? 0 : undefined, coinsNeed: def.goal.coins, timeLeft: def.goal.timeLimit, maxLives: def.lives } : undefined });
@@ -149,6 +168,7 @@ export function playScreen(): Screen {
 
   /** what happens in the game → the site's missions (as before) and Fuzzy Crossing's own save (coins, Fuzzy Pass XP, achievements) */
   function onGameEvent(e: Fx): void {
+    if (erun && e.kind === 'advance') erun.progress = Math.max(erun.progress, START_ROW_ - e.row);
     if (e.kind === 'home') track('nest');
     if (e.kind === 'level') track('level', e.level);
     let ev: store.CrossingEvent | null = null;
@@ -165,14 +185,154 @@ export function playScreen(): Screen {
     hud.fz.textContent = String(runCoins);
   }
 
+
+  // ================= Endless Crossing =================
+  // A run is a chain of proven stretches (crossing/endless.ts). Each stretch is one board the engine plays like a world level whose only
+  // goal is a nest; clearing it fades to the next one. Lives carry over (a spare life every few stretches), the score adds up, and
+  // distance (rows) is what the records and the unlockable Fuzzies count.
+  const wipe = h('div', { class: 'fze-wipe', 'aria-hidden': 'true' });
+  const paintWipe = (on: boolean) => wipe.classList.toggle('on', on);
+  const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, a.settings.reduceMotion ? Math.min(ms, 60) : ms));
+
+  async function startEndless(daily: boolean): Promise<void> {
+    erun?.road.destroy();
+    const seed = daily ? dailySeed() : freshSeed();
+    const e: ERun = { road: new Road(seed), seed, daily, day: utcDay(), n: 0, lives: MAX_LIVES, score: 0, cleared: 0, progress: 0, coinsAtStart: store.save().coinsEarned, xpAtStart: store.save().xp, passAtStart: store.passInfo().level, ending: false, between: false };
+    erun = e;
+    runCoins = 0;
+    levelCard = true; // keys must not start anything behind the "building the road" card
+    overlay.hidden = false;
+    overlay.replaceChildren(h('div', { class: 'go-card small fze-prep' }, h('div', { class: 'fze-spin', 'aria-hidden': 'true' }), h('h2', null, daily ? "Building today's road…" : 'Building your road…'), h('p', { class: 'muted' }, 'Checking every lane can be crossed.')));
+    accounts.update((x) => x.stats.gamesPlayed++);
+    track('game');
+    store.report({ kind: 'start', mode: 'endless' });
+    e.coinsAtStart = store.save().coinsEarned; e.xpAtStart = store.save().xp; e.passAtStart = store.passInfo().level;
+    await playStretch(e, true);
+  }
+
+  async function playStretch(e: ERun, first = false): Promise<void> {
+    let st: Stretch;
+    try { st = await e.road.get(e.n); } catch (err) { console.error(err); if (erun === e) { erun = null; overlay.replaceChildren(h('div', { class: 'go-card small' }, h('h2', null, "Couldn't build the road"), h('p', { class: 'muted' }, 'Please try again.'), btn('Back', { kind: 'primary', class: 'btn-block', onClick: () => { void newGame().then(showStart); } }))); } return; }
+    if (erun !== e || e.ending) return;
+    e.road.ahead(e.n, 2);
+    e.progress = 0;
+    await newGame({ kind: 'endless', def: withLives(st.def, e.lives) });
+    if (erun !== e || !game) return;
+    overlay.hidden = true;
+    const g = game;
+    paintWipe(false);
+    e.between = false;
+    endlessBanner(g, st, first, () => { if (game !== g || erun !== e) return; g.start(); goPop(); });
+  }
+
+  /** the short "Stretch 5 · what's new" card before a stretch (the stretch's clock is primed so the lanes are already moving when it ends) */
+  function endlessBanner(g: Crossing, st: Stretch, first: boolean, done: () => void): void {
+    const d = g.def!;
+    const secs = first ? BANNER : 1.05;
+    g.prime(secs);
+    introRunning = true;
+    const fresh = st.plan.fresh.length > 0;
+    const finish = () => { if (!bannerEl) return; clearTimeout(bannerTimer); bannerEl.remove(); bannerEl = null; introRunning = false; done(); };
+    bannerEl = h('div', { class: 'fzw-intro fze-intro', style: '--wc:#d6336c', role: 'status' },
+      h('div', { class: 'fzw-intro-card' },
+        h('small', null, `♾️ Endless · ${st.plan.family.label}`),
+        h('b', null, `Stretch ${erun!.n + 1}`),
+        h('span', null, `${distanceOf(erun!.cleared, 0)} rows so far`),
+        fresh || first ? h('em', null, d.tip) : null));
+    bannerEl.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); finish(); });
+    wrap.parentElement?.append(bannerEl);
+    if (!(import.meta.env.DEV && (window as unknown as { __fcHold?: boolean }).__fcHold)) bannerTimer = window.setTimeout(finish, a.settings.reduceMotion ? 400 : secs * 1000);
+  }
+
+  /** a stretch ended: on to the next one, or the run is over */
+  function endlessStretchEnd(r: LevelResult): void {
+    const e = erun, g = game;
+    if (!e || !g?.def || e.ending) return;
+    e.score += r.score;
+    if (!r.cleared) { e.ending = true; setTimeout(() => finishEndless('lives', true), 200); return; }
+    e.cleared++;
+    e.between = true;
+    e.lives = livesAfter(g.def.lives - r.livesLost, e.n);
+    e.n++;
+    e.progress = 0;
+    const gained = e.lives > g.def.lives - r.livesLost;
+    const pop = h('div', { class: 'go-pop fze-rows', 'aria-hidden': 'true' }, `${distanceOf(e.cleared, 0)} rows`, gained ? h('small', null, '♥ spare life!') : null);
+    wrap.parentElement?.append(pop);
+    setTimeout(() => pop.remove(), 1100);
+    void (async () => {
+      await pause(700);
+      if (erun !== e || e.ending) return;
+      paintWipe(true);
+      await pause(260);
+      if (erun !== e || e.ending) return;
+      await playStretch(e);
+    })();
+  }
+
+  /** the run is over (out of lives, or "End run" in the pause menu): records, rewards, the summary card */
+  function finishEndless(why: 'lives' | 'quit', counted = false): void {
+    const e = erun;
+    if (!e) return;
+    e.ending = true;
+    if (!counted && game?.def) e.score += game.score;
+    e.road.destroy();
+    paintWipe(false);
+    bannerEl?.remove(); bannerEl = null; introRunning = false;
+    const rows = distanceOf(e.cleared, e.progress);
+    const stretches = e.cleared + (e.progress > 0 ? 1 : 0);
+    const before = { best: store.save().endless.best, bestCoins: store.save().endless.bestCoins, today: e.daily && store.save().endless.today.day === e.day ? store.save().endless.today.best : 0 };
+    game?.destroy();
+    if (rows > 0 || e.score > 0) store.report({ kind: 'run', score: e.score, level: e.n + 1, rows, mode: 'endless' });
+    const gainedCoins = store.save().coinsEarned - e.coinsAtStart, gainedXp = store.save().xp - e.xpAtStart;
+    store.mutate((c) => {
+      c.endless.bestCoins = Math.max(c.endless.bestCoins, gainedCoins);
+      if (e.daily) {
+        const t = c.endless.today;
+        if (t.day !== e.day) { t.day = e.day; t.best = 0; t.runs = 0; }
+        t.best = Math.max(t.best, rows); t.runs++;
+      }
+    }, 'endlessRun', { rows });
+    const sum = { rows, stretches, score: e.score, coins: gainedCoins, xp: gainedXp, daily: e.daily, newBest: rows > before.best, newCoins: gainedCoins > before.bestCoins && gainedCoins > 0, newToday: e.daily && rows > before.today, before, why };
+    showEndlessEnd(sum, e);
+    erun = null;
+    void celebrateUnlocks();
+  }
+
+  function showEndlessEnd(sum: { rows: number; stretches: number; score: number; coins: number; xp: number; daily: boolean; newBest: boolean; newCoins: boolean; newToday: boolean; before: { best: number; bestCoins: number; today: number }; why: string }, e: ERun): void {
+    levelCard = true;
+    overlay.hidden = false;
+    const pass = store.passInfo();
+    const best = store.save().endless.best;
+    const rewards = endlessRewards();
+    const next = rewards.find((r) => !store.hasCharacter(r.id));
+    const title = sum.newBest && sum.rows > 0 ? '🏆 New record!' : sum.daily && sum.newToday && sum.rows > 0 ? 'Best run today!' : sum.rows >= ROWS_PER_STRETCH ? 'Run over' : 'Nice try!';
+    overlay.replaceChildren(h('div', { class: 'go-card fze-end', role: 'dialog', 'aria-label': title },
+      h('h2', null, title),
+      sum.daily ? h('p', { class: 'fzw-endsub' }, `Daily road · ${e.day}`) : h('p', { class: 'fzw-endsub' }, 'Free run'),
+      h('div', { class: 'fze-big' }, h('b', null, String(sum.rows)), h('small', null, sum.rows === 1 ? 'row' : 'rows')),
+      h('div', { class: 'go-stats' },
+        h('div', null, h('small', null, 'Stretches'), h('b', null, String(sum.stretches))),
+        h('div', null, h('small', null, 'Score'), h('b', null, String(sum.score))),
+        h('div', null, h('small', null, 'Best'), h('b', null, String(best)))),
+      h('div', { class: 'go-earned fzx-earned' }, coinMark(32), h('div', null, h('b', null, `+${sum.coins} coins`), h('small', null, sum.newCoins ? `Most coins in a run! · you have ${store.coins().toLocaleString()}` : `You have ${store.coins().toLocaleString()}`))),
+      next ? h('div', { class: 'fze-next' }, h('span', null, `Next Fuzzy: ${next.name}`), h('small', null, `${Math.min(best, next.rows)} / ${next.rows} rows`), h('i', { class: 'fzx-passbar-track' }, h('i', { style: `width:${Math.min(100, Math.round((best / next.rows) * 100))}%` }))) : null,
+      h('button', { class: 'fzx-passbar', type: 'button', onclick: () => { void newGame().then(() => go({ to: 'pass' })); } },
+        h('span', null, `Fuzzy Pass · level ${pass.level}`), h('small', null, `+${sum.xp} XP`),
+        h('i', { class: 'fzx-passbar-track' }, h('i', { style: `width:${pass.maxed ? 100 : Math.round((pass.into / pass.need) * 100)}%` }))),
+      btn('Run again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { void startEndless(sum.daily); } }),
+      h('div', { class: 'btn-row' },
+        btn('Endless', { kind: 'soft', icon: 'grid', onClick: () => { void newGame().then(() => go({ to: 'endless' })); } }),
+        btn('Menu', { kind: 'soft', icon: 'home', onClick: () => { void newGame().then(showStart); } }))));
+  }
+
   // ---- the hub: Fuzzy Locker, Fuzzy Pass, Fuzzy Shop (and more) open as screens over the board ----
   let hubOpen = false;
   let shellEl!: HTMLElement;
   const hub = createHub({
     get shell() { return shellEl; },
-    toMenu: () => { if (!game?.started || game.over) { if (mode.kind === 'world') void newGame().then(showStart); else showStart(); } },
+    toMenu: () => { if (!game?.started || game.over) { if (mode.kind !== 'classic') void newGame().then(showStart); else showStart(); } },
     equipChanged: () => { void newGame().then(() => { if (!hubOpen) showStart(); }); },
-    play: (m) => { overlay.hidden = true; if (m.kind === 'world') void startWorld(m.world, m.level); else void newGame().then(begin); },
+    play: (m) => { overlay.hidden = true; if (m.kind === 'world') void startWorld(m.world, m.level); else if (m.kind === 'endless') void startEndless(!!m.daily); else void newGame().then(begin); },
     onOpen: (o) => { hubOpen = o; if (o) overlay.hidden = true; },
   });
   const go = (t: NavTarget): void => { if (t.to === 'menu') hub.close(); else void hub.open(t.to, t); };
@@ -208,6 +368,7 @@ export function playScreen(): Screen {
     const cleared = (() => { let n = 0; for (let w = 1; w <= WORLD_COUNT; w++) n += clearedIn(store.save().worlds, w); return n; })();
     const tiles = h('div', { class: 'fzx-tiles' },
       panelAvailable('worlds') ? tile('Worlds', `${cleared} / ${WORLD_COUNT * LEVELS_PER_WORLD}`, h('span', { class: 'fzx-world-ic', 'aria-hidden': 'true' }, '🗺️'), () => go({ to: 'worlds' })) : null,
+      panelAvailable('endless') ? tile('Endless', `Best ${store.save().endless.best} rows`, h('span', { class: 'fzx-world-ic', 'aria-hidden': 'true' }, '♾️'), () => go({ to: 'endless' })) : null,
       panelAvailable('locker') ? tile('Locker', `${store.ownedCount()} / ${CHARACTERS.length}`, icon('gift', 22), () => go({ to: 'locker' }), pendingNew) : null,
       panelAvailable('pass') ? tile('Pass', `Level ${store.passInfo().level}`, icon('trophy', 22), () => go({ to: 'pass' }), claimable > 0) : null,
       panelAvailable('shop') ? tile('Shop', h('span', { class: 'fzx-amt' }, coinMark(13), String(store.coins())), icon('unlock', 22), () => go({ to: 'shop' })) : null);
@@ -295,6 +456,7 @@ export function playScreen(): Screen {
   }
 
   function togglePause(): void {
+    if (erun?.between) return;
     if (!game || !overlay.hidden && !game.paused) return;
     const p = !game.paused;
     game.setPaused(p);
@@ -303,6 +465,7 @@ export function playScreen(): Screen {
       overlay.hidden = false;
       overlay.replaceChildren(h('div', { class: 'go-card small' }, h('h2', null, 'Paused'), h('p', { class: 'muted' }, 'Your Fuzzies are already saved.'),
         btn('Resume', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: togglePause }),
+        erun ? btn('End run', { kind: 'soft', icon: 'redo', class: 'btn-block', onClick: () => finishEndless('quit') }) : null,
         mode.kind === 'world' ? h('div', { class: 'btn-row' },
           btn('Restart level', { kind: 'soft', icon: 'redo', onClick: () => { const m = mode; if (m.kind === 'world') void startWorld(m.world, m.level); } }),
           btn('Worlds', { kind: 'soft', icon: 'grid', onClick: () => { const m = mode; void newGame().then(() => go(m.kind === 'world' ? { to: 'worlds', world: m.world, level: m.level } : { to: 'worlds' })); } })) : null,
@@ -456,12 +619,12 @@ export function playScreen(): Screen {
   const onVis = () => { if (document.hidden && game && !game.paused && overlay.hidden) togglePause(); };
   document.addEventListener('visibilitychange', onVis);
 
-  shellEl = h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn, goalPill), controls, overlay);
+  shellEl = h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn, goalPill, wipe), controls, overlay);
   if (import.meta.env.DEV) {
     // test hook: drive the game by hand (software WebGL runs at ~1 fps)
     (window as unknown as { __fc: unknown }).__fc = {
       get game() { return game; }, get mode() { return mode; }, get levelCard() { return levelCard; },
-      startWorld: (w: number, l: number) => startWorld(w, l), newGame: () => newGame(), skipBanner: () => skipIntro(),
+      startWorld: (w: number, l: number) => startWorld(w, l), startEndless: (daily: boolean) => startEndless(daily), get erun() { return erun; }, finishEndless: () => finishEndless('quit'), newGame: () => newGame(), skipBanner: () => skipIntro(),
     };
   }
   const el = h('div', { class: 'page play' },
@@ -471,6 +634,6 @@ export function playScreen(): Screen {
 
   return {
     el,
-    destroy: () => { gen++; clearTimeout(bannerTimer); hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
+    destroy: () => { gen++; clearTimeout(bannerTimer); erun?.road.destroy(); erun = null; hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
   };
 }

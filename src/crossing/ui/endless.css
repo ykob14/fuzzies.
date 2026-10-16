@@ -1,0 +1,57 @@
+/* Endless Crossing: the screen, the HUD pill, the stretch transition and the run summary. Chrome stays on the app's neutrals + raspberry. */
+.fze { padding: 14px; display: grid; gap: 14px; max-width: 760px; margin: 0 auto; }
+.fze-head h3 { font: 700 19px/1.15 var(--brand); margin: 0; }
+.fze-head p { margin: 4px 0 0; font-size: 13px; }
+.fze-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.fze-card { display: grid; gap: 8px; align-content: start; padding: 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-xs); }
+.fze-daily { border-color: color-mix(in srgb, var(--accent) 38%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.fze-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fze-tag { font: 800 11.5px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.fze-reset { color: var(--muted); font-weight: 700; font-size: 12px; }
+.fze-card-t { font: 700 18px/1.15 var(--brand); }
+.fze-card p { margin: 0; font-size: 13px; }
+.fze-today { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fze-today div, .fze-stat { display: grid; gap: 1px; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); }
+.fze-today small, .fze-stat small { font: 700 10.5px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.fze-today b, .fze-stat b { font: 700 17px/1.2 var(--brand); }
+.fze-records { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fze-block { display: grid; gap: 8px; }
+.fze-block h3 { margin: 0; font: 700 15px/1.2 var(--brand); }
+.fze-small { font-size: 12.5px; margin: 0; }
+.fze-reward { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; padding: 8px 12px 8px 8px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.fze-reward:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.fze-reward.got { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.fze-reward-pic { width: 48px; height: 48px; object-fit: contain; display: grid; place-items: center; }
+.fze-reward-t { display: grid; gap: 3px; min-width: 0; }
+.fze-reward-t b { font: 700 15px/1.1 var(--brand); }
+.fze-reward-t small { color: var(--muted); font-weight: 700; font-size: 12px; }
+.fze-reward .fzx-passbar-track { display: block; height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
+.fze-reward .fzx-passbar-track i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.fze-road { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fze-road li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); font-weight: 700; font-size: 13.5px; color: var(--muted); }
+.fze-road li.seen { color: var(--text); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.fze-road li i { margin-left: auto; font-style: normal; color: var(--accent); }
+.fze-road-rows { min-width: 52px; font: 800 12px/1 var(--ui); letter-spacing: .04em; color: var(--accent); }
+
+/* in the game */
+.fze-pill b { font-weight: 800; }
+.fze-pill i { font-style: normal; opacity: .75; }
+.fze-wipe { position: absolute; inset: 0; z-index: 5; background: var(--bg, #f6f5f2); opacity: 0; pointer-events: none; transition: opacity .24s ease; }
+.fze-wipe.on { opacity: 1; }
+:root[data-motion='reduce'] .fze-wipe { transition: none; }
+.fze-intro .fzw-intro-card b { font-size: 26px; }
+.go-pop.fze-rows { font-size: 34px; display: grid; justify-items: center; gap: 2px; }
+.go-pop.fze-rows small { font: 800 15px/1 var(--ui); color: var(--accent); }
+.go-card.fze-prep { text-align: center; display: grid; justify-items: center; gap: 8px; }
+.fze-spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid var(--border); border-top-color: var(--accent); animation: fzeSpin .8s linear infinite; }
+:root[data-motion='reduce'] .fze-spin { animation: none; }
+@keyframes fzeSpin { to { transform: rotate(360deg); } }
+.go-card.fze-end { display: grid; gap: 10px; }
+.fze-big { display: grid; justify-items: center; line-height: 1; }
+.fze-big b { font: 800 56px/1 var(--brand); color: var(--accent); }
+.fze-big small { font: 800 12px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.fze-next { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); }
+.fze-next span { font-weight: 700; font-size: 13.5px; }
+.fze-next small { color: var(--muted); font-weight: 700; }
+.fze-next .fzx-passbar-track { grid-column: 1 / -1; height: 7px; border-radius: 99px; background: var(--border); overflow: hidden; }
+.fze-next .fzx-passbar-track i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }

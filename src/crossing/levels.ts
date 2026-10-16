@@ -455,3 +455,13 @@ export function buildLevel(w: number, l: number, variant = 0): LevelDef {
 /** the layout string of a level (for the uniqueness check) */
 export const layoutOf = (w: number, l: number): string => LAYOUTS[w - 1][l - 1];
 export const setVariant = (w: number, l: number, v: number): void => { VARIANT[w - 1][l - 1] = v; cache.clear(); };
+
+// ---------- for Endless Crossing (crossing/endless.ts builds its stretches from the same row builders) ----------
+/** one row built from a design token with the same builders as the 150 levels. `d` = difficulty in the world (0..1), `W` = world tier (0..1), `w` = world number (travel direction parity) */
+export function rowFromToken(token: string, row: number, r: () => number, d: number, W: number, w: number): RowSpec {
+  const b = B[token];
+  if (!b) throw new Error(`unknown token ${token}`);
+  return { ...b(({ r, d, W, w }), row), token };
+}
+/** the short "what's new" line of a token */
+export const tokenTip = (token: string): string | undefined => TOKEN_TIP[token];
