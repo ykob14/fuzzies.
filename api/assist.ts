@@ -98,6 +98,7 @@ async function discoverGemini(): Promise<string> {
 async function ask(system: string, messages: Turn[]): Promise<string> {
   const which = provider();
   let r: Response;
+  let busy = false;
   if (which === 'anthropic') {
     r = await post(`${base(process.env.ANTHROPIC_BASE_URL, 'https://api.anthropic.com')}/v1/messages`,
       { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01' }, { model: aiModel(), max_tokens: 900, temperature: 0.7, system, messages });
@@ -105,12 +106,25 @@ async function ask(system: string, messages: Turn[]): Promise<string> {
     const send = (model: string) => post(`${base(process.env.GEMINI_BASE_URL, 'https://generativelanguage.googleapis.com')}/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       { 'x-goog-api-key': clean(process.env.GEMINI_API_KEY) },
       { systemInstruction: { parts: [{ text: system }] }, contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: { maxOutputTokens: 1500, temperature: 0.7, ...(model.includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {}) } });
-    let model = clean(process.env.GEMINI_MODEL) || geminiPick || 'gemini-flash-latest';
+    const pinned = clean(process.env.GEMINI_MODEL);
+    let model = pinned || geminiPick || 'gemini-flash-latest';
     r = await send(model);
     // Google renames and retires models: if this one is gone (404), ask Google which Flash models this key can use and retry once
-    if (r.status === 404 && !clean(process.env.GEMINI_MODEL)) {
+    if (r.status === 404 && !pinned) {
       const found = await discoverGemini();
       if (found && found !== model) { geminiPick = found; model = found; r = await send(model); }
+    }
+    // Google's free models are sometimes overloaded (503) or busy (429/500): try again, then a lighter model, before giving up
+    if (!r.ok && [429, 500, 503].includes(r.status)) {
+      busy = true;
+      const others = (pinned ? [] : ['gemini-flash-lite-latest', 'gemini-2.0-flash']).filter((m) => m !== model);
+      for (const next of [model, ...others]) {
+        await new Promise((res) => setTimeout(res, 700));
+        const again = await send(next);
+        if (again.ok) { r = again; if (!pinned && next !== model) geminiPick = next; break; }
+        r = again;
+        if (![404, 429, 500, 503].includes(again.status)) break;
+      }
     }
   } else if (which === 'groq') {
     r = await post(`${base(process.env.GROQ_BASE_URL, 'https://api.groq.com/openai')}/v1/chat/completions`,
@@ -121,7 +135,7 @@ async function ask(system: string, messages: Turn[]): Promise<string> {
     const j = (await r.json().catch(() => ({}))) as { error?: { type?: string; status?: string } };
     const why = j.error?.type ?? j.error?.status ?? '';
     console.error('assist failed', which, r.status, why);
-    if (r.status === 429 || r.status === 529) throw new HttpError(503, 'Lots of people are asking me things right now — give me a moment and try again.');
+    if (busy || [429, 500, 503, 529].includes(r.status)) throw new HttpError(503, 'The free AI is busy right now — give me a moment and ask again.');
     throw new HttpError(502, `The AI service said no (${r.status}${why ? ` ${why}` : ''}). The site owner should check the AI key and model name in Vercel.`);
   }
   const d = (await r.json()) as {
