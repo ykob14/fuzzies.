@@ -325,7 +325,7 @@ const lesson = (D: Deck): [(c: Kit) => void, ((c: Kit) => void)[]] => [
       c.bg = D.bg;
       const k = text(c, 'Step by step', W * 0.07, H * 0.07, W * 0.5, { font: D.body, weight: 800, size: u * 0.032, fill: D.accent, upper: true, spacing: u * 0.006, align: 'left', name: 'Kicker' });
       text(c, 'The four stages', W * 0.07, k.y + k.h + u * 0.01, W * 0.5, { font: D.head[0], weight: D.head[1], size: u * 0.075, fill: D.ink, align: 'left', name: 'Slide title' });
-      const gap = W * 0.04, cw = (W * 0.86 - gap * 3) / 4, ch = H * 0.5, y0 = H * 0.36;
+      const gap = W * 0.04, cw = (W * 0.86 - gap * 3) / 4, ch = H * 0.55, y0 = H * 0.3;
       const st: [string, string][] = [
         ['Evaporation', 'The sun warms water and it rises as vapour.'],
         ['Condensation', 'Vapour cools and gathers into clouds.'],
@@ -338,8 +338,8 @@ const lesson = (D: Deck): [(c: Kit) => void, ((c: Kit) => void)[]] => [
         const s = u * 0.1;
         box(c, x + u * 0.04, y0 + u * 0.04, s, s, i % 2 ? D.accent : D.dark, { shape: 'ellipse', name: 'Step dot' });
         mid(c, String(i + 1), x + u * 0.04, y0 + u * 0.04 + s / 2, s, { font: D.head[0], weight: D.head[1], size: u * 0.056, fill: '#ffffff', name: 'Step' });
-        const n = text(c, a, x + u * 0.04, y0 + u * 0.04 + s + u * 0.035, cw - u * 0.08, { font: D.head[0], weight: D.head[1], size: u * 0.042, fill: D.ink, align: 'left', name: 'Stage' });
-        text(c, b, x + u * 0.04, n.y + n.h + u * 0.015, cw - u * 0.08, { font: D.body, weight: 600, size: u * 0.034, fill: D.muted, lines: 4, lh: 1.3, align: 'left', name: 'Stage detail' });
+        const n = text(c, a, x + u * 0.04, y0 + u * 0.04 + s + u * 0.035, cw - u * 0.08, { font: D.head[0], weight: D.head[1], size: u * 0.048, fill: D.ink, align: 'left', name: 'Stage' });
+        text(c, b, x + u * 0.04, n.y + n.h + u * 0.02, cw - u * 0.08, { font: D.body, weight: 600, size: u * 0.04, fill: D.muted, lines: 4, lh: 1.3, align: 'left', name: 'Stage detail' });
         if (i < 3) { const as = gap * 0.8; box(c, x + cw + (gap - as) / 2, y0 + u * 0.04 + s / 2 - as * 0.3, as, as * 0.6, D.accent, { shape: 'arrow', name: 'Arrow' }); }
       });
       pageNo(c, D, 3);
