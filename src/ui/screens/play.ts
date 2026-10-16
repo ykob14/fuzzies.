@@ -275,6 +275,7 @@ export function playScreen(): Screen {
   const el = h('div', { class: 'page play' },
     // the start / pause / game-over card covers the whole shell (HUD and arrows too) so it fits on small screens
     h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn), controls, overlay));
+  setTimeout(() => { void import('../friday').then((m) => m.maybeShowFriday()); }, 900); // Fridays: the first visit gets the Happy Friday surprise
   requestAnimationFrame(() => { void newGame(); showStart(); });
 
   return {

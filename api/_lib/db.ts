@@ -165,6 +165,14 @@ create table if not exists fz_gifts (
   created_at timestamptz not null default now(),
   opened_at timestamptz
 );
+-- Happy Friday gifts: one row per player per Friday (the date the player saw), so a refresh or a second device can't claim twice.
+create table if not exists fz_friday (
+  user_id uuid not null references fz_users (id) on delete cascade,
+  day text not null,
+  amount integer not null,
+  claimed_at timestamptz not null default now(),
+  primary key (user_id, day)
+);
 -- Fuzzies a profile added by itself per day (the balance guard in _lib/balance.ts)
 create table if not exists fz_earn (
   user_id uuid not null references fz_users (id) on delete cascade,
