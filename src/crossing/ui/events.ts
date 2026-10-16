@@ -142,7 +142,7 @@ export const open: PanelOpen = (ctx, focus) => {
       .sort((a, b) => (a.live === b.live ? (a.o?.startDay ?? 1e9) - (b.o?.startDay ?? 1e9) : a.live ? -1 : 1));
     return h('div', { class: 'evx-sec' }, h('div', { class: 'evx-list' }, ...rows.map(({ id, o, live }) => {
       const f = eventFuzzy(id)!, owned = hasCharacter(f.id), expanded = openCal === id;
-      const when = o ? (live ? `On now · ends in ${countdown(o.endsAt - t())}` : `${inDays(t(), o.start).replace(/^in /, 'In ')} · ${range(o)} ${o.year}`) : 'Dates not published yet';
+      const when = o ? (live ? `On now · ends in ${countdown(o.endsAt - t())}` : `${inDays(t(), o.start).replace(/^in /, 'In ')} · ${range(o)} ${new Date(o.endsAt - 1).getFullYear()}`) : 'Dates not published yet';
       return h('article', { class: `evx-cal${live ? ' live' : ''}`, style: evStyle(id), 'data-cal': id },
         h('button', { class: 'evx-cal-head', type: 'button', 'aria-expanded': String(expanded), onclick: () => { if (live) { selected = id; tab = 'now'; } else openCal = expanded ? null : id; draw(); } },
           h('span', { class: 'evx-ic big' }, EVENTS[id].theme.icon),

@@ -18,9 +18,18 @@ export function createEventFx(touch: boolean): { el: HTMLElement; refresh(): voi
   const wash = h('div', { class: 'evfx-wash', 'aria-hidden': 'true' });
   const el = h('div', { class: 'evfx', 'aria-hidden': 'true', hidden: true }, wash, canvas);
   const ctx = canvas.getContext('2d');
+  let watching = false;
   let parts: P[] = [], kind = '', raf = 0, last = 0, w = 0, hh = 0, dpr = 1;
   const calm = (): boolean => document.documentElement.dataset.motion === 'reduce' || !!accounts.current?.settings.reduceMotion;
 
+  /** sit exactly over the game canvas (the 2D board is narrower than its box on wide screens) */
+  function fit(): void {
+    const board = el.parentElement, cv = board?.querySelector<HTMLElement>('canvas.game-canvas');
+    if (!board || !cv) return;
+    const r = cv.getBoundingClientRect(), b = board.getBoundingClientRect();
+    if (r.width < 2) return;
+    Object.assign(el.style, { inset: 'auto', left: `${r.left - b.left}px`, top: `${r.top - b.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+  }
   function size(): void {
     const r = el.getBoundingClientRect();
     dpr = Math.min(2, devicePixelRatio || 1);
@@ -62,6 +71,8 @@ export function createEventFx(touch: boolean): { el: HTMLElement; refresh(): voi
     el.dataset.event = a?.id ?? '';
     if (!a) { parts = []; kind = ''; return; }
     wash.style.setProperty('--evfx', a.tint);
+    if (el.parentElement && !watching) { watching = true; ro.observe(el.parentElement); }
+    fit();
     size();
     if (calm()) return; // just the colour wash
     kind = a.weather;
@@ -69,7 +80,6 @@ export function createEventFx(touch: boolean): { el: HTMLElement; refresh(): voi
     last = performance.now();
     raf = requestAnimationFrame(frame);
   }
-  const ro = new ResizeObserver(() => { if (!el.hidden) { size(); if (kind) seed(kind); } });
-  ro.observe(el);
+  const ro = new ResizeObserver(() => { if (!el.hidden) { fit(); size(); if (kind) seed(kind); } });
   return { el, refresh, destroy: () => { stop(); ro.disconnect(); } };
 }
