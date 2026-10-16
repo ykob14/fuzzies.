@@ -1600,14 +1600,10 @@ export function landScreen(): Screen {
     daily.update(st, hostNameOf(A.featured(s, now()).id));
     paintMarks();
   }
-  /** a "Completed" mark floats over the Fuzzy whose mission is done */
+  /** No labels over the Fuzzies (owner: a "Completed" tag over their head isn't needed) — clears any left from before. */
   function paintMarks(): void {
     if (!view) return;
-    const a = A.adventures(s, now());
-    const h = A.hosts(s, view.residentCount, now());
-    const marked = new Set<number>();
-    for (const id in h) if (a.done[id]) { view.setMark(h[id], 'Completed'); marked.add(h[id]); }
-    for (let i = 0; i < view.residentCount; i++) if (!marked.has(i)) view.setMark(i, null);
+    for (let i = 0; i < view.residentCount; i++) view.setMark(i, null);
   }
   /** Cloud accounts: the server issues the mission sets with its own clock; adopt its set and what's done on other devices. */
   let syncingSet = false;
