@@ -15,6 +15,7 @@ import * as O from './games/orchardArt';
 import { groundTex, treeRing, hedgeWalls, soilTex } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls, lockPage } from '../ui/joystick';
+import { setHint, pauseCard } from './gameHud';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import { adventure } from './adventures';
 
@@ -158,20 +159,16 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   const countEl = el('div', 'race-pos mg-count'); const countN = el('b', '', '0'); const canBar = el('i', 'mg-can'); const canFill = el('b', 'mg-can-fill'); canBar.append(canFill); countEl.append(el('small', '', 'HAIRBALLS'), countN, canBar);
   const timeEl = el('div', 'race-time mg-time', '2:00');
   const comboEl = el('div', 'mg-combo'); const comboN = el('b', '', '×1'); const comboS = el('small', ''); comboEl.append(comboN, comboS);
-  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause'); pauseBtn.textContent = '❚❚';
+  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause');
   const banner = el('div', 'race-banner');
   const count = el('div', 'race-count');
-  const hint = el('div', 'race-hint', mobile ? 'Drag anywhere to walk — the vacuum does the rest' : 'WASD / arrows to walk (or hold the mouse) — the vacuum does the rest');
+  const hint = el('div', 'race-hint');
+  setHint(hint, mobile ? [{ text: 'Drag anywhere to walk' }, { text: 'the vacuum does the rest' }] : [{ keys: ['W', 'A', 'S', 'D'], text: 'Walk' }, { text: 'the vacuum does the rest' }]);
   const floats = el('div', 'mg-floats');
   hud.append(scoreEl, countEl, timeEl, comboEl, pauseBtn, banner, count, hint, floats);
   const adv = adventure('vacuum')!;
   const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Start cleaning!', onStart: () => start() });
-  const pauseOverlay = el('div', 'race-paused'); pauseOverlay.hidden = true;
-  const resume = el('button', 'btn btn-primary btn-lg', 'Resume'); resume.type = 'button';
-  const restart = el('button', 'btn btn-soft', 'Restart'); restart.type = 'button';
-  const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
-  const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'The hairballs aren’t going anywhere.'), resume, restart, quit);
-  pauseOverlay.append(pbox);
+  const { overlay: pauseOverlay, resume, restart, quit } = pauseCard({});
   root.append(canvas, el('div', 'mg-vignette'), hud, intro, pauseOverlay);
   stage.append(root);
   const unlockPage = lockPage(root); // phones: a drag steers the game, never the page behind it

@@ -19,16 +19,19 @@ import { BrawlSim, ROLES, SPECIAL, ZONE, ARENA, AMMO, WIN_AT, SPAWN, SKILLS, lin
 import { brawl as bs } from '../../game/brawlSounds';
 import * as A from './brawlArt';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { ico, icoHtml } from '../gameHud';
+import { friendUrl } from '../../content/friends';
 
 const ROLE_KEY = 'fz.brawl.role', MUTE_KEY = 'fz.brawl.mute';
 const TEAM = ['#4aa8f0', '#ff6b9a'] as const;
 const BOLT = ['#8fd0ff', '#ff9fbf'] as const;
 const ROLE_COLOR: Record<Role, string> = { burst: '#ffb02e', guard: '#2fbfa5', zip: '#ffd34a', bloom: '#5fc46b' };
-const ROLE_UI: Record<Role, { icon: string; name: string; blurb: string }> = {
-  burst: { icon: '💥', name: 'Energy Burst', blurb: 'Strong single shots · blast everyone close' },
-  guard: { icon: '🛡️', name: 'Bubble Shield', blurb: 'Tough, short-range spread · shield yourself' },
-  zip: { icon: '⚡', name: 'Zoom Dash', blurb: 'Fast, double shots · dash in or out' },
-  bloom: { icon: '🌼', name: 'Bloom Heal', blurb: 'Steady shots · heal your whole team' },
+type RoleIcon = 'burst' | 'shield' | 'bolt' | 'bloom';
+const ROLE_UI: Record<Role, { icon: RoleIcon; name: string; special: string; friend: string; blurb: string }> = {
+  burst: { icon: 'burst', name: 'Burst', special: 'Energy Burst', friend: 'f02', blurb: 'Strong shots · blast everyone close' },
+  guard: { icon: 'shield', name: 'Guard', special: 'Bubble Shield', friend: 'f23', blurb: 'Tough, close-range spread · shield yourself' },
+  zip: { icon: 'bolt', name: 'Dash', special: 'Zoom Dash', friend: 'f22', blurb: 'Fast double shots · dash in or out' },
+  bloom: { icon: 'bloom', name: 'Heal', special: 'Bloom Heal', friend: 'f38', blurb: 'Steady shots · heal your whole team' },
 };
 const ALLY_SKINS: [string, string][] = [['#9fd8ff', '#6fb6f0'], ['#a6e3b8', '#6cc489']];
 const FOE_SKINS: [string, string][] = [['#ffb38a', '#ff8f5a'], ['#ffe08a', '#f5c04a'], ['#ffc4d6', '#ff8fb4']];
@@ -61,16 +64,19 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   {
     const box = a.intro.querySelector('.mg-intro-box') ?? a.intro;
     const pick = document.createElement('div'); pick.className = 'br-roles';
-    const head = document.createElement('b'); head.textContent = 'Pick your Fuzzy’s power'; pick.append(head);
+    const head = document.createElement('b'); head.textContent = 'Pick your Fuzzy'; pick.append(head);
+    const blurb = document.createElement('p'); blurb.className = 'br-role-blurb';
+    const paintBlurb = () => { blurb.textContent = ''; const t = document.createElement('b'); t.textContent = ROLE_UI[role].special; const d = document.createElement('span'); d.textContent = ROLE_UI[role].blurb; blurb.append(t, d); };
+    paintBlurb();
     const row = document.createElement('div'); row.className = 'br-role-row';
     for (const r of Object.keys(ROLE_UI) as Role[]) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'br-role' + (r === role ? ' on' : ''); b.dataset.role = r;
-      b.innerHTML = `<span>${ROLE_UI[r].icon}</span><b>${ROLE_UI[r].name}</b><small>${ROLE_UI[r].blurb}</small>`;
+      b.innerHTML = `<span class="pic"><img src="${friendUrl(ROLE_UI[r].friend)}" alt="" draggable="false"><span class="badge">${icoHtml(ROLE_UI[r].icon, 16)}</span></span><span class="nm">${ROLE_UI[r].name}</span>`;
       b.style.setProperty('--rc', ROLE_COLOR[r]);
-      b.addEventListener('click', (e) => { e.stopPropagation(); role = r; try { localStorage.setItem(ROLE_KEY, r); } catch { /* ignore */ } row.querySelectorAll('.br-role').forEach((x) => x.classList.toggle('on', (x as HTMLElement).dataset.role === r)); });
+      b.addEventListener('click', (e) => { e.stopPropagation(); role = r; try { localStorage.setItem(ROLE_KEY, r); } catch { /* ignore */ } row.querySelectorAll('.br-role').forEach((x) => x.classList.toggle('on', (x as HTMLElement).dataset.role === r)); paintBlurb(); });
       row.append(b);
     }
-    pick.append(row);
+    pick.append(row, blurb);
     const btnEl = box.querySelector('.mg-start'); if (btnEl?.parentElement) btnEl.parentElement.insertBefore(pick, btnEl); else box.append(pick);
   }
 
@@ -265,12 +271,26 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   const touch = setup.mobile || matchMedia('(pointer: coarse)').matches;
   const fireBtn = document.createElement('button'); fireBtn.type = 'button'; fireBtn.className = 'br-fire'; fireBtn.setAttribute('aria-label', 'Fire — hold to shoot, drag to aim yourself');
   fireBtn.innerHTML = '<i></i><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="24" cy="24" r="3.5" fill="currentColor"/><path d="M24 3v9M24 36v9M3 24h9M36 24h9" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg><small>FIRE</small>'; hud.append(fireBtn);
-  const special = document.createElement('button'); special.type = 'button'; special.className = 'br-special'; special.innerHTML = `<i></i><span>★</span><small>SPECIAL${touch ? '' : ' · E'}</small>`; hud.append(special);
+  const special = document.createElement('button'); special.type = 'button'; special.className = 'br-special'; special.innerHTML = `<i></i><span></span><small>SPECIAL${touch ? '' : ' · E'}</small>`; hud.append(special);
   const muteBtn = document.createElement('button'); muteBtn.type = 'button'; muteBtn.className = 'ob-mute br-mute'; hud.append(muteBtn);
-  const paintMute = () => { muteBtn.textContent = muted ? '🔇' : '🔊'; muteBtn.classList.toggle('off', muted); muteBtn.setAttribute('aria-label', muted ? 'Sound off' : 'Sound on'); };
+  const paintMute = () => { muteBtn.textContent = ''; muteBtn.append(ico(muted ? 'soundOff' : 'soundOn', 22)); muteBtn.classList.toggle('off', muted); muteBtn.setAttribute('aria-label', muted ? 'Sound off' : 'Sound on'); };
   muteBtn.addEventListener('click', (e) => { e.stopPropagation(); muted = !muted; setup.sound = muted ? false : soundWanted; try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* ignore */ } paintMute(); });
   paintMute();
-  const ringPill = document.createElement('div'); ringPill.className = 'br-ring'; hud.append(ringPill);
+  const ringPill = document.createElement('div'); ringPill.className = 'br-ring';
+  const ringTxt = document.createElement('span'); ringTxt.className = 'rt'; const ringBar = document.createElement('span'); ringBar.className = 'rb'; const ringFill = document.createElement('i'); ringBar.append(ringFill);
+  const ringIc = document.createElement('span'); ringIc.className = 'ri'; ringPill.append(ringIc, ringTxt, ringBar); hud.append(ringPill);
+  // your own health, as a chunky bar under the scoreboard
+  const hpBox = document.createElement('div'); hpBox.className = 'br-hp'; const hpHeart = document.createElement('span'); hpHeart.className = 'ht'; const hpBar = document.createElement('span'); hpBar.className = 'hb'; const hpFill = document.createElement('i'); const hpNum = document.createElement('b'); hpBar.append(hpFill, hpNum); hpBox.append(hpHeart, hpBar); hud.append(hpBox);
+  // who knocked out whom
+  const feed = document.createElement('div'); feed.className = 'br-feed'; hud.append(feed);
+  const feedAdd = (by: Fighter | undefined, to: Fighter) => {
+    const row = document.createElement('div'); row.className = 'kf' + (by?.you ? ' me' : '');
+    const dot = (f: Fighter | undefined) => { const d = document.createElement('i'); d.style.background = f ? TEAM[f.team] : '#bbb'; return d; };
+    const nm = (f: Fighter | undefined) => { const n = document.createElement('span'); n.textContent = f ? (f.you ? 'You' : f.name) : 'Oops'; return n; };
+    row.append(dot(by), nm(by), ico('boom', 14), dot(to), nm(to));
+    feed.append(row); while (feed.children.length > 3) feed.firstElementChild?.remove();
+    setTimeout(() => row.remove(), 4700);
+  };
   const downNote = document.createElement('div'); downNote.className = 'br-down'; downNote.hidden = true; hud.append(downNote);
   const hurt = document.createElement('div'); hurt.className = 'br-hurt'; a.root.append(hurt);
   const firstTo = document.createElement('small'); firstTo.className = 'br-first'; firstTo.textContent = `first to ${WIN_AT}`; hud.append(firstTo);
@@ -355,6 +375,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
         if (onMe) { play(bs.hurt); shake = Math.max(shake, 0.28); hurt.classList.remove('on'); void hurt.offsetWidth; hurt.classList.add('on'); } else { play(() => bs.hit(!!mine)); if (mine) { shake = Math.max(shake, 0.1); hitAt = time.value; } }
       } break;
       case 'ko': if (e.f && n) {
+        feedAdd(e.by, e.f);
         n.ko = 0; burst(e.f.x, e.f.z, '#ffd34a', 14, true); shock(e.f.x, e.f.z, TEAM[e.f.team], 3.2, 0.5); a.puff(new THREE.Vector3(e.f.x, 0.6, e.f.z), 8, '#ffffff');
         for (let i = 0; i < 5; i++) { const an = (i / 5) * Math.PI * 2; addDot(e.f.x + Math.cos(an) * 0.5, 1.2, e.f.z + Math.sin(an) * 0.5, Math.cos(an) * 0.5, 1.6, Math.sin(an) * 0.5, '#ffe27a', 0.4, 1.0, A.starTex(), -0.4, 0, 3); }
         if (e.f.you) { play(bs.youKO); a.banner(`Knocked out by ${e.by?.name ?? 'a pink Fuzzy'}!`, 'warn'); shake = 0.5; }
@@ -368,7 +389,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
         else if (f.role === 'guard') { play(bs.shield); shock(f.x, f.z, '#bfe6ff', 2.2, 0.5); }
         else if (f.role === 'zip') { play(bs.dash); for (let i = 0; i < 4; i++) setTimeout(() => ghost(f.x, f.z, ROLE_COLOR.zip), i * 40); }
         else { play(bs.heal); shock(f.x, f.z, ROLE_COLOR.bloom, SPECIAL.heal.r, 0.6); burst(f.x, f.z, '#9be29b', 10); }
-        if (mine) a.banner(`${ROLE_UI[f.role].icon} ${ROLE_UI[f.role].name}!`, 'combo');
+        if (mine) a.banner(`${ROLE_UI[f.role].special}!`, 'combo');
       } break;
       case 'heal': if (e.f && (e.amount ?? 0) >= 5) { a.float(e.f.x, 1.9, e.f.z, `+${e.amount}`, 'gold'); a.puff(new THREE.Vector3(e.f.x, 0.8, e.f.z), 3, '#9be29b'); } break;
       case 'wall': if (e.x !== undefined) { const c = BOLT[e.shot!.team]; for (let i = 0; i < 5; i++) { const an = Math.random() * Math.PI * 2; addDot(e.x, 0.6, e.z!, Math.cos(an) * 1.6, 1 + Math.random() * 1.4, Math.sin(an) * 1.6, c, 0.18, 0.35, glowTex, -0.4, 6); } addDot(e.x, 0.6, e.z!, 0, 0, 0, '#ffffff', 0.7, 0.12, glowTex, 0.6); a.puff(new THREE.Vector3(e.x, 0.55, e.z!), 2, '#cfe6c0'); if (e.shot?.by === youF.id) play(bs.wall); } break;
@@ -460,7 +481,9 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     ringMat.color.set(zc); fillMat.color.set(zc); fillMat.opacity = zt === -1 ? 0.08 : 0.16 + Math.sin(time.value * 5) * (zt === -2 ? 0.08 : 0.03);
     const prog = zt >= 0 ? s.zone.progress[zt as 0 | 1] / ZONE.hold : 0; setArc(prog); arcMat.color.set(zt >= 0 ? TEAM[zt as 0 | 1] : '#ffffff'); zoneArc.visible = prog > 0.01;
     sunflower.rotation.y += dt * 0.15;
-    ringPill.textContent = s.zone.contested ? '🌻 Ring contested!' : zt === -1 ? '🌻 Ring free — grab it' : zt === y.team ? `🌻 Blue holds the ring · ${Math.ceil(ZONE.hold - s.zone.progress[zt as 0 | 1])} s` : `🌻 Pink holds the ring · ${Math.ceil(ZONE.hold - s.zone.progress[zt as 0 | 1])} s`;
+    const ringNow = s.zone.contested ? 'Ring contested!' : zt === -1 ? 'Ring free — grab it' : `${zt === 0 ? 'Blue' : 'Pink'} has the ring · ${Math.ceil(ZONE.hold - s.zone.progress[zt as 0 | 1])} s`;
+    if (ringTxt.textContent !== ringNow) ringTxt.textContent = ringNow;
+    ringFill.style.transform = `scaleX(${zt >= 0 ? Math.max(0, Math.min(1, prog)) : 0})`;
     ringPill.className = `br-ring ${zt === -2 ? 'contest' : zt === y.team ? 'ours' : zt === -1 ? '' : 'theirs'}`;
     // the aim guide: what your next shot will do — a line from you to the locked enemy (or where you point) and a reticle on the enemy
     const st = ROLES[y.role]; const mvNow = Math.hypot(input0.x, input0.z) > 0.1 ? input0 : ctl.move;
@@ -486,7 +509,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     // HUD
     a.setScore(s.score[y.team]); a.setCount(String(s.score[y.team === 0 ? 1 : 0]), s.overtime ? 'OVERTIME' : '');
     a.setTime(s.left);
-    special.classList.toggle('ready', y.charge >= 1 && y.alive); (special.querySelector('i') as HTMLElement).style.setProperty('--k', String(y.charge)); special.dataset.role = y.role; (special.querySelector('span') as HTMLElement).textContent = ROLE_UI[y.role].icon;
+    special.classList.toggle('ready', y.charge >= 1 && y.alive); (special.querySelector('i') as HTMLElement).style.setProperty('--k', String(y.charge)); if (special.dataset.role !== y.role) { special.dataset.role = y.role; special.style.setProperty('--role', ROLE_COLOR[y.role]); const sp = special.querySelector('span') as HTMLElement; sp.textContent = ''; sp.append(ico(ROLE_UI[y.role].icon, 40)); }
+    hpFill.style.transform = `scaleX(${Math.max(0, Math.min(1, y.hp / y.maxHp))})`; const hpT = String(Math.ceil(y.hp)); if (hpNum.textContent !== hpT) hpNum.textContent = hpT; hpBox.classList.toggle('low', y.hp / y.maxHp < 0.35);
     (fireBtn.querySelector('i') as HTMLElement).style.setProperty('--k', String(Math.min(1, y.ammo / AMMO))); fireBtn.classList.toggle('empty', y.ammo < 1); fireBtn.classList.toggle('lock', !!tgt);
     downNote.hidden = y.alive; if (!y.alive) downNote.textContent = `Back in ${Math.max(1, Math.ceil(y.respawn))}…`;
     // camera: follow you, a look-ahead towards what you're shooting at / heading for, pulling back a little when enemies are close; shake on hits
