@@ -1058,7 +1058,9 @@ function freshCrossing() {
 			coinsSpent: 0,
 			distinctPlayed: [],
 			trainsSurvived: 0,
-			noDeathLevels: 0
+			noDeathLevels: 0,
+			missionsDone: 0,
+			rows: 0
 		},
 		achievements: [],
 		worlds: {},

@@ -116,7 +116,9 @@ export type CrossingEvent =
   | { kind: 'hop' }
   | { kind: 'death'; how: 'splash' | 'crash' | 'bonk' | 'time' | 'train' | 'other' }
   | { kind: 'levelClear'; world?: number; level?: number; stars?: number; flawless?: boolean }
-  | { kind: 'run'; score: number; level: number; rows?: number; mode?: 'classic' | 'world' | 'endless' };
+  | { kind: 'advance' } // the Fuzzy reached a row it hadn't reached yet in this life
+  | { kind: 'trainPassed' } // survived a train crossing
+  | { kind: 'run'; score: number; level: number; rows?: number; mode?: 'classic' | 'world' | 'endless'; /** set by report(): beat the previous Endless record */ record?: boolean };
 export const COIN = { pickup: 1, gold: 5, nest: 3, level: 10, runBonusPer100: 2 } as const;
 /** coins / XP a single event is worth (the game uses these too to show the running total) */
 export function coinsFor(e: CrossingEvent): number {
@@ -142,23 +144,27 @@ const subscribers = new Set<(e: CrossingEvent) => void>();
 export const onReport = (fn: (e: CrossingEvent) => void): (() => void) => { subscribers.add(fn); return () => subscribers.delete(fn); };
 
 export function report(e: CrossingEvent): void {
+  let record = false;
   switch (e.kind) {
     case 'start': mutate((c) => { c.stats.games++; if (!c.stats.distinctPlayed.includes(c.equipped.character)) c.stats.distinctPlayed.push(c.equipped.character); }); break;
     case 'pickup': mutate((c) => { c.stats.pickups++; if (e.gold) c.stats.goldPickups++; }); break;
     case 'nest': mutate((c) => { c.stats.nests++; }); break;
     case 'hop': mutate((c) => { c.stats.crossings++; }); break;
+    case 'advance': mutate((c) => { c.stats.rows++; }); break;
+    case 'trainPassed': mutate((c) => { c.stats.trainsSurvived++; }); break;
     case 'death': mutate((c) => { c.stats.lives++; if (e.how === 'splash') c.stats.splashes++; if (e.how === 'crash') c.stats.crashes++; }); break;
     case 'levelClear': mutate((c) => {
       c.stats.levelsCleared++;
       if (e.flawless) c.stats.noDeathLevels++;
       if (e.world && e.level) { const k = `${e.world}-${e.level}`; c.worlds[k] = Math.max(c.worlds[k] ?? 0, e.stars ?? 1); }
     }); break;
-    case 'run': mutate((c) => { if (e.mode === 'endless') { c.endless.runs++; c.endless.best = Math.max(c.endless.best, e.rows ?? e.score); } }); break;
+    case 'run': record = e.mode === 'endless' && (e.rows ?? e.score) > save().endless.best; mutate((c) => { if (e.mode === 'endless') { c.endless.runs++; c.endless.best = Math.max(c.endless.best, e.rows ?? e.score); } }); break;
   }
   const co = coinsFor(e), xp = xpFor(e);
   if (co) addCoins(co);
   if (xp) addXp(xp);
-  for (const fn of subscribers) { try { fn(e); } catch (err) { console.error(err); } }
+  const out: CrossingEvent = e.kind === 'run' ? { ...e, record } : e;
+  for (const fn of subscribers) { try { fn(out); } catch (err) { console.error(err); } }
   evaluate();
 }
 
@@ -172,6 +178,9 @@ export const CHARACTER_ACHIEVEMENTS: Record<string, (c: CrossingSave) => boolean
   'collection-45': (c) => c.owned.length >= 45,
 };
 export const worldCleared = (c: CrossingSave, w: number): boolean => { for (let l = 1; l <= 15; l++) if (!c.worlds[`${w}-${l}`]) return false; return true; };
+/** other systems (achievements…) add their own checks that run after every change */
+const evaluators: (() => void)[] = [];
+export const addEvaluator = (fn: () => void): void => { if (!evaluators.includes(fn)) evaluators.push(fn); };
 let evaluating = false;
 /** Grant every character whose requirement is now met (achievements, world clears, endless records, weekly placings, challenges). */
 export function evaluate(): void {
@@ -190,6 +199,7 @@ export function evaluate(): void {
       else if (k.kind === 'challenge') ok = k.id === 'flawless-world' && c.flawlessWorlds.length > 0;
       if (ok) grantCharacter(def.id, `unlock-${k.kind}`);
     }
+    for (const fn of evaluators) { try { fn(); } catch (err) { console.error(err); } }
   } finally { evaluating = false; }
 }
 

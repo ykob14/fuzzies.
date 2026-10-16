@@ -40,6 +40,7 @@ const LOADERS: Partial<Record<PanelName, () => Promise<{ open: PanelOpen }>>> = 
   locker: () => import('./ui/locker'),
   pass: () => import('./ui/pass'),
   shop: () => import('./ui/shop'),
+  missions: () => import('./ui/missions'),
 };
 export const panelAvailable = (n: PanelName): boolean => !!LOADERS[n];
 export const PANEL_TITLE: Record<PanelName, string> = { locker: 'Fuzzy Locker', pass: 'Fuzzy Pass', shop: 'Fuzzy Shop', worlds: 'Worlds', endless: 'Endless Crossing', missions: 'Missions', leaderboard: 'Weekly Boards', events: 'Events' };

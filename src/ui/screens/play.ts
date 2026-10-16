@@ -10,6 +10,8 @@ import { travel } from '../travel';
 import { h, btn, icon, fuzzyMark } from '../dom';
 import { isTouch } from '../../core/util';
 import * as store from '../../crossing/store';
+import { initCrossing } from '../../crossing/init';
+import { claimable as missionsClaimable, viewMissions } from '../../crossing/missions';
 import { equippedCharacter } from '../../crossing/store';
 import { CHARACTERS, character, type CharacterDef } from '../../crossing/characters';
 import { createHub, panelAvailable, type NavTarget } from '../../crossing/hub';
@@ -179,6 +181,7 @@ export function playScreen(): Screen {
     const tiles = h('div', { class: 'fzx-tiles' },
       panelAvailable('locker') ? tile('Locker', `${store.ownedCount()} / ${CHARACTERS.length}`, icon('gift', 22), () => go({ to: 'locker' }), pendingNew) : null,
       panelAvailable('pass') ? tile('Pass', `Level ${store.passInfo().level}`, icon('trophy', 22), () => go({ to: 'pass' }), claimable > 0) : null,
+      panelAvailable('missions') ? tile('Missions', `${viewMissions(store.save(), 'daily').filter((v) => v.claimed).length} / 3 today`, icon('check', 22), () => go({ to: 'missions' }), missionsClaimable(store.save()).length > 0) : null,
       panelAvailable('shop') ? tile('Shop', h('span', { class: 'fzx-amt' }, coinMark(13), String(store.coins())), icon('unlock', 22), () => go({ to: 'shop' })) : null);
     overlay.replaceChildren(h('div', { class: 'go-card start fzx-menu' },
       h('div', { class: 'go-title' }, mascot(44), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across, grab coins, fill all 5 nests.')), h('span', { class: 'fzx-coins', title: 'Your Crossing Coins' }, coinMark(18), h('b', null, store.coins().toLocaleString()))),
@@ -336,6 +339,7 @@ export function playScreen(): Screen {
   const el = h('div', { class: 'page play' },
     // the start / pause / game-over card covers the whole shell (HUD and arrows too) so it fits on small screens
     shellEl);
+  initCrossing();
   requestAnimationFrame(() => { void newGame(); showStart(); });
 
   return {
