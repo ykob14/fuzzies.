@@ -21,3 +21,11 @@
 .fzx-passbar-track i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
 .fzx-passbar em { grid-column: 1 / -1; font-style: normal; font-size: 12px; font-weight: 700; color: var(--accent); }
 .fzx-earned svg { flex: none; }
+
+/* ---- game skin for the screen frame (Locker, Pass, Shop, Missions, Boards …) ---- */
+.fzx-layer { background: radial-gradient(120% 50% at 50% 0%, color-mix(in srgb, var(--accent) 11%, var(--surface)) 0%, var(--surface) 70%); border-radius: 26px; }
+.fzx-bar { gap: 10px; padding: 12px 14px; border-bottom: 0; background: transparent; }
+.fzx-back { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--card-lip, var(--border)); background: var(--surface); color: var(--text); box-shadow: 0 3px 0 var(--card-lip, var(--border)); transition: transform .1s, box-shadow .1s; }
+.fzx-back:active { transform: translateY(3px); box-shadow: none; }
+.fzx-title { font: 700 24px/1 var(--brand); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fzx-bar-coins { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px 0 10px; border-radius: 99px; border: 2px solid var(--card-lip, var(--border)); background: var(--surface); box-shadow: 0 3px 0 var(--card-lip, var(--border)); font: 700 16px/1 var(--brand); }

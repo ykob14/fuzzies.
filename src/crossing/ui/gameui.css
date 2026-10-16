@@ -1,0 +1,39 @@
+/* Fuzzy Crossing "game skin": the shared look of every Crossing screen — chunky raised cards, a lip under buttons, picture tiles.
+   One brand colour (raspberry) on neutrals; gold is only for coins. */
+.fzx-lobby, .fzx-ms, .fzx-layer {
+  --lip: color-mix(in srgb, var(--accent) 68%, #000);
+  --card-lip: color-mix(in srgb, var(--text) 13%, var(--surface));
+  --gold: #f5b014;
+}
+/* the raspberry picture tile */
+.fzx-ic { --tile: var(--accent); width: var(--sz, 44px); height: var(--sz, 44px); flex: none; display: grid; place-items: center; border-radius: 31%; color: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 84%, #fff), var(--accent));
+  box-shadow: 0 3px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, .3); }
+.fzx-ic.soft { --tile: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.fzx-ic.grey { --tile: var(--surface-2); color: var(--muted); background: var(--surface-2); box-shadow: 0 3px 0 var(--card-lip); }
+.fzx-ic.gold { --tile: var(--gold); background: linear-gradient(180deg, #ffd45a, var(--gold)); box-shadow: 0 3px 0 #b97800, inset 0 2px 0 rgba(255, 255, 255, .4); color: #fff; }
+.fzx-gi { display: block; overflow: visible; }
+/* a raised card */
+.fzx-card { background: var(--surface); border: 2px solid var(--card-lip); border-radius: 22px; box-shadow: 0 4px 0 var(--card-lip); }
+/* round icon button */
+.fzx-round { --tile: var(--surface); width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--card-lip); background: var(--surface); color: color-mix(in srgb, var(--text) 62%, var(--surface)); box-shadow: 0 3px 0 var(--card-lip); cursor: pointer; transition: transform .1s, box-shadow .1s; }
+.fzx-round:active { transform: translateY(3px); box-shadow: 0 0 0 var(--card-lip); }
+.fzx-x { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--muted); cursor: pointer; }
+.fzx-x svg { transform: rotate(45deg); }
+/* the big raspberry button */
+.fzx-bigbtn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 22px; padding: 0 22px; min-height: 56px; color: #fff; font: 700 21px/1 var(--brand); letter-spacing: .01em; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff), var(--accent)); box-shadow: 0 6px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, .3); transition: transform .1s, box-shadow .1s; }
+.fzx-bigbtn:active:not(:disabled) { transform: translateY(5px); box-shadow: 0 1px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, .3); }
+.fzx-bigbtn:disabled { background: var(--surface-2); color: var(--muted); box-shadow: 0 5px 0 var(--card-lip); cursor: default; }
+/* a coin pill, a medal, a pip row */
+.fzx-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 7px; border-radius: 99px; background: var(--surface-2); font: 700 13.5px/1 var(--brand); color: var(--text); }
+.fzx-chip.xp { color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, var(--surface)); padding-left: 9px; }
+/* chunky progress bar with the number inside */
+.fzx-prog { position: relative; height: 24px; border-radius: 99px; background: var(--surface-2); box-shadow: inset 0 2px 0 rgba(0, 0, 0, .06); overflow: hidden; }
+.fzx-prog > i { position: absolute; inset: 0 auto 0 0; min-width: 24px; border-radius: 99px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); box-shadow: inset 0 2px 0 rgba(255, 255, 255, .35); transition: width .5s var(--ease, ease); }
+.fzx-prog > b { position: relative; z-index: 1; display: block; text-align: center; font: 700 12.5px/24px var(--brand); letter-spacing: .02em; color: color-mix(in srgb, var(--text) 78%, var(--surface)); mix-blend-mode: normal; text-shadow: 0 1px 0 var(--surface); }
+.fzx-prog.full > b { color: #fff; text-shadow: 0 1px 0 rgba(0, 0, 0, .2); }
+/* the pulse on things you can collect */
+@keyframes fzxPop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+.fzx-wiggle { animation: fzxPop 1.5s ease-in-out infinite; }
+:root[data-motion='reduce'] .fzx-wiggle { animation: none !important; }

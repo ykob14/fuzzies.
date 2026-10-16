@@ -1,0 +1,104 @@
+/* Fuzzy Crossing lobby */
+.game-overlay:has(.fzx-lobby) { display: block; padding: 0; background: transparent; backdrop-filter: none; border-radius: 0; }
+.game-shell:has(.fzx-lobby) { min-height: calc(100dvh - 150px); }
+.fzx-lobby { position: relative; height: 100%; min-height: 560px; display: flex; flex-direction: column; gap: 12px; padding: 12px 14px 14px; max-width: 520px; margin: 0 auto; overflow: hidden; border-radius: 26px;
+  background: radial-gradient(120% 70% at 50% 24%, color-mix(in srgb, var(--accent) 17%, var(--surface)) 0%, color-mix(in srgb, var(--accent) 6%, var(--surface)) 48%, var(--surface) 100%); }
+.fzx-lobby::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background: radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--accent) 22%, transparent) 0 3px, transparent 4px), radial-gradient(circle at 88% 30%, color-mix(in srgb, var(--accent) 22%, transparent) 0 2.5px, transparent 3.5px), radial-gradient(circle at 20% 62%, color-mix(in srgb, var(--accent) 18%, transparent) 0 2px, transparent 3px), radial-gradient(circle at 82% 70%, color-mix(in srgb, var(--accent) 20%, transparent) 0 3px, transparent 4px); }
+.fzx-lobby > * { position: relative; }
+
+/* top row */
+.fzx-lb-top { display: flex; align-items: center; gap: 8px; }
+.fzx-sp { flex: 1; }
+.fzx-lvl { position: relative; display: flex; align-items: center; gap: 9px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--text); text-align: left; }
+.fzx-lvl-ring { --p: 0; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--accent) calc(var(--p) * 1%), color-mix(in srgb, var(--accent) 16%, var(--surface)) 0); box-shadow: 0 3px 0 var(--card-lip); position: relative; }
+.fzx-lvl-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: var(--surface); }
+.fzx-lvl-ring b { position: relative; font: 700 19px/1 var(--brand); color: var(--accent); }
+.fzx-lvl-t { display: grid; gap: 5px; }
+.fzx-lvl-t small { white-space: nowrap; font: 700 11px/1 var(--brand); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.fzx-lvl-bar { display: block; width: 64px; height: 7px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 16%, var(--surface)); overflow: hidden; }
+.fzx-lvl-bar u { display: block; height: 100%; border-radius: 99px; background: var(--accent); text-decoration: none; }
+.fzx-coinpill { display: inline-flex; align-items: center; gap: 7px; height: 42px; padding: 0 6px 0 11px; border-radius: 99px; border: 2px solid var(--card-lip); background: var(--surface); box-shadow: 0 3px 0 var(--card-lip); cursor: pointer; color: var(--text); font: 700 17px/1 var(--brand); }
+.fzx-coinpill:active { transform: translateY(3px); box-shadow: none; }
+.fzx-plus { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; margin-left: 2px; }
+
+/* the stage */
+.fzx-stage { position: relative; flex: 1 1 auto; min-height: 190px; display: grid; place-items: center; align-content: center; gap: 0; border: 0; background: transparent; cursor: pointer; color: var(--text); padding: 0; font: inherit; }
+.fzx-rays { position: absolute; left: 50%; top: 46%; width: 330px; height: 330px; translate: -50% -50%; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--accent) 12%, transparent) 0 9deg, transparent 9deg 22deg); -webkit-mask: radial-gradient(circle, #000 18%, transparent 68%); mask: radial-gradient(circle, #000 18%, transparent 68%); animation: fzxSpin 40s linear infinite; }
+@keyframes fzxSpin { to { rotate: 360deg; } }
+.fzx-lb-fuzzy { position: relative; width: min(190px, 46vw); height: min(190px, 46vw); max-height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 10px 12px color-mix(in srgb, var(--accent) 30%, transparent)); animation: fzxBob 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
+.fzx-stage:hover .fzx-lb-fuzzy, .fzx-stage:focus-visible .fzx-lb-fuzzy { animation: fzxHop .7s ease-out; }
+@keyframes fzxBob { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-7px) scale(.99, 1.015); } }
+@keyframes fzxHop { 0% { transform: translateY(0) scale(1.06, .92); } 40% { transform: translateY(-22px) scale(.96, 1.06); } 100% { transform: translateY(0) scale(1); } }
+.fzx-ground { width: 150px; height: 20px; margin-top: -14px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 34%, transparent), transparent); }
+.fzx-name { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.fzx-name b { font: 700 25px/1 var(--brand); letter-spacing: .005em; }
+.fzx-name em { font: 700 10.5px/1 var(--ui); font-style: normal; letter-spacing: .07em; text-transform: uppercase; padding: 5px 8px; border-radius: 99px; color: #fff; background: var(--rar, #8a9199); }
+.fzx-swap { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; padding: 6px 12px 6px 9px; border-radius: 99px; background: var(--surface); border: 2px solid var(--card-lip); font: 700 12px/1 var(--brand); color: var(--muted); }
+
+/* Play */
+.fzx-play { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 66px; border: 0; border-radius: 24px; color: #fff; font: 700 26px/1 var(--brand); letter-spacing: .02em; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff), var(--accent)); box-shadow: 0 7px 0 var(--lip), 0 14px 22px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 2px 0 rgba(255, 255, 255, .32); transition: transform .1s, box-shadow .1s; }
+.fzx-play:hover { filter: brightness(1.04); }
+.fzx-play:active { transform: translateY(6px); box-shadow: 0 1px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, .32); }
+.fzx-play .fzx-gi { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .15)); }
+
+/* modes */
+.fzx-modes { display: grid; gap: 10px; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); }
+.fzx-modes.n1 { --n: 1; } .fzx-modes.n2 { --n: 2; } .fzx-modes.n3 { --n: 3; }
+.fzx-mode { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 10px; text-align: left; font: inherit; color: var(--text); cursor: pointer; background: var(--surface); border: 2px solid var(--card-lip); border-radius: 20px; box-shadow: 0 4px 0 var(--card-lip); transition: transform .1s, box-shadow .1s; }
+.fzx-mode:active { transform: translateY(4px); box-shadow: none; }
+.fzx-modes.n3 .fzx-mode { flex-direction: column; text-align: center; padding: 10px 6px; gap: 6px; }
+.fzx-mode-t { display: grid; gap: 3px; min-width: 0; }
+.fzx-mode-t b { font: 700 16px/1 var(--brand); }
+.fzx-mode-t small { font-size: 11.5px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* daily missions strip */
+.fzx-daily { display: flex; align-items: center; gap: 11px; width: 100%; padding: 9px 14px 9px 10px; font: inherit; color: var(--text); text-align: left; cursor: pointer; background: var(--surface); border: 2px solid var(--card-lip); border-radius: 20px; box-shadow: 0 4px 0 var(--card-lip); transition: transform .1s, box-shadow .1s; }
+.fzx-daily:active { transform: translateY(4px); box-shadow: none; }
+.fzx-daily.ready { border-color: var(--accent); box-shadow: 0 4px 0 var(--lip); }
+.fzx-daily-t { display: grid; gap: 7px; flex: 1; min-width: 0; }
+.fzx-daily-t b { font: 700 15.5px/1 var(--brand); }
+.fzx-daily.ready .fzx-daily-t b { color: var(--accent); }
+.fzx-pips { display: flex; gap: 6px; }
+.fzx-pips i { flex: 1; height: 8px; border-radius: 99px; background: var(--surface-2); box-shadow: inset 0 1px 0 rgba(0, 0, 0, .06); }
+.fzx-pips i.on { background: var(--accent); }
+.fzx-pips i.rdy { background: color-mix(in srgb, var(--accent) 45%, var(--surface-2)); animation: fzxPop 1.2s ease-in-out infinite; }
+.fzx-daily-n { font: 700 17px/1 var(--brand); color: var(--muted); }
+
+/* the picture buttons */
+.fzx-dock { display: flex; justify-content: space-around; gap: 6px; }
+.fzx-dk { position: relative; display: grid; justify-items: center; gap: 7px; min-width: 0; flex: 1; border: 0; background: transparent; padding: 2px 0 0; cursor: pointer; font: inherit; color: var(--text); }
+.fzx-dk span:last-of-type { font: 700 13px/1 var(--brand); letter-spacing: .01em; }
+.fzx-dk .fzx-ic { transition: transform .1s, box-shadow .1s; }
+.fzx-dk:active .fzx-ic { transform: translateY(3px); box-shadow: 0 0 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, .3); }
+.fzx-dk .fzx-new { top: 0; right: 50%; margin-right: -32px; width: 13px; height: 13px; box-shadow: 0 0 0 3px var(--surface); }
+.fzx-land { justify-self: center; display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 4px 8px; cursor: pointer; font: 600 12.5px/1 var(--ui); color: var(--muted); }
+.fzx-land:hover { color: var(--accent); }
+
+/* sheets */
+.fzx-sheet { position: absolute; inset: 0; z-index: 5; display: grid; align-items: end; background: rgba(20, 12, 24, .45); animation: fzxFade .18s ease both; }
+@keyframes fzxFade { from { opacity: 0; } }
+.fzx-sheet-box { background: var(--surface); border-radius: 26px 26px 0 0; padding: 16px 16px 22px; display: grid; gap: 12px; animation: fzxRise .22s var(--ease, ease-out) both; }
+@keyframes fzxRise { from { transform: translateY(30px); } }
+.fzx-sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.fzx-sheet-head h3 { font: 700 22px/1 var(--brand); }
+.fzx-howl { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fzx-howl li { display: flex; align-items: center; gap: 12px; }
+.fzx-howl span { display: grid; gap: 3px; }
+.fzx-howl b { font: 700 16px/1 var(--brand); }
+.fzx-howl small { color: var(--muted); font-size: 12.5px; }
+.fzx-hint { margin: 0; text-align: center; color: var(--muted); font-size: 12.5px; }
+.fzx-opt-l { margin: 0; font: 700 13px/1 var(--brand); color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+:root[data-motion='reduce'] .fzx-rays, :root[data-motion='reduce'] .fzx-lb-fuzzy, :root[data-motion='reduce'] .fzx-pips i, :root[data-motion='reduce'] .fzx-sheet, :root[data-motion='reduce'] .fzx-sheet-box { animation: none !important; }
+
+@media (max-height: 700px) {
+  .fzx-lobby { min-height: 0; gap: 8px; }
+  .fzx-lb-fuzzy { width: min(150px, 40vw); height: min(150px, 40vw); }
+  .fzx-play { min-height: 58px; font-size: 23px; }
+}
+@media (min-width: 761px) {
+  .fzx-lobby { min-height: 640px; max-width: 480px; box-shadow: var(--shadow-lg); }
+}
+.fzx-lvl .fzx-new { top: -2px; left: 33px; right: auto; width: 13px; height: 13px; box-shadow: 0 0 0 3px var(--surface); }

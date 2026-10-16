@@ -5,6 +5,8 @@
  * Everything stays inside the Fuzzy Crossing tab — nothing here touches Fuzzies Land.
  */
 import { h, icon } from '../ui/dom';
+import * as store from './store';
+import { coinMark } from './ui/kit';
 
 export type PanelName = 'locker' | 'pass' | 'shop' | 'worlds' | 'endless' | 'missions' | 'leaderboard' | 'events';
 /** where "How to Unlock" and the menu tiles send the player */
@@ -62,6 +64,7 @@ export function createHub(host: HubHost) {
   let cleanup: (() => void) | void;
   let current: PanelName | null = null;
   let gen = 0;
+  let coinsOff: (() => void) | null = null;
 
   async function open(name: PanelName, focus?: NavTarget): Promise<void> {
     const load = LOADERS[name];
@@ -70,10 +73,16 @@ export function createHub(host: HubHost) {
     dispose(false);
     const titleEl = h('b', { class: 'fzx-title' }, PANEL_TITLE[name]);
     const body = h('div', { class: 'fzx-body' });
+    const coinsNum = h('b', null, store.coins().toLocaleString());
+    const coinsEl = h('span', { class: 'fzx-bar-coins', title: 'Your Crossing Coins' }, coinMark(20), coinsNum);
+    const onCoins = () => { coinsNum.textContent = store.coins().toLocaleString(); };
+    addEventListener('fz:crossing', onCoins);
+    coinsOff = () => removeEventListener('fz:crossing', onCoins);
     layer = h('section', { class: `fzx-layer fzx-${name}`, role: 'dialog', 'aria-label': PANEL_TITLE[name] },
       h('header', { class: 'fzx-bar' },
         h('button', { class: 'fzx-back', type: 'button', 'aria-label': 'Back to Fuzzy Crossing', onclick: () => close() }, icon('back', 20)),
-        titleEl),
+        titleEl,
+        coinsEl),
       body);
     host.shell.append(layer);
     current = name;
@@ -95,6 +104,7 @@ export function createHub(host: HubHost) {
   function dispose(notify: boolean): void {
     try { if (typeof cleanup === 'function') cleanup(); } catch (e) { console.error(e); }
     cleanup = undefined;
+    coinsOff?.(); coinsOff = null;
     layer?.remove();
     layer = null;
     current = null;

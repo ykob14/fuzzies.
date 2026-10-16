@@ -5,21 +5,19 @@ import { View2D } from '../../game/view2d';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { track } from '../../core/missions';
-import { mascot } from '../mascot';
 import { travel } from '../travel';
 import { h, btn, icon, fuzzyMark } from '../dom';
+import { coinMark } from '../../crossing/ui/kit';
 import { isTouch } from '../../core/util';
 import * as store from '../../crossing/store';
 import { initCrossing } from '../../crossing/init';
-import { claimable as missionsClaimable, viewMissions } from '../../crossing/missions';
 import * as net from '../../crossing/net';
 import { BOARDS, BOARD_IDS } from '../../crossing/rewards-weekly';
 import { equippedCharacter } from '../../crossing/store';
-import { CHARACTERS, character, type CharacterDef } from '../../crossing/characters';
-import { createHub, panelAvailable, type NavTarget } from '../../crossing/hub';
-import { coinMark, rarityTag, newDot } from '../../crossing/ui/kit';
-import { friendUrl } from '../../content/friends';
+import { character } from '../../crossing/characters';
+import { createHub, type NavTarget } from '../../crossing/hub';
 import '../../crossing/ui/hub.css';
+import { renderLobby } from '../../crossing/ui/lobby';
 import '../../crossing/ui/boards-menu.css';
 
 type Dir = 'up' | 'down' | 'left' | 'right';
@@ -167,50 +165,16 @@ export function playScreen(): Screen {
     return seg;
   }
 
-  /** the little 3D-ish portrait of a Fuzzy for menu cards: the owner's friend picture when there is one, else a coloured Fuzzy */
-  function portrait(c: CharacterDef, size: number): HTMLElement {
-    return c.friend ? h('img', { class: 'fzx-portrait', src: friendUrl(c.friend), alt: '', width: size, height: size }) : h('span', { class: 'fzx-portrait' }, fuzzyMark(size, c.color));
-  }
-  const tile = (label: string, sub: Node | string, ic: Node, onClick: () => void, dot = false): HTMLElement => {
-    const b = h('button', { class: 'fzx-tile', type: 'button', onclick: onClick }, h('span', { class: 'fzx-tile-ic' }, ic), h('b', null, label), h('small', null, sub));
-    if (dot) b.append(newDot());
-    return b;
-  };
-
-  /** the weekly boards tile; a dot appears when last week's rewards are waiting */
-  function boardsTile(): HTMLElement | null {
-    if (!panelAvailable('leaderboard')) return null;
-    const t = tile('Boards', 'Weekly', icon('star', 22), () => go({ to: 'leaderboard' }));
-    void net.claimableWeeks().then((w) => { if (w.length && t.isConnected) t.append(newDot()); });
-    return t;
-  }
-
   function showStart(): void {
     overlay.hidden = false;
-    const me = equippedCharacter();
-    const claimable = store.passClaimable().length;
-    const pendingNew = CHARACTERS.some((c) => store.hasCharacter(c.id) && store.isNew(c.id) && c.id !== 'classic');
-    const tip = (ic: Node | string, text: string) => h('div', { class: 'how-tip' }, h('span', { class: 'how-ic' }, ic), h('span', null, text));
-    const tiles = h('div', { class: 'fzx-tiles' },
-      panelAvailable('locker') ? tile('Locker', `${store.ownedCount()} / ${CHARACTERS.length}`, icon('gift', 22), () => go({ to: 'locker' }), pendingNew) : null,
-      panelAvailable('pass') ? tile('Pass', `Level ${store.passInfo().level}`, icon('trophy', 22), () => go({ to: 'pass' }), claimable > 0) : null,
-      panelAvailable('missions') ? tile('Missions', `${viewMissions(store.save(), 'daily').filter((v) => v.claimed).length} / 3 today`, icon('check', 22), () => go({ to: 'missions' }), missionsClaimable(store.save()).length > 0) : null,
-      panelAvailable('shop') ? tile('Shop', h('span', { class: 'fzx-amt' }, coinMark(13), String(store.coins())), icon('unlock', 22), () => go({ to: 'shop' })) : null,
-      boardsTile());
-    overlay.replaceChildren(h('div', { class: 'go-card start fzx-menu' },
-      h('div', { class: 'go-title' }, mascot(44), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across, grab coins, fill all 5 nests.')), h('span', { class: 'fzx-coins', title: 'Your Crossing Coins' }, coinMark(18), h('b', null, store.coins().toLocaleString()))),
-      h('button', { class: 'fzx-hero', type: 'button', onclick: () => go({ to: 'locker', id: me.id }), 'aria-label': `Your Fuzzy: ${me.name}. Open the Locker` },
-        portrait(me, 64), h('span', { class: 'fzx-hero-t' }, h('small', null, 'Your Fuzzy'), h('b', null, me.name), h('em', null, me.tagline)), rarityTag(me.rarity)),
-      btn('Start playing', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: begin }),
-      tiles,
-      h('div', { class: 'how-grid' },
-        tip('🚗', 'Dodge the cars'),
-        tip('🪵', 'Ride logs, skip the water'),
-        tip(coinMark(18), 'Coin +1 · golden +5'),
-        tip('🏁', 'Nest +3 · level +10')),
-      gfxPicker(),
-      h('button', { class: 'link small land-link', type: 'button', onclick: (e: MouseEvent) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) }, '🏡 Visit your town in Fuzzies Land →'),
-      h('p', { class: 'hint center' }, isTouch() ? 'Swipe or tap the board to hop · 3 lives' : 'Arrow keys or WASD to hop · P to pause · 3 lives')));
+    overlay.replaceChildren(renderLobby({
+      me: equippedCharacter(),
+      go,
+      play: begin,
+      toLand: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }),
+      gfx: gfxPicker(),
+      touch: isTouch(),
+    }));
   }
 
   // Cute intro before each game: zoom in on the Fuzzy, it winks, zoom out to the board. Skippable.
