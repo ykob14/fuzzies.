@@ -3203,7 +3203,7 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
 
 /* ===== Home: illustrated cards (Fuzzy Crossing, Fuzzies Land) and Fuzzy faces on the missions ===== */
 .home-play .game-promo, .home-play .land-promo, .game-promo, .land-promo { padding: 0; gap: 0; overflow: hidden; grid-template-columns: 1fr; align-content: start; }
-.home-play .gp-art, .home-play .lp-art, .gp-art, .lp-art { display: block; height: 208px; order: -1; border-radius: 0; margin: 0; padding: 0; grid-template-columns: none; position: relative; }
+.home-play .gp-art, .home-play .lp-art, .gp-art, .lp-art { display: block; height: 232px; order: -1; border-radius: 0; margin: 0; padding: 0; grid-template-columns: none; position: relative; }
 .home-play .lp-art span { height: auto; }
 .ha-scene, .ha-scene svg { display: block; width: 100%; height: 100%; }
 .game-promo .gp-text, .land-promo > div:last-child { padding: 20px 24px 24px; }
@@ -3232,8 +3232,37 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
 .mission-face i { position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; background: #2f9e5b; color: #fff; font: 800 12px/20px var(--ui); text-align: center; font-style: normal; box-shadow: 0 0 0 2px var(--surface); }
 .mission.done { opacity: .85; }
 @media (max-width: 760px) {
-  .home-play .gp-art, .home-play .lp-art, .gp-art, .lp-art { height: 150px; }
+  .home-play .gp-art, .home-play .lp-art, .gp-art, .lp-art { height: 190px; }
   .game-promo .gp-text, .land-promo > div:last-child { padding: 16px 18px 20px; }
   .land-promo h2, .game-promo h2 { font-size: 26px; }
 }
 .missions > .mission { width: 100%; box-sizing: border-box; }
+
+/* Home art: the characters live in the scenes */
+@keyframes haBlob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+@keyframes haWaterTilt { 0%, 100% { rotate: 0deg; } 50% { rotate: -3deg; } }
+@keyframes haDrops { 0% { translate: 0 -2px; opacity: 0; } 30% { opacity: 1; } 100% { translate: 2px 14px; opacity: 0; } }
+@keyframes haBuzz { 0% { translate: 0 0; } 25% { translate: 18px -10px; } 50% { translate: 34px 2px; } 75% { translate: 14px 8px; } 100% { translate: 0 0; } }
+@keyframes haWaveY { 0%, 100% { rotate: -6deg; } 50% { rotate: 7deg; } }
+@keyframes haTok { 0%, 100% { translate: 0 0; scale: 1; } 50% { translate: 0 -3px; scale: 1.12; } }
+@keyframes haTwinkle { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes haWheel { to { rotate: 360deg; } }
+.ha-scene image, .ha-scene g, .ha-scene circle { transform-box: fill-box; transform-origin: 50% 90%; }
+.ha-log { animation: haDrift 7s ease-in-out infinite alternate; } .ha-log2 { animation-duration: 9s; animation-delay: -3s; }
+.ha-ride { animation: haBlob 1.8s ease-in-out infinite; }
+.ha-hop { animation: haHop 1.8s ease-in-out infinite; }
+.ha-wave { animation: haWaveY 1.4s ease-in-out infinite; }
+.ha-cheer { animation: haHop 1.1s ease-in-out infinite; }
+.ha-tok { animation: haTok 1.4s ease-in-out infinite; }
+.ha-twinkle { animation: haTwinkle 1.2s ease-in-out infinite; }
+.ha-nest { animation: haBlob 2.2s ease-in-out infinite; }
+.ha-wheel { animation: haWheel .8s linear infinite; transform-origin: 50% 50%; }
+.ha-gardener { animation: haWaterTilt 2.4s ease-in-out infinite; }
+.ha-drops circle { animation: haDrops 1.2s ease-in infinite; } .ha-drops circle:nth-child(2) { animation-delay: .25s; } .ha-drops circle:nth-child(3) { animation-delay: .5s; }
+.ha-buzz { animation: haBlob .5s ease-in-out infinite; }
+.ha-bee { animation: haBuzz 5s ease-in-out infinite; }
+.ha-chef { animation: haBlob 1.6s ease-in-out infinite; }
+.ha-steam { animation: haSmoke 2.6s ease-out infinite; }
+.ha-peek { animation: haBlob 1.5s ease-in-out infinite; }
+.ha-bubble { animation: haBlob 2s ease-in-out infinite; }
+:root[data-motion='reduce'] .ha-scene * { animation: none !important; }
