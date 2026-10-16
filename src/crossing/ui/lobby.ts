@@ -119,7 +119,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
     card('shop', 'shop', 'Shop', 'Fresh picks'),
     boards);
 
-  const land = h('button', { class: 'fzx-land', type: 'button', onclick: o.toLand }, gicon('town', 16), 'Visit your town in Fuzzies Land');
+  const land = h('button', { class: 'fzx-land', type: 'button', onclick: o.toLand }, gicon('town', 16), 'Back to Fuzzies Land');
 
   root.append(...[top, stage, playBtn, modeRow, strip, dock, land].filter((x): x is HTMLElement => !!x));
 

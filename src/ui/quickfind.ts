@@ -18,8 +18,7 @@ export const NAV_GROUPS: { label: string; items: { id: string; label: string; ic
     { id: 'projects', label: 'My designs', icon: 'folder', keys: 'projects files' },
   ] },
   { label: 'Play', items: [
-    { id: 'play', label: 'Fuzzy Crossing', icon: 'gamepad', keys: 'game frogger play' },
-    { id: 'land', label: 'Fuzzies Land', icon: 'town', keys: 'town fland build farm' },
+    { id: 'land', label: 'Fuzzies Land', icon: 'town', keys: 'town fland build farm games play crossing parking' },
     { id: 'rewards', label: 'Rewards', icon: 'gift', keys: 'shop unlock fuzzies tokens' },
   ] },
   { label: 'You', items: [

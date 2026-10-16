@@ -3298,3 +3298,7 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
 .gp-art::after, .lp-art::after { content: ''; position: absolute; inset: auto 0 0 0; height: 38%; background: linear-gradient(to top, rgba(0,0,0,.16), transparent); pointer-events: none; }
 :root[data-motion='reduce'] .gp-art img, :root[data-motion='reduce'] .lp-art img { transition: none; }
 .gp-art img { object-position: 40% 68%; }
+
+/* Home: Fuzzies Land is the one place to play (Fuzzy Crossing lives inside it), so its card spans the row */
+.home-play { grid-template-columns: 1fr; }
+@media (min-width: 761px) { .home-play .land-promo { grid-template-columns: 1fr 1fr; } .home-play .lp-art { height: 100%; min-height: 232px; } }

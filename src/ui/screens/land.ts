@@ -11,6 +11,7 @@ import * as A from '../../land/adventures';
 import * as PK from '../../land/parking/progress';
 import type { Payment } from '../../land/parking/game';
 import { conversation, dailyPill, adventuresBody, resultsScreen, scoreResults } from '../landAdventure';
+import { gamesBody } from '../landGames';
 import { GAME_LOADERS } from '../../land/games/index';
 import { api, ApiError, cloudEnabled } from '../../core/api';
 import type { LandView, Pick } from '../../land/view3d';
@@ -27,7 +28,7 @@ import './../landSkin.css';
 import { TutorialManager, type Reward } from '../../land/tutorial';
 import { mountTutorial, type TutTarget } from '../landTutorial';
 
-type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' } | { kind: 'events'; tab: string } | { kind: 'adventures' };
+type Panel = null | { kind: 'shop'; tab: L.Kind | 'farm' | 'fuzzies' } | { kind: 'building'; id: number } | { kind: 'orders' } | { kind: 'barn' } | { kind: 'events'; tab: string } | { kind: 'adventures' } | { kind: 'games' };
 
 /** The clock events run on (in development a test can set `fz.dev.now` to any date to see a holiday). */
 /** the server's clock, once an account has talked to it (missions are issued by server time; the device clock can't hurry them) */
@@ -312,6 +313,7 @@ export function landScreen(): Screen {
       waiting ? tool('collect', 'basket', 'Collect', collectAllNow, waiting) : null,
       replantN() ? tool('replant', 'wheat', 'Replant', replantNow, replantN()) : null,
       tool('build', 'build', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
+      tool('games', 'portal', 'Games', () => (panel?.kind === 'games' ? openPanel(null) : openPanel({ kind: 'games' })), A.setStatus(s, now()).ready ? 1 : 0),
       E.activeEvents(now()).length ? tool('events', 'festival', E.activeEvents(now())[0].holiday.short, () => openPanel({ kind: 'events', tab: E.activeEvents(now())[0].key }), E.claimable(s, now())) : null,
       tool('orders', 'parcel', 'Orders', () => openPanel({ kind: 'orders' }), ready),
       tool('barn', 'barnBig', 'Barn', () => openPanel({ kind: 'barn' }), 0, h('i', { class: `land-meter ${fill > 0.85 ? 'full' : ''}`, title: `${L.barnUsed(s)} / ${L.barnCap(s.level)}` }, h('b', { style: `width:${fill * 100}%` })))].filter((x) => x !== null) as HTMLElement[]);
@@ -397,6 +399,7 @@ export function landScreen(): Screen {
     if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Pick one, then choose its spot', landIcon('hammer', 34)), shopBody(panel.tab));
     else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Deliver goods for coins and XP', landIcon('crate', 34)), ordersBody());
     else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', '', landIcon('barn', 34)), barnBody());
+    else if (panel.kind === 'games') sheet.replaceChildren(head('Games', 'Play, win and earn for your town', landIcon('portal', 34)), gamesBody(s, now(), { crossing: () => { openPanel(null); goPlay(s.buildings.find((b) => b.item === 'gate')?.id); }, parking: () => { openPanel(null); openParking(); }, challenges: () => openPanel({ kind: 'adventures' }) }));
     else if (panel.kind === 'adventures') {
       const st = A.setStatus(s, now());
       sheet.replaceChildren(head('Adventures', st.ready ? 'New missions are ready!' : st.allDone ? `All ${st.total} done · next in ${A.countdown(st.unlockIn)}` : `${st.doneCount} of ${st.total} done`, landIcon('compass', 34)), adventuresBody(s, now(), (id) => hostNameOf(id), (adv) => { openPanel(null); startAdventure(adv); }, (adv) => { openPanel(null); findHost(adv); }, (id) => view?.residentInfo(hostIndexOf(id))?.skin[0] ?? null));

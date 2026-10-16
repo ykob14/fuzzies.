@@ -105,26 +105,15 @@ export function homeScreen(): Screen {
     }));
   }).catch(classic);
 
-  const game = h('section', { class: 'game-promo' },
-    h('div', { class: 'gp-text' },
-      h('p', { class: 'hero-kicker' }, 'Take a break'),
-      h('h2', null, 'Fuzzy Crossing'),
-      h('p', null, 'Hop across busy roads and rivers, collect Fuzzies and unlock templates, sticker packs, fonts, themes and more.'),
-      h('div', { class: 'gp-stats' },
-        h('span', null, icon('trophy', 16), ` Best ${a.stats.bestScore}`),
-        h('span', null, fuzzyMark(16), ` ${a.stats.fuzziesFromGame} collected`)),
-      btn('Play now', { kind: 'primary', size: 'lg', icon: 'play', onClick: () => (location.hash = '#/play') })),
-    h('div', { class: 'gp-art', 'aria-hidden': 'true' }, h('img', { src: '/art/home/crossing.webp', alt: '', width: 1100, height: 565, loading: 'lazy', decoding: 'async' })));
-
   const land = a.land;
   const landCard = h('section', { class: 'land-promo' },
     h('div', { class: 'lp-art', 'aria-hidden': 'true' }, h('img', { src: '/art/home/land.webp', alt: '', width: 1500, height: 783, loading: 'lazy', decoding: 'async' })),
     h('div', null,
       h('p', { class: 'hero-kicker' }, 'Your town'),
       h('h2', null, 'Fuzzies Land'),
-      h('p', null, 'Build houses, grow crops, bake treats and fill orders for the Fuzzies who live there. Level up to earn Fuzzies.'),
+      h('p', null, 'Build your town, then play Fuzzy Crossing, Parking Escape and the daily challenges inside it. Win coins, XP and Fuzzies.'),
       h('div', { class: 'gp-stats' }, h('span', null, landIcon('star', 16), `Level ${land.level}`), h('span', null, landIcon('coin', 16), `${land.coins.toLocaleString()} coins`)),
-      btn('Visit my town', { kind: 'primary', size: 'lg', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) })));
+      btn('Play in Fuzzies Land', { kind: 'primary', size: 'lg', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) })));
 
   // your work first, then ideas, then play
   // the banner Fuzzy turns toward your mouse, and sends up hearts when you tap it
@@ -143,7 +132,7 @@ export function homeScreen(): Screen {
   });
   const el = h('div', { class: 'page home' }, banner, dailyCard, recentSec,
     h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, featuredHead, h('a', { href: '#/templates', class: 'link' }, 'Browse all')), featured),
-    h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Play & earn Fuzzies')), h('div', { class: 'home-play' }, game, landCard)),
+    h('section', { class: 'sec' }, h('div', { class: 'sec-head' }, h('h2', null, 'Play & earn Fuzzies')), h('div', { class: 'home-play' }, landCard)),
     h('section', { class: 'sec' }, missionsCard()));
 
   function homeScreenRefresh() { if (location.hash === '#/home' || location.hash === '') dispatchEvent(new HashChangeEvent('hashchange')); }

@@ -1,0 +1,25 @@
+/* the Games panel in Fuzzies Land — same chunky cream cards as the rest of the town */
+.lg-wrap { display: grid; gap: 12px; padding: 4px 2px 8px; }
+.lg-card { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 112px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border-radius: 24px; background: var(--lcard, #fffdf8); border: 2px solid var(--lline, #e8d9bf); box-shadow: 0 4px 0 var(--llip, #dccaa6); transition: transform .12s, box-shadow .12s; -webkit-tap-highlight-color: transparent; }
+.lg-card:hover { transform: translateY(-1px); }
+.lg-card:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--llip, #dccaa6); }
+.lg-card:focus-visible { outline: 3px solid var(--lacc, #d6336c); outline-offset: 2px; }
+.lg-art { width: 112px; height: 84px; border-radius: 16px; overflow: hidden; background: #efe6d3; display: grid; place-items: center; }
+.lg-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lg-ic { display: grid; place-items: center; width: 100%; height: 100%; color: var(--lacc, #d6336c); }
+.lg-ic.row { display: flex; flex-wrap: nowrap; gap: 3px; align-items: center; justify-content: center; }
+.lg-ic.row .land-gtile { flex: none; width: 34px; height: 34px; padding: 0; min-width: 0; }
+.lg-ic.row .land-gtile svg { width: 100%; height: 100%; }
+.lg-text { display: grid; gap: 2px; min-width: 0; }
+.lg-text small { font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; color: var(--lacc, #d6336c); }
+.lg-text b { font-family: var(--brand, inherit); font-size: 19px; line-height: 1.15; color: var(--link, #3a2f26); }
+.lg-text em { font-style: normal; font-size: 13px; color: var(--lmuted, #7a6c5c); line-height: 1.3; }
+.lg-go { display: inline-flex; align-items: center; gap: 2px; font-weight: 800; font-size: 14px; color: #fff; background: var(--lacc, #d6336c); padding: 9px 12px 9px 16px; border-radius: 14px; box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+.lg-note { margin: 2px 4px 0; text-align: center; font-size: 12.5px; color: var(--lmuted, #7a6c5c); }
+@media (max-width: 560px) {
+  .lg-card { grid-template-columns: 84px 1fr; row-gap: 8px; }
+  .lg-art { width: 84px; height: 72px; }
+  .lg-ic.row .land-gtile { width: 25px; height: 25px; }
+  .lg-go { grid-column: 1 / -1; justify-content: center; }
+}
+:root[data-motion='reduce'] .lg-card { transition: none; }
