@@ -294,18 +294,20 @@ export function treeModel(seed: number, time: { value: number }, scale = 0.55): 
 }
 
 /** The forest around the town: instanced trees in the ring between the land you can build on and the coast. */
-export function buildForest(size: number, time: { value: number }): THREE.Group {
+export function buildForest(size: number, time: { value: number }, felled: ReadonlySet<number> = new Set()): THREE.Group {
   const g = new THREE.Group();
   const o = (MAP - size) / 2;
   const r = rng(19);
-  const spots: { x: number; z: number; s: number; rot: number; pine: boolean }[] = [];
+  const spots: { x: number; z: number; s: number; rot: number; pine: boolean; k: number }[] = [];
   for (let k = 0; k < 900 && spots.length < 190; k++) {
     const x = CENTER + (r() - 0.5) * 44, z = CENTER + (r() - 0.5) * 44;
     if (!onIsland(x, z, 1.4)) continue;
     if (x > o - 1.4 && x < o + size + 1.4 && z > o - 1.4 && z < o + size + 1.4) continue; // a clear lawn around the town
     if (spots.some((p) => Math.hypot(p.x - x, p.z - z) < 1.0)) continue;
-    spots.push({ x, z, s: 0.5 + r() * 0.35, rot: r() * 6.28, pine: r() < 0.3 });
+    spots.push({ x, z, s: 0.5 + r() * 0.35, rot: r() * 6.28, pine: r() < 0.3, k });
   }
+  // cleared trees leave their spot empty (the spot number k is the tree's lasting id)
+  for (let i = spots.length - 1; i >= 0; i--) if (felled.has(spots[i].k)) spots.splice(i, 1);
   const kinds = [broadleafParts(3), broadleafParts(8), pineParts(5)];
   const groups = kinds.map(() => [] as typeof spots);
   spots.forEach((p, i) => groups[p.pine ? 2 : i % 2].push(p));
@@ -320,6 +322,8 @@ export function buildForest(size: number, time: { value: number }): THREE.Group 
       m4.compose(v.set(p.x, 0, p.z), q, sc.setScalar(p.s));
       trunks.setMatrixAt(i, m4); crowns.setMatrixAt(i, m4);
     });
+    // what was tapped: instance i is tree list[i] (its id, spot and size)
+    trunks.userData.trees = crowns.userData.trees = list.map((p) => ({ k: p.k, x: p.x, z: p.z, s: p.s }));
     trunks.castShadow = crowns.castShadow = true;
     crowns.receiveShadow = true;
     g.add(trunks, crowns);

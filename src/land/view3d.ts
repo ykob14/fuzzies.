@@ -25,7 +25,7 @@ const YAW0 = THREE.MathUtils.degToRad(45);
 /** How low the camera may sink (a close-up from the side) and how high it may rise (straight down). */
 const PITCH_MIN = THREE.MathUtils.degToRad(14), PITCH_MAX = THREE.MathUtils.degToRad(82);
 /** The closest the camera may come (a Fuzzy fills the screen) and the farthest it goes. */
-const ZOOM_MIN = 3, ZOOM_MAX = 42;
+const ZOOM_MIN = 3, ZOOM_MAX = 95;
 /** the town opens no further out than this (you can still zoom out to see the whole island) */
 const OPEN_MAX = 30;
 const easeOut = (k: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
@@ -50,7 +50,7 @@ const ROAD_MATS = {
 /** Sidewalk width and the radius of rounded road ends/turns (tiles). */
 const WALK = 0.17, ROUND = 0.3;
 
-export type Pick = { kind: 'building'; id: number } | { kind: 'resident'; index: number } | { kind: 'ground'; x: number; z: number } | null;
+export type Pick = { kind: 'building'; id: number } | { kind: 'resident'; index: number } | { kind: 'tree'; k: number; x: number; z: number } | { kind: 'ground'; x: number; z: number } | null;
 
 interface Built { node: THREE.Group; placed: Placed; key: string; cropNode?: THREE.Group; cropId?: string; bubble?: HTMLElement; smoke: number }
 type Goal = { kind: 'visit'; id: number; door: THREE.Vector2; face: number } | { kind: 'work'; id: number; face: number } | { kind: 'sit'; id: number; seat: THREE.Vector3; face: number } | { kind: 'wander' };
@@ -211,9 +211,16 @@ export class LandView {
   }
 
   /** Trees fill the land you haven't unlocked yet; expanding clears them. */
+  private felledN = 0;
+  /** A tree was cleared: rebuild the forest without it, with a puff of leaves where it stood. */
+  fellTree(x: number, z: number): void {
+    if ((this.state?.felled?.length ?? 0) !== this.felledN) this.buildForest(this.size);
+    this.sparkle(x, 0.9, z, 18);
+  }
   private buildForest(size: number): void {
     this.forest.clear();
-    this.forest.add(ENV.buildForest(size, this.time));
+    this.forest.add(ENV.buildForest(size, this.time, new Set(this.state?.felled ?? [])));
+    this.felledN = this.state?.felled?.length ?? 0;
     const o = (MAP - size) / 2;
     this.area.scale.set(size, 1, size);
     this.area.position.set(MAP / 2, 0.006, MAP / 2);
@@ -332,6 +339,7 @@ export class LandView {
   sync(s: LandState): void {
     this.state = s;
     if (s.size !== this.size) { this.size = s.size; this.buildForest(s.size); }
+    else if ((s.felled?.length ?? 0) !== this.felledN) this.buildForest(s.size);
     this.buildRoads(s);
     this.buildFences(s);
     const seen = new Set<number>();
@@ -803,6 +811,12 @@ export class LandView {
       while (o && !nodes.includes(o as THREE.Group)) o = o.parent;
       for (const [id, b] of this.built) if (b.node === o) return { kind: 'building', id };
     }
+    // a forest tree (tap it to clear it)
+    if (!piecesOnly) {
+      const th = this.ray.intersectObjects(this.forest.children, true)[0];
+      const trees = th?.object.userData.trees as { k: number; x: number; z: number }[] | undefined;
+      if (th && trees && th.instanceId !== undefined && trees[th.instanceId]) { const t = trees[th.instanceId]; return { kind: 'tree', k: t.k, x: t.x, z: t.z }; }
+    }
     const g = this.ground(cx, cy);
     if (!g) return null;
     const x = Math.floor(g.x), z = Math.floor(g.y);
@@ -1257,7 +1271,7 @@ export class LandView {
     // the sun's shadow box follows the view, so shadows stay crisp at any zoom
     this.sun.position.copy(this.target).addScaledVector(this.sunDir, 60);
     this.sun.target.position.copy(this.target);
-    const half = THREE.MathUtils.clamp(this.dist * 0.62, 9, 34);
+    const half = THREE.MathUtils.clamp(this.dist * 0.62, 9, 60);
     if (Math.abs(half - this.shadowHalf) > half * 0.08) {
       this.shadowHalf = half;
       Object.assign(this.sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 1, far: 140 });

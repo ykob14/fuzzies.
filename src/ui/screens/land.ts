@@ -1534,7 +1534,19 @@ export function landScreen(): Screen {
     lastTap.t = now; lastTap.x = e.clientX; lastTap.y = e.clientY;
     if (!p || p.kind === 'ground') { openPanel(null); return; }
     if (p.kind === 'resident') { talkTo(p.index); return; }
+    if (p.kind === 'tree') { void clearTree(p.k, p.x, p.z); return; }
     tapBuilding(p.id);
+  }
+  /** Tap a forest tree: clear it for a few coins (a puff of leaves, and it's gone for good). */
+  async function clearTree(k: number, x: number, z: number): Promise<void> {
+    openPanel(null);
+    if (s.coins < L.TREE_COST) { toast(`Clearing a tree costs ${L.TREE_COST} coins — fill an order or harvest to earn some.`, 'info'); return; }
+    if (!(await confirmDialog('Clear this tree?', `It costs ${L.TREE_COST} coins. You have ${s.coins.toLocaleString()}.`, 'Clear it'))) return;
+    try { L.fellTree(s, k); } catch (e) { toast((e as Error).message, 'info'); return; }
+    try { sfx.build(); } catch { /* sound is optional */ }
+    save(); renderHud();
+    view?.fellTree(x, z);
+    toast(`Tree cleared · −${L.TREE_COST} coins`, 'good', 2200);
   }
 
   // ---------- Fuzzies Adventures: talk to a Fuzzy, today's mission, mini-games ----------

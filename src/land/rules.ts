@@ -65,6 +65,8 @@ export interface LandState {
   tutorial?: { status: 'active' | 'done' | 'skipped' | 'off'; step: number; got: string[]; paid: string[] };
   /** Temporary storage (Town Edit Mode): whole pieces lifted off the map, timers and all, waiting to be placed again. */
   storage?: Placed[];
+  /** Forest trees you've cleared (their spot numbers in environment.buildForest). */
+  felled?: number[];
   /** Seasonal collectibles owned, forever: id → copies (land/events.ts). */
   owned?: Record<string, number>;
   /** Seasonal events: tokens per event, challenge progress per event, claimed challenge ids. */
@@ -620,7 +622,7 @@ export function migrateLand(s: Partial<LandState> | undefined): LandState {
   const fix = (b: Placed) => ({ ...b, rot: ((b.rot ?? 0) & 3) as Rot });
   const out = { ...f, ...s, stats: { ...f.stats, ...s.stats }, barn: { ...s.barn }, buildings: s.buildings.map(fix), storage: Array.isArray(s.storage) ? s.storage.map(fix) : [],
     owned: { ...(s.owned ?? {}) }, events: { tokens: { ...(s.events?.tokens ?? {}) }, progress: { ...(s.events?.progress ?? {}) }, claimed: [...(s.events?.claimed ?? [])] },
-    adventures: s.adventures ? migrateAdventures(s.adventures) : undefined, parking: s.parking ? migratePark(s.parking) : undefined } as LandState;
+    felled: Array.isArray(s.felled) ? [...new Set(s.felled.filter((k) => Number.isInteger(k) && k >= 0 && k < 5000))] : [], adventures: s.adventures ? migrateAdventures(s.adventures) : undefined, parking: s.parking ? migratePark(s.parking) : undefined } as LandState;
   if (!s.layout) { out.layout = undefined; tidyOldStarter(out); out.layout = 2; }
   return out;
 }
@@ -629,6 +631,18 @@ export function migrateLand(s: Partial<LandState> | undefined): LandState {
  * Every town gets the Parking Escape lot once: placed on the nearest free spot by the Town Hall (free, no construction), or put in
  * Storage when the land is full. Returns what happened (null = it was already there, on the map or in storage).
  */
+/** Clearing a forest tree costs this many coins. */
+export const TREE_COST = 5;
+/** Clear one forest tree (spot number `k`). Throws a friendly Error when you can't. */
+export function fellTree(s: LandState, k: number): void {
+  if (!Number.isInteger(k) || k < 0) throw new Error('That isn’t a tree.');
+  const list = (s.felled ??= []);
+  if (list.includes(k)) throw new Error('That tree is already gone.');
+  if (s.coins < TREE_COST) throw new Error(`You need ${TREE_COST} coins to clear a tree.`);
+  s.coins -= TREE_COST;
+  list.push(k);
+}
+
 export function ensureParking(s: LandState, now = Date.now()): 'placed' | 'stored' | null {
   if (count(s, 'parking') > 0) return null;
   const hall = s.buildings.find((b) => b.item === 'hall');
