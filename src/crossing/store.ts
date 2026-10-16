@@ -20,7 +20,7 @@ export { freshCrossing, migrateCrossing } from './save';
 const acct = () => accounts.current!;
 export const save = (): CrossingSave => acct().crossing;
 const emit = (kind: string, detail: Record<string, unknown> = {}) => { try { dispatchEvent(new CustomEvent('fz:crossing', { detail: { kind, ...detail } })); } catch { /* no window */ } };
-function mutate(fn: (c: CrossingSave) => void, kind = 'change', detail: Record<string, unknown> = {}): void {
+export function mutate(fn: (c: CrossingSave) => void, kind = 'change', detail: Record<string, unknown> = {}): void {
   accounts.update((a) => { fn(a.crossing); if (a.crossing.equipped.character) a.settings.skin = legacySkinOf(a.crossing.equipped.character); });
   emit(kind, detail);
 }
