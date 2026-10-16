@@ -239,6 +239,26 @@ console.log('— avatars are sanitised');
   eq(sb2.body.rows.find((r) => r.username === players[0].name).avatar, { emoji: '🦊', color: '#12ab34', friend: 'f07' }, 'a Fuzzy Friend avatar is sent as its id');
 }
 
+console.log('— player cards');
+{
+  const pc = await cx({ action: 'player.get', username: players[1].name, week: 'current' }, undefined, { now: wk + 5 * 3600_000 });
+  eq(pc.status, 200, 'anyone can open a player card');
+  eq(pc.body.username, players[1].name, 'the card is for that player');
+  eq(pc.body.boards.score.rank, 1, 'rank on the score board'); eq(pc.body.boards.score.value, 2400, 'value on the score board');
+  eq(pc.body.boards.fastest.rank, 2, 'rank on fastest'); eq(pc.body.boards.streak.rank, 3, 'rank on streak');
+  eq(Object.keys(pc.body.boards.score).sort(), ['characterId', 'deaths', 'level', 'nests', 'pickups', 'rank', 'value'], 'only game statistics, nothing private');
+  ok(!JSON.stringify(pc.body).includes('@') && !JSON.stringify(pc.body).includes(players[1].id), 'no email or id on a player card');
+  eq(pc.body.career.weeks >= 1, true, 'career: weeks on the boards');
+  const none = await cx({ action: 'player.get', username: 'nobody-by-this-name' }, undefined, { now: wk });
+  eq(none.status, 404, 'an unknown name → 404');
+  const lurk = await signup('quiet');
+  eq((await cx({ action: 'player.get', username: lurk.name }, undefined, { now: wk })).status, 404, 'a player with no score looks the same as an unknown one (no account probing)');
+  eq((await cx({ action: 'player.get', username: { $ne: 1 } }, undefined, { now: wk })).status, 404, 'a non-text name → 404');
+  eq((await cx({ action: 'player.get', username: players[1].name, week: '2026-W99' }, undefined, { now: wk })).status, 400, 'bad week → 400');
+  const other = await cx({ action: 'player.get', username: players[1].name, week: 'previous' }, undefined, { now: wk + 5 * 3600_000 });
+  eq(other.body.boards.score, null, 'a week with no result shows no board entry');
+}
+
 console.log('— the week rolls over; claiming last week’s rewards');
 {
   const w46 = T(2026, 11, 10, 9); // Tuesday of 2026-W46

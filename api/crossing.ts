@@ -3,6 +3,7 @@
  *   run.start  { mode:'classic' }                         → { runId, nonce, serverNow, week, expiresAt }       (login needed)
  *   run.finish { runId, nonce, result }                   → { accepted, reason?, message?, week, ranks, bests, improved }
  *   board.get  { board, week:'current'|'previous'|'2026-W42', limit }  → { rows, me, total, endsInMs … }       (public; the token only adds "you")
+ *   player.get { username, week }                         → { username, avatar, boards, career }                      (public: a name on a board)
  *   weekly.status                                         → { claimable: [{ week, boards: [{ board, rank, tier, reward }] }] }
  *   weekly.claim { week:'previous'|'2026-W42' }           → { week, claimed: [{ board, rank, tier, reward, repeat }] }
  *
@@ -148,6 +149,30 @@ export function POST(req: Request): Promise<Response> {
           rows: rows.map((r, i) => ({ rank: i + 1, username: r.username, avatar: publicAvatar(r.avatar), value: Number(r.value), characterId: r.ch, you: !!me && r.user_id === me.id })),
           me: mine, total: tot[0].n,
         };
+      }
+
+      // ---------- a player on the boards (the card you get by tapping a row) ----------
+      case 'player.get': {
+        await hit(`r:${ip}`, 60_000, READS_PER_MIN, 'Too many looks at the boards — try again in a moment.');
+        const name = typeof b.username === 'string' ? b.username.trim().slice(0, 60) : '';
+        const week = resolveWeek(b.week, now);
+        const { rows: who } = name ? await q<{ id: string; username: string }>(
+          'select u.id, u.username from fz_users u where u.username = $1 and exists (select 1 from fz_cx_scores s where s.user_id = u.id)', [name]) : { rows: [] as { id: string; username: string }[] };
+        if (!who[0]) throw new HttpError(404, 'That player isn’t on the boards.');
+        const { rows: av } = await q('select avatar from fz_cx_players where user_id = $1', [who[0].id]);
+        const { rows: mine } = await q<{ board: string; value: number; created_at: number; d: Record<string, unknown> }>(
+          'select board, value::float8 as value, created_at::float8 as created_at, details as d from fz_cx_scores where user_id = $1 and week_key = $2', [who[0].id, week]);
+        const boards: Record<string, unknown> = { score: null, fastest: null, streak: null };
+        for (const m of mine) {
+          if (!isBoard(m.board)) continue;
+          const d = m.d ?? {};
+          const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+          boards[m.board] = { rank: await rankOf(week, m.board, Number(m.value), Number(m.created_at), who[0].id), value: Number(m.value), characterId: typeof d.characterId === 'string' ? d.characterId : null, level: n(d.level), nests: n(d.nests), pickups: n(d.pickups), deaths: n(d.deaths) };
+        }
+        const { rows: car } = await q<{ weeks: number; wins: number; podiums: number }>(
+          `select (select count(distinct week_key)::int from fz_cx_scores where user_id = $1) as weeks,
+                  count(*) filter (where tier = 1)::int as wins, count(*) filter (where tier <= 3)::int as podiums from fz_cx_claims where user_id = $1`, [who[0].id]);
+        return { username: who[0].username, avatar: publicAvatar(av[0]?.avatar), week, boards, career: car[0] };
       }
 
       // ---------- last week's rewards ----------

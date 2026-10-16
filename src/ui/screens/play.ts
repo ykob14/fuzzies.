@@ -18,6 +18,7 @@ import { createHub, panelAvailable, type NavTarget } from '../../crossing/hub';
 import { coinMark, rarityTag, newDot } from '../../crossing/ui/kit';
 import { friendUrl } from '../../content/friends';
 import '../../crossing/ui/hub.css';
+import '../../crossing/ui/boards-menu.css';
 
 type Dir = 'up' | 'down' | 'left' | 'right';
 

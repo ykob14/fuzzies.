@@ -182,3 +182,10 @@ export function fetchBoard(board: Board, week: 'current' | 'previous' | string, 
 
 // results of a game can arrive while the app is offline: try again when the network comes back
 try { addEventListener('online', () => { void flushPending(); }); } catch { /* no window */ }
+
+export interface PlayerCard {
+  username: string; avatar: BoardRow['avatar']; week: string;
+  boards: Record<Board, { rank: number; value: number; characterId: string | null; level: number | null; nests: number | null; pickups: number | null; deaths: number | null } | null>;
+  career: { weeks: number; wins: number; podiums: number };
+}
+export const fetchPlayer = (username: string, week: string): Promise<PlayerCard> => api<PlayerCard>('crossing', 'player.get', { username, week });

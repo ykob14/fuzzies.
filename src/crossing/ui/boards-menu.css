@@ -1,0 +1,4 @@
+/* The weekly-boards line on the game-over card (play.ts). Kept apart from leaderboard.css, which only loads with the screen. */
+.fzx-boardsline { box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-width: 0; margin: 0; padding: 9px 12px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); font: 700 13px/1.25 var(--ui); cursor: pointer; text-align: center; white-space: normal; text-wrap: balance; }
+.fzx-boardsline svg { flex: none; }
+.fzx-boardsline[hidden] { display: none; }

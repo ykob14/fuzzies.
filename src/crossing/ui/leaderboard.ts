@@ -4,7 +4,7 @@
  * Everyone can read the boards; only signed-in cloud accounts get a place on them. Everything from the server is shown with DOM
  * methods (textContent) — never as HTML.
  */
-import { h, icon, fuzzyMark } from '../../ui/dom';
+import { h, btn, icon, fuzzyMark, modal } from '../../ui/dom';
 import { accounts } from '../../core/account';
 import { cloudEnabled } from '../../core/api';
 import { friendUrl } from '../../content/friends';
@@ -13,7 +13,7 @@ import { COSMETIC_BY_ID } from '../cosmetics';
 import { BOARDS, BOARD_IDS, TIERS, TIER_DEFS, formatLeft, formatValue, tierOf, trophyName, weekLabel, type Board, type Tier } from '../rewards-weekly';
 import * as net from '../net';
 import * as store from '../store';
-import { coinMark } from './kit';
+import { coinMark, rarityTag } from './kit';
 import type { PanelOpen } from '../hub';
 import './leaderboard.css';
 
@@ -65,7 +65,7 @@ export const open: PanelOpen = (ctx) => {
   const rewardsEl = h('details', { class: 'fzb-rewards' });
 
   const head = h('header', { class: 'fzb-head' },
-    h('div', { class: 'fzb-weekline' }, h('span', { class: 'fzb-cal' }, icon('star', 16)), h('div', { class: 'fzb-weektext' }, h('small', null, 'Weekly competition'), weekEl), leftEl),
+    h('div', { class: 'fzb-weekline' }, h('span', { class: 'fzb-cal' }, icon('star', 16)), h('div', { class: 'fzb-weektext' }, leftEl, weekEl)),
     toggle);
   root.replaceChildren(h('div', { class: 'fzb' }, head, noticeEl, tabs, blurb, mineEl, listEl, pinEl, rewardsEl));
 
@@ -106,11 +106,33 @@ export const open: PanelOpen = (ctx) => {
   // ---------- the list ----------
   function rowEl(r: net.BoardRow, pinned = false): HTMLElement {
     const medal = MEDAL[r.rank] ?? '';
-    return h('li', { class: `fzb-row ${r.you ? 'you' : ''} ${medal ? `medal-${medal}` : ''} ${pinned ? 'pinned' : ''}`, value: r.rank },
-      h('span', { class: 'fzb-rank', 'aria-label': `Rank ${r.rank}` }, r.rank <= 3 ? h('span', { class: 'fzb-medal' }, String(r.rank)) : `#${r.rank}`),
+    const inner = h('button', { class: 'fzb-rowbtn', type: 'button', 'aria-label': `${r.username}, rank ${r.rank}, ${formatValue(board, r.value)}. Open player card`, onclick: () => void openPlayer(r.username) },
+      h('span', { class: 'fzb-rank', 'aria-hidden': 'true' }, r.rank <= 3 ? h('span', { class: 'fzb-medal' }, String(r.rank)) : `#${r.rank}`),
       avatar(r.avatar, 38),
       h('span', { class: 'fzb-who' }, h('b', null, r.username, r.you ? h('em', null, 'You') : null), h('small', null, fuzzyPic(r.characterId, 18), h('span', null, fuzzyName(r.characterId)))),
       h('span', { class: 'fzb-val' }, formatValue(board, r.value)));
+    return h('li', { class: `fzb-row ${r.you ? 'you' : ''} ${medal ? `medal-${medal}` : ''} ${pinned ? 'pinned' : ''}`, value: r.rank }, inner);
+  }
+  /** a player's card: who they are, the Fuzzy they played with and their places this week (all from validated results) */
+  async function openPlayer(username: string): Promise<void> {
+    const week = data?.week ?? 'current';
+    const body = h('div', { class: 'fzb-card-body' }, h('p', { class: 'fzb-blurb' }, 'Loading…'));
+    const m = modal(username, body, { actions: [btn('Close', { kind: 'primary', onClick: () => m.close() })] });
+    try {
+      const p = await net.fetchPlayer(username, week);
+      const best = BOARD_IDS.map((b) => p.boards[b]).find((x) => x?.characterId);
+      const def = best?.characterId && Object.hasOwn(CHARACTER_BY_ID, best.characterId) ? CHARACTER_BY_ID[best.characterId] : null;
+      body.replaceChildren(
+        h('div', { class: 'fzb-pc-top' }, avatar(p.avatar, 64), h('div', null, h('b', null, p.username), def ? h('span', { class: 'fzb-pc-fz' }, fuzzyPic(def.id, 22), h('span', null, def.name), rarityTag(def.rarity)) : null)),
+        h('p', { class: 'fzb-pc-week' }, `${weekLabel(p.week)}${p.week === data?.current ? ' · so far' : ''}`),
+        h('div', { class: 'fzb-pc-boards' }, ...BOARD_IDS.map((b) => {
+          const e = p.boards[b];
+          return h('div', { class: `fzb-pc-b ${e ? '' : 'none'}` }, icon(BOARD_ICON[b], 16), h('small', null, BOARDS[b].short), h('b', null, e ? formatValue(b, e.value) : '—'), h('span', null, e ? `#${e.rank}` : 'no result'));
+        })),
+        h('p', { class: 'fzb-pc-career' }, `${p.career.weeks} week${p.career.weeks === 1 ? '' : 's'} on the boards${p.career.podiums ? ` · ${p.career.podiums} podium finish${p.career.podiums === 1 ? '' : 'es'}` : ''}${p.career.wins ? ` · ${p.career.wins} win${p.career.wins === 1 ? '' : 's'}` : ''}`));
+    } catch (e) {
+      body.replaceChildren(h('p', { class: 'fzb-blurb' }, e instanceof Error ? e.message : 'Could not load this player.'));
+    }
   }
   function paintList(): void {
     pinEl.replaceChildren();
@@ -181,10 +203,10 @@ export const open: PanelOpen = (ctx) => {
   function showCollected(card: HTMLElement, got: net.ClaimedItem[]): void {
     const coinsGot = got.filter((g) => g.fresh).reduce((n, g) => n + g.reward.coins, 0);
     const chips: HTMLElement[] = [];
-    for (const g of got) chips.push(h('li', { class: `fzb-got tier-${g.tier}` }, icon('trophy', 15), h('span', null, trophyName(g.reward.trophy))));
+    for (const g of got) chips.push(h('li', { class: `fzb-got tier-${g.tier}`, title: trophyName(g.reward.trophy) }, icon('trophy', 15), h('span', null, `${TIER_DEFS[g.tier].blurb} · ${BOARDS[g.board].title}`)));
     for (const id of new Set(got.flatMap((g) => g.reward.characters))) chips.push(h('li', { class: 'fzb-got' }, fuzzyPic(id, 18), h('span', null, fuzzyName(id))));
     for (const id of new Set(got.flatMap((g) => g.reward.cosmetics))) chips.push(h('li', { class: 'fzb-got' }, h('span', { 'aria-hidden': 'true' }, COSMETIC_BY_ID[id]?.icon ?? '✨'), h('span', null, COSMETIC_BY_ID[id]?.name ?? id)));
-    if (coinsGot) chips.push(h('li', { class: 'fzb-got' }, coinMark(16), h('span', null, `+${coinsGot.toLocaleString()} coins`)));
+    if (coinsGot) chips.push(h('li', { class: 'fzb-got' }, coinMark(16), h('span', null, `+${coinsGot.toLocaleString('en')} coins`)));
     card.classList.add('claimed');
     card.replaceChildren(h('div', { class: 'fzb-trophy pop', 'aria-hidden': 'true' }, icon('trophy', 26)),
       h('div', null, h('b', null, 'Rewards collected!'), h('span', null, 'They are in your Locker, your trophies and your coin purse.'), h('ul', { class: 'fzb-gots' }, ...chips)),
@@ -202,7 +224,7 @@ export const open: PanelOpen = (ctx) => {
           const items: Node[] = [h('span', { class: 'fzb-item' }, icon('trophy', 15), `${d.name} trophy`)];
           for (const id of d.characters) items.push(h('span', { class: 'fzb-item' }, fuzzyPic(id, 18), fuzzyName(id)));
           for (const id of d.cosmetics) items.push(h('span', { class: 'fzb-item' }, h('i', { 'aria-hidden': 'true' }, COSMETIC_BY_ID[id]?.icon ?? '✨'), COSMETIC_BY_ID[id]?.name ?? id));
-          items.push(h('span', { class: 'fzb-item' }, coinMark(15), `${d.coins} coins`));
+          items.push(h('span', { class: 'fzb-item' }, coinMark(15), `${d.coins.toLocaleString('en')} coins`));
           return h('div', { class: `fzb-tier ${my === t ? 'mine' : ''}` }, h('b', null, t === 1 ? '1st place' : `Top ${t}`), h('div', { class: 'fzb-items' }, items));
         })));
   }

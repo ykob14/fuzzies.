@@ -59,6 +59,8 @@ const crossingSave = (p) => p.evaluate(async () => { const s = await import('/sr
   ok(!!me, 'the account exists in the database');
   await setSettings(P, "a.settings.gameGfx = 'classic'; a.settings.reduceMotion = true; a.settings.sound = false; a.settings.music = false;");
 
+  // the boards of this week and later must start empty (the API tests also play in the real current week)
+  await db.query("delete from fz_cx_scores where week_key >= '2026-W41'; delete from fz_cx_claims where week_key >= '2026-W41'");
   // last week's results for this player (and eight stand-ins), seeded straight into the database
   const prevWeek = '2026-W41';
   await db.query('delete from fz_cx_scores where week_key = $1', [prevWeek]);
@@ -91,8 +93,11 @@ const crossingSave = (p) => p.evaluate(async () => { const s = await import('/sr
   let over = false;
   const t0 = Date.now();
   while (!over && Date.now() - t0 < 120_000) {
-    for (const k of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowUp']) { await P.keyboard.press(k); await wait(130); }
-    over = await P.locator('.go-card h2:has-text("Game over"), .go-card h2:has-text("best score")').count() > 0;
+    for (const k of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowUp']) {
+      await P.keyboard.press(k); await wait(130);
+      // (an arrow key on the game-over card starts the next game, so stop pressing the moment it shows)
+      if (await P.locator('.go-card h2:has-text("Game over"), .go-card h2:has-text("best score")').count()) { over = true; break; }
+    }
   }
   ok(over, `the game ended by itself after ${Math.round((Date.now() - t0) / 1000)} s of play`);
   await wait(2500);
@@ -127,7 +132,7 @@ const crossingSave = (p) => p.evaluate(async () => { const s = await import('/sr
   const lw = await P.locator('.fzb-list > .fzb-row').count();
   ok(lw === 9, `last week lists 9 players (${lw})`);
   const names = await P.locator('.fzb-list > .fzb-row .fzb-who b').allInnerTexts();
-  ok(/You/.test(names[1] ?? '') && names[0].startsWith('seed-bb-0'), `last week: seed-bb-0 first, me second (${names.slice(0, 3).join(' | ')})`);
+  ok(/you/i.test(names[1] ?? '') && names[0].startsWith('seed-bb-0'), `last week: seed-bb-0 first, me second (${names.slice(0, 3).join(' | ')})`);
   ok(/Final/.test(await text(P, '.fzb-left')), 'last week shows "Final" instead of a countdown');
   await shot(P, '06-board-phone-lastweek');
   // rewards panel
@@ -159,6 +164,7 @@ const crossingSave = (p) => p.evaluate(async () => { const s = await import('/sr
   eq(twice, 0, 'nothing left to claim');
   const trophyCount = (await crossingSave(P)).trophies.length;
   eq(trophyCount, after.trophies.length, 'no duplicate trophies');
+  await P.goto(URL + '#/home'); await wait(1200);
   await P.goto(URL + '#/play'); await wait(2500);
   ok(await P.locator('.fzx-tile:has-text("Boards") .fzx-new').count() === 0, 'the dot is gone after collecting');
   await P.click('.fzx-tile:has-text("Boards")'); await wait(1800);
@@ -169,30 +175,36 @@ const crossingSave = (p) => p.evaluate(async () => { const s = await import('/sr
   const cur = (await db.query("select week_key from fz_cx_scores where user_id = $1 and week_key <> $2 limit 1", [me.id, prevWeek])).rows[0].week_key;
   for (let i = 0; i < 8; i++) await db.query('insert into fz_cx_scores (week_key, board, user_id, value, details, created_at) values ($1,$2,$3,$4,$5,$6) on conflict do nothing', [cur, 'score', stand[i], 40 + (7 - i) * 70, JSON.stringify({ characterId: chars[i] }), Date.now() - i * 5000]);
   for (let i = 0; i < 8; i++) await db.query('insert into fz_cx_scores (week_key, board, user_id, value, details, created_at) values ($1,$2,$3,$4,$5,$6) on conflict do nothing', [cur, 'fastest', stand[i], 24_000 + i * 1900, JSON.stringify({ characterId: chars[i] }), Date.now() - i * 5000]);
-  await P.click('#fzb-tab-score'); await wait(1500);
+  await P.click('#fzb-tab-streak'); await wait(800); await P.click('#fzb-tab-score'); await wait(1800);
   await shot(P, '10-board-phone-week');
-  await setSettings(P, "a.settings.theme = 'dark';"); await wait(600);
+  await P.click('.fzb-list > .fzb-row:nth-child(2) .fzb-rowbtn'); await wait(1500);
+  ok(/seed-bb-1/.test(await text(P, '.modal h3')) && await P.locator('.fzb-pc-b').count() === 3, 'tapping a row opens that player’s card with three board results');
+  ok(/#2/.test(await text(P, '.fzb-pc-boards')) , 'the card shows the player’s rank');
+  await shot(P, '10b-player-card-phone');
+  await P.click('.modal-actions button'); await wait(500);
+  await setSettings(P, "a.settings.theme = 'dark';"); await P.evaluate(async () => (await import('/src/core/themes.ts')).applyTheme()); await wait(600);
+  const bg = await P.evaluate(() => getComputedStyle(document.querySelector('.fzb-row') || document.body).backgroundColor);
+  const lum = (() => { const m = /rgb\((\d+)/.exec(bg); if (m) return Number(m[1]) / 255; const c = /srgb ([\d.]+)/.exec(bg); return c ? Number(c[1]) : 1; })();
+  ok(lum < 0.35, `dark mode: rows turn dark (${bg})`);
   await P.click('#fzb-tab-fastest'); await wait(1500);
   await shot(P, '11-board-phone-dark-fastest');
-  await setSettings(P, "a.settings.theme = 'light';");
+  await setSettings(P, "a.settings.theme = 'light';"); await P.evaluate(async () => (await import('/src/core/themes.ts')).applyTheme());
   const ls = await P.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
   ok(ls.sw <= ls.cw + 1, `phone: no horizontal scroll (${ls.sw} ≤ ${ls.cw})`);
   // an on-screen touch target check
   const small = await P.evaluate(() => [...document.querySelectorAll('.fzb button, .fzb a, .fzb summary')].filter((e) => { const r = e.getBoundingClientRect(); return r.width && (r.height < 36); }).map((e) => e.textContent.trim().slice(0, 20)));
   ok(small.length === 0, `phone: tap targets at least 36 px high (${small.join(', ')})`);
-  const cookies = await P.context().storageState();
-
-  for (const kind of ['tablet', 'desktop']) {
-    const ctx = await browser.newContext({ storageState: cookies, ...(kind === 'tablet' ? { viewport: { width: 820, height: 1180 }, hasTouch: true } : { viewport: { width: 1280, height: 800 } }) });
-    const q = await ctx.newPage();
-    q.on('pageerror', (e) => errs.push(`${kind}: ${e.message}`));
-    await q.goto(URL + '#/play'); await wait(2500);
-    await q.click('.fzx-tile:has-text("Boards")'); await wait(2500);
-    await shot(q, `12-board-${kind}`);
-    const sw = await q.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+  for (const [kind, vp] of [['tablet', { width: 820, height: 1180 }], ['desktop', { width: 1280, height: 800 }]]) {
+    await P.setViewportSize(vp); await P.goto(URL + '#/home'); await wait(1200);
+    await P.goto(URL + '#/play'); await wait(2500);
+    await P.click('.fzx-tile:has-text("Boards")'); await wait(2500);
+    await shot(P, `12-board-${kind}`);
+    const sw = await P.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
     ok(sw, `${kind}: no horizontal scroll`);
-    ok(await q.locator('.fzb-row').count() >= 5, `${kind}: rows are listed`);
-    await q.close(); await ctx.close();
+    ok(await P.locator('.fzb-row').count() >= 5, `${kind}: rows are listed`);
+    await P.click('.fzb-seg button:has-text("Last week")'); await wait(1500);
+    await shot(P, `13-board-${kind}-lastweek`);
+    await P.goto(URL + '#/home'); await wait(800);
   }
   ok(errs.length === 0, `no page errors (${errs.slice(0, 3).join(' || ')})`);
 
