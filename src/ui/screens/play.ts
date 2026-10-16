@@ -583,11 +583,11 @@ export function playScreen(): Screen {
   const swipeDir = (dx: number, dy: number): Dir => (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up');
   wrap.addEventListener('pointerdown', (e) => { sw = { x: e.clientX, y: e.clientY, id: e.pointerId, fired: false }; });
   wrap.addEventListener('pointermove', (e) => {
-    if (!sw || sw.id !== e.pointerId || introRunning || levelCard || !overlay.hidden) return;
+    if (!sw || sw.fired || sw.id !== e.pointerId || introRunning || levelCard || !overlay.hidden) return;
     const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
     if (Math.hypot(dx, dy) < SWIPE) return;
     game?.input(swipeDir(dx, dy));
-    sw.fired = true; sw.x = e.clientX; sw.y = e.clientY; // a long drag can hop again
+    sw.fired = true; // one swipe = one hop (flick again for the next one)
   });
   wrap.addEventListener('pointerup', (e) => {
     if (!sw || sw.id !== e.pointerId) return;

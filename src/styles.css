@@ -3307,5 +3307,5 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
 @media (max-width: 760px) and (pointer: coarse) {
   .game-wrap { aspect-ratio: auto; width: 100%; height: calc(100dvh - 210px); max-height: none; min-height: 320px; }
   .game-canvas { border-radius: 18px; }
-  .game-shell:has(.fzx-lobby) .game-wrap { height: auto; }
+  .game-shell:has(> .game-overlay:not([hidden]) .fzx-lobby) .game-wrap { height: auto; }
 }

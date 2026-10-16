@@ -1,6 +1,6 @@
 /* Fuzzy Crossing lobby */
 .game-overlay:has(.fzx-lobby) { display: block; padding: 0; background: transparent; backdrop-filter: none; border-radius: 0; }
-.game-shell:has(.fzx-lobby) { min-height: calc(100dvh - 150px); }
+.game-shell:has(> .game-overlay:not([hidden]) .fzx-lobby) { min-height: calc(100dvh - 150px); }
 .fzx-lobby { position: relative; width: 100%; height: 100%; min-height: 560px; display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 12px; max-width: 520px; margin: 0 auto; overflow: hidden; border-radius: 26px;
   background: radial-gradient(120% 70% at 50% 24%, color-mix(in srgb, var(--accent) 17%, var(--surface)) 0%, color-mix(in srgb, var(--accent) 6%, var(--surface)) 48%, var(--surface) 100%); }
 .fzx-lobby::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5;
