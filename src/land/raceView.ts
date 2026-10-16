@@ -24,6 +24,7 @@ import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import { adventure } from './adventures';
 import { lockPage } from '../ui/joystick';
+import { ico, tile, setHint, pauseCard } from './gameHud';
 
 export interface RaceSetup {
   you: { name: string; skin: [string, string] };
@@ -377,33 +378,37 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   const canvas = document.createElement('canvas');
   canvas.className = 'race-canvas';
   const hud = el('div', 'race-hud');
-  const lapEl = el('div', 'race-lap'); const lapN = el('b', '', '1'); lapEl.append(el('small', '', 'LAP'), lapN, el('span', '', `/${LAPS}`));
-  const posEl = el('div', 'race-pos'); const posN = el('b', '', '1st'); posEl.append(el('small', '', 'POSITION'), posN);
+  const lapEl = el('div', 'race-lap'); const lapN = el('b', '', '1'); const pips = el('div', 'gs-pips'); const pipEls = Array.from({ length: LAPS }, () => { const i = el('i', ''); pips.append(i); return i; });
+  lapEl.append(el('small', '', 'LAP'), lapN, el('span', '', `/${LAPS}`), pips);
+  const posEl = el('div', 'race-pos'); const posN = el('b', ''); const posOf = el('span', 'gs-of', `/${racers.length}`); posEl.append(el('small', '', 'POSITION'), posN, posOf);
+  const ORD = ['th', 'st', 'nd', 'rd'];
+  const setPos = (n: number) => { const sfx = n >= 1 && n <= 3 ? ORD[n] : 'th'; posN.textContent = ''; posN.append(String(n), el('sup', '', sfx)); posN.dataset.place = String(n); };
+  setPos(1);
   const timeEl = el('div', 'race-time', '0:00.0');
-  const arrow = el('div', 'race-arrow'); const arrowIn = el('span', 'race-arrow-in', '➤'); const arrowD = el('small', ''); const arrowL = el('i', '', 'next gate'); arrow.append(arrowIn, arrowD, arrowL);
+  const arrow = el('div', 'race-arrow'); const arrowIn = el('span', 'race-arrow-in'); arrowIn.append(ico('next', 34)); const arrowD = el('small', ''); const arrowL = el('i', '', 'next gate'); arrow.append(arrowIn, arrowD, arrowL);
   const wrong = el('div', 'race-wrong', 'Wrong way! Turn around');
-  const missedEl = el('div', 'race-missed'); missedEl.append(el('b', '', 'MISSED CHECKPOINT'), el('span', '', 'Turn around and go through it!'));
+  const missedEl = el('div', 'race-missed'); missedEl.append(tile('back', 44), el('b', '', 'MISSED CHECKPOINT'), el('span', '', 'Turn around and go through it!'));
   const edgeEl = el('div', 'race-edge', 'Stay inside the buoys!');
-  const speedEl = el('div', 'race-speed'); const speedN = el('b', '', '0'); speedEl.append(speedN, el('small', '', 'km/h'));
+  const speedEl = el('div', 'race-speed'); const speedN = el('b', '', '0');
+  const gauge = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); gauge.setAttribute('viewBox', '0 0 120 66'); gauge.setAttribute('class', 'gs-gauge'); gauge.setAttribute('aria-hidden', 'true');
+  gauge.innerHTML = '<path class="trk" d="M12 60A48 48 0 0 1 108 60" pathLength="100"/><path class="val" d="M12 60A48 48 0 0 1 108 60" pathLength="100"/>';
+  const gaugeVal = gauge.querySelector('.val') as SVGPathElement;
+  speedEl.append(gauge, speedN, el('small', '', 'km/h'));
   const boostEl = el('div', 'race-boostlbl', 'BOOST!');
-  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause'); pauseBtn.textContent = '❚❚';
+  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause');
   const count = el('div', 'race-count');
   const banner = el('div', 'race-banner');
   const map = document.createElement('canvas'); map.className = 'race-map'; map.width = map.height = 160;
-  const hint = el('div', 'race-hint', mobile ? 'Hold the left or right side to steer — the engine runs by itself' : 'W / ↑ accelerate · A / D or ← → steer · S / ↓ brake · Esc pause');
+  const hint = el('div', 'race-hint');
+  setHint(hint, mobile ? [{ text: 'Hold left or right to steer' }, { text: 'the engine runs itself' }] : [{ keys: ['W'], text: 'Go' }, { keys: ['A', 'D'], text: 'Steer' }, { keys: ['S'], text: 'Brake' }, { keys: ['Esc'], text: 'Pause' }]);
   hud.append(lapEl, posEl, timeEl, arrow, wrong, missedEl, edgeEl, speedEl, boostEl, pauseBtn, map, count, banner, hint);
   const touch = el('div', 'race-touch');
-  const left = el('div', 'race-touch-l'); left.append(el('span', '', '◀'));
-  const right = el('div', 'race-touch-r'); right.append(el('span', '', '▶'));
-  const brake = el('button', 'race-brake', 'BRAKE'); brake.type = 'button';
+  const left = el('div', 'race-touch-l'); { const sp = el('span', ''); sp.append(ico('chevL', 38)); left.append(sp); }
+  const right = el('div', 'race-touch-r'); { const sp = el('span', ''); sp.append(ico('chevR', 38)); right.append(sp); }
+  const brake = el('button', 'race-brake'); brake.type = 'button'; brake.append(ico('brake', 22), el('span', '', 'BRAKE'));
   touch.append(left, right, brake);
   if (!mobile) touch.classList.add('mouse');
-  const pauseOverlay = el('div', 'race-paused'); pauseOverlay.hidden = true;
-  const resume = el('button', 'btn btn-primary btn-lg', 'Resume'); resume.type = 'button';
-  const restart = el('button', 'btn btn-soft', 'Restart race'); restart.type = 'button';
-  const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
-  const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'The Fuzzies are waiting.'), resume, restart, quit);
-  pauseOverlay.append(pbox);
+  const { overlay: pauseOverlay, resume, restart, quit } = pauseCard({ restartLabel: 'Restart race' });
   const adv = adventure('boatrace')!;
   const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.rivals[0]?.name ?? 'Pom', mobile, buttonLabel: 'To the start line!', onStart: () => start() });
   root.append(canvas, el('div', 'mg-vignette'), touch, hud, intro, pauseOverlay); // the HUD's buttons sit above the steering zones
@@ -607,7 +612,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
         else if (e.kind === 'recovered') { if (b?.you) { play(snd.recovered); flashBanner('Back on track!'); } }
         else if (e.kind === 'boost') { if (b?.you) { play(snd.boost); tips.say('boost', 'BOOST! The rings recharge after a few seconds'); boostEl.classList.remove('on'); void boostEl.offsetWidth; boostEl.classList.add('on'); } if (b) { boats[b.id].squash = -0.6; for (let k = 0; k < 6; k++) puff(new THREE.Vector3(b.pos.x, 0.15, b.pos.z), new THREE.Vector3(-Math.sin(b.heading) * 3 + (Math.random() - 0.5), 0.6, -Math.cos(b.heading) * 3 + (Math.random() - 0.5)), 0.4, 0.5, 1.2); } }
         else if (e.kind === 'edge') { play(snd.edge); tips.say('edge', 'Outside the buoys the water is heavy — turn back towards the course'); }
-        else if (e.kind === 'finish' && b?.you) { play(snd.finish); flashBanner(b.place === 1 ? '🏁 You win!' : `🏁 Finished ${b.place === 2 ? '2nd' : b.place === 3 ? '3rd' : b.place + 'th'}`); if (b.place === 1) setTimeout(() => play(snd.cheer), 500); }
+        else if (e.kind === 'finish' && b?.you) { play(snd.finish); flashBanner(b.place === 1 ? 'You win!' : `Finished ${b.place === 2 ? '2nd' : b.place === 3 ? '3rd' : b.place + 'th'}`); if (b.place === 1) setTimeout(() => play(snd.cheer), 500); }
       }
     }
     // the stage changed (leader on a new lap): the sea picks up, new furniture rises
@@ -826,14 +831,15 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
     // HUD
     if (sim.state !== 'countdown') timeEl.textContent = fmt(sim.time);
     lapN.textContent = String(Math.min(LAPS, player.lap + 1));
-    const pw = player.place === 1 ? '1st' : player.place === 2 ? '2nd' : player.place === 3 ? '3rd' : `${player.place}th`;
-    if (posN.textContent !== pw) { posN.textContent = pw; posEl.classList.remove('bump'); void posEl.offsetWidth; posEl.classList.add('bump'); }
+    pipEls.forEach((p, i) => { p.className = i < player.lap ? 'done' : i === player.lap && !player.finished ? 'cur' : player.finished ? 'done' : ''; });
+    if (player.place > 0 && posN.dataset.place !== String(player.place)) { setPos(player.place); posEl.classList.remove('bump'); void posEl.offsetWidth; posEl.classList.add('bump'); }
     arrowIn.style.transform = `rotate(${(-ng.angle * 180) / Math.PI - 90}deg)`;
     arrowD.textContent = `${Math.round(ng.dist)} m`;
     // the missed-checkpoint state is read from the rules every frame (not only from events), so it can never get stuck on or off
     const missedNow = player.missed > 0 && !player.finished;
     if (missedEl.classList.contains('on') !== missedNow) { missedEl.classList.toggle('on', missedNow); arrow.classList.toggle('back', missedNow); arrowL.textContent = missedNow ? 'go back' : 'next gate'; }
     speedN.textContent = String(Math.round(player.speed * 4.4));
+    gaugeVal.style.strokeDasharray = `${Math.max(0, Math.min(1, (player.speed * 4.4) / 80)) * 100} 100`;
     speedEl.classList.toggle('boost', player.boost > 0);
     wrong.classList.toggle('on', player.wrongWay > 0.8 && player.missed === 0);
     if (player.wrongWay > 0.8 && player.missed === 0 && Math.floor(time.value * 2) !== Math.floor((time.value - dt) * 2)) play(snd.wrong);
@@ -866,7 +872,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
     const x = map.getContext('2d'); if (!x) return;
     const S = map.width, c = S / 2, k = (S / 2 - 8) / (OUTER_R + 2);
     x.clearRect(0, 0, S, S);
-    x.fillStyle = 'rgba(20, 60, 90, 0.55)'; x.beginPath(); x.arc(c, c, S / 2 - 2, 0, Math.PI * 2); x.fill();
+    x.fillStyle = 'rgba(38, 92, 126, 0.78)'; x.beginPath(); x.arc(c, c, S / 2 - 2, 0, Math.PI * 2); x.fill();
     // the boundary buoys
     x.strokeStyle = 'rgba(255, 140, 66, 0.9)'; x.setLineDash([3, 3]); x.lineWidth = 1.5; x.beginPath(); x.arc(c, c, EDGE_R * k, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);
     x.fillStyle = '#79c86b'; x.beginPath(); x.arc(c, c, ISLAND_R * k, 0, Math.PI * 2); x.fill();

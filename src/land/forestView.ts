@@ -15,6 +15,7 @@ import * as O from './games/orchardArt';
 import { groundTex, treeRing } from './games/sceneArt';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls, lockPage } from '../ui/joystick';
+import { ico, setHint, pauseCard } from './gameHud';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
 import { adventure } from './adventures';
 
@@ -63,13 +64,14 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const hud = el('div', 'race-hud forest-hud mg-hud');
   const scoreEl = el('div', 'race-lap mg-score'); const scoreN = el('b', '', '0'); scoreEl.append(el('small', '', 'SCORE'), scoreN);
   const woodEl = el('div', 'race-pos mg-count'); const woodN = el('b', '', '0'); const treesN = el('small', 'forest-trees', '0 trees'); woodEl.append(el('small', '', 'WOOD'), woodN, treesN);
-  const timeEl = el('div', 'race-time forest-time mg-time'); const sunIc = el('span', 'forest-sun', '☀'); const timeN = el('span', '', '2:00'); timeEl.append(sunIc, timeN);
+  const timeEl = el('div', 'race-time forest-time mg-time'); const sunIc = el('span', 'forest-sun'); sunIc.append(ico('sun', 22)); const timeN = el('span', '', '2:00'); timeEl.append(sunIc, timeN);
   const comboEl = el('div', 'mg-combo'); const comboN = el('b', '', '×1'); const comboS = el('small', ''); comboEl.append(comboN, comboS);
-  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause'); pauseBtn.textContent = '❚❚';
+  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause');
   const banner = el('div', 'race-banner');
   const count = el('div', 'race-count');
   const floats = el('div', 'mg-floats');
-  const hint = el('div', 'race-hint', mobile ? 'Tap any tree to walk there · tap CHOP when the marker is in the green' : 'Click any tree to walk there (or WASD) · Space when the marker is in the green');
+  const hint = el('div', 'race-hint');
+  setHint(hint, mobile ? [{ text: 'Tap a tree to walk there' }, { text: 'CHOP in the green' }] : [{ text: 'Click a tree' }, { keys: ['W', 'A', 'S', 'D'], text: 'Walk' }, { keys: ['Space'], text: 'Chop' }]);
   // the live standings
   const board = el('div', 'forest-board'); board.hidden = !contest;
   const rows = new Map<number, { el: HTMLElement; pl: HTMLElement; sc: HTMLElement }>();
@@ -84,16 +86,11 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const meterBar = el('div', 'forest-meter-bar'); const sweet = el('i', 'forest-meter-sweet'); const marker = el('b', 'forest-meter-marker');
   sweet.style.left = `${SWEET.lo * 100}%`; sweet.style.width = `${(SWEET.hi - SWEET.lo) * 100}%`;
   meterBar.append(sweet, marker);
-  const chopBtn = el('button', 'forest-chop', 'CHOP!'); chopBtn.type = 'button';
+  const chopBtn = el('button', 'forest-chop'); chopBtn.type = 'button'; const chopLbl = el('span', '', 'CHOP'); const chopBonus = el('em', 'forest-chop-x', '×1.5'); chopBonus.hidden = true; chopBtn.append(ico('axe', 30), chopLbl, chopBonus);
   const hitEl = el('div', 'forest-hit');
   const hpEl = el('div', 'forest-hp'); const hpFill = el('i', ''); hpEl.append(hpFill);
   meterWrap.append(hpEl, meterBar, chopBtn, hitEl);
-  const pauseOverlay = el('div', 'race-paused'); pauseOverlay.hidden = true;
-  const resume = el('button', 'btn btn-primary btn-lg', 'Resume'); resume.type = 'button';
-  const restart = el('button', 'btn btn-soft', 'Restart'); restart.type = 'button';
-  const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
-  const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'The trees aren’t going anywhere.'), resume, restart, quit);
-  pauseOverlay.append(pbox);
+  const { overlay: pauseOverlay, resume, restart, quit } = pauseCard({});
   root.append(canvas, el('div', 'mg-vignette'), hud, meterWrap, intro, pauseOverlay);
   stage.append(root);
   const unlockPage = lockPage(root); // phones: a drag steers the game, never the page behind it
@@ -408,7 +405,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
     if (left !== lastSec) { lastSec = left; timeN.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`; timeEl.classList.toggle('warn', left <= 10 && sim.state === 'playing'); }
     const showMeter = sim.target !== null && sim.state === 'playing';
     if (meterWrap.hidden === showMeter) { meterWrap.hidden = !showMeter; }
-    if (showMeter) { marker.style.left = `${sim.meter.value * 100}%`; const t = sim.trees[sim.target!]; hpFill.style.transform = `scaleX(${t.hp / t.maxHp})`; if (sim.target !== lastTarget) { chopBtn.textContent = `CHOP ${t.size === 'large' ? 'the big one' : t.size === 'medium' ? 'it' : 'the little one'}!${t.marked ? ' ×1.5' : ''}`; } }
+    if (showMeter) { marker.style.left = `${sim.meter.value * 100}%`; const t = sim.trees[sim.target!]; hpFill.style.transform = `scaleX(${t.hp / t.maxHp})`; if (sim.target !== lastTarget) { chopBonus.hidden = !t.marked; } }
     lastTarget = sim.target;
     const mult = sim.combo.mult;
     if (sim.combo.chain > 1) { comboEl.classList.add('on'); comboN.textContent = `×${mult}`; const nx = sim.combo.next; comboS.textContent = nx ? `${sim.combo.chain} perfect · ${nx.at - sim.combo.chain} more for ×${nx.mult}` : `${sim.combo.chain} perfect · MAX`; if (mult !== lastCombo) { comboEl.classList.remove('bump'); void comboEl.offsetWidth; comboEl.classList.add('bump'); } }
