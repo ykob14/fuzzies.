@@ -3026,3 +3026,70 @@ html[data-screen='edit']:has(.editor.props-open) .fz-assist:not(.open) { display
 /* phones: the helper slides mostly out of the way while you scroll down, and back when you scroll up */
 .fz-assist.tucked:not(.open) .fzc-launch { transform: translateX(62%); opacity: .7; transition: transform .25s var(--ease), opacity .25s; }
 .fz-assist .fzc-launch { transition: transform .25s var(--ease), opacity .25s; }
+
+/* ---------- template gallery pass: drawn icons, a small preview control on phones, a compact phone header ---------- */
+.cat-ic { display: block; flex: none; }
+.lib-emoji { display: grid; place-items: center; width: 20px; color: var(--muted); }
+.lib-node.on .lib-emoji, .lib-node:hover .lib-emoji { color: var(--accent); }
+.lib-row .sec-head h2, .lib-results-head h2 { display: flex; align-items: center; gap: 10px; }
+.lib-row .sec-head h2 .cat-ic, .lib-results-head h2 .cat-ic { color: var(--accent); }
+.topic-ic { display: inline-grid; place-items: center; flex: none; border-radius: 10px; background: var(--accent-soft); padding: 3px; box-sizing: content-box; }
+.topic-ic img { display: block; width: 100%; height: 100%; }
+.lib-set-cats .chip, .lib-tree .lib-node { gap: 7px; }
+.lib-set-cats .chip { display: inline-flex; align-items: center; }
+.lib-set-cats .chip:not(.on) .cat-ic { color: var(--muted); }
+/* the preview button: an eye that appears on hover (computers); on touch a small dark "⋯" pill in the corner */
+.lib-peek { right: 4px; bottom: 4px; width: 40px; height: 40px; padding: 0; border-radius: 12px; background: none; box-shadow: none; }
+.lib-peek-dot { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
+.lib-peek:hover .lib-peek-dot { color: var(--accent); }
+.lib-peek .peek-eye, .lib-peek .peek-more { display: grid; place-items: center; }
+.lib-peek .peek-more { display: none; }
+@media (pointer: coarse) {
+  .lib-peek { right: 0; bottom: 0; width: 40px; height: 40px; place-items: end; padding: 0 5px 5px 0; }
+  .lib-peek-dot { width: 28px; height: 20px; border-radius: 99px; background: rgba(24, 23, 28, .58); color: #fff; box-shadow: none; }
+  .lib-peek .peek-eye { display: none; }
+  .lib-peek .peek-more { display: grid; }
+  .lib-peek .peek-more svg { transform: rotate(90deg); width: 15px; height: 15px; }
+  .lib-thumb img, .lib-holiday img { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+}
+/* one search on the Templates screen: the gallery's own box (the top bar's quick find stays on Ctrl/Cmd+K) */
+html[data-screen='templates'] .topbar-search { visibility: hidden; }
+@media (max-width: 760px) { html[data-screen='templates'] .topbar-search { display: none; } }
+/* search boxes: a neutral clear button instead of the browser's blue one */
+input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-left: 6px; cursor: pointer; border-radius: 50%;
+  background: var(--muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22zm-3.5 6.1L12 10.6l3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5-1.4 1.4-3.5-3.5-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22zm-3.5 6.1L12 10.6l3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5-1.4 1.4-3.5-3.5-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+input[type='search']::-webkit-search-cancel-button:hover { background: var(--accent); }
+/* the preview window: labelled details, less empty space */
+.lib-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 7px 16px; margin: 0; font-size: 14px; }
+.lib-facts dt { color: var(--muted); font-weight: 600; }
+.lib-facts dd { margin: 0; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.lib-facts li:first-child { font-weight: inherit; }
+.lib-preview-pic { height: min(52vh, 480px); }
+.lib-preview-side { padding-top: 4px; }
+.lib-preview-side > p { font-size: 13.5px; margin: 0; }
+/* phones: the title, search and topics take one short block, so templates show on the first screen */
+@media (max-width: 760px) {
+  .page.lib .page-head { margin-bottom: 8px; }
+  .page.lib .lib-intro { display: none; }
+  .page.lib .lib-searchbar { margin: 0 0 8px; }
+  .page.lib .lib-search-input.input { height: 46px; border-radius: 12px; }
+  .page.lib .lib-layout { gap: 4px; }
+  .page.lib .lib-tree { padding-bottom: 2px; }
+  .page.lib.browsing .lib-filters { display: none; }
+  .page.lib .lib-row { margin-bottom: 18px; }
+  .page.lib .lib-row .sec-head { margin-bottom: 6px; }
+  .page.lib .lib-row .sec-head small { display: none; }
+  .lib-strip.holidays .lib-holiday { flex-basis: 150px; }
+  .lib-holiday-pic { height: 170px; }
+  .lib-strip.blanks { gap: 10px; }
+  .lib-strip.blanks .lib-blank { width: 96px; padding: 10px 6px; }
+  .lib-strip.blanks .lib-blank-shape { width: 44px; height: 44px; }
+  .lib-preview-pic { height: 40vh; padding: 12px; }
+}
+/* Home: the Fuzzies Land card's four tiles are drawn town stickers (emoji looked different on every device) */
+.lp-art span svg { width: 36px; height: 36px; }
+.gp-stats .land-ic { width: 16px; height: 16px; }

@@ -53,7 +53,7 @@ export function templatesPanelBody(ed: Editor, o: { afterAdd: () => void; rerend
       if (locked) { unlockDialog({ id: m.id, name: m.name, cost: m.cost, kind: `${m.formatLabel} template` }, render); return; }
       if (ed.page.elements.length && !(await confirmDialog('Use this template?', 'It replaces what is on the current page. You can undo this.', 'Use template', false))) return;
       try {
-        if (m.source === 'library' || m.source === 'collection') await (await import('../ui/libthumbs')).waitFonts();
+        await (await import('../ui/libthumbs')).waitFonts(m);
         applyTemplate(m.name, await loadTemplateDoc(m));
         recordUse(m.id);
         afterAdd();
