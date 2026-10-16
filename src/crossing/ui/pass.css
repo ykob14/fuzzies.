@@ -83,7 +83,7 @@
 .px-ribbon { position: absolute; top: -9px; right: 12px; pointer-events: none; }
 .px-ribbon .fzx-rar { box-shadow: 0 2px 6px -2px rgba(0,0,0,.35); }
 .px-node.focus .px-card { animation: pxFocus 1.1s ease-in-out 2; }
-@keyframes pxFocus { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); transform: none; } 50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 22%, transparent); transform: scale(1.04); } }
+@keyframes pxFocus { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); transform: none; } 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 22%, transparent); transform: scale(1.02); } }
 .px-node.pop .px-card { animation: pxPop .5s cubic-bezier(.3, 1.7, .5, 1); }
 @keyframes pxPop { 0% { transform: scale(1); } 40% { transform: scale(1.14) rotate(-1.5deg); } 100% { transform: scale(1); } }
 .px-burst { position: fixed; inset: 0; pointer-events: none; z-index: 10000; overflow: hidden; }

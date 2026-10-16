@@ -99,8 +99,11 @@ export const open: PanelOpen = (ctx, focus) => {
       n.li.classList.toggle('reached', r.level <= info.level);
       n.li.classList.toggle('past', r.level < info.level);
       n.li.classList.toggle('cur', r.level === info.level);
-      n.lv.replaceChildren(st === 'claimed' ? icon('check', 15) : st === 'locked' ? icon('lock', 13) : String(r.level));
-      n.state.replaceChildren(st === 'claimed' ? h('span', null, icon('check', 14), 'Claimed') : st === 'claimable' ? h('span', null, 'Claim') : h('span', null, icon('lock', 13), `Level ${r.level}`));
+      if (n.card.dataset.st !== st) {
+        n.card.dataset.st = st;
+        n.lv.replaceChildren(st === 'claimed' ? icon('check', 15) : st === 'locked' ? icon('lock', 13) : String(r.level));
+        n.state.replaceChildren(st === 'claimed' ? h('span', null, icon('check', 14), 'Claimed') : st === 'claimable' ? h('span', null, 'Claim') : h('span', null, icon('lock', 13), `Level ${r.level}`));
+      }
       const what = ch ? ch.name : co ? co.name : `${r.coins} coins`;
       n.card.setAttribute('aria-label', `Level ${r.level}: ${what}${ch || co ? ` and ${r.coins} coins` : ''}. ${st === 'claimed' ? 'Claimed.' : st === 'claimable' ? 'Ready to claim.' : 'Locked.'}`);
     }

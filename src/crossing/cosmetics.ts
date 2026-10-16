@@ -81,7 +81,7 @@ export const COSMETICS: CosmeticDef[] = [
   c('extra', 'extra-crown', 'Little crown', 'rare', '👑', 'Fit for a fuzzy royal.', shop(350, 'daily')),
   // ── Fuzzy Shop: seasonal pieces (bought only while the event is on, owned for good) ──
   c('trail', 'trail-bats', 'Bat trail', 'rare', '🦇', 'A flutter of friendly bats.', season('halloween', 350)),
-  c('extra', 'extra-witchhat', 'Witch hat', 'rare', '🎃', 'Spooky, but still very cute.', season('halloween', 300)),
+  c('extra', 'extra-witchhat', 'Pumpkin hat', 'rare', '🎃', 'A jolly little jack-o\'-lantern on your head.', season('halloween', 300)),
   c('trail', 'trail-autumn', 'Autumn leaves', 'rare', '🍂', 'Golden leaves swirl behind you.', season('thanksgiving', 350)),
   c('extra', 'extra-santahat', 'Holiday hat', 'rare', '🎅', 'Cosy, red and jolly.', season('christmas', 300)),
   c('jump', 'jump-gifts', 'Gift bounce', 'rare', '🎁', 'Presents pop out when you land.', season('christmas', 400)),
