@@ -8,12 +8,26 @@
  *   pay.history (logged in)             → { payments } (paid ones, newest first)
  *   gift.list  (logged in)              → { gifts } (unopened)
  *   gift.open  { id } (logged in)       → { amount } — adds the Fuzzies to the account, once
+ *   friday.status { day } (logged in)   → { available } — day = the player's local date (YYYY-MM-DD); true on a real Friday not yet claimed
+ *   friday.claim  { day } (logged in)   → { amount, already } — a random 50–100 Fuzzies, once per player per Friday
  */
 import { db, q } from './_lib/db.js';
 import { handle, requireUser, HttpError, clientIp } from './_lib/auth.js';
 import { payConfig, createQuote, publicPayment, verifyOnChain, fulfil, applyCredits, isSmartWallet, fundsProblem, isEvm, NETS, type PaymentRow } from './_lib/pay.js';
 
 const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+
+/** the player's local date as "YYYY-MM-DD" — accepted only when it is a Friday within a day of the server's date (time zones), so only a real Friday can be claimed */
+export function fridayDay(v: unknown, now = Date.now()): string | null {
+  const m = typeof v === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(v) : null;
+  if (!m) return null;
+  const t = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  const d = new Date(t);
+  if (d.getUTCFullYear() !== +m[1] || d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[3]) return null; // 2026-02-30 etc.
+  if (d.getUTCDay() !== 5) return null;
+  const today = Math.floor(now / 86_400_000) * 86_400_000;
+  return Math.abs(t - today) <= 86_400_000 ? m[0] : null;
+}
 
 export function POST(req: Request): Promise<Response> {
   return handle(req, async (b) => {
@@ -92,6 +106,24 @@ export function POST(req: Request): Promise<Response> {
         await q('insert into fz_credits (id, user_id, amount, reason) values ($1, $2, $3, $4) on conflict (id) do nothing', [rows[0].id, u.id, rows[0].amount, 'gift']);
         await applyCredits(u.id);
         return { amount: rows[0].amount };
+      }
+      case 'friday.status': {
+        const u = await requireUser(req);
+        const day = fridayDay(b.day);
+        if (!day) return { available: false };
+        const { rows } = await q('select 1 from fz_friday where user_id = $1 and day = $2', [u.id, day]);
+        return { available: !rows[0] };
+      }
+      case 'friday.claim': {
+        const u = await requireUser(req);
+        const day = fridayDay(b.day);
+        if (!day) throw new HttpError(400, 'The Friday gift is only here on Fridays.');
+        const amount = 50 + Math.floor(Math.random() * 51); // 50–100, chosen here so it can't be edited in the browser
+        const { rows } = await q<{ amount: number }>('insert into fz_friday (user_id, day, amount) values ($1, $2, $3) on conflict do nothing returning amount', [u.id, day, amount]);
+        if (!rows[0]) return { already: true, amount: 0 };
+        await q('insert into fz_credits (id, user_id, amount, reason) values ($1, $2, $3, $4) on conflict (id) do nothing', [`friday:${u.id}:${day}`, u.id, amount, 'friday']);
+        await applyCredits(u.id);
+        return { already: false, amount };
       }
       default:
         throw new HttpError(400, 'Unknown action.');

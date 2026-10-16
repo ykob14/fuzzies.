@@ -308,6 +308,7 @@ export function playScreen(): Screen {
     // the start / pause / game-over card covers the whole shell (HUD and arrows too) so it fits on small screens
     shellEl);
   initCrossing();
+  setTimeout(() => { void import('../friday').then((m) => m.maybeShowFriday()); }, 900); // Fridays: the first visit gets the Happy Friday surprise
   if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__play = { showOver: (r: Result) => showOver(r) };
   requestAnimationFrame(() => { void newGame(); showStart(); });
 
