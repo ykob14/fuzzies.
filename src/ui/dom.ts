@@ -135,8 +135,7 @@ export function fuzzySvg(colors: [string, string] = ['#ff8fbf', '#c8326e'], face
 }
 
 /** The realistic furry 3D Fuzzy (a picture of the game model), once it has been rendered — see ui/mascot.ts. */
-let markSrc = '';
-try { markSrc = (JSON.parse(localStorage.getItem('fz.splash.frames') || 'null') as { open?: string } | null)?.open ?? ''; } catch { /* none yet */ }
+const markSrc = '/art/fuzzy-hero.webp'; // the owner's own Fuzzy picture is the currency mark everywhere
 
 /** Fuzzy token mark (the currency icon): the fluffy 3D Fuzzy, or a flat drawing until that picture exists. */
 export function fuzzyMark(size = 32, colors: [string, string] = ['#ff8fbf', '#c8326e']): SVGSVGElement | HTMLImageElement {
@@ -151,8 +150,8 @@ export function fuzzyMark(size = 32, colors: [string, string] = ['#ff8fbf', '#c8
 }
 
 /** Swap every flat Fuzzy mark on screen (and all future ones) for the 3D picture. */
-export function useRealMarks(src: string): void {
-  markSrc = src;
+export function useRealMarks(_src: string): void {
+  const src = markSrc;
   for (const svg of document.querySelectorAll<SVGSVGElement>('svg.fz-mark')) {
     const size = svg.getAttribute('width') || '32';
     svg.replaceWith(h('img', { class: 'fz-mark real', src, alt: '', width: size, height: size, draggable: 'false' }));

@@ -73,7 +73,7 @@ const moves = new WeakMap<HTMLElement, (m: MascotMove) => void>();
 export function mascotDo(el: HTMLElement | null | undefined, m: MascotMove): void { if (el) moves.get(el)?.(m); }
 
 export function mascot(size: number, opts: { sparkles?: boolean; small?: boolean; interactive?: boolean; photo?: boolean } = {}): HTMLElement {
-  const own = opts.photo ? PHOTO : null; // the owner's picture never swaps to the rendered frames
+  const own = opts.photo === false ? null : PHOTO; // the owner's picture never swaps to the rendered frames
   if (own) preload(own);
   const img = h('img', { class: 'mascot-img', src: (own ?? frames).open, alt: '', draggable: 'false' });
   const state = { img, face: 'open' as Face };
