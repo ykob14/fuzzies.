@@ -42,7 +42,11 @@ export type Fx =
   | { kind: 'collect'; x: number; row: number; gold: boolean; amount: number }
   | { kind: 'death'; x: number; row: number; how: DeathKind }
   | { kind: 'home'; x: number; row: number; amount: number }
-  | { kind: 'level'; level: number; amount: number };
+  | { kind: 'level'; level: number; amount: number }
+  /** reached a row it hadn't reached yet in this life (the same moment +10 score is added) */
+  | { kind: 'advance'; row: number }
+  /** a train passed along a rail row while the Fuzzy was alive on/crossing that row's lane (once per train per life) — emitted by the Worlds engine */
+  | { kind: 'train-passed'; row: number };
 
 export interface View {
   resize(): void;
@@ -243,7 +247,7 @@ export class Crossing {
   }
 
   private land(): void {
-    if (this.py < this.furthest) { this.furthest = this.py; this.score += 10; }
+    if (this.py < this.furthest) { this.furthest = this.py; this.score += 10; this.emit({ kind: 'advance', row: this.py }); }
     if (this.py === GOAL) {
       const col = Math.round(this.px);
       const hi = HOMES.indexOf(col);

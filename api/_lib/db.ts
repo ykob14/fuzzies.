@@ -219,6 +219,54 @@ create table if not exists fz_wallet_rewards (
   fee_paid_at timestamptz,
   gift_at timestamptz
 );
+-- Fuzzy Crossing weekly boards (see BACKEND.md → "Fuzzy Crossing weekly boards"). Times are the SERVER's clock in ms.
+-- A run is opened by run.start (one open run per account, a hash of its secret kept here) and closed by run.finish.
+create table if not exists fz_cx_runs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references fz_users (id) on delete cascade,
+  mode text not null default 'classic',
+  started_at bigint not null,
+  finished_at bigint,
+  week_key text,
+  token_hash text not null,
+  status text not null default 'open',
+  ip text not null default '',
+  flags text not null default '',
+  result jsonb
+);
+create index if not exists fz_cx_runs_user on fz_cx_runs (user_id, started_at);
+create unique index if not exists fz_cx_runs_one_open on fz_cx_runs (user_id) where status = 'open';
+-- One best result per player per board per week (earlier submission wins a tie).
+create table if not exists fz_cx_scores (
+  week_key text not null,
+  board text not null,
+  user_id uuid not null references fz_users (id) on delete cascade,
+  value bigint not null,
+  details jsonb not null default '{}'::jsonb,
+  created_at bigint not null,
+  primary key (week_key, board, user_id)
+);
+create index if not exists fz_cx_scores_high on fz_cx_scores (week_key, board, value desc, created_at, user_id);
+create index if not exists fz_cx_scores_low on fz_cx_scores (week_key, board, value, created_at, user_id);
+-- The weekly reward of a finished week, claimed once per player per board (the rank is frozen when it is first claimed).
+create table if not exists fz_cx_claims (
+  user_id uuid not null references fz_users (id) on delete cascade,
+  week_key text not null,
+  board text not null,
+  rank int not null,
+  tier int,
+  claimed_at bigint not null,
+  primary key (user_id, week_key, board)
+);
+-- What the boards may show about a player besides the username: emoji + colour (or the id of one of the owner's Fuzzy Friends). Never an email.
+create table if not exists fz_cx_players (
+  user_id uuid primary key references fz_users (id) on delete cascade,
+  avatar jsonb not null default '{}'::jsonb,
+  updated_at bigint not null
+);
+-- Request stamps for rate limits only
+create table if not exists fz_cx_hits (key text not null, at bigint not null);
+create index if not exists fz_cx_hits_idx on fz_cx_hits (key, at);
 -- Keep every Fuzzies table away from a database provider's public REST API (Supabase's PostgREST): row-level security
 -- on with no policies (= nobody through that API) and no grants for its public roles. The app connects as the tables'
 -- owner, which isn't affected. Runs on every cold start, so tables added later are covered too.

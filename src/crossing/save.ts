@@ -5,7 +5,7 @@ import { PASS_LEVELS } from './pass';
 
 export interface CrossingStats {
   games: number; crossings: number; pickups: number; goldPickups: number; nests: number; levelsCleared: number;
-  lives: number; splashes: number; crashes: number; coinsSpent: number; distinctPlayed: string[]; trainsSurvived: number; noDeathLevels: number;
+  lives: number; splashes: number; crashes: number; coinsSpent: number; distinctPlayed: string[]; trainsSurvived: number; noDeathLevels: number; missionsDone: number; rows: number;
 }
 export interface CrossingSave {
   v: 1;
@@ -40,7 +40,7 @@ export function freshCrossing(): CrossingSave {
     owned: [START_CHARACTER], ownedCosmetics: SLOTS.map((s) => DEFAULT_COSMETIC[s]),
     equipped: { character: START_CHARACTER, ...DEFAULT_COSMETIC },
     passClaimed: [], seen: [], pending: [],
-    stats: { games: 0, crossings: 0, pickups: 0, goldPickups: 0, nests: 0, levelsCleared: 0, lives: 0, splashes: 0, crashes: 0, coinsSpent: 0, distinctPlayed: [], trainsSurvived: 0, noDeathLevels: 0 },
+    stats: { games: 0, crossings: 0, pickups: 0, goldPickups: 0, nests: 0, levelsCleared: 0, lives: 0, splashes: 0, crashes: 0, coinsSpent: 0, distinctPlayed: [], trainsSurvived: 0, noDeathLevels: 0, missionsDone: 0, rows: 0 },
     achievements: [], worlds: {}, flawlessWorlds: [], endless: { best: 0, runs: 0, bestCoins: 0 }, weeklyBest: 0,
     missions: { day: '', ids: [], progress: {}, claimed: [], week: '', weekIds: [], weekProgress: {}, weekClaimed: [] },
     bought: {}, events: {}, trophies: [],
