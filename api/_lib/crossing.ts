@@ -44,6 +44,6 @@ export function publicAvatar(a: unknown): PublicAvatar {
   const o = (a && typeof a === 'object' ? a : {}) as Record<string, unknown>;
   const emoji = typeof o.emoji === 'string' ? o.emoji.replace(/[\u0000-\u001f<>&"'`]/g, '').slice(0, 8) : '';
   const color = typeof o.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(o.color) ? o.color : '#d6336c';
-  const friend = typeof o.image === 'string' ? /\/art\/friends\/(f\d{2})\.webp$/.exec(o.image.slice(0, 300))?.[1] : undefined;
+  const friend = typeof o.friend === 'string' && /^f\d{2}$/.test(o.friend) ? o.friend : typeof o.image === 'string' ? /\/art\/friends\/(f\d{2})\.webp$/.exec(o.image.slice(0, 300))?.[1] : undefined;
   return { emoji: emoji || '🙂', color, ...(friend ? { friend } : {}) };
 }
