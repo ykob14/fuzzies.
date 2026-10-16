@@ -78,7 +78,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
   const shownModes = modes.filter((m) => panelAvailable(m.id));
   const playBtn = h('button', { class: 'fzx-play', type: 'button', onclick: o.play }, gicon('play', 26), h('span', null, shownModes.length ? 'Play Classic' : 'Play'));
   const modeRow = shownModes.length
-    ? h('div', { class: `fzx-modes n${shownModes.length}` }, ...shownModes.map((m) => h('button', { class: 'fzx-mode', type: 'button', onclick: open(m.id) }, art(m.ic, 54), h('span', { class: 'fzx-mode-t' }, h('b', null, m.label), h('small', null, m.sub)))))
+    ? h('div', { class: `fzx-modes n${shownModes.length}` }, ...shownModes.map((m) => h('button', { class: 'fzx-mode', type: 'button', onclick: open(m.id) }, art(m.ic, 40), h('span', { class: 'fzx-mode-t' }, h('b', null, m.label), h('small', null, m.sub)))))
     : null;
 
   // ---- daily missions strip ----
@@ -88,7 +88,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
     const got = daily.filter((v) => v.claimed).length;
     const ready = missionsClaimable(s).length;
     strip = h('button', { class: `fzx-daily ${ready ? 'ready' : ''}`, type: 'button', onclick: open('missions'), 'aria-label': `Daily missions, ${got} of 3 done` },
-      art('missions', 50),
+      art('missions', 40),
       h('span', { class: 'fzx-daily-t' },
         h('b', null, ready ? `${ready} reward${ready > 1 ? 's' : ''} ready!` : 'Daily missions'),
         h('span', { class: 'fzx-pips' }, ...[0, 1, 2].map((i) => h('i', { class: i < got ? 'on' : daily[i]?.done ? 'rdy' : '' })))),
@@ -101,7 +101,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
     if (!panelAvailable(name)) return null;
     const b = h('button', { class: `fzx-fc fzx-fc-${name}`, type: 'button', onclick: open(name) },
       h('span', { class: 'fzx-fc-t' }, h('b', null, label), h('small', null, sub)),
-      h('span', { class: 'fzx-fc-art' }, art(pic, 88), extra ?? null));
+      h('span', { class: 'fzx-fc-art' }, art(pic, 54), extra ?? null));
     if (dot) b.append(newDot());
     return b;
   };
@@ -110,7 +110,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
   const boards = card('leaderboard', 'boards', 'Boards', 'Weekly');
   void net.claimableWeeks().then((w) => { if (w.length && boards?.isConnected) boards.append(newDot()); });
   const dock = h('nav', { class: 'fzx-cards', 'aria-label': 'Fuzzy Crossing' },
-    card('locker', 'locker', 'Locker', `${store.ownedCount()} / ${CHARACTERS.length}`, pendingNew, lockerFuzzy),
+    card('locker', 'locker', 'Locker', `${store.ownedCount()}/${CHARACTERS.length}`, pendingNew, lockerFuzzy),
     card('pass', 'pass', 'Pass', `Level ${pass.level}`, claim > 0),
     card('shop', 'shop', 'Shop', 'Fresh picks'),
     boards);
