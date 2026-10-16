@@ -2673,6 +2673,7 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 @keyframes br-ready { 50% { transform: scale(1.07); } }
 @media (pointer: fine) { .brawl .br-fire { width: 84px; height: 84px; bottom: calc(30px + var(--safe-b, 0px)); } .brawl .br-fire svg { width: 36px; height: 36px; } .brawl .br-fire small { bottom: 10px; font-size: 10px; } .brawl .br-fire small::after { content: ' · SPACE'; } .brawl .br-special { width: 60px; height: 60px; right: 120px; bottom: calc(40px + var(--safe-b, 0px)); } }
 @media (max-height: 520px) { .brawl .br-fire { width: 84px; height: 84px; bottom: calc(18px + var(--safe-b, 0px)); } .brawl .br-special { width: 62px; height: 62px; right: 116px; bottom: calc(26px + var(--safe-b, 0px)); } }
+.brawl:not(.br-live) .br-fire, .brawl:not(.br-live) .br-special, .brawl:not(.br-live) .br-sticks, .brawl:not(.br-live) .br-ring, .brawl:not(.br-live) .br-first { display: none; }
 .brawl .br-mute { position: absolute; right: 12px; top: calc(118px + var(--safe-t, 0px)); width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(20, 30, 50, .42); color: #fff; font-size: 17px; line-height: 1; pointer-events: auto; cursor: pointer; z-index: 6; }
 .brawl .br-mute.off { background: rgba(20, 30, 50, .62); }
 .brawl .br-ring { position: absolute; left: 50%; top: calc(84px + var(--safe-t, 0px)); transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(20, 30, 50, .5); color: #fff; font: 700 13px/1 var(--ui); white-space: nowrap; pointer-events: none; }

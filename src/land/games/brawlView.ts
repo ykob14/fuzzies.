@@ -331,7 +331,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   // ------------------------------------------------------------------ the match
   let started = false;
   const begin = () => {
-    if (started) return; started = true;
+    if (started) return; started = true; a.root.classList.add('br-live');
     const you: Roster = { name: setup.you.name || 'You', skin: setup.you.skin, role, you: true };
     const l = lineup(role);
     const allies: Roster[] = l.allies.map((r, i) => ({ name: i === 0 ? (setup.host || 'Pom') : 'Mallow', skin: ALLY_SKINS[i], role: r, skill: SKILLS.ally[i] }));

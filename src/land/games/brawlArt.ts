@@ -259,7 +259,7 @@ export function bunting(a: THREE.Vector3, b: THREE.Vector3, n: number, colors: s
   const geos: THREE.BufferGeometry[] = []; const pts: THREE.Vector3[] = [];
   const at = (t: number) => new THREE.Vector3().lerpVectors(a, b, t).setY(a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * sag);
   for (let i = 0; i <= 24; i++) pts.push(at(i / 24));
-  const rope = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.018, 4); const rc = new THREE.Color('#5a4630'); const ra = new Float32Array(rope.attributes.position.count * 3); for (let i = 0; i < ra.length; i += 3) { ra[i] = rc.r; ra[i + 1] = rc.g; ra[i + 2] = rc.b; } rope.setAttribute('color', new THREE.BufferAttribute(ra, 3)); geos.push(rope.toNonIndexed());
+  const rope = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.018, 4); const rc = new THREE.Color('#5a4630'); const ra = new Float32Array(rope.attributes.position.count * 3); for (let i = 0; i < ra.length; i += 3) { ra[i] = rc.r; ra[i + 1] = rc.g; ra[i + 2] = rc.b; } rope.setAttribute('color', new THREE.BufferAttribute(ra, 3)); rope.deleteAttribute('normal'); rope.deleteAttribute('uv'); geos.push(rope.toNonIndexed());
   const dir = new THREE.Vector3().subVectors(b, a).setY(0).normalize();
   for (let i = 0; i < n; i++) {
     const p = at((i + 0.5) / n), cl = new THREE.Color(colors[i % colors.length]), w = 0.17;
