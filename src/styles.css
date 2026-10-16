@@ -649,7 +649,8 @@ li:hover .fa .fa-coin { animation: fa-spin 1s linear infinite; }
   .tab { display: grid; justify-items: center; gap: 2px; font-size: 10.5px; font-weight: 600; color: var(--muted); padding: 4px 2px; border: 0; background: none; border-radius: 12px; min-width: 0; flex: 1; text-decoration: none; }
   .tab.on { color: var(--accent); }
   .tab-create { padding: 0; }
-  .tab-plus { width: 50px; height: 50px; margin-top: -18px; border-radius: 18px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .tab-plus { width: 46px; height: 26px; margin: -2px 0; border-radius: 13px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
+  .tab-create { color: var(--text); }
   .page { padding: 18px 16px calc(100px + var(--safe-b)); }
   .hero { grid-template-columns: 1fr; padding: 24px; }
   .hero-art { display: none; }
@@ -1287,10 +1288,9 @@ kbd { font: 600 11px/1 var(--ui); padding: 3px 6px; border-radius: 5px; border: 
 @media (max-width: 760px) {
   .app, :root.side-mini .app { grid-template-columns: 1fr; }
   .topbar-title { display: none; }
-  .topbar-search { margin: 0 0 0 auto; width: 36px; padding: 0; justify-content: center; background: none; border-color: transparent; }
-  .topbar-search span, .topbar-search kbd { display: none; }
+  .topbar-search { display: none; } /* Home and Templates have their own search box; Ctrl/Cmd+K stays on computers */
+  .topbar-helper { margin-left: auto; }
   .tabbar { box-shadow: 0 -1px 0 var(--border); border-top: 0; }
-  .tab-plus { box-shadow: 0 1px 2px rgba(17,15,24,.14), 0 6px 14px -4px color-mix(in srgb, var(--accent) 50%, transparent); }
   .qf-backdrop { padding-top: calc(10px + var(--safe-t)); }
   .qf-sub { display: none; }
 }
@@ -3089,3 +3089,20 @@ html[data-screen='edit']:has(.editor.props-open) .fz-assist:not(.open) { display
 /* editor panels lead with the design's own topic */
 .tpl-for { margin: 4px 0 8px; }
 .el-suggest .el-grid { margin-bottom: 4px; }
+
+/* ===== phones, calmer (owner: "too much, cluttered and confusing") ===== */
+.topbar-helper { display: none; }
+@media (max-width: 760px) {
+  .topbar-helper { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in srgb, #9ad8ff 22%, var(--surface)); cursor: pointer; flex: none; }
+  .topbar-helper img { width: 34px; height: 34px; display: block; }
+  .topbar-right { margin-left: 8px; }
+  /* the helper lives in the top bar on phones: no blob floating over the page */
+  .fz-assist:not(.open) .fzc-launch, .fz-assist:not(.open) .fzc-hello { display: none; }
+  .tabbar { padding-top: 8px; }
+  .tab { font-size: 11px; gap: 3px; }
+  .tab-create { gap: 3px; }
+  /* one Fuzzy face is enough: the logo (and the helper); no more on cards and empty states */
+  .daily-ic { display: none; }
+  .home .empty .mascot { display: none; }
+  .home .daily { padding: 14px; }
+}

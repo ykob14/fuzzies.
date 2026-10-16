@@ -23,7 +23,7 @@ import { sharedScreen, remixShared, REMIX_KEY } from './screens/shared';
 import { createDialog } from './create';
 import { startAchievements } from '../core/missions';
 import { mascot, upgradeMascots } from './mascot';
-import { mountAssistant } from './assistant';
+import { mountAssistant, toggleAssistant } from './assistant';
 import { assistant } from '../core/assistant';
 
 export interface Screen { el: HTMLElement; destroy?: () => void }
@@ -86,13 +86,14 @@ function shell(active: string, content: HTMLElement): HTMLElement {
   const top = h('header', { class: 'topbar' },
     h('a', { href: '#/home', class: 'topbar-logo' }, logo('sm', false)),
     h('div', { class: 'topbar-title' }, NAV.find((n) => n.id === active)?.label ?? ''),
+    h('button', { class: 'topbar-helper', type: 'button', 'aria-label': 'Ask Fuzzy, the helper', title: 'Ask Fuzzy', onclick: () => toggleAssistant() }, h('img', { src: '/art/helper/open.webp', alt: '', width: '34', height: '34', draggable: 'false' })),
     h('button', { class: 'topbar-search', type: 'button', onclick: () => openQuickFind(), 'aria-label': 'Quick find', title: 'Find anything (Ctrl/Cmd+K)' },
       icon('search', 16), h('span', null, 'Search…'), h('kbd', null, /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K')),
     h('div', { class: 'topbar-right' }, balanceChip(), avBtn));
 
   const tab = (id: string, label: string, ic: IconName) => h('a', { class: `tab ${id === active ? 'on' : ''}`, href: `#/${id}` }, icon(ic, 22), h('span', null, label));
-  const createTab = h('button', { class: 'tab tab-create', type: 'button', 'aria-label': 'Create a design', onclick: () => createDialog() }, h('span', { class: 'tab-plus' }, icon('plus', 26)));
-  const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' }, tab('home', 'Home', 'home'), tab('templates', 'Templates', 'grid'), createTab, tab('projects', 'Designs', 'folder'), tab('play', 'Play', 'gamepad'), tab('land', 'Fland', 'town'));
+  const createTab = h('button', { class: 'tab tab-create', type: 'button', 'aria-label': 'Create a design', onclick: () => createDialog() }, h('span', { class: 'tab-plus' }, icon('plus', 22)), h('span', null, 'Create'));
+  const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' }, tab('home', 'Home', 'home'), tab('templates', 'Templates', 'grid'), createTab, tab('projects', 'Designs', 'folder'), tab('play', 'Play', 'gamepad'));
 
   return h('div', { class: 'app' }, sidebar, h('div', { class: 'main' }, top, h('main', { class: 'content', id: 'content' }, content)), tabbar);
 }

@@ -433,4 +433,7 @@ export function mountAssistant(): void {
 }
 
 /** Used by Settings: show the Fuzzy again after it was hidden (and open it so people see it's back). */
+/** The phone's top bar button opens (or closes) the helper — on phones the floating blob is gone so it never covers the page. */
+export function toggleAssistant(): void { ui?.toggle(); }
+
 export function showAssistant(): void { assistant.setPrefs({ hidden: false }); ui?.open(); }

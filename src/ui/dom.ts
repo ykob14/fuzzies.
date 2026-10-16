@@ -162,7 +162,7 @@ export const QUOTE = 'Dream it fuzzy. Make it sharp.';
 
 export function logo(size: 'sm' | 'lg' = 'sm', withQuote = true): HTMLElement {
   return h('div', { class: `logo logo-${size}` },
-    mascot(size === 'lg' ? 64 : 40, { sparkles: true, small: size === 'sm' }),
+    mascot(size === 'lg' ? 64 : 40, { sparkles: size === 'lg', small: size === 'sm' }),
     h('div', { class: 'logo-text' }, h('div', { class: 'logo-word' }, 'fuzzies'), withQuote ? h('div', { class: 'logo-quote' }, QUOTE) : null));
 }
 
