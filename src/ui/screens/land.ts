@@ -1541,7 +1541,7 @@ export function landScreen(): Screen {
   async function clearTree(k: number, x: number, z: number): Promise<void> {
     openPanel(null);
     if (s.coins < L.TREE_COST) { toast(`Clearing a tree costs ${L.TREE_COST} coins — fill an order or harvest to earn some.`, 'info'); return; }
-    if (!(await confirmDialog('Clear this tree?', `It costs ${L.TREE_COST} coins. You have ${s.coins.toLocaleString()}.`, 'Clear it'))) return;
+    if (!(await confirmDialog('Clear this tree?', `It costs ${L.TREE_COST} coins. You have ${s.coins.toLocaleString()}.`, 'Clear it', false))) return;
     try { L.fellTree(s, k); } catch (e) { toast((e as Error).message, 'info'); return; }
     try { sfx.build(); } catch { /* sound is optional */ }
     save(); renderHud();
