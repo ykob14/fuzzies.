@@ -7,6 +7,11 @@
  */
 import { h } from '../../ui/dom';
 import { landIcon } from '../../ui/landIcons';
+import { gicon } from '../../crossing/ui/gicons';
+import '../../crossing/ui/gameui.css';
+import './pkSkin.css';
+import { pkicon, pktile, pkStar } from './pkIcons';
+import { envBanner, carArt, heroCar } from './pkArt';
 import { lockPage } from '../../ui/joystick';
 import { parse, range, grid, apply, solved, solveAsync, transform, OUT, type LevelData, type Puzzle } from './engine';
 import * as P from './progress';
@@ -34,33 +39,14 @@ type Mode = 'journey' | 'ch' | 'tm' | 'season' | 'endless';
 const OPEN_AT = { ch: 40, tm: 30 };
 
 const PAGE = 25;
-const SVG = (d: string, size = 26) => { const w = document.createElement('div'); w.innerHTML = `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`; return w.firstElementChild as SVGElement; };
-const IC = {
-  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
-  restart: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
-  hint: '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/>',
-  pause: '<path d="M8 5v14M16 5v14"/>',
-  fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="8.5" y="8.5" width="7" height="7" rx="1.5"/>',
-  back: '<path d="M15 18l-6-6 6-6"/>',
-  close: '<path d="M18 6 6 18M6 6l12 12"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
-  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  play: '<path d="M7 4v16l13-8z" fill="currentColor"/>',
-  next: '<path d="M9 18l6-6-6-6"/>',
-  timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
-  moves: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-  double: '<path d="M4 8h12M12 4l4 4-4 4M20 16H8M12 12l-4 4 4 4"/>',
-  spark: '<path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z" fill="currentColor"/>',
-  sound: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
-  mute: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/>',
-  infinity: '<path d="M18.2 7.8a4.2 4.2 0 1 1 0 8.4c-3.4 0-5-8.4-12.4-8.4a4.2 4.2 0 1 0 0 8.4c7.4 0 9-8.4 12.4-8.4z"/>',
-};
-const TYPE_ICON: Record<P.LType, string> = { n: '', t: IC.timer, m: IC.moves, d: IC.double, s: IC.spark };
-const CAR_ICON = '<path d="M5 16h14v-3l-2-4H7l-2 4z"/><circle cx="8" cy="17" r="1.6" fill="currentColor"/><circle cx="16" cy="17" r="1.6" fill="currentColor"/><path d="M7 9l1.5-3h7L17 9"/>';
+const TYPE_ICON: Record<P.LType, string> = { n: '', t: 'timer', m: 'moves', d: 'double', s: 'spark' };
 /** the names of the town decorations Parking Escape gives (rules.ts items) */
 const DECOR_NAMES: Record<string, string> = { parkstar: 'Star Car Statue', parksign: 'Parking Sign', parkbus: 'Fuzzy Bus Stop', parkclock: 'Clock Tower', parkwatch: 'Golden Stopwatch', parkchamp: 'Golden Parking Trophy' };
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.max(0, Math.floor(s % 60))).padStart(2, '0')}`;
-const starRow = (n: number, cls = '') => h('span', { class: `pk-stars ${cls}` }, ...[1, 2, 3].map((k) => h('i', { class: k <= n ? 'on' : '' }, landIcon('star', 18))));
+/** three gold stars (earned ones lit); each holds a pale and a lit star, CSS shows the right one so the pop-in can just add `.on` */
+const starRow = (n: number, cls = '') => h('span', { class: `pk-stars ${cls}` }, ...[1, 2, 3].map((k) => h('i', { class: k <= n ? 'on' : '' }, pkStar(false), pkStar(true))));
+/** the glow-and-rays stage a hero (a driver, the star car) stands on, like the Fuzzy Crossing lobby */
+const heroStage = (...kids: (HTMLElement | SVGElement | null)[]) => h('div', { class: 'pk-stagehero' }, h('i', { class: 'pk-rays' }), ...kids, h('i', { class: 'pk-ground' }));
 
 /** Open Fuzzies Parking Escape over the town. */
 export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: ParkHooks): Promise<() => void> {
@@ -93,22 +79,28 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
 
   // ---------- HUD ----------
   const coinEl = h('b', null, String(setup.coins()));
-  const coinChip = h('div', { class: 'pk-chip pk-coins', title: 'Your Fuzzies Land coins' }, landIcon('coin', 22), coinEl);
+  const coinChip = h('div', { class: 'pk-chip pk-coins', title: 'Your Fuzzies Land coins' }, landIcon('coin', 26), coinEl);
   const levelEl = h('div', { class: 'pk-level' });
   const movesEl = h('div', { class: 'pk-chip pk-moves' });
+  const goalEl = h('div', { class: 'pk-chip pk-goal', hidden: true, title: 'Finish in this many moves or fewer for three stars' });
   const timerEl = h('div', { class: 'pk-chip pk-timer', hidden: true });
-  const btn = (icon: string, label: string, cls: string, onClick: () => void) => { const b = h('button', { class: `pk-btn ${cls}`, type: 'button', 'aria-label': label, title: label }, SVG(icon), h('span', null, label)); b.addEventListener('click', () => { audio.button(); onClick(); }); return b; };
-  const pauseBtn = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Pause', title: 'Pause (Esc)' }, SVG(IC.pause, 22));
+  /** a big round picture button with its label under it (and, for Undo, a little counter) */
+  const btn = (icon: string, label: string, cls: string, onClick: () => void, counter = false) => {
+    const b = h('button', { class: `pk-btn ${cls}`, type: 'button', 'aria-label': label, title: label }, h('span', { class: 'pk-btn-ic' }, pkicon(icon, 30), counter ? h('i', { class: 'pk-count', hidden: true }) : null), h('span', { class: 'pk-btn-l' }, label));
+    b.addEventListener('click', () => { audio.button(); onClick(); });
+    return b;
+  };
+  const pauseBtn = h('button', { class: 'pk-round pk-pause-btn', type: 'button', 'aria-label': 'Pause', title: 'Pause (Esc)' }, pkicon('pause', 22));
   pauseBtn.addEventListener('click', () => { audio.button(); openPause(); });
-  const mapBtn = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Level map', title: 'Level map' }, SVG(IC.back, 22));
+  const mapBtn = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Level map', title: 'Level map' }, pkicon('back', 22));
   mapBtn.addEventListener('click', () => { audio.button(); showMap(); });
-  const top = h('div', { class: 'pk-top' }, h('div', { class: 'pk-top-l' }, mapBtn, levelEl), h('div', { class: 'pk-top-c' }, movesEl, timerEl), h('div', { class: 'pk-top-r' }, coinChip, pauseBtn));
-  const undoBtn = btn(IC.undo, 'Undo', 'pk-undo', () => undo());
-  const restartBtn = btn(IC.restart, 'Restart', 'pk-restart', () => restart());
-  const hintBtn = btn(IC.hint, 'Hint', 'pk-hint', () => void hint());
+  const top = h('div', { class: 'pk-top' }, h('div', { class: 'pk-top-l' }, mapBtn, levelEl), h('div', { class: 'pk-top-c' }, movesEl, goalEl, timerEl), h('div', { class: 'pk-top-r' }, coinChip, pauseBtn));
+  const undoBtn = btn('undo', 'Undo', 'pk-undo', () => undo(), true);
+  const restartBtn = btn('restart', 'Restart', 'pk-restart', () => restart());
+  const hintBtn = btn('hint', 'Hint', 'pk-hint', () => void hint());
   const bottom = h('div', { class: 'pk-bottom' }, undoBtn, hintBtn, restartBtn);
   // back to the whole lot: shows only while you're zoomed in or slid aside (double-tap or the 0 key do the same)
-  const viewBtn = h('button', { class: 'pk-round pk-view', type: 'button', 'aria-label': 'Show the whole lot', title: 'Show the whole lot (0)', hidden: true }, SVG(IC.fit, 22));
+  const viewBtn = h('button', { class: 'pk-round pk-view', type: 'button', 'aria-label': 'Show the whole lot', title: 'Show the whole lot (0)', hidden: true }, pkicon('fit', 22));
   viewBtn.addEventListener('click', () => { audio.button(); scene.resetView(); });
   const tip = h('div', { class: 'pk-tip', hidden: true });
   const hand = h('div', { class: 'pk-hand', hidden: true }, h('i'));
@@ -138,24 +130,32 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   const levelOf = (n: number) => data.levels[n - 1];
   const elapsed = () => (play ? ((play.pauseAt || performance.now()) - play.t0 - play.paused) / 1000 : 0);
 
+  /** the move count that earns three stars (journey: a quarter over the fewest possible; Challenge: the lot's goal) */
+  const starGoal = (pl: Play): number => pl.mode === 'ch' ? (pl.lvl.lim ?? pl.lvl.o) : pl.lvl.o + Math.max(1, Math.ceil(pl.lvl.o * 0.25));
   function paintHud(): void {
     if (!play) return;
     const L = play.lvl, type = L.t;
-    const title = play.mode === 'endless' ? `Endless ${play.n}` : play.mode === 'ch' ? `Challenge ${play.n}` : play.mode === 'tm' ? `Timed ${play.n}` : play.mode === 'season' ? `${eventNow()?.holiday.short ?? 'Holiday'} ${play.n}` : `Level ${play.n}`;
-    const sub = play.mode === 'endless' ? 'Endless Parking' : play.mode === 'ch' ? `Goal: ${L.lim} moves` : play.mode === 'tm' ? 'Timed Escape' : play.mode === 'season' ? 'Holiday lot' : type === 'n' ? (play.relaxed ? `${districtName(play.n)} · Relaxed` : districtName(play.n)) : P.TYPE_NAMES[type];
-    levelEl.replaceChildren(h('b', null, title), h('small', null, sub));
+    const word = play.mode === 'endless' ? 'Endless' : play.mode === 'ch' ? 'Challenge' : play.mode === 'tm' ? 'Timed' : play.mode === 'season' ? (eventNow()?.holiday.short ?? 'Holiday') : 'Level';
+    const sub = play.mode === 'endless' ? 'Endless Parking' : play.mode === 'ch' ? 'Crowded lot' : play.mode === 'tm' ? 'Beat the clock' : play.mode === 'season' ? 'Holiday lot' : type === 'n' ? districtName(play.n) : P.TYPE_NAMES[type];
+    levelEl.replaceChildren(h('span', { class: 'pk-lv-n' }, String(play.n)), h('span', { class: 'pk-lv-t' }, h('b', null, word), h('small', null, sub)));
     const movesLeft = type === 'm' && L.lim ? L.lim - play.moves : null;
-    movesEl.replaceChildren(SVG(IC.moves, 16), h('b', null, movesLeft !== null ? `${movesLeft}` : play.mode === 'ch' ? `${play.moves}/${L.lim}` : String(play.moves)), h('small', null, movesLeft !== null ? 'moves left' : play.moves === 1 ? 'move' : 'moves'));
+    movesEl.replaceChildren(pkicon('moves', 20), h('b', null, movesLeft !== null ? `${movesLeft}` : String(play.moves)), ...(movesLeft !== null ? [h('small', null, 'left')] : []));
     movesEl.classList.toggle('low', movesLeft !== null && movesLeft <= 3);
+    // the three-star goal: a gold star and the number of moves; it greys out once you're over it
+    const goal = (play.mode === 'journey' || play.mode === 'ch') && type !== 'm' ? starGoal(play) : 0;
+    goalEl.hidden = !goal;
+    if (goal) { goalEl.replaceChildren(pkStar(play.moves <= goal, 22), h('b', null, `≤${goal}`)); goalEl.classList.toggle('over', play.moves > goal); }
     timerEl.hidden = type !== 't';
     undoBtn.toggleAttribute('disabled', !play.hist.length || play.done);
     restartBtn.toggleAttribute('disabled', !play.hist.length || play.done);
     hintBtn.toggleAttribute('disabled', play.done);
+    const cnt = undoBtn.querySelector('.pk-count') as HTMLElement | null;
+    if (cnt) { cnt.textContent = String(play.hist.length); cnt.hidden = !play.hist.length || play.done; }
   }
   function paintTimer(): void {
     if (!play || play.lvl.t !== 't') return;
     const left = Math.max(0, play.timeLeft);
-    timerEl.replaceChildren(SVG(IC.timer, 16), h('b', null, fmtTime(Math.ceil(left))));
+    timerEl.replaceChildren(pkicon('timer', 20), h('b', null, fmtTime(Math.ceil(left))));
     timerEl.classList.toggle('low', left <= 10);
   }
   /** the holiday on now (Fuzzies Land's seasonal events), if any */
@@ -194,7 +194,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     tip.hidden = true; hand.hidden = true;
     // specials explain themselves first (the clock starts on "Start")
     if (!play.started) { play.pauseAt = performance.now(); showIntro(); }
-    else { tutorial(); if (mode === 'ch' && n === 1) say(`Challenge lots are big and crowded — finish in ${lvl.lim} moves or fewer for ★★★`, 3200); if (lvl.t === 's') say(P.isMilestone(n) ? `Milestone level ${n}! Bonus coins waiting 🎉` : 'Special Challenge — a trickier lot, bigger reward!', 2600); }
+    else { tutorial(); if (mode === 'ch' && n === 1) say(`Big crowded lot — finish in ${lvl.lim} moves or fewer for 3 stars`, 3200); if (lvl.t === 's') say(P.isMilestone(n) ? `Milestone level ${n}! Bonus coins waiting` : 'Special Challenge — a trickier lot, bigger reward!', 2600); }
   }
 
   // ---------- dragging ----------
@@ -407,6 +407,8 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   const cardEl = h('div', { class: 'pk-card-wrap', hidden: true });
   const mapEl = h('div', { class: 'pk-map', hidden: true });
   root.append(mapEl, cardEl, pauseEl, settingsEl);
+  // while a card (start, win, try again) is up, only the coin counter stays on top of it, so the coins have somewhere to fly
+  new MutationObserver(() => root.classList.toggle('has-card', !cardEl.hidden)).observe(cardEl, { attributes: true, attributeFilter: ['hidden'] });
   /** the Garage's 360° view (made when the Garage opens, thrown away when it closes; the lot underneath pauses meanwhile) */
   let turn: Turntable | null = null;
   const closeTurn = () => { if (!turn) return; turn.dispose(); turn = null; scene.setRunning(true); };
@@ -414,35 +416,54 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   function openPause(): void {
     if (!play) return;
     holdClock(true);
-    pauseEl.replaceChildren(h('div', { class: 'pk-sheet' },
-      h('h2', null, 'Paused'),
-      h('p', { class: 'pk-muted' }, play.endless ? `Endless puzzle ${play.n}` : play.mode === 'ch' ? `Challenge ${play.n}` : play.mode === 'tm' ? `Timed Escape ${play.n}` : play.mode === 'season' ? `Holiday lot ${play.n}` : `Level ${play.n} · ${P.TYPE_NAMES[play.lvl.t]}`),
-      big('Resume', 'primary', () => closeOverlays()),
-      big('Restart level', 'soft', () => { closeOverlays(); restart(); }),
-      big('Settings', 'soft', () => openSettings(true)),
-      big('Level map', 'soft', () => { closeOverlays(); showMap(); }),
-      big('Back to Fuzzies Land', 'ghost', () => quit())));
+    const label = play.endless ? `Endless ${play.n}` : play.mode === 'ch' ? `Challenge ${play.n}` : play.mode === 'tm' ? `Timed ${play.n}` : play.mode === 'season' ? `Holiday lot ${play.n}` : `Level ${play.n}`;
+    pauseEl.replaceChildren(h('div', { class: 'pk-sheet pk-pause' },
+      sheetHead('Paused', () => closeOverlays()),
+      h('span', { class: 'pk-chip pk-labelchip' }, pkicon(play.lvl.t === 'n' || play.lvl.t === 's' ? 'flag' : TYPE_ICON[play.lvl.t], 18), h('b', null, label)),
+      big('Resume', 'primary', () => closeOverlays(), '', 'play'),
+      h('div', { class: 'pk-grid2' },
+        big('Restart', 'soft', () => { closeOverlays(); restart(); }, '', 'restart'),
+        big('Settings', 'soft', () => openSettings(true), '', 'gear'),
+        big('Level map', 'soft', () => { closeOverlays(); showMap(); }, '', 'map'),
+        big('Fuzzies Land', 'soft', () => quit(), '', 'town'))));
     pauseEl.hidden = false;
   }
-  function big(label: string, kind: 'primary' | 'soft' | 'ghost', onClick: () => void, cls = ''): HTMLButtonElement {
-    const b = h('button', { class: `pk-big ${kind} ${cls}`, type: 'button' }, label);
+  /** a button: `primary` = the big raspberry one, `soft` = white with a lip, `ghost` = plain words; an optional picture first */
+  function big(label: string, kind: 'primary' | 'soft' | 'ghost', onClick: () => void, cls = '', icon?: string): HTMLButtonElement {
+    const b = h('button', { class: `pk-big ${kind} ${cls}`, type: 'button' }, icon ? pkicon(icon, kind === 'primary' ? 26 : 20) : null, label);
     b.addEventListener('click', () => { audio.button(); onClick(); });
     return b;
   }
+  /** the title row of a sheet: the title and a round close button */
+  function sheetHead(title: string, close: () => void): HTMLElement {
+    const x = h('button', { class: 'fzx-x pk-x', type: 'button', 'aria-label': 'Close' }, gicon('plus', 16));
+    x.addEventListener('click', () => { audio.button(); close(); });
+    return h('div', { class: 'pk-sheet-head' }, h('h2', null, title), x);
+  }
+  /** a short note kept behind a small "?" so rows stay clean */
+  function noteBtn(note: string): { q: HTMLElement; text: HTMLElement } {
+    const text = h('small', { class: 'pk-note', hidden: true }, note);
+    const q = h('button', { class: 'pk-q', type: 'button', 'aria-label': 'What is this?' }, '?');
+    q.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); text.hidden = !text.hidden; q.classList.toggle('on', !text.hidden); });
+    return { q, text };
+  }
   function openSettings(fromPause = false): void {
     if (fromPause) pauseEl.hidden = true;
-    const slider = (label: string, key: 'music' | 'sfx') => {
+    const slider = (label: string, key: 'music' | 'sfx', icon: string) => {
       const val = h('output', null, `${Math.round(st.audio[key] * 100)}%`);
       const input = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(Math.round(st.audio[key] * 100)), 'aria-label': label }) as HTMLInputElement;
-      input.addEventListener('input', () => { st.audio[key] = Number(input.value) / 100; val.textContent = `${input.value}%`; audio.set({ [key]: st.audio[key] }); });
+      const paint = () => input.style.setProperty('--v', `${input.value}%`);
+      paint();
+      input.addEventListener('input', () => { st.audio[key] = Number(input.value) / 100; val.textContent = `${input.value}%`; paint(); audio.set({ [key]: st.audio[key] }); });
       input.addEventListener('change', () => { hooks.save(); if (key === 'sfx') audio.coin(); });
-      return h('label', { class: 'pk-slider' }, h('span', null, label), input, val);
+      return h('label', { class: 'pk-slider' }, pktile(icon, 38, 'soft'), h('span', { class: 'pk-sl-t' }, h('b', null, label), input), val);
     };
-    /** a switch row: label, a short line under it, saved at once */
-    const toggle = (label: string, note: string, get: () => boolean, set: (on: boolean) => void) => {
+    /** a switch row: a picture, the label (a "?" when there is more to say), a chunky switch; saved at once */
+    const toggle = (label: string, note: string, icon: string, get: () => boolean, set: (on: boolean) => void) => {
       const box = h('input', { type: 'checkbox', checked: get() }) as HTMLInputElement;
       box.addEventListener('change', () => { set(box.checked); applyPrefs(); hooks.save(); audio.button(); });
-      return h('label', { class: 'pk-toggle' }, h('span', null, label, note ? h('small', null, note) : null), box);
+      const n = note ? noteBtn(note) : null;
+      return h('div', { class: 'pk-toggle' }, pktile(icon, 38, 'soft'), h('span', { class: 'pk-tl' }, label, n?.q ?? null, n?.text ?? null), h('label', { class: 'pk-switch' }, box, h('i')));
     };
     /** the camera angle: two buttons, one pressed */
     const angle = h('div', { class: 'pk-seg', role: 'group', 'aria-label': 'Camera angle' }, ...(['standard', 'top'] as const).map((v) => {
@@ -450,18 +471,19 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
       b.addEventListener('click', () => { st.prefs.camera = v; applyPrefs(); scene.fit(); hooks.save(); audio.button(); openSettings(fromPause); });
       return b;
     }));
-    const sec = (title: string, ...kids: (HTMLElement | null)[]) => h('div', { class: 'pk-ssec' }, h('h3', null, title), ...kids);
+    const sec = (title: string, ...kids: (HTMLElement | null)[]) => h('div', { class: 'pk-ssec' }, h('h3', null, title), h('div', { class: 'pk-scard' }, ...kids));
+    const close = () => { settingsEl.hidden = true; if (fromPause) pauseEl.hidden = false; };
     settingsEl.replaceChildren(h('div', { class: 'pk-sheet pk-settings' },
-      h('h2', null, 'Settings'),
-      sec('Sound', slider('Music', 'music'), slider('Sound effects', 'sfx'),
-        toggle('Fuzzy voices', 'Their little “eep!” and giggles', () => st.prefs.voices, (on) => { st.prefs.voices = on; }),
-        toggle('Mute everything', '', () => st.audio.mute, (on) => { st.audio.mute = on; audio.set({ mute: on }); }),
-        h('p', { class: 'pk-muted small' }, `Now playing: “${audio.trackName}” — the tunes take turns.`)),
-      sec('View', h('div', { class: 'pk-row' }, h('span', null, 'Camera'), angle),
-        toggle('Calm motion', siteCalm() ? 'On — your app is set to reduce motion' : 'No confetti or fireworks, gentler bounces', () => st.prefs.calm || siteCalm(), (on) => { st.prefs.calm = on; }),
-        toggle('3D Fuzzies', 'Turn off for flat pictures if an older phone feels slow · from the next lot', () => !st.prefs.flat, (on) => { st.prefs.flat = !on; if (on) want3d(); })),
-      sec('Play', toggle('Relaxed', 'Special levels without the clock or move limit · same rewards', () => st.relaxed, (on) => { st.relaxed = on; })),
-      big('Done', 'primary', () => { settingsEl.hidden = true; if (fromPause) pauseEl.hidden = false; })));
+      sheetHead('Settings', close),
+      sec('Sound', slider('Music', 'music', 'music'), slider('Sound effects', 'sfx', 'sound'),
+        toggle('Fuzzy voices', 'Their little “eep!” and giggles', 'fuzzy', () => st.prefs.voices, (on) => { st.prefs.voices = on; }),
+        toggle('Mute everything', '', 'mute', () => st.audio.mute, (on) => { st.audio.mute = on; audio.set({ mute: on }); }),
+        h('p', { class: 'pk-track' }, pkicon('music', 16), h('span', null, audio.trackName))),
+      sec('View', h('div', { class: 'pk-row' }, pktile('camera', 38, 'soft'), h('span', null, 'Camera'), angle),
+        toggle('Calm motion', siteCalm() ? 'On — your app is set to reduce motion' : 'No confetti or fireworks, gentler bounces', 'leaf', () => st.prefs.calm || siteCalm(), (on) => { st.prefs.calm = on; }),
+        toggle('3D Fuzzies', 'Turn off for flat pictures if an older phone feels slow · from the next lot', 'eye', () => !st.prefs.flat, (on) => { st.prefs.flat = !on; if (on) want3d(); })),
+      sec('Play', toggle('Relaxed', 'Special levels without the clock or move limit · same rewards', 'hint', () => st.relaxed, (on) => { st.relaxed = on; })),
+      big('Done', 'primary', close, '', 'check')));
     settingsEl.hidden = false;
   }
 
@@ -469,20 +491,26 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   function showIntro(): void {
     if (!play) return;
     const L = play.lvl, t = L.t;
-    const lines: Record<P.LType, string> = {
-      n: '', s: '',
-      t: `Get your star car out within ${fmtTime(L.lim ?? 0)}. The clock starts when you tap Start.`,
-      m: `You have ${L.lim} moves. Plan ahead — every slide counts!`,
-      d: 'Two star cars this time: get BOTH of them out through their own exits.',
+    const goal: Record<P.LType, { icon: string; text: string; line: string }> = {
+      n: { icon: 'flag', text: '', line: '' },
+      s: { icon: 'spark', text: 'Bonus', line: 'A trickier lot with a bigger reward' },
+      t: { icon: 'timer', text: fmtTime(L.lim ?? 0), line: 'The clock starts when you tap Start' },
+      m: { icon: 'moves', text: `${L.lim} moves`, line: 'Every slide counts — plan ahead' },
+      d: { icon: 'double', text: '2 star cars', line: 'Get both out through their own exits' },
     };
+    const g = goal[t];
+    const where = play.endless ? 'Endless Parking' : play.mode === 'tm' ? `Timed Escape ${play.n}` : `Level ${play.n}`;
+    const back = h('button', { class: 'pk-round pk-card-back', type: 'button', 'aria-label': 'Level map', title: 'Level map' }, pkicon('back', 22));
+    back.addEventListener('click', () => { audio.button(); cardEl.hidden = true; showMap(); });
+    const reward = play.endless ? null : h('span', { class: 'pk-chip pk-reward' }, landIcon('coin', 22), h('b', null, `+${play.mode === 'tm' ? P.REWARDS.timed : P.coinsForLevel(play.n)}`));
     cardEl.replaceChildren(h('div', { class: `pk-card pk-intro t-${t}` },
-      h('div', { class: 'pk-card-ic' }, SVG(TYPE_ICON[t] || IC.spark, 34)),
-      h('small', null, play.endless ? 'Endless Parking' : play.mode === 'tm' ? `Timed Escape ${play.n} of ${P.LADDER}` : `Level ${play.n}`),
+      back,
+      heroStage(h('div', { class: 'pk-hero' }, h('img', { class: 'pk-hero-driver', src: driverUrl(st.garage.driver), alt: '' }), heroCar())),
+      h('small', null, where),
       h('h2', null, P.TYPE_NAMES[t]),
-      h('p', null, lines[t]),
-      play.endless ? null : h('p', { class: 'pk-reward' }, landIcon('coin', 20), `+${play.mode === 'tm' ? P.REWARDS.timed : P.coinsForLevel(play.n)} coins the first time`),
-      big('Start', 'primary', () => { cardEl.hidden = true; if (play) { play.started = true; play.t0 = performance.now(); play.paused = 0; play.pauseAt = 0; play.timeLeft = play.lvl.lim ?? 0; play.warned = 99; paintTimer(); tutorial(); } }),
-      big('Level map', 'ghost', () => { cardEl.hidden = true; showMap(); })));
+      h('div', { class: 'pk-chips' }, h('span', { class: 'pk-chip pk-goalchip' }, pkicon(g.icon, 22), g.text ? h('b', null, g.text) : h('b', null, 'Special')), reward),
+      h('p', { class: 'pk-line' }, g.line),
+      big('Start', 'primary', () => { cardEl.hidden = true; if (play) { play.started = true; play.t0 = performance.now(); play.paused = 0; play.pauseAt = 0; play.timeLeft = play.lvl.lim ?? 0; play.warned = 99; paintTimer(); tutorial(); } }, 'pk-next', 'play')));
     cardEl.hidden = false;
   }
 
@@ -493,11 +521,11 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     paintHud();
     const at = play;
     cardEl.replaceChildren(h('div', { class: 'pk-card pk-fail' },
-      h('div', { class: 'pk-card-ic sad' }, SVG(why === 'time' ? IC.timer : IC.moves, 34)),
+      heroStage(h('div', { class: 'pk-hero small' }, h('img', { class: 'pk-fail-driver', src: driverUrl(st.garage.driver), alt: '' }), h('span', { class: 'pk-badge-ic' }, pktile(why === 'time' ? 'timer' : 'moves', 44, 'grey')))),
       h('h2', null, why === 'time' ? 'Time’s up!' : 'Out of moves!'),
-      h('p', null, why === 'time' ? 'So close! The Fuzzies are still honking. Try again — the lot is the same, and you keep every coin you’ve earned.' : 'Nearly there! Try again — plan the first few moves before you slide anything.'),
-      big('Try again', 'primary', () => { cardEl.hidden = true; start(at.n, at.mode, at.lvl); }),
-      big('Level map', 'ghost', () => { cardEl.hidden = true; showMap(); })));
+      h('p', { class: 'pk-line' }, 'So close! Same lot, and you keep every coin.'),
+      big('Try again', 'primary', () => { cardEl.hidden = true; start(at.n, at.mode, at.lvl); }, 'pk-next', 'restart'),
+      big('Level map', 'soft', () => { cardEl.hidden = true; showMap(); }, '', 'map')));
     setTimeout(() => { if (play === at) cardEl.hidden = false; }, 700);
   }
 
@@ -534,27 +562,34 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     const stars = clear?.stars ?? ladder?.stars ?? 0;
     const lastOfMode = at.mode === 'journey' ? at.n >= P.LEVELS : at.mode === 'ch' || at.mode === 'tm' ? at.n >= P.LADDER : at.mode === 'season' ? at.n >= P.SEASON_SET : false;
     const decor = rewards.map((r) => P.DECOR_FOR_KEY[r.key]).find(Boolean);
+    const plain = at.endless || at.mode === 'season';
+    const notes: { icon: string; text: string }[] = [];
+    if (champ) notes.push({ icon: 'trophy', text: 'Golden Parking Trophy is waiting in Build → Decor. Endless Parking is open!' });
+    else if (decor) notes.push({ icon: 'events', text: `New decoration: ${DECOR_NAMES[decor] ?? 'a surprise'} — find it in Build → Decor` });
+    if (paintEarned) notes.push({ icon: 'paint', text: 'New holiday paint — pick it in the Garage' });
+    if (at.mode === 'journey' && clear?.unlockedNext) notes.push(...unlockNotes(next));
+    const stat = (icon: string, label: string, value: string, flag = '') => h('div', { class: 'pk-stat' }, pktile(icon, 36, 'soft'), h('b', null, value), h('small', null, label), flag ? h('em', null, flag) : null);
+    const goal = (at.mode === 'journey' || at.mode === 'ch') ? starGoal(at) : 0;
+    const hint = !plain && (clear || ladder) && stars < 3 && goal ? h('p', { class: 'pk-starhint' }, pkStar(true, 18), at.hinted ? 'No hints for 3 stars' : `${goal} moves or fewer for 3 stars`) : null;
     const card = h('div', { class: `pk-card pk-win ${special ? 'special' : ''}` },
-      h('img', { class: 'pk-win-fuzzy', src: driverUrl(at.n % 15), alt: '' }),
-      special ? h('div', { class: 'pk-ribbon' }, at.mode === 'journey' && P.isMilestone(at.n) ? `Milestone ${at.n}!` : P.TYPE_NAMES[at.lvl.t]) : null,
-      h('h2', null, champ ? 'Parking Champion!' : at.endless || at.mode === 'season' ? 'Lot cleared!' : 'Parked it!'),
-      at.endless || at.mode === 'season' ? h('p', { class: 'pk-muted' }, `${at.endless ? 'Endless puzzle' : 'Holiday lot'} ${at.n} · ${at.moves} moves`) : starsEl,
-      at.endless || at.mode === 'season' ? null : h('div', { class: 'pk-win-stats' },
-        h('span', null, h('b', null, String(at.moves)), h('small', null, `moves${clear?.bestMoves && clear.before ? ' · best!' : ''}`)),
-        h('span', null, h('b', null, String(at.lvl.o)), h('small', null, 'fewest possible')),
-        h('span', null, h('b', null, fmtTime(secs)), h('small', null, 'time'))),
-      at.endless || at.mode === 'season' || !(clear || ladder) ? null : h('p', { class: 'pk-muted small' }, stars < 3 ? (at.hinted ? 'Solve it without a hint for ★★★' : `Solve it in ${at.lvl.o + Math.max(1, Math.ceil(at.lvl.o * 0.25))} moves or fewer for ★★★`) : 'Three stars — brilliant parking!'),
-      champ ? h('p', { class: 'pk-champ' }, '🏆 Your Golden Parking Trophy is waiting in Build → Decor. Endless Parking is open!') : null,
-      decor && !champ ? h('p', { class: 'pk-champ' }, `🎁 New town decoration: ${DECOR_NAMES[decor] ?? 'a surprise'} — find it in Build → Decor!`) : null,
-      paintEarned ? h('p', { class: 'pk-champ' }, `🎨 New holiday paint for your star car — pick it in the Garage!`) : null,
-      at.mode === 'journey' && clear?.unlockedNext && unlockNote(next) ? h('p', { class: 'pk-champ' }, unlockNote(next)) : null,
+      heroStage(h('img', { class: 'pk-win-fuzzy', src: driverUrl(at.n % 15), alt: '' })),
+      special ? h('div', { class: 'pk-ribbon' }, at.mode === 'journey' && P.isMilestone(at.n) ? `Milestone ${at.n}` : P.TYPE_NAMES[at.lvl.t]) : null,
+      h('h2', null, champ ? 'Parking Champion!' : plain ? 'Lot cleared!' : 'Parked it!'),
+      plain ? h('span', { class: 'pk-chip pk-labelchip' }, pkicon('moves', 18), h('b', null, `${at.moves} moves`)) : starsEl,
+      plain ? null : h('div', { class: 'pk-win-stats' },
+        stat('moves', 'Moves', String(at.moves), clear?.bestMoves && clear.before ? 'Best!' : ''),
+        stat('flag', 'Fewest', String(at.lvl.o)),
+        stat('timer', 'Time', fmtTime(secs))),
+      hint,
+      ...notes.map((n) => h('p', { class: 'pk-champ' }, pktile(n.icon, 30, 'soft'), h('span', null, n.text))),
       coinsLine,
       h('div', { class: 'pk-win-btns' },
-        at.mode === 'journey' && at.n >= P.LEVELS ? big('Endless Parking', 'primary', () => startEndless(), 'pk-next')
-          : lastOfMode ? big('Level map', 'primary', () => showMap(), 'pk-next')
-          : big(at.endless ? 'Next puzzle' : 'Next level', 'primary', () => { if (at.endless) void startEndless(); else start(next, at.mode); }, 'pk-next'),
-        big('Replay', 'soft', () => start(at.n, at.mode, at.lvl)),
-        big('Level map', 'ghost', () => showMap())));
+        at.mode === 'journey' && at.n >= P.LEVELS ? big('Endless Parking', 'primary', () => startEndless(), 'pk-next', 'endless')
+          : lastOfMode ? big('Level map', 'primary', () => showMap(), 'pk-next', 'map')
+          : big(at.endless ? 'Next puzzle' : 'Next level', 'primary', () => { if (at.endless) void startEndless(); else start(next, at.mode); }, 'pk-next', 'next'),
+        h('div', { class: 'pk-win-sec' },
+          big('Replay', 'soft', () => start(at.n, at.mode, at.lvl), '', 'restart'),
+          big('Level map', 'soft', () => showMap(), '', 'map'))));
     cardEl.replaceChildren(card); cardEl.hidden = false;
     // stars pop in one by one
     if (clear || ladder) for (let k = 1; k <= stars; k++) setTimeout(() => { starsEl.children[k - 1]?.classList.add('on', 'pop'); audio.coin(); }, 250 + k * 260);
@@ -566,11 +601,11 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
       let total = 0;
       for (const p of paid) {
         const why = rewards.find((r) => r.key === p.key)?.why ?? '';
-        if (p.ok && p.coins > 0) { total += p.coins; coinsLine.append(h('div', { class: 'pk-coin-row' }, landIcon('coin', 20), h('b', null, `+${p.coins.toLocaleString()}`), h('small', null, why))); }
+        if (p.ok && p.coins > 0) { total += p.coins; coinsLine.append(h('div', { class: 'pk-coin-row' }, landIcon('coin', 26), h('b', null, `+${p.coins.toLocaleString()}`), h('small', null, why))); }
         else if (p.pending) coinsLine.append(h('div', { class: 'pk-coin-row muted' }, h('small', null, `${why}: we’ll add your coins when you’re back online.`)));
       }
       if (total) flyCoins(card, Math.min(14, 4 + Math.round(total / 40)));
-    } else if (!at.endless) coinsLine.append(h('small', { class: 'pk-muted' }, 'Coins for this lot were already collected — replays are for stars!'));
+    } else if (!at.endless) coinsLine.append(h('small', { class: 'pk-muted' }, 'Coins already collected — replays are for stars!'));
   }
   function flyCoins(from: HTMLElement, n: number): void {
     const a = from.getBoundingClientRect(), b = coinChip.getBoundingClientRect();
@@ -611,43 +646,47 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
 
   // ---------- the level map ----------
   /** what the journey unlocks next (said on the victory card) */
-  const unlockNote = (n: number): string => {
-    const notes: string[] = [];
-    if ((n - 1) % LEVELS_PER_ENV === 0 && n > 1) notes.push(`🗺️ New neighbourhood: ${ENVS[envIndexOf(n)].name}!`);
-    if (n === OPEN_AT.ch) notes.push('🏁 Challenge mode is open — big, crowded lots!');
-    if (n === OPEN_AT.tm) notes.push('⏱️ Timed Escape is open — beat the clock!');
-    const style = P.STYLE_NAMES.findIndex((_, k) => P.styleUnlockedAt(k) === n && k > 0); if (style > 0) notes.push(`🚗 New star car in your Garage: the ${P.STYLE_NAMES[style]}!`);
-    const drv = Array.from({ length: 15 }, (_, d) => d).find((d) => P.driverUnlockedAt(d) === n && n > 1); if (drv !== undefined) notes.push(`🧸 ${DRIVER_NAMES[drv]} wants to drive — pick them in the Garage!`);
-    return notes.join(' ');
+  const unlockNotes = (n: number): { icon: string; text: string }[] => {
+    const notes: { icon: string; text: string }[] = [];
+    if ((n - 1) % LEVELS_PER_ENV === 0 && n > 1) notes.push({ icon: 'map', text: `New neighbourhood: ${ENVS[envIndexOf(n)].name}` });
+    if (n === OPEN_AT.ch) notes.push({ icon: 'flag', text: 'Challenge mode is open — big, crowded lots' });
+    if (n === OPEN_AT.tm) notes.push({ icon: 'timer', text: 'Timed Escape is open — beat the clock' });
+    const style = P.STYLE_NAMES.findIndex((_, k) => P.styleUnlockedAt(k) === n && k > 0); if (style > 0) notes.push({ icon: 'car', text: `New star car in your Garage: the ${P.STYLE_NAMES[style]}` });
+    const drv = Array.from({ length: 15 }, (_, d) => d).find((d) => P.driverUnlockedAt(d) === n && n > 1); if (drv !== undefined) notes.push({ icon: 'fuzzy', text: `${DRIVER_NAMES[drv]} wants to drive — pick them in the Garage` });
+    return notes;
   };
   let mapMode: 'journey' | 'ch' | 'tm' | 'season' = 'journey';
   let page = Math.floor((Math.max(1, st.top) - 1) / PAGE);
   const ladderPage = { ch: 0, tm: 0 };
+  const MODE_ICON = { journey: 'map', ch: 'trophy', tm: 'timer', season: 'events' } as const;
   function showMap(): void {
     play = null; drag = null; busy = false; closeOverlays(); cardEl.hidden = true; tip.hidden = true; hand.hidden = true;
     top.hidden = true; bottom.hidden = true;
     const ev = eventNow();
     if (mapMode === 'season' && !ev) mapMode = 'journey';
     audio.mood(mapMode === 'tm' ? 'timed' : mapMode === 'season' ? 'season' : { env: envIndexOf(mapMode === 'journey' ? page * PAGE + 1 : 1) });
-    const close = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Back to Fuzzies Land', title: 'Back to Fuzzies Land' }, SVG(IC.close, 22));
+    const close = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Back to Fuzzies Land', title: 'Back to Fuzzies Land' }, pkicon('close', 22));
     close.addEventListener('click', () => { audio.button(); quit(); });
-    const gear = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Settings', title: 'Settings — sound, camera, motion' }, SVG(IC.gear, 22));
+    const gear = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Settings', title: 'Settings — sound, camera, motion' }, pkicon('gear', 24));
     gear.addEventListener('click', () => { audio.button(); openSettings(); });
     const garageB = h('button', { class: 'pk-round pk-garage-btn', type: 'button', 'aria-label': 'Garage', title: 'Garage — your star car and driver' }, h('img', { src: driverUrl(st.garage.driver), alt: '' }));
     garageB.addEventListener('click', () => { audio.button(); openGarage(); });
-    // the mode tabs
-    const tab = (id: typeof mapMode, label: string, sub: string, locked: string | null) => {
-      const b = h('button', { class: `pk-tab ${mapMode === id ? 'on' : ''} ${locked ? 'locked' : ''}`, type: 'button', 'aria-pressed': String(mapMode === id), 'data-mode': id }, h('b', null, label), h('small', null, locked ?? sub));
+    // the mode tabs: Journey · Challenge · Timed · (a holiday)
+    const tab = (id: typeof mapMode, label: string, sub: string, locked: string | null, lockShort = '') => {
+      const b = h('button', { class: `pk-tab ${mapMode === id ? 'on' : ''} ${locked ? 'locked' : ''}`, type: 'button', 'aria-pressed': String(mapMode === id), 'data-mode': id }, locked ? pkicon('lock', 24) : pkicon(MODE_ICON[id], 24), h('b', null, label), h('small', null, locked ? lockShort : sub));
       b.addEventListener('click', () => { audio.button(); if (locked) { say(locked); audio.blocked(); return; } mapMode = id; showMap(); });
       return b;
     };
     const chDone = [...st.ch.stars].filter((c) => c !== '0').length, tmDone = [...st.tm.stars].filter((c) => c !== '0').length;
     const tabs = h('div', { class: 'pk-tabs', role: 'tablist' },
       tab('journey', 'Journey', `${P.doneCount(st)}/${P.LEVELS}`, null),
-      tab('ch', 'Challenge', `${chDone}/${P.LADDER}`, st.top >= OPEN_AT.ch ? null : `Opens at level ${OPEN_AT.ch}`),
-      tab('tm', 'Timed', `${tmDone}/${P.LADDER}`, st.top >= OPEN_AT.tm ? null : `Opens at level ${OPEN_AT.tm}`),
-      ev ? tab('season', ev.holiday.short, `${st.season[ev.key] ?? 0}/${P.SEASON_SET} · ${ev.daysLeft}d left`, null) : '');
-    const header = h('div', { class: 'pk-map-top' }, close, h('div', { class: 'pk-title' }, h('img', { src: driverUrl(st.garage.driver), alt: '' }), h('div', null, h('b', null, 'Parking Escape'), h('small', null, `${P.totalStars(st)} ★ · ${(setup.coins()).toLocaleString()} coins`))), garageB, gear);
+      tab('ch', 'Challenge', `${chDone}/${P.LADDER}`, st.top >= OPEN_AT.ch ? null : `Opens at level ${OPEN_AT.ch}`, `Lv ${OPEN_AT.ch}`),
+      tab('tm', 'Timed', `${tmDone}/${P.LADDER}`, st.top >= OPEN_AT.tm ? null : `Opens at level ${OPEN_AT.tm}`, `Lv ${OPEN_AT.tm}`),
+      ev ? tab('season', ev.holiday.short, `${st.season[ev.key] ?? 0}/${P.SEASON_SET}`, null) : '');
+    const header = h('div', { class: 'pk-map-top' }, close,
+      h('div', { class: 'pk-title' }, h('b', null, 'Parking Escape'),
+        h('div', { class: 'pk-title-chips' }, h('span', { class: 'pk-mini' }, pkStar(true, 18), h('b', null, String(P.totalStars(st)))), h('span', { class: 'pk-mini' }, landIcon('coin', 18), h('b', null, setup.coins().toLocaleString())))),
+      garageB, gear);
     let body: (HTMLElement | string)[] = [];
     if (mapMode === 'journey') body = journeyMap();
     else if (mapMode === 'season' && ev) body = ladderMap('season', ev);
@@ -659,64 +698,91 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     mapEl.hidden = false;
     scene.clearHint();
   }
-  /** a winding road of 25 numbered stops */
+  /** a winding candy road of numbered stops: chunky nodes on a wavy path, the road you've travelled in raspberry, stars under each */
   function board(first: number, count: number, info: (n: number) => { open: boolean; stars: number; badge?: string; mile?: string; cur: boolean }, pick: (n: number, open: boolean) => void): HTMLElement {
     const nodes: HTMLElement[] = [];
-    const cols = 5;
+    const cols = 5, rows = Math.ceil(count / cols), ROW = 118; // the art is 500 wide × (rows × 118) tall; nodes sit in percentages of it
+    const pts: { x: number; y: number }[] = []; let lastOpen = 0;
     for (let k = 0; k < count; k++) {
       const n = first + k, row = Math.floor(k / cols), colRaw = k % cols, col = row % 2 ? cols - 1 - colRaw : colRaw;
+      const x = col * 100 + 50, y = (row + 0.5) * ROW + 15 * Math.sin((colRaw / 4) * Math.PI * 2);
+      pts.push({ x, y });
       const i = info(n);
-      const b = h('button', { class: `pk-node ${i.open ? '' : 'locked'} ${i.mile ? 'mile' : ''} ${i.cur ? 'cur' : ''} ${i.stars ? 'done' : ''}`, type: 'button', style: `--r:${row};--c:${col}`, 'data-level': String(n), 'aria-label': `Lot ${n}${i.open ? '' : ' (locked)'}` },
+      if (i.open) lastOpen = k;
+      const b = h('button', { class: `pk-node ${i.open ? '' : 'locked'} ${i.mile ? 'mile' : ''} ${i.cur ? 'cur' : ''} ${i.stars ? 'done' : ''}`, type: 'button', style: `left:${(x / 5).toFixed(2)}%;top:${((y / (rows * ROW)) * 100).toFixed(2)}%`, 'data-level': String(n), 'aria-label': `Lot ${n}${i.open ? '' : ' (locked)'}` },
         h('span', { class: 'pk-node-n' }, i.open ? String(n) : ''),
-        i.open ? null : h('span', { class: 'pk-node-lock' }, SVG(IC.lock, 18)),
-        i.badge && i.open ? h('span', { class: 'pk-node-badge' }, SVG(i.badge, 13)) : null,
+        i.open ? null : h('span', { class: 'pk-node-lock' }, pkicon('lock', 22)),
+        i.badge && i.open ? h('span', { class: 'pk-node-badge' }, pkicon(i.badge, 14)) : null,
         i.mile ? h('span', { class: 'pk-node-gift' }, landIcon('coin', 16), i.mile) : null,
         i.stars ? starRow(i.stars, 'tiny') : null,
         i.cur ? h('img', { class: 'pk-node-car', src: driverUrl(st.garage.driver), alt: '' }) : null);
       b.addEventListener('click', () => { audio.button(); pick(n, i.open); });
       nodes.push(b);
     }
-    const road = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); road.setAttribute('class', 'pk-road'); road.setAttribute('viewBox', '0 0 500 500'); road.setAttribute('preserveAspectRatio', 'none');
-    let d = ''; for (let row = 0; row < 5; row++) { const y = 50 + row * 100; d += row === 0 ? `M50 ${y} H450` : row % 2 ? ` Q490 ${y - 50} 450 ${y} H50` : ` Q10 ${y - 50} 50 ${y} H450`; }
-    road.innerHTML = `<path d="${d}" class="pk-road-edge"/><path d="${d}" class="pk-road-top"/><path d="${d}" class="pk-road-line"/>`;
-    return h('div', { class: 'pk-board' }, h('div', { class: 'pk-board-deco' }), road, ...nodes);
+    // a smooth curve through the stops (Catmull-Rom turned into Béziers); the same curve up to the last open stop is the travelled part
+    const curve = (upTo: number) => {
+      let d = `M${pts[0].x} ${pts[0].y}`;
+      for (let k = 0; k < upTo; k++) {
+        const p0 = pts[Math.max(0, k - 1)], p1 = pts[k], p2 = pts[k + 1], p3 = pts[Math.min(pts.length - 1, k + 2)];
+        d += ` C${(p1.x + (p2.x - p0.x) / 6).toFixed(1)} ${(p1.y + (p2.y - p0.y) / 6).toFixed(1)} ${(p2.x - (p3.x - p1.x) / 6).toFixed(1)} ${(p2.y - (p3.y - p1.y) / 6).toFixed(1)} ${p2.x} ${p2.y}`;
+      }
+      return d;
+    };
+    const road = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); road.setAttribute('class', 'pk-road'); road.setAttribute('viewBox', `0 0 500 ${rows * ROW}`); road.setAttribute('preserveAspectRatio', 'none');
+    const all = curve(pts.length - 1);
+    road.innerHTML = `<path d="${all}" class="pk-road-edge"/><path d="${all}" class="pk-road-top"/><path d="${all}" class="pk-road-line"/>${lastOpen > 0 ? `<path d="${curve(lastOpen)}" class="pk-road-done"/>` : ''}`;
+    const el = h('div', { class: 'pk-board', style: `aspect-ratio: 500 / ${rows * ROW}` }, h('div', { class: 'pk-board-deco' }), road, ...nodes);
+    return el;
   }
-  const pager = (label: string, sub: string, at: number, pages: number, go: (p: number) => void) => {
-    const prev = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Previous', disabled: at === 0 }, SVG(IC.back, 22));
-    const nextB = h('button', { class: 'pk-round', type: 'button', 'aria-label': 'Next', disabled: at === pages - 1 }, SVG(IC.next, 22));
-    prev.addEventListener('click', () => { audio.button(); go(at - 1); });
-    nextB.addEventListener('click', () => { audio.button(); go(at + 1); });
-    return h('div', { class: 'pk-district' }, prev, h('div', null, h('b', null, label), h('small', null, sub)), nextB);
+  /** the neighbourhood banner: an illustrated strip, the name on a ribbon, a small chip, arrows to the next / last part */
+  const banner = (envI: number, title: string, chip: HTMLElement[], nav?: { at: number; pages: number; go: (p: number) => void }) => {
+    const env = ENVS[envI];
+    const arrow = (dir: -1 | 1) => {
+      const b = h('button', { class: `pk-round pk-dist-${dir < 0 ? 'prev' : 'next'}`, type: 'button', 'aria-label': dir < 0 ? 'Previous' : 'Next', disabled: nav ? (dir < 0 ? nav.at === 0 : nav.at === nav.pages - 1) : true }, pkicon(dir < 0 ? 'back' : 'next', 22));
+      b.addEventListener('click', () => { audio.button(); nav?.go(nav.at + dir); });
+      return b;
+    };
+    return h('div', { class: 'pk-district' }, envBanner(env.id, env.sky, env.lawn),
+      nav ? arrow(-1) : null, nav ? arrow(1) : null,
+      h('div', { class: 'pk-dist-chips' }, ...chip),
+      h('div', { class: 'pk-dist-ribbon' }, h('b', null, title)));
   };
+  const miniChip = (...kids: (HTMLElement | SVGElement | string)[]) => h('span', { class: 'pk-mini' }, ...kids);
   function journeyMap(): (HTMLElement | string)[] {
     const pages = P.LEVELS / PAGE;
     page = Math.max(0, Math.min(pages - 1, page));
     const first = page * PAGE + 1;
-    const env = ENVS[envIndexOf(first)], part = (page % (LEVELS_PER_ENV / PAGE)) + 1;
+    const envI = envIndexOf(first), env = ENVS[envI], part = (page % (LEVELS_PER_ENV / PAGE)) + 1;
     const pageStars = Array.from({ length: PAGE }, (_, k) => P.starsOf(st, first + k)).reduce((a, b) => a + b, 0);
     const envOpen = st.top >= first;
-    const relax = h('label', { class: 'pk-relax', title: 'No timers or move limits on the special levels — same rewards' }, h('input', { type: 'checkbox', checked: st.relaxed }), h('span', null, h('b', null, 'Relaxed'), h('small', null, st.relaxed ? 'No timers or limits' : 'Clocks & limits on')));
-    (relax.querySelector('input') as HTMLInputElement).addEventListener('change', (e) => { st.relaxed = (e.target as HTMLInputElement).checked; hooks.save(); audio.button(); showMap(); });
+    const relaxBox = h('input', { type: 'checkbox', checked: st.relaxed }) as HTMLInputElement;
+    const relax = h('label', { class: 'pk-relax', title: 'No timers or move limits on the special levels — same rewards' }, h('span', { class: 'pk-switch' }, relaxBox, h('i')), h('b', null, 'Relaxed'));
+    relaxBox.addEventListener('change', () => { st.relaxed = relaxBox.checked; hooks.save(); audio.button(); showMap(); });
     const playN = Math.min(P.LEVELS, st.top);
-    const endlessCard = P.endlessOpen(st) && page === pages - 1 ? h('button', { class: 'pk-endless', type: 'button' }, SVG(IC.infinity, 28), h('b', null, 'Endless Parking'), h('small', null, `${st.endless.done} solved · +${P.REWARDS.endless} coins each`)) : null;
+    const endlessCard = P.endlessOpen(st) && page === pages - 1 ? h('button', { class: 'pk-endless', type: 'button' }, pktile('endless', 44), h('b', null, 'Endless Parking'), h('small', null, `${st.endless.done} solved · +${P.REWARDS.endless} coins each`)) : null;
     endlessCard?.addEventListener('click', () => { audio.button(); void startEndless(); });
+    const endlessNow = st.top > P.LEVELS - 1 && P.starsOf(st, P.LEVELS);
     return [
-      pager(env.name + (envOpen ? '' : ' 🔒'), `${envOpen ? env.blurb : `Opens at level ${first}`} · Part ${part} · ${pageStars}/${PAGE * 3} ★`, page, pages, (p) => { page = p; showMap(); }),
-      relax,
+      banner(envI, env.name, [envOpen ? miniChip(pkStar(true, 16), h('b', null, `${pageStars}/${PAGE * 3}`), h('small', null, `Part ${part}`)) : miniChip(pkicon('lock', 14), h('b', null, `Level ${first}`))], { at: page, pages, go: (p) => { page = p; showMap(); } }),
       board(first, PAGE, (n) => { const t = P.typeOf(n); return { open: P.unlocked(st, n), stars: P.starsOf(st, n), badge: t !== 'n' && !(st.relaxed && (t === 't' || t === 'm')) ? TYPE_ICON[t] : undefined, mile: P.isMilestone(n) ? '250' : undefined, cur: n === st.top && P.starsOf(st, n) === 0 }; },
         (n, open) => { if (!open) { say(`Finish level ${st.top} first`); audio.blocked(); return; } start(n); }),
       endlessCard ?? '',
-      h('div', { class: 'pk-map-bottom' }, big(st.top > P.LEVELS - 1 && P.starsOf(st, P.LEVELS) ? 'Endless Parking' : `Play level ${playN}`, 'primary', () => { if (P.starsOf(st, P.LEVELS) && st.top >= P.LEVELS) void startEndless(); else start(playN); }, 'pk-play')),
+      h('div', { class: 'pk-map-bottom' }, relax, bigPlay(endlessNow ? 'Endless' : 'Play', endlessNow ? '' : String(playN), () => { if (P.starsOf(st, P.LEVELS) && st.top >= P.LEVELS) void startEndless(); else start(playN); })),
     ];
+  }
+  /** the big Play button under the map: the word and the level it starts */
+  function bigPlay(label: string, level: string, onClick: () => void): HTMLButtonElement {
+    const b = h('button', { class: 'pk-big primary pk-play', type: 'button' }, pkicon('play', 26), h('span', null, label), level ? h('em', null, level) : null);
+    b.addEventListener('click', () => { audio.button(); onClick(); });
+    return b;
   }
   function ladderMap(mode: 'ch' | 'tm' | 'season', ev: ActiveEvent | null): (HTMLElement | string)[] {
     if (mode === 'season' && ev) {
       const done = st.season[ev.key] ?? 0, next = Math.min(P.SEASON_SET, done + 1);
       return [
-        h('div', { class: 'pk-district' }, h('div', null, h('b', null, `${ev.holiday.name} lots`), h('small', null, `${done}/${P.SEASON_SET} solved · ${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left · +${P.REWARDS.season} coins each · finish all 10 for a holiday paint`))),
+        banner(6, `${ev.holiday.name}`, [miniChip(pkStar(true, 16), h('b', null, `${done}/${P.SEASON_SET}`)), miniChip(pkicon('timer', 14), h('b', null, `${ev.daysLeft}d left`)), miniChip(landIcon('coin', 16), h('b', null, `+${P.REWARDS.season}`))]),
         board(1, P.SEASON_SET, (n) => ({ open: n <= next, stars: n <= done ? 3 : 0, cur: n === next && done < P.SEASON_SET }), (n, open) => { if (!open) { say(`Solve lot ${next} first`); audio.blocked(); return; } start(n, 'season'); }),
-        h('p', { class: 'pk-muted pk-map-note' }, 'Holiday lots come and go with the holidays — the journey never waits for them.'),
-        h('div', { class: 'pk-map-bottom' }, big(done >= P.SEASON_SET ? 'Play again' : `Play lot ${next}`, 'primary', () => start(done >= P.SEASON_SET ? 1 : next, 'season'), 'pk-play')),
+        h('div', { class: 'pk-map-bottom' }, bigPlay(done >= P.SEASON_SET ? 'Again' : 'Play', done >= P.SEASON_SET ? '' : String(next), () => start(done >= P.SEASON_SET ? 1 : next, 'season'))),
       ];
     }
     const L = st[mode as 'ch' | 'tm'], key = mode as 'ch' | 'tm';
@@ -724,37 +790,38 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
     ladderPage[key] = Math.max(0, Math.min(pages - 1, ladderPage[key]));
     const first = ladderPage[key] * PAGE + 1;
     const name = mode === 'ch' ? 'Challenge' : 'Timed Escape';
-    const blurb = mode === 'ch' ? `Big crowded lots · finish within the goal for ★★★ · +${P.REWARDS.challenge} coins` : `Beat the countdown · +${P.REWARDS.timed} coins`;
+    const reward = mode === 'ch' ? P.REWARDS.challenge : P.REWARDS.timed;
     const playN = Math.min(P.LADDER, L.top);
     return [
-      pager(`${name} ${first}–${first + PAGE - 1}`, blurb, ladderPage[key], pages, (p) => { ladderPage[key] = p; showMap(); }),
-      board(first, PAGE, (n) => ({ open: n <= L.top, stars: Number(L.stars[n - 1]), mile: n === 25 || n === P.LADDER ? String(P.REWARDS.ladderMilestone) : undefined, badge: mode === 'tm' ? IC.timer : undefined, cur: n === L.top && L.stars[n - 1] === '0' }),
+      banner(mode === 'ch' ? 8 : 5, `${name} ${first}–${first + PAGE - 1}`, [miniChip(landIcon('coin', 16), h('b', null, `+${reward}`)), mode === 'ch' ? miniChip(pkStar(true, 16), h('small', null, 'goal moves')) : miniChip(pkicon('timer', 14), h('small', null, 'beat the clock'))], { at: ladderPage[key], pages, go: (p) => { ladderPage[key] = p; showMap(); } }),
+      board(first, PAGE, (n) => ({ open: n <= L.top, stars: Number(L.stars[n - 1]), mile: n === 25 || n === P.LADDER ? String(P.REWARDS.ladderMilestone) : undefined, badge: mode === 'tm' ? 'timer' : undefined, cur: n === L.top && L.stars[n - 1] === '0' }),
         (n, open) => { if (!open) { say(`Finish ${name} ${L.top} first`); audio.blocked(); return; } start(n, key); }),
-      h('p', { class: 'pk-muted pk-map-note' }, mode === 'ch' ? `Lot 25 and lot 50 also give a town decoration.` : `Lot 25 and lot 50 also give a town decoration.`),
-      h('div', { class: 'pk-map-bottom' }, big(`Play ${name} ${playN}`, 'primary', () => start(playN, key), 'pk-play')),
+      h('div', { class: 'pk-map-bottom' }, bigPlay('Play', String(playN), () => start(playN, key))),
     ];
   }
   /** the garage: your star car's shape and paint and who drives it — looks only, the puzzles are the same for every car */
   function openGarage(): void {
     if (!turn) { turn = turntable({ calm: scene.calm }); scene.setRunning(false); }
     turn.show(st.garage.style, st.garage.paint ? holidayPaint(st.garage.paint) : HERO, st.garage.driver);
-    const section = (title: string, ...kids: HTMLElement[]) => h('div', { class: 'pk-gsec' }, h('h3', null, title), h('div', { class: 'pk-ggrid' }, ...kids));
-    const pickBtn = (on: boolean, open: boolean, lockText: string, label: string, art: HTMLElement, choose: () => void) => {
-      const b = h('button', { class: `pk-gitem ${on ? 'on' : ''} ${open ? '' : 'locked'}`, type: 'button', 'aria-pressed': String(on) }, art, h('small', null, open ? label : lockText));
+    const section = (title: string, count: string, ...kids: HTMLElement[]) => h('div', { class: 'pk-gsec' }, h('h3', null, title, h('em', null, count)), h('div', { class: 'pk-ggrid' }, ...kids));
+    const pickBtn = (on: boolean, open: boolean, lockText: string, label: string, art: HTMLElement | SVGElement, choose: () => void) => {
+      const b = h('button', { class: `pk-gitem ${on ? 'on' : ''} ${open ? '' : 'locked'}`, type: 'button', 'aria-pressed': String(on) }, art, h('small', null, open ? label : lockText), on ? h('i', { class: 'pk-gcheck' }, gicon('check', 12)) : null, open ? null : h('i', { class: 'pk-glock' }, pkicon('lock', 16)));
       b.addEventListener('click', () => { audio.button(); if (!open) { say(lockText); audio.blocked(); return; } choose(); hooks.save(); openGarage(); });
       return b;
     };
-    const styles = P.STYLE_NAMES.map((nm, k) => pickBtn(st.garage.style === k, P.styleOpen(st, k), `Level ${P.styleUnlockedAt(k)}`, nm, h('span', { class: `pk-gcar s${k}` }, SVG(CAR_ICON, 30)), () => { st.garage.style = k; }));
+    const carColor = st.garage.paint ? holidayPaint(st.garage.paint) : '#e0527f';
+    const styles = P.STYLE_NAMES.map((nm, k) => pickBtn(st.garage.style === k, P.styleOpen(st, k), `Level ${P.styleUnlockedAt(k)}`, nm, h('span', { class: `pk-gcar s${k}` }, carArt(k, carColor)), () => { st.garage.style = k; }));
     const drivers = DRIVER_NAMES.map((nm, d) => pickBtn(st.garage.driver === d, P.driverOpen(st, d), `Level ${P.driverUnlockedAt(d)}`, nm, h('img', { src: driverUrl(d), alt: '' }), () => { st.garage.driver = d; }));
     const paints = ['', ...st.paints].map((id) => pickBtn(st.garage.paint === id, true, '', id ? id.replace(/-(\d{4})$/, ' $1').replace(/^./, (c) => c.toUpperCase()) : 'Classic pink', h('span', { class: 'pk-gpaint', style: `--c:${id ? holidayPaint(id) : HERO}` }), () => { st.garage.paint = id; }));
+    const nOpenStyles = P.STYLE_NAMES.filter((_, k) => P.styleOpen(st, k)).length, nOpenDrivers = DRIVER_NAMES.filter((_, d) => P.driverOpen(st, d)).length;
+    const why = noteBtn('Just for looks — every puzzle stays the same for every car.');
     settingsEl.replaceChildren(h('div', { class: 'pk-sheet pk-garage' },
-      h('h2', null, 'Garage'),
+      h('h2', null, 'Garage', why.q),
       turn.el,
-      h('p', { class: 'pk-muted' }, 'Pick your star car and who drives it. Just for looks — every puzzle stays the same.'),
-      section('Star car', ...styles), section('Driver', ...drivers),
-      section('Paint', ...paints),
-      st.paints.length ? h('span') : h('p', { class: 'pk-muted small' }, 'Finish a holiday’s 10 lots to earn its paint.'),
-      big('Done', 'primary', () => { closeTurn(); settingsEl.hidden = true; showMap(); })));
+      section('Star car', `${nOpenStyles}/${P.STYLE_NAMES.length}`, ...styles), section('Driver', `${nOpenDrivers}/${DRIVER_NAMES.length}`, ...drivers),
+      section('Paint', `${paints.length}`, ...paints),
+      why.text,
+      big('Done', 'primary', () => { closeTurn(); settingsEl.hidden = true; showMap(); }, '', 'check')));
     settingsEl.hidden = false;
   }
 
