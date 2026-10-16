@@ -216,7 +216,7 @@ goes red), Obstacle Run (three lanes: swipe or A/D to change lane, swipe up / �
 (a cart: load at the depot, bring parcels to the glowing doors, steer round the lamp posts and the flower bed — crashing into them knocks a parcel off), Mining Adventure (dig the gem piles, step
 away when the ceiling rumbles), Firefighter Fuzzy (hold SPRAY at the flames, refill the tank at the pond, save the cottages), Snowball
 Challenge (tap a target to throw, moving and far targets pay more), Beach Cleanup (pick up the litter before the tide takes it, drop
-a full bag in the bin, hop over the crabs) and Ice Skating (lean left/right to steer on the sliding ice, glide through the lit gates
+a full bag in the bin, hop over the crabs) and Ice Skating (you glide by yourself — lean left/right to steer, lean towards the lit gate and you carve through it
 in order, SPIN once between gates for style, miss the snowmen). Every one has gold / silver / bronze score tiers (shown on its card),
 runs on phones (on-screen joystick or tap) and computers (WASD/arrows, Space for the action, mouse/click), can be paused and restarted
 mid-run, and keeps your best score. Kart Race, Dolphin Adventure and Fuzzy Cooking are listed as coming soon. Rewards are town coins
