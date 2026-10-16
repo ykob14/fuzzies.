@@ -9,3 +9,4 @@ android
 !.env.example
 tools/assets/.sources
 tools/assets/.out
+tools/crossing/.out/
