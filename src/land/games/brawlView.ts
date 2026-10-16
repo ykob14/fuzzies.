@@ -154,9 +154,9 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
       for (let x = -FX + L / 2; x < FX; x += L) for (const z of [-FZ, FZ]) spots.push({ x, z, rot: along });
       for (let z = -FZ + L / 2; z < FZ; z += L) for (const x of [-FX, FX]) spots.push({ x, z, rot: along + Math.PI / 2 });
       dg.add(k.scatter('fence', spots, { shadow: shadows }));
-      const outside: { x: number; z: number; rot: number; s: number }[] = []; for (let i = 0; i < (mobile ? 16 : 28); i++) { const side = i % 4; const t = ((i * 37) % 100) / 100; const x = side < 2 ? (side ? 1 : -1) * (ARENA.hw + 3.4 + (i % 3)) : (t - 0.5) * (ARENA.hw * 2 + 8); const z = side < 2 ? (t - 0.5) * (ARENA.hd * 2 + 6) : (side === 2 ? 1 : -1) * (ARENA.hd + 3.4 + (i % 3)); outside.push({ x, z, rot: i, s: 0.95 + (i % 3) * 0.15 }); }
+      const outside: { x: number; z: number; rot: number; s: number }[] = []; for (let i = 0; i < (mobile ? 12 : 28); i++) { const side = i % 4; const t = ((i * 37) % 100) / 100; const x = side < 2 ? (side ? 1 : -1) * (ARENA.hw + 6.8 + (i % 3) * 1.3) : (t - 0.5) * (ARENA.hw * 2 + 16); const z = side < 2 ? (t - 0.5) * (ARENA.hd * 2 + 14) : (side === 2 ? 1 : -1) * (ARENA.hd + 6.8 + (i % 3) * 1.3); outside.push({ x, z, rot: i, s: 0.8 + (i % 3) * 0.12 }); }
       for (const [n, name] of (['tree_1', 'tree_2', 'tree_3', 'pine_1'] as const).entries()) if (k.has(name)) dg.add(k.scatter(name, outside.filter((_, i) => i % 4 === n), { shadow: shadows }));
-      if (k.has('flowers_a')) { const fl: { x: number; z: number; rot: number; s: number }[] = []; for (let i = 0; i < 30; i++) fl.push({ x: (i % 2 ? 1 : -1) * (ARENA.hw + 1.9 + (i % 3) * 0.35), z: -ARENA.hd + ((i * 2.37) % (ARENA.hd * 2)), rot: i, s: 0.32 }); dg.add(k.scatter('flowers_a', fl)); }
+      if (k.has('flowers_a')) { const fl: { x: number; z: number; rot: number; s: number }[] = []; for (let i = 0; i < (mobile ? 14 : 30); i++) fl.push({ x: (i % 2 ? 1 : -1) * (ARENA.hw + 1.9 + (i % 3) * 0.35), z: -ARENA.hd + ((i * 2.37) % (ARENA.hd * 2)), rot: i, s: 0.32 }); dg.add(k.scatter('flowers_a', fl)); }
     } else for (let i = 0; i < 12; i++) { const t = tree('leafy', i, 1.1, shadows); t.position.set((i % 2 ? 1 : -1) * (ARENA.hw + 3.6), 0, -ARENA.hd + i * 2.7); dg.add(t); }
   };
   let kit: Kit | null = null; let dressed = false;
@@ -495,7 +495,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     zoomK = lerp(zoomK, Math.max(0, Math.min(1, (10 - near) / 6)) * (portrait ? 0.14 : 0.2), Math.min(1, dt * 2.2));
     a.cam.back = CAM.back * (1 + zoomK); a.cam.up = CAM.up * (1 + zoomK);
     const lookX = tgt ? (tgt.x - y.x) * 0.22 : y.vx * 0.3, lookZ = tgt ? (tgt.z - y.z) * 0.22 : y.vz * 0.3;
-    const cx = Math.max(-ARENA.hw + (portrait ? 5 : 7), Math.min(ARENA.hw - (portrait ? 5 : 7), fx + Math.max(-2.2, Math.min(2.2, lookX)))), cz = Math.max(-ARENA.hd + 4, Math.min(ARENA.hd - 4, fz + Math.max(-2.2, Math.min(2.2, lookZ))));
+    const cx = Math.max(-ARENA.hw + (portrait ? 1.6 : 4.5), Math.min(ARENA.hw - (portrait ? 1.6 : 4.5), fx + Math.max(-2.2, Math.min(2.2, lookX)))), cz = Math.max(-ARENA.hd + 4, Math.min(ARENA.hd - 4, fz + Math.max(-2.2, Math.min(2.2, lookZ))));
     shake = Math.max(0, shake - dt); const sk = shake * 0.5;
     a.camTarget.set(lerp(a.camTarget.x, cx, Math.min(1, dt * 5)) + (sk ? (Math.random() - 0.5) * sk : 0), 0, lerp(a.camTarget.z, cz, Math.min(1, dt * 5)) + (sk ? (Math.random() - 0.5) * sk : 0));
     if (s.state === 'done') a.finish(s.result(), s.winner === y.team ? 'VICTORY!' : s.winner === -1 ? 'DRAW' : 'DEFEAT');
@@ -507,5 +507,7 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     dressed: () => dressed, kit: () => !!kit,
     aim: () => ({ line: aimLine.visible, reticle: reticle.visible, at: { x: reticle.position.x, z: reticle.position.z } }),
     pressFire: (on: boolean) => { ctl.fireHeld = on; },
+    scene: () => scene,
+    info: () => ({ calls: a.renderer.info.render.calls, tris: a.renderer.info.render.triangles, geos: a.renderer.info.memory.geometries, tex: a.renderer.info.memory.textures }),
   };
 }
