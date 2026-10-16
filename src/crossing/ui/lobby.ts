@@ -71,7 +71,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
 
   // ---- Play ----
   const modes: { id: PanelName; ic: ArtName; label: string; sub: string }[] = [
-    { id: 'worlds', ic: 'worlds', label: 'Worlds', sub: `${Object.keys(s.worlds ?? {}).length} / 150 levels` },
+    { id: 'worlds', ic: 'worlds', label: 'Worlds', sub: `${Object.keys(s.worlds ?? {}).length} / 150` },
     { id: 'endless', ic: 'endless', label: 'Endless', sub: s.endless?.best ? `Best ${s.endless.best}` : 'How far can you go?' },
     { id: 'events', ic: 'events', label: 'Events', sub: 'Seasonal fun' },
   ];

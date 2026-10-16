@@ -1,0 +1,125 @@
+/* Worlds: the campaign map and the level path. Cards use each world's own colour; UI chrome stays on the app's neutrals + raspberry. */
+.fzw { padding: 14px; display: grid; gap: 14px; max-width: 980px; margin: 0 auto; container-type: inline-size; }
+.fzw-head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.fzw-head h3 { font: 700 19px/1.15 var(--brand); margin: 0; }
+.fzw-head p { margin: 4px 0 0; font-size: 13px; }
+.fzw-total { flex: none; padding: 7px 12px; border-radius: 99px; background: var(--surface-2); font-weight: 800; color: #d99a00; white-space: nowrap; }
+.fzw-total b { color: var(--text); }
+.fzw-total small { color: var(--muted); font-weight: 700; }
+.fzw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px; }
+.fzw-card { position: relative; overflow: hidden; display: grid; align-content: start; gap: 3px; min-height: 148px; padding: 12px 12px 12px; border: 0; border-radius: 18px; text-align: left; cursor: pointer; font: inherit;
+  background: var(--wc); color: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 18px color-mix(in srgb, var(--wc) 30%, transparent); transition: transform .15s var(--ease, ease), box-shadow .15s; }
+.fzw-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px color-mix(in srgb, var(--wc) 40%, transparent); }
+.fzw-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.fzw-card.locked { background: color-mix(in srgb, var(--wc) 28%, #7b7d86); filter: saturate(.55); }
+.fzw-card.shake { animation: fzwShake .35s; }
+@keyframes fzwShake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.fzw-scene { position: absolute; inset: auto 0 0 0; width: 100%; height: 62%; pointer-events: none; }
+.fzw-card > *:not(.fzw-scene) { position: relative; }
+.fzw-card-top { display: flex; align-items: center; gap: 6px; }
+.fzw-card-top small { font: 800 11px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
+.fzw-emoji { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.22); font-size: 18px; }
+.fzw-emoji.big { width: 52px; height: 52px; font-size: 30px; border-radius: 16px; }
+.fzw-card b { font: 700 18px/1.12 var(--brand); text-shadow: 0 1px 2px rgba(0,0,0,.18); }
+.fzw-card em { font-style: normal; font-size: 12.5px; line-height: 1.3; opacity: .95; }
+.fzw-card-foot { margin-top: auto; padding-top: 10px; display: grid; gap: 5px; }
+.fzw-card-foot small { font-weight: 800; font-size: 12px; }
+.fzw-prog { display: block; height: 7px; border-radius: 99px; background: rgba(0,0,0,.18); overflow: hidden; }
+.fzw-prog i { display: block; height: 100%; background: #fff; border-radius: 99px; }
+.fzw-lock { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 12.5px; }
+.fzw-prize { position: absolute !important; top: 10px; right: 10px; display: grid; justify-items: center; gap: 1px; max-width: 76px; text-align: center; }
+.fzw-prize img { width: 38px; height: 38px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+.fzw-prize:not(.got) img { filter: grayscale(1) brightness(1.4) opacity(.65); }
+.fzw-prize small { font-size: 10px; font-weight: 800; line-height: 1.1; }
+.fzw-flaw { position: absolute !important; bottom: 10px; right: 12px; font-size: 18px; }
+.fzw-backlink { justify-self: start; display: inline-flex; align-items: center; gap: 4px; border: 0; background: var(--surface-2); color: var(--text); font: inherit; font-weight: 700; font-size: 13px; padding: 7px 12px 7px 8px; border-radius: 99px; cursor: pointer; }
+.fzw-banner { position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 18px; background: var(--wc); color: #fff; }
+.fzw-banner > *:not(.fzw-scene) { position: relative; }
+.fzw-banner div { display: grid; gap: 2px; min-width: 0; }
+.fzw-banner small { font: 800 11px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
+.fzw-banner b { font: 700 21px/1.1 var(--brand); }
+.fzw-banner em { font-style: normal; font-size: 13px; opacity: .95; }
+.fzw-banner-stat { margin-left: auto; display: grid; justify-items: end; padding: 6px 10px; border-radius: 12px; background: rgba(0,0,0,.16); }
+.fzw-banner-stat b { font-size: 18px; }
+.fzw-teach { display: flex; flex-wrap: wrap; gap: 6px; }
+.fzw-teach span { font-size: 12.5px; font-weight: 700; padding: 6px 10px; border-radius: 99px; background: var(--surface-2); color: var(--text); }
+.fzw-teach span.prize { background: color-mix(in srgb, #f59e0b 16%, var(--surface)); }
+.fzw-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 14px; align-items: start; }
+/* the winding path: 5 nodes per row, every other row runs backwards */
+.fzw-path { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px 10px; padding: 14px 10px; border-radius: 18px; background: color-mix(in srgb, var(--wc) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--wc) 22%, var(--border)); }
+.fzw-node:nth-child(-n+5) { grid-row: 1; }
+.fzw-node:nth-child(6) { grid-column: 5; } .fzw-node:nth-child(7) { grid-column: 4; } .fzw-node:nth-child(8) { grid-column: 3; } .fzw-node:nth-child(9) { grid-column: 2; } .fzw-node:nth-child(10) { grid-column: 1; }
+.fzw-node:nth-child(6), .fzw-node:nth-child(7), .fzw-node:nth-child(8), .fzw-node:nth-child(9), .fzw-node:nth-child(10) { grid-row: 2; }
+.fzw-node:nth-child(n+11) { grid-row: 3; }
+.fzw-node { position: relative; justify-self: center; width: min(100%, 76px); aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 2px; border-radius: 50%; border: 0; cursor: pointer; font: inherit;
+  background: var(--surface); color: var(--text); box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--wc) 30%, #0002), 0 3px 10px #0001; transition: transform .15s var(--ease, ease); }
+.fzw-node:hover { transform: translateY(-2px); }
+.fzw-node.done { background: var(--wc); color: #fff; }
+.fzw-node.locked { background: var(--surface-2); color: var(--muted); cursor: default; box-shadow: none; }
+.fzw-node.sel { outline: 3px solid var(--accent); outline-offset: 3px; }
+.fzw-node.focus { animation: fzwPulse 1.2s ease 2; }
+@keyframes fzwPulse { 50% { transform: scale(1.12); } }
+.fzw-node.ms:not(.locked) { border-radius: 30%; }
+.fzw-num { font: 800 18px/1 var(--brand); display: grid; place-items: center; }
+.fzw-badge { position: absolute; top: -6px; right: -4px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); box-shadow: 0 2px 6px #0002; font-size: 13px; }
+.fzw-stars { display: inline-flex; gap: 1px; font-size: 11px; line-height: 1; letter-spacing: 0; }
+.fzw-stars i { font-style: normal; color: color-mix(in srgb, currentColor 30%, transparent); }
+.fzw-stars i.on { color: #ffc531; text-shadow: 0 0 1px #b07a00; }
+.fzw-detail { display: grid; gap: 10px; padding: 14px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; }
+.fzw-detail-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.fzw-detail-top div { display: grid; gap: 2px; }
+.fzw-detail-top small { font: 800 11px/1.2 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.fzw-detail-top b { font: 700 20px/1.15 var(--brand); }
+.fzw-detail-top .fzw-stars { font-size: 18px; }
+.fzw-goal, .fzw-tip { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; line-height: 1.35; }
+.fzw-goal { font-weight: 700; }
+.fzw-goal-ic { flex: none; }
+.fzw-starsrule { margin: 0; font-size: 12px; }
+@container (max-width: 640px) {
+  .fzw-body { grid-template-columns: minmax(0, 1fr); }
+  .fzw-detail { position: static; }
+  .fzw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+}
+@media (max-width: 700px) {
+  .fzw { padding: 12px 12px 18px; }
+  .fzw-body { grid-template-columns: minmax(0, 1fr); }
+  .fzw-detail { position: static; }
+  .fzw-path { gap: 10px 6px; padding: 12px 6px; }
+  .fzw-num { font-size: 16px; }
+  .fzw-banner b { font-size: 18px; }
+  .fzw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .fzw-card { min-height: 132px; padding: 10px; }
+  .fzw-card b { font-size: 15.5px; }
+  .fzw-card em { font-size: 11.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .fzw-prize { top: 8px; right: 8px; }
+  .fzw-prize img { width: 28px; height: 28px; }
+  .fzw-prize small { display: none; }
+}
+:root[data-motion='reduce'] .fzw-node.focus, :root[data-motion='reduce'] .fzw-card.shake { animation: none; }
+
+/* ---- in the game: the level banner, the goal pill and the level cards ---- */
+.fzw-intro { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: auto; cursor: pointer; }
+.fzw-intro-card { display: grid; justify-items: center; gap: 4px; padding: 16px 22px; border-radius: 22px; background: color-mix(in srgb, var(--wc, #6cbf4a) 92%, #000); color: #fff; text-align: center; box-shadow: 0 16px 40px #0004;
+  animation: fzwIntro 1.7s var(--ease, ease) both; max-width: min(90%, 420px); }
+.fzw-intro-card small { font: 800 11px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; opacity: .9; }
+.fzw-intro-card b { font: 700 26px/1.1 var(--brand); }
+.fzw-intro-card span { font-size: 14px; font-weight: 700; }
+.fzw-intro-card em { font-style: normal; font-size: 13px; opacity: .92; }
+@keyframes fzwIntro { 0% { opacity: 0; transform: scale(.85) translateY(10px); } 14% { opacity: 1; transform: none; } 82% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scale(1.04); } }
+:root[data-motion='reduce'] .fzw-intro-card { animation-duration: .01s; animation-fill-mode: none; }
+.fzw-goalpill { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 10px; align-items: center; padding: 6px 12px; border-radius: 99px; background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--shadow-md, 0 4px 12px #0002); font-weight: 800; font-size: 13px; white-space: nowrap; pointer-events: none; }
+.fzw-goalpill[hidden], .game-shell:has(> .game-overlay:not([hidden])) .fzw-goalpill { display: none; }
+.fzw-goalpill .t-low { color: #e5484d; }
+.fzw-goalpill .nests i { font-style: normal; opacity: .3; }
+.fzw-goalpill .nests i.on { opacity: 1; }
+.go-card.fzw-end { text-align: center; }
+.fzw-end .fzw-bigstars { display: flex; justify-content: center; gap: 6px; font-size: 44px; line-height: 1; }
+.fzw-end .fzw-bigstars i { font-style: normal; color: var(--border); transform: scale(.4); opacity: 0; animation: fzwStar .45s var(--ease, ease) forwards; }
+.fzw-end .fzw-bigstars i.on { color: #ffc531; text-shadow: 0 2px 0 #c98a00; }
+.fzw-end .fzw-bigstars i:nth-child(2) { animation-delay: .25s; } .fzw-end .fzw-bigstars i:nth-child(3) { animation-delay: .5s; }
+@keyframes fzwStar { 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+:root[data-motion='reduce'] .fzw-end .fzw-bigstars i { animation: none; transform: none; opacity: 1; }
+.fzw-end .fzw-endsub { margin: -4px 0 0; color: var(--muted); font-size: 13.5px; }
+.fzw-end .fzw-bonus { font-size: 13px; font-weight: 700; color: #b07a00; }
+.fzx-tiles:has(> :nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fzx-world-ic { font-size: 20px; line-height: 1; }

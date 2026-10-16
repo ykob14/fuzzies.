@@ -114,6 +114,8 @@ export type CrossingEvent =
   | { kind: 'pickup'; gold: boolean }
   | { kind: 'nest' }
   | { kind: 'hop' }
+  | { kind: 'advance' } // the Fuzzy reached a row it hadn't reached yet in this life
+  | { kind: 'trainPassed' } // survived a train crossing
   | { kind: 'death'; how: 'splash' | 'crash' | 'bonk' | 'time' | 'train' | 'other' }
   | { kind: 'levelClear'; world?: number; level?: number; stars?: number; flawless?: boolean }
   | { kind: 'advance' } // the Fuzzy reached a row it hadn't reached yet in this life
