@@ -1,0 +1,24 @@
+.fzx-results { gap: 14px; min-height: 0; justify-content: center; }
+.fzx-rs-top { display: grid; justify-items: center; gap: 2px; }
+.fzx-rs-fuzzy { width: 104px; height: 104px; object-fit: contain; display: block; filter: drop-shadow(0 8px 10px color-mix(in srgb, var(--accent) 28%, transparent)); animation: fzxHop 1.1s ease-out 1; }
+.fzx-rs-top h2 { font: 700 30px/1 var(--brand); text-align: center; letter-spacing: .005em; }
+.fzx-rs-score { display: grid; justify-items: center; gap: 6px; }
+.fzx-rs-score small { font: 700 12px/1 var(--brand); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.fzx-rs-score > b { font: 700 62px/1 var(--brand); color: var(--accent); letter-spacing: -.01em; }
+.fzx-rs-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.fzx-rs-stat { display: grid; justify-items: center; gap: 4px; padding: 12px 6px 10px; }
+.fzx-rs-stat > b { font: 700 24px/1 var(--brand); margin-top: 3px; }
+.fzx-rs-stat > small { font: 700 11.5px/1 var(--brand); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.fzx-rs-stat.gold { border-color: color-mix(in srgb, var(--gold) 50%, var(--card-lip)); box-shadow: 0 4px 0 color-mix(in srgb, var(--gold) 45%, var(--card-lip)); }
+.fzx-rs-stat.gold > b { color: #b97800; }
+.fzx-rs-pass { position: relative; display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px 12px; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+.fzx-rs-pass.ready { border-color: var(--accent); box-shadow: 0 4px 0 var(--lip); }
+.fzx-rs-pt { display: grid; gap: 8px; flex: 1; min-width: 0; }
+.fzx-rs-pt > b { font: 700 15px/1 var(--brand); }
+.fzx-lvl-bar.wide { width: 100%; }
+.fzx-rs-pass .fzx-new { top: 8px; right: 8px; }
+.fzx-rs-sec { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fzx-sbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 18px; border: 2px solid var(--card-lip); background: var(--surface); box-shadow: 0 4px 0 var(--card-lip); font: 700 15px/1 var(--brand); color: var(--text); cursor: pointer; transition: transform .1s, box-shadow .1s; }
+.fzx-sbtn:active { transform: translateY(4px); box-shadow: none; }
+.fzx-sbtn .fzx-gi { color: var(--accent); }
+.fzx-results .fzx-boardsline { justify-self: center; }

@@ -6,7 +6,7 @@ import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { track } from '../../core/missions';
 import { travel } from '../travel';
-import { h, btn, icon, fuzzyMark } from '../dom';
+import { h, btn, icon } from '../dom';
 import { coinMark } from '../../crossing/ui/kit';
 import { isTouch } from '../../core/util';
 import * as store from '../../crossing/store';
@@ -14,10 +14,10 @@ import { initCrossing } from '../../crossing/init';
 import * as net from '../../crossing/net';
 import { BOARDS, BOARD_IDS } from '../../crossing/rewards-weekly';
 import { equippedCharacter } from '../../crossing/store';
-import { character } from '../../crossing/characters';
 import { createHub, type NavTarget } from '../../crossing/hub';
 import '../../crossing/ui/hub.css';
 import { renderLobby } from '../../crossing/ui/lobby';
+import { renderResults } from '../../crossing/ui/results';
 import '../../crossing/ui/boards-menu.css';
 
 type Dir = 'up' | 'down' | 'left' | 'right';
@@ -228,20 +228,6 @@ export function playScreen(): Screen {
   }
 
   /** Your best runs, with the one you just played highlighted. */
-  function topList(highlight = 0, n = 5): HTMLElement | null {
-    const list = a.topScores.slice(0, n);
-    if (!list.length) return null;
-    const medal = ['🥇', '🥈', '🥉'];
-    return h('div', { class: 'top-scores' },
-      h('p', { class: 'pnl-label' }, 'Your top scores'),
-      h('ol', null, ...list.map((s, i) => {
-        const sk = { colors: character(s.skin).color };
-        return h('li', { class: s.at === highlight ? 'me' : '' },
-          h('span', { class: 'ts-rank' }, medal[i] ?? `${i + 1}.`), fuzzyMark(18, sk.colors),
-          h('b', null, s.score.toLocaleString()), h('small', null, `Lv ${s.level} · ${new Date(s.at).toLocaleDateString()}`));
-      })));
-  }
-
   function showOver(r: Result): void {
     const isBest = r.score > a.stats.bestScore;
     const entry = { score: r.score, level: r.level, at: Date.now(), skin: skinOf().id };
@@ -250,7 +236,6 @@ export function playScreen(): Screen {
       x.stats.bestLevel = Math.max(x.stats.bestLevel, r.level);
       if (r.score > 0) x.topScores = [...x.topScores, entry].sort((p, q) => q.score - p.score).slice(0, 10);
     });
-    const rank = a.topScores.indexOf(a.topScores.find((s) => s.at === entry.at)!) + 1;
     store.report({ kind: 'run', score: r.score, level: r.level, mode: 'classic' });
     const boardsLine = net.canCompete() ? h('button', { class: 'fzx-boardsline', type: 'button', hidden: true, onclick: () => go({ to: 'leaderboard' }) }) : null;
     void net.finishRun({ score: r.score, level: r.level }).then((rep) => {
@@ -268,25 +253,15 @@ export function playScreen(): Screen {
     const pass = store.passInfo();
     const levelsUp = pass.level - runStartPass;
     overlay.hidden = false;
-    overlay.replaceChildren(h('div', { class: 'go-card' },
-      h('h2', null, isBest ? '🏆 New best score!' : 'Game over'),
-      h('div', { class: 'go-stats' },
-        h('div', null, h('small', null, 'Score'), h('b', null, String(r.score))),
-        h('div', null, h('small', null, 'Level'), h('b', null, String(r.level))),
-        h('div', null, h('small', null, 'Nests'), h('b', null, String(r.homes)))),
-      h('div', { class: 'go-earned fzx-earned' }, coinMark(36), h('div', null, h('b', null, `+${gainedCoins} coins`), h('small', null, `You have ${store.coins().toLocaleString()} · plus ${r.fuzzies} Fuzzies for the website`))),
-      h('button', { class: 'fzx-passbar', type: 'button', onclick: () => go({ to: 'pass' }) },
-        h('span', null, levelsUp > 0 ? `Fuzzy Pass level ${pass.level}!` : `Fuzzy Pass · level ${pass.level}`), h('small', null, `+${gainedXp} XP`),
-        h('i', { class: 'fzx-passbar-track' }, h('i', { style: `width:${pass.maxed ? 100 : Math.round((pass.into / pass.need) * 100)}%` })),
-        store.passClaimable().length ? h('em', null, `${store.passClaimable().length} reward${store.passClaimable().length > 1 ? 's' : ''} to claim`) : null),
-      rank > 0 && !isBest ? h('p', { class: 'hint center' }, `#${rank} in your top 10 scores!`) : null,
-      boardsLine,
-      topList(entry.at, 3),
-      btn('Play again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { void newGame().then(begin); } }),
-      h('div', { class: 'btn-row' },
-        btn('Menu', { kind: 'soft', icon: 'home', onClick: () => { void newGame().then(showStart); } }),
-        btn('Fuzzies Land', { kind: 'soft', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) }),
-        btn('Back to designing', { kind: 'ghost', icon: 'brush', onClick: () => (location.hash = '#/home') }))));
+    overlay.replaceChildren(renderResults({
+      me: equippedCharacter(), isBest, score: r.score, best: a.stats.bestScore, level: r.level, nests: r.homes, coins: gainedCoins, xp: gainedXp,
+      pass: { level: pass.level, pct: pass.maxed ? 100 : Math.round((pass.into / Math.max(1, pass.need)) * 100), leveledUp: levelsUp > 0, claimable: store.passClaimable().length },
+      boards: boardsLine,
+      again: () => { void newGame().then(begin); },
+      menu: () => { void newGame().then(showStart); },
+      openPass: () => go({ to: 'pass' }),
+      toLand: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }),
+    }));
     void celebrateUnlocks();
   }
 
@@ -333,6 +308,7 @@ export function playScreen(): Screen {
     // the start / pause / game-over card covers the whole shell (HUD and arrows too) so it fits on small screens
     shellEl);
   initCrossing();
+  if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__play = { showOver: (r: Result) => showOver(r) };
   requestAnimationFrame(() => { void newGame(); showStart(); });
 
   return {
