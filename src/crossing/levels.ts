@@ -198,7 +198,7 @@ const LAYOUTS: string[][] = [
 ];
 
 /** per-level seed variant (the fairness check bumps an entry when a design needs another seed) */
-const VARIANT: Record<string, number> = { '7-15': 1, '9-14': 3 };
+const VARIANT: Record<string, number> = { '6-15': 1, '7-15': 1, '8-15': 1, '9-14': 8, '9-15': 1 };
 
 const NAMES: string[][] = [
   ['First Hops', 'Coin Trail', 'Lily Lane', 'Truck Stop', 'Morning Dash', 'Sinking Pads', 'Bus Route', 'Meadow Run', 'Duck Pond', 'Golden Meadow', 'Busy Bridge', 'Picnic Rush', 'River Bend', 'Sunset Fields', 'Meadow Marathon'],
