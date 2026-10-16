@@ -6,7 +6,7 @@
  * Rules live in land/adventures.ts; the mini-games have their own files (land/raceView.ts…).
  */
 import { h, btn } from './dom';
-import { landIcon } from './landIcons';
+import { landIcon, gameIcon, medalIcon } from './landIcons';
 import * as A from '../land/adventures';
 import type { LandState } from '../land/rules';
 
@@ -44,22 +44,24 @@ export function conversation(o: TalkOpts): { el: HTMLElement; say: (t: string) =
     : [btn('Chat', { kind: 'soft', onClick: () => { const line = c.chat[Math.floor(Math.random() * c.chat.length)]; say(line); o.onChat(line); } }),
       btn(`Find ${o.hostName}`, { kind: 'primary', icon: undefined, class: 'land-talk-find', onClick: o.onFindHost })];
   const el = h('div', { class: `land-talk ${o.isHost ? 'is-host' : ''} ${complete ? 'complete' : ''}`, role: 'dialog', 'aria-label': `Talking to ${o.name}` },
-    h('button', { class: 'land-talk-x', type: 'button', 'aria-label': 'Close', onclick: o.onClose }, '✕'),
+    h('button', { class: 'land-talk-x', type: 'button', 'aria-label': 'Close', onclick: o.onClose }, landIcon('close', 16)),
     h('div', { class: 'land-talk-who' },
       h('div', { class: 'land-talk-pic' }, o.portrait ? h('img', { src: o.portrait, alt: '' }) : null),
-      h('div', { class: 'land-talk-id' }, h('b', null, o.name), h('span', { class: 'land-talk-role' }, `${c.emoji} ${c.title}`), h('small', null, c.bio))),
+      h('div', { class: 'land-talk-id' }, h('b', null, o.name), h('span', { class: 'land-talk-role' }, c.title), h('small', null, c.bio))),
     h('div', { class: 'land-talk-bubble' }, speech,
       o.isHost ? h('div', { class: 'land-talk-mission' },
-        h('span', { class: 'land-talk-tag' }, landIcon('compass', 18), complete ? '✓ Completed' : 'My mission for you'),
-        h('b', null, `${adv.emoji} ${adv.name}${o.mission.variant ? ` — ${o.mission.variant.name}` : ''}`),
-        complete && done
-          ? h('small', null, `Finished ${A.placeWord(done.place)} · +${done.coins} coins collected`)
-          : h('small', null, adv.objective + (adv.limit ? ` · ⏱ ${limitWord(adv.limit)}` : '')),
-        !complete && o.mission.variant ? h('small', { class: 'land-talk-twist' }, `The twist: ${o.mission.variant.note}`) : null,
-        complete ? null : h('details', { class: 'land-talk-howto' }, h('summary', null, 'How to play'), h('ol', null, ...adv.howTo.map((t) => h('li', null, t))), h('small', null, `${isTouchDevice() ? adv.controls.mobile : adv.controls.desktop}`)),
-        h('div', { class: 'land-talk-reward' },
-          ...(complete ? [] : adv.coins.slice(0, 3).map((n, i) => h('span', null, A.medal(i + 1), ' ', landIcon('coin', 16), String(n)))),
-          complete ? h('em', null, nextWords(o.mission.resetsIn)) : h('em', null, `+${adv.xp} XP · no deadline — finish your three missions in any order`))) : null),
+        h('div', { class: 'land-talk-mhead' },
+          h('span', { class: 'land-gtile' }, gameIcon(adv.id, 34)),
+          h('div', null,
+            h('span', { class: 'land-talk-tag' }, complete ? landIcon('check', 14) : null, complete ? 'Completed' : 'My mission for you'),
+            h('b', null, `${adv.name}${o.mission.variant ? ` — ${o.mission.variant.name}` : ''}`),
+            complete && done
+              ? h('small', null, `${A.placeWord(done.place)} · +${done.coins} coins collected`)
+              : h('small', null, h('span', null, adv.objective), adv.limit ? h('span', { class: 'land-time' }, landIcon('clock', 14), limitWord(adv.limit)) : null))),
+        !complete && o.mission.variant ? h('small', { class: 'land-talk-twist' }, o.mission.variant.note) : null,
+        complete ? h('em', { class: 'land-talk-next' }, nextWords(o.mission.resetsIn))
+          : h('div', { class: 'land-talk-reward' }, ...adv.coins.slice(0, 3).map((n, i) => h('span', { class: 'land-chip' }, medalIcon(i + 1, 22), landIcon('coin', 16), String(n))), h('span', { class: 'land-chip xp' }, landIcon('star', 16), `${adv.xp} XP`)),
+        complete ? null : h('details', { class: 'land-talk-howto' }, h('summary', null, landIcon('help', 18), 'How to play'), h('ol', null, ...adv.howTo.map((t) => h('li', null, t))), h('small', null, `${isTouchDevice() ? adv.controls.mobile : adv.controls.desktop}`))) : null),
     h('div', { class: 'land-talk-actions' }, ...actions));
   const hello = c.hello[Math.floor(Math.random() * c.hello.length)];
   say(complete && done ? `${hello} Great work — you finished ${A.placeWord(done.place)}, that one’s done! ${nextWords(o.mission.resetsIn)}` : o.isHost ? `${hello} ${adv.pitch}` : hello);
@@ -70,16 +72,18 @@ export function conversation(o: TalkOpts): { el: HTMLElement; say: (t: string) =
 export function dailyPill(onTap: () => void): { el: HTMLElement; update: (st: A.SetStatus, nextHost: string) => void } {
   const text = h('span', { class: 'land-daily-t' });
   const sub = h('small', { class: 'land-daily-s' });
-  const el = h('button', { class: 'land-daily', type: 'button', onclick: onTap, title: 'Your missions' }, h('span', { class: 'land-daily-ic' }, landIcon('compass', 26)), h('span', null, text, sub));
+  const pips = h('span', { class: 'land-daily-pips', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'));
+  const el = h('button', { class: 'land-daily', type: 'button', onclick: onTap, title: 'Your missions' }, h('span', { class: 'land-daily-ic' }, landIcon('compass', 26)), h('span', { class: 'land-daily-body' }, text, pips, sub));
   return {
     el,
     update(st, nextHost) {
       el.hidden = false;
       el.classList.toggle('done', st.allDone);
       el.classList.toggle('ready', st.ready);
-      if (st.ready) { text.textContent = 'New missions!'; sub.textContent = 'Three Fuzzies are waiting — tap to see'; }
-      else if (st.allDone) { text.textContent = `✓ All ${st.total} done`; sub.textContent = `New missions in ${A.countdown(st.unlockIn)}`; }
-      else { text.textContent = `Missions ${st.doneCount}/${st.total}`; sub.textContent = `${nextHost} is waiting · no deadline`; }
+      [...pips.children].forEach((p, i) => p.classList.toggle('on', i < st.doneCount));
+      if (st.ready) { text.textContent = 'New missions!'; sub.textContent = 'Tap to see'; }
+      else if (st.allDone) { text.textContent = `✓ All ${st.total} done`; sub.textContent = `Next in ${A.countdown(st.unlockIn)}`; }
+      else { text.textContent = `Missions ${st.doneCount}/${st.total}`; sub.textContent = `${nextHost} is waiting`; }
     },
   };
 }
@@ -90,41 +94,40 @@ export function adventuresBody(s: LandState, now: number, hostNameOf: (id: strin
   const st = A.setStatus(s, now);
   const a = A.adventures(s, now);
   const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
-  const next = h('p', { class: `land-adv-next ${st.ready ? 'ready' : ''}` }, landIcon('clock', 22),
-    st.ready ? h('span', null, h('b', null, 'New missions are ready!'), ' Close this and look for the Fuzzies with a compass.')
-      : st.allDone ? h('span', null, 'All three done — next set in ', h('b', null, A.countdown(st.unlockIn)))
-        : h('span', null, h('b', null, `${st.doneCount} of ${st.total} done`), ' · new missions 10 minutes after these are done'));
+  // one chunky bar: how many of the three are done
+  const next = h('div', { class: `land-adv-next ${st.ready ? 'ready' : ''}` },
+    h('div', { class: `land-adv-prog progress land-bar ${st.allDone ? 'full' : ''}` }, h('div', { style: `width:${(st.doneCount / Math.max(1, st.total)) * 100}%` }), h('small', null, `${st.doneCount} / ${st.total}`)),
+    h('small', null, st.ready ? 'New missions are ready — look for the Fuzzies with a compass.' : st.allDone ? `Next set in ${A.countdown(st.unlockIn)}` : 'New missions come 10 minutes after these are done'));
   const cards = t.list.map(({ adventure: adv, variant }, i) => {
     const m = A.mission(s, now, adv.id);
     const hostName = hostNameOf(adv.id);
     const skin = hostSkin?.(adv.id);
     return h('div', { class: `land-adv-featured ${m.done ? 'is-done' : ''}` },
-      h('div', { class: 'land-adv-head' }, h('span', { class: 'land-adv-emoji' }, adv.emoji), h('div', null,
-        h('span', { class: 'land-adv-kicker' }, m.done ? '✓ Completed' : `Mission ${i + 1}`),
+      h('div', { class: 'land-adv-head' }, h('span', { class: 'land-gtile big' }, gameIcon(adv.id, 44)), h('div', null,
+        h('span', { class: 'land-adv-kicker' }, m.done ? landIcon('check', 14) : null, m.done ? 'Completed' : `Mission ${i + 1}`),
         h('b', null, adv.name + (variant ? ` — ${variant.name}` : '')),
-        h('small', null, adv.objective + (adv.limit ? ` · ⏱ ${limitWord(adv.limit)}` : '')),
-        h('span', { class: 'land-adv-host' }, skin ? h('i', { style: `background:${skin}` }) : null, `${hostName} has it`),
-        variant && !m.done ? h('small', { class: 'land-adv-twist' }, variant.note) : null)),
-      h('div', { class: 'land-adv-rewards' }, ...adv.coins.slice(0, 3).map((n, k) => h('div', { class: 'land-adv-place' }, h('span', null, A.medal(k + 1)), h('b', null, landIcon('coin', 18), String(n)), h('small', null, adv.kind === 'score' ? ['Gold', 'Silver', 'Bronze'][k] : A.placeWord(k + 1)))), h('div', { class: 'land-adv-place' }, h('span', null, '✨'), h('b', null, `+${adv.xp}`), h('small', null, 'XP'))),
-      m.done ? null : h('details', { class: 'land-adv-howto' }, h('summary', null, 'How to play'), h('ol', null, ...adv.howTo.map((t) => h('li', null, t))), h('small', null, `Controls: ${isTouchDevice() ? adv.controls.mobile : adv.controls.desktop}`), h('small', null, adv.scoring)),
+        h('small', null, h('span', null, adv.objective), adv.limit ? h('span', { class: 'land-time' }, landIcon('clock', 14), limitWord(adv.limit)) : null))),
+      h('div', { class: 'land-adv-meta' },
+        h('span', { class: 'land-adv-host' }, skin ? h('i', { style: `background:${skin}` }) : null, hostName),
+        variant && !m.done ? h('small', { class: 'land-adv-twist' }, variant.note) : null),
       m.done
-        ? h('p', { class: 'land-adv-status done' }, `${A.medal(m.done.place)} Finished ${A.placeWord(m.done.place)} · +${m.done.coins} coins collected.`)
-        : h('p', { class: 'land-adv-status' }, `Open · ${hostName} is waiting in town — no deadline.`),
-      m.done ? null : h('div', { class: 'btn-row' }, btn('Start Adventure', { kind: 'primary', onClick: () => onPlay(adv) }), btn(`Find ${hostName}`, { kind: 'soft', class: 'land-adv-find', onClick: () => onFind(adv) })));
+        ? h('p', { class: 'land-adv-status done' }, medalIcon(m.done.place, 24), `${A.placeWord(m.done.place)} · +${m.done.coins} coins`)
+        : h('div', { class: 'land-adv-rewards' }, ...adv.coins.slice(0, 3).map((n, k) => h('div', { class: 'land-adv-place' }, medalIcon(k + 1, 26), h('b', null, landIcon('coin', 16), String(n)))), h('div', { class: 'land-adv-place xp' }, landIcon('star', 26), h('b', null, `${adv.xp} XP`))),
+      m.done ? null : h('details', { class: 'land-adv-howto' }, h('summary', null, landIcon('help', 18), 'How to play'), h('ol', null, ...adv.howTo.map((t) => h('li', null, t))), h('small', null, `${isTouchDevice() ? adv.controls.mobile : adv.controls.desktop}`), h('small', null, adv.scoring)),
+      m.done ? null : h('div', { class: 'btn-row' }, btn('Start', { kind: 'primary', class: 'land-adv-start', onClick: () => onPlay(adv) }), btn(`Find ${hostName}`, { kind: 'soft', class: 'land-adv-find', onClick: () => onFind(adv) })));
   });
   const recordRows = A.playable().map((adv) => {
     const m = A.mission(s, now, adv.id);
     const scoreGame = adv.kind === 'score' || m.bestScore !== null;
-    return h('div', { class: 'land-adv-rec' }, h('span', { class: 'land-adv-emoji sm' }, adv.emoji), h('div', { class: 'land-adv-grid' },
+    return h('div', { class: 'land-adv-rec' }, h('span', { class: 'land-gtile' }, gameIcon(adv.id, 28)), h('div', { class: 'land-adv-grid' },
       h('span', null, h('small', null, 'Plays'), h('b', null, String(m.plays))),
-      h('span', null, h('small', null, adv.kind === 'score' ? 'Best tier' : 'Best place'), h('b', null, m.best ? `${A.medal(m.best)} ${A.placeWord(m.best)}` : '—')),
+      h('span', null, h('small', null, adv.kind === 'score' ? 'Best tier' : 'Best place'), h('b', { class: 'land-best' }, m.best ? [medalIcon(m.best, 18), ` ${A.placeWord(m.best)}`] : '—')),
       h('span', null, h('small', null, scoreGame ? 'Best score' : 'Best time'), h('b', null, scoreGame ? (m.bestScore !== null ? String(m.bestScore) : '—') : (m.bestTime ? fmt(m.bestTime) : '—'))),
-      h('span', null, h('small', null, 'Now'), h('b', null, m.done ? '✓ done' : A.inSet(s, adv.id, now) ? 'open' : '—'))));
+      h('span', null, h('small', null, 'Now'), h('b', null, m.done ? 'Done' : A.inSet(s, adv.id, now) ? 'Open' : '—'))));
   });
-  const records = h('div', { class: 'land-adv-records' }, h('b', null, 'Your records'), ...recordRows, h('p', { class: 'land-adv-wood' }, `🪵 Wood in the barn: ${a.wood} · sets finished: ${a.setsDone}`));
-  const pool = h('div', { class: 'land-adv-more' }, h('b', null, 'How missions work'),
-    h('p', { class: 'land-adv-how' }, 'Three missions at a time, each with its own Fuzzy in town. Finish them in any order — there is no deadline, and a finished mission shows a Completed mark over its Fuzzy. Five hours after a set was issued, and once all three are done, the next set of three arrives. Each mission pays town coins and XP once.'),
-    ...A.playable().filter((x) => !t.list.some((y) => y.adventure.id === x.id)).map((x) => h('div', { class: 'land-adv-row' }, h('span', { class: 'land-adv-emoji sm' }, x.emoji), h('div', null, h('b', null, x.name), h('small', null, `${x.objective}${x.variants ? ` · twists: ${Object.values(x.variants).map((v) => v.name).join(', ')}` : ''}`)))));
+  const records = h('details', { class: 'land-adv-records' }, h('summary', null, 'Your records'), ...recordRows, h('p', { class: 'land-adv-wood' }, `Wood in the barn: ${a.wood} · sets finished: ${a.setsDone}`));
+  const pool = h('details', { class: 'land-adv-more' }, h('summary', null, 'More games'),
+    ...A.playable().filter((x) => !t.list.some((y) => y.adventure.id === x.id)).map((x) => h('div', { class: 'land-adv-row' }, h('span', { class: 'land-gtile' }, gameIcon(x.id, 28)), h('div', null, h('b', null, x.name), h('small', null, x.objective)))));
   return h('div', { class: 'land-adv' }, next, ...cards, records, pool);
 }
 
