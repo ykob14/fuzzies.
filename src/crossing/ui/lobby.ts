@@ -12,6 +12,7 @@ import { panelAvailable, type NavTarget, type PanelName } from '../hub';
 import { friendUrl } from '../../content/friends';
 import { coinMark, newDot } from './kit';
 import { gicon, gtile, type GIcon } from './gicons';
+import { art, type ArtName } from './art';
 import * as net from '../net';
 import './gameui.css';
 import './lobby.css';
@@ -66,11 +67,10 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
     h('span', { class: 'fzx-rays', 'aria-hidden': 'true' }),
     bigPortrait(o.me, 190),
     h('span', { class: 'fzx-ground', 'aria-hidden': 'true' }),
-    h('span', { class: 'fzx-name' }, h('b', null, o.me.name), h('em', { style: `--rar:${RARITY_COLOR[o.me.rarity]}` }, RARITY_NAME[o.me.rarity])),
-    h('span', { class: 'fzx-swap' }, gicon('fuzzy', 15), `Change Fuzzy  ${store.ownedCount()}/${CHARACTERS.length}`));
+    h('span', { class: 'fzx-name' }, h('b', null, o.me.name), h('em', { style: `--rar:${RARITY_COLOR[o.me.rarity]}` }, RARITY_NAME[o.me.rarity])));
 
   // ---- Play ----
-  const modes: { id: PanelName; ic: GIcon; label: string; sub: string }[] = [
+  const modes: { id: PanelName; ic: ArtName; label: string; sub: string }[] = [
     { id: 'worlds', ic: 'worlds', label: 'Worlds', sub: `${Object.keys(s.worlds ?? {}).length} / 150 levels` },
     { id: 'endless', ic: 'endless', label: 'Endless', sub: s.endless?.best ? `Best ${s.endless.best}` : 'How far can you go?' },
     { id: 'events', ic: 'events', label: 'Events', sub: 'Seasonal fun' },
@@ -78,7 +78,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
   const shownModes = modes.filter((m) => panelAvailable(m.id));
   const playBtn = h('button', { class: 'fzx-play', type: 'button', onclick: o.play }, gicon('play', 26), h('span', null, shownModes.length ? 'Play Classic' : 'Play'));
   const modeRow = shownModes.length
-    ? h('div', { class: `fzx-modes n${shownModes.length}` }, ...shownModes.map((m) => h('button', { class: 'fzx-mode', type: 'button', onclick: open(m.id) }, gtile(m.ic, 40), h('span', { class: 'fzx-mode-t' }, h('b', null, m.label), h('small', null, m.sub)))))
+    ? h('div', { class: `fzx-modes n${shownModes.length}` }, ...shownModes.map((m) => h('button', { class: 'fzx-mode', type: 'button', onclick: open(m.id) }, art(m.ic, 54), h('span', { class: 'fzx-mode-t' }, h('b', null, m.label), h('small', null, m.sub)))))
     : null;
 
   // ---- daily missions strip ----
@@ -88,7 +88,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
     const got = daily.filter((v) => v.claimed).length;
     const ready = missionsClaimable(s).length;
     strip = h('button', { class: `fzx-daily ${ready ? 'ready' : ''}`, type: 'button', onclick: open('missions'), 'aria-label': `Daily missions, ${got} of 3 done` },
-      gtile('missions', 38),
+      art('missions', 50),
       h('span', { class: 'fzx-daily-t' },
         h('b', null, ready ? `${ready} reward${ready > 1 ? 's' : ''} ready!` : 'Daily missions'),
         h('span', { class: 'fzx-pips' }, ...[0, 1, 2].map((i) => h('i', { class: i < got ? 'on' : daily[i]?.done ? 'rdy' : '' })))),
@@ -97,18 +97,22 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
 
   // ---- the picture buttons ----
   const pendingNew = CHARACTERS.some((c) => store.hasCharacter(c.id) && store.isNew(c.id) && c.id !== 'classic');
-  const dockItem = (name: PanelName, ic: GIcon, label: string, dot = false): HTMLElement | null => {
+  const card = (name: PanelName, pic: ArtName, label: string, sub: string, dot = false, extra?: Node): HTMLElement | null => {
     if (!panelAvailable(name)) return null;
-    const b = h('button', { class: 'fzx-dk', type: 'button', onclick: open(name) }, gtile(ic, 54), h('span', null, label));
+    const b = h('button', { class: `fzx-fc fzx-fc-${name}`, type: 'button', onclick: open(name) },
+      h('span', { class: 'fzx-fc-t' }, h('b', null, label), h('small', null, sub)),
+      h('span', { class: 'fzx-fc-art' }, art(pic, 88), extra ?? null));
     if (dot) b.append(newDot());
     return b;
   };
-  const boards = dockItem('leaderboard', 'trophy', 'Boards');
+  // the open locker shows the Fuzzy you are wearing
+  const lockerFuzzy = o.me.friend ? h('img', { class: 'fzx-fc-peek', src: friendUrl(o.me.friend), alt: '', draggable: 'false' }) : h('span', { class: 'fzx-fc-peek' }, fuzzyMark(44, o.me.color));
+  const boards = card('leaderboard', 'boards', 'Boards', 'Weekly');
   void net.claimableWeeks().then((w) => { if (w.length && boards?.isConnected) boards.append(newDot()); });
-  const dock = h('nav', { class: 'fzx-dock', 'aria-label': 'Fuzzy Crossing' },
-    dockItem('locker', 'fuzzy', 'Locker', pendingNew),
-    dockItem('pass', 'pass', 'Pass', claim > 0),
-    dockItem('shop', 'shop', 'Shop'),
+  const dock = h('nav', { class: 'fzx-cards', 'aria-label': 'Fuzzy Crossing' },
+    card('locker', 'locker', 'Locker', `${store.ownedCount()} / ${CHARACTERS.length}`, pendingNew, lockerFuzzy),
+    card('pass', 'pass', 'Pass', `Level ${pass.level}`, claim > 0),
+    card('shop', 'shop', 'Shop', 'Fresh picks'),
     boards);
 
   const land = h('button', { class: 'fzx-land', type: 'button', onclick: o.toLand }, gicon('town', 16), 'Visit your town in Fuzzies Land');
