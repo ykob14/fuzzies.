@@ -281,7 +281,8 @@ async function pump(): Promise<void> {
   if (running) return;
   running = true;
   try {
-    if (!furReady()) await Promise.race([loadFur(), new Promise((r) => setTimeout(r, 6000))]);
+    // wait for the real fur ball (a slow phone can take a while); only a failed load falls back to the drawn Fuzzy
+    if (!furReady()) await loadFur().catch(() => false);
     while (queue.length) {
       const job = queue.shift()!;
       await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
@@ -296,7 +297,7 @@ async function pump(): Promise<void> {
         url = renderer.domElement.toDataURL('image/png');
         rig.dispose();
       } catch (e) { console.warn('thumbnail failed', e); }
-      if (url) thumbCache.set(job.key, url);
+      if (url && furReady()) thumbCache.set(job.key, url); // never keep a fallback picture
       thumbWait.delete(job.key);
       job.resolve(url);
     }
