@@ -3,7 +3,7 @@
  * shopData.ts; buying goes through purchases.ts. This file only draws, and listens to `fz:crossing` so balance and ownership stay live.
  * Prices are Crossing Coins only. Legendary and mythic Fuzzies are never sold; event Fuzzies are earned, not bought.
  */
-import { h, btn, icon, modal, toast } from '../../ui/dom';
+import { h, btn, modal, toast } from '../../ui/dom';
 import type { NavTarget, PanelOpen } from '../hub';
 import { panelAvailable } from '../hub';
 import { CHARACTERS, CHARACTER_BY_ID, EVENT_NAME, RARITY_COLOR, unlockText, type CharacterDef, type EventId } from '../characters';
@@ -14,7 +14,9 @@ import {
   countdown, dailyItems, dateWords, dayKeyOf, EVENT_ORDER, inDays, listingFor, nextAppearance, nextDailyReset, nextEventStart, nextWeeklyReset,
   now as shopNow, seasonalShelves, shelfOf, weekNumber, weeklyItems, permanentItems, type ShopItem,
 } from '../shopData';
-import { coinAmount, coinMark, rarityTag } from './kit';
+import { coinMark, rarityTag } from './kit';
+import { gicon, gtile } from './gicons';
+import './gameui.css';
 import { characterPortrait, cosmeticBadge } from './portrait';
 import './shop.css';
 
@@ -52,7 +54,7 @@ export const open: PanelOpen = (ctx, focus) => {
 
   // ───────── frame ─────────
   const balNum = h('b', null, coins().toLocaleString());
-  const bal = h('div', { class: 'sx-bal', 'aria-label': 'Your Crossing Coins' }, coinMark(22), balNum, h('small', null, 'coins'));
+  const bal = h('div', { class: 'sx-bal', 'aria-label': 'Your Crossing Coins' }, coinMark(24), balNum);
   const tabsEl = h('div', { class: 'sx-tabs', role: 'tablist', 'aria-label': 'Shop shelves' });
   const body = h('div', { class: 'sx-body', tabindex: '-1' });
   const wrap = h('div', { class: 'sx' }, h('div', { class: 'sx-top' }, bal, tabsEl), body);
@@ -74,24 +76,25 @@ export const open: PanelOpen = (ctx, focus) => {
   }
 
   // ───────── cards ─────────
-  function footer(it: ShopItem, wrapEl: HTMLElement, mainEl: HTMLElement, long = false): HTMLElement {
+  const price = (n: number, size = 18): HTMLElement => h('span', { class: 'sx-price' }, coinMark(size), String(n.toLocaleString()));
+  const ribbon = (it: { id: string; type: 'character' | 'cosmetic' }): HTMLElement => { const d = defOf(it); return h('span', { class: 'sx-rib', title: d.rarity, 'aria-hidden': 'true' }, gicon('star', 13)); };
+  function footer(it: ShopItem, wrapEl: HTMLElement, mainEl: HTMLElement): HTMLElement {
     const foot = h('div', { class: 'sx-foot' });
     let last = '';
     const paint = (): void => {
       const st: ItemState = stateOf(it);
-      const need = it.price - coins();
-      const key = `${st}|${st === 'poor' ? need : ''}`;
+      const key = st;
       if (key === last) return; // nothing changed: leave the buttons alone (taps must never land on a replaced button)
       last = key;
       wrapEl.dataset.state = st;
       let b: HTMLElement;
-      if (st === 'equipped') b = h('span', { class: 'sx-btn sx-equipped' }, icon('check', 15), 'Equipped');
+      if (st === 'equipped') b = h('span', { class: 'sx-btn sx-equipped' }, gicon('check', 16), 'Equipped');
       else if (st === 'owned') b = h('button', { class: 'sx-btn sx-equip', type: 'button', onclick: () => equipNow(it) }, 'Equip');
-      else if (st === 'buy') b = h('button', { class: 'sx-btn sx-buy', type: 'button', onclick: () => sheet(it), 'aria-label': `Buy ${defOf(it).name} for ${it.price} coins` }, h('span', null, 'Buy'), coinAmount(it.price, 15));
-      else b = h('button', { class: 'sx-btn sx-poor', type: 'button', onclick: () => sheet(it), 'aria-label': `${defOf(it).name}: you need ${need} more coins` }, coinMark(15), `${need.toLocaleString()} more${long ? ' coins' : ''}`);
+      else if (st === 'buy') b = h('button', { class: 'fzx-bigbtn sx-btn sx-buy', type: 'button', onclick: () => sheet(it), 'aria-label': `Buy ${defOf(it).name} for ${it.price} coins` }, price(it.price));
+      else b = h('button', { class: 'sx-btn sx-poor', type: 'button', onclick: () => sheet(it), 'aria-label': `${defOf(it).name}: ${it.price} coins, you need ${it.price - coins()} more` }, price(it.price));
       foot.replaceChildren(b);
       mainEl.querySelector('.sx-badge')?.remove();
-      if (st === 'owned' || st === 'equipped') mainEl.append(h('span', { class: 'sx-badge' }, icon('check', 12), 'Owned'));
+      if (st === 'owned' || st === 'equipped') mainEl.append(h('span', { class: 'sx-badge' }, gicon('check', 14)));
     };
     paint(); updaters.push(paint);
     return foot;
@@ -99,34 +102,27 @@ export const open: PanelOpen = (ctx, focus) => {
   function card(it: ShopItem, opts: { small?: boolean } = {}): HTMLElement {
     const d = defOf(it);
     const main = h('button', { class: 'sx-main', type: 'button', onclick: () => sheet(it), 'aria-label': `${d.name}, ${kindWords(it)}, ${d.rarity}` },
-      h('span', { class: 'sx-rar' }, rarityTag(d.rarity)),
+      ribbon(it),
       h('span', { class: 'sx-art' }, art(it, opts.small ? 64 : 76)),
-      h('b', { class: 'sx-name' }, d.name),
-      h('small', { class: 'sx-kind' }, kindWords(it)),
-      h('span', { class: 'sx-desc' }, blurbOf(it)));
-    const el = h('article', { class: `sx-card${opts.small ? ' small' : ''}`, 'data-id': it.id, style: `--rar:${RARITY_COLOR[d.rarity]}` }, main);
+      h('b', { class: 'sx-name' }, d.name));
+    const el = h('article', { class: `sx-card fzx-card${opts.small ? ' small' : ''}`, 'data-id': it.id, style: `--rar:${RARITY_COLOR[d.rarity]}` }, main);
     el.append(footer(it, el, main));
     return el;
   }
   /** an event Fuzzy: shown, never sold */
   function eventFuzzy(c: CharacterDef, ev: EventId): HTMLElement {
-    const main = h('div', { class: 'sx-main static' },
-      h('span', { class: 'sx-rar' }, rarityTag(c.rarity)),
-      h('span', { class: 'sx-art' }, characterPortrait(c, 76)),
-      h('b', { class: 'sx-name' }, c.name),
-      h('small', { class: 'sx-kind' }, 'Event Fuzzy'),
-      h('span', { class: 'sx-desc' }, `Earn it in the ${EVENT_NAME[ev]} event — it can't be bought.`));
-    const el = h('article', { class: 'sx-card earn', 'data-id': c.id, style: `--rar:${RARITY_COLOR[c.rarity]}` }, main);
+    const main = h('div', { class: 'sx-main static' }, ribbon({ id: c.id, type: 'character' }), h('span', { class: 'sx-art' }, characterPortrait(c, 76)), h('b', { class: 'sx-name' }, c.name));
+    const el = h('article', { class: 'sx-card fzx-card earn', 'data-id': c.id, style: `--rar:${RARITY_COLOR[c.rarity]}`, title: `Earn it in the ${EVENT_NAME[ev]} event` }, main);
     const foot = h('div', { class: 'sx-foot' });
     let last = '';
     const paint = (): void => {
       const key = hasCharacter(c.id) ? 'own' : 'earn';
       if (key === last) return;
       last = key;
-      if (key === 'own') { foot.replaceChildren(h('span', { class: 'sx-btn sx-equipped' }, icon('check', 15), 'Owned')); return; }
+      if (key === 'own') { foot.replaceChildren(h('span', { class: 'sx-btn sx-equipped' }, gicon('check', 16), 'Owned')); return; }
       foot.replaceChildren(hasPanel('events')
-        ? h('button', { class: 'sx-btn sx-link', type: 'button', onclick: () => ctx.go({ to: 'events', id: ev }) }, 'See the event')
-        : h('span', { class: 'sx-btn sx-earn' }, icon('star', 14), 'Earn it in the event'));
+        ? h('button', { class: 'sx-btn sx-link', type: 'button', onclick: () => ctx.go({ to: 'events', id: ev }) }, 'Event')
+        : h('span', { class: 'sx-btn sx-earn' }, gicon('events', 16), 'Event'));
     };
     paint(); updaters.push(paint);
     el.append(foot);
@@ -136,12 +132,12 @@ export const open: PanelOpen = (ctx, focus) => {
   // ───────── sections ─────────
   const grid = (...els: HTMLElement[]): HTMLElement => h('div', { class: 'sx-grid' }, ...els);
   const countLine = (label: string, until: () => number): HTMLElement => {
-    const el = h('span', { class: 'sx-count' }, icon('rotate', 13), h('span', null, ''));
-    const paint = (): void => { (el.lastChild as HTMLElement).textContent = `${label} ${countdown(until() - t())}`; };
+    const el = h('span', { class: 'sx-count' }, gicon('clock', 14), h('span', null, ''));
+    const paint = (): void => { (el.lastChild as HTMLElement).textContent = `${label} ${countdown(until() - t())}`.trim(); };
     paint(); updaters.push(paint);
     return el;
   };
-  const section = (title: string, sub: HTMLElement | string | null, ...content: HTMLElement[]): HTMLElement => h('section', { class: 'sx-sec' }, h('header', { class: 'sx-sec-h' }, h('h3', null, title), sub ? (typeof sub === 'string' ? h('span', { class: 'sx-sec-sub' }, sub) : sub) : null), ...content);
+  const section = (title: string, sub: HTMLElement | string | null, ...content: HTMLElement[]): HTMLElement => h('section', { class: 'sx-sec' }, h('header', { class: 'sx-sec-h fzx-sh' }, h('h3', null, title), sub ? (typeof sub === 'string' ? h('span', { class: 'sx-sec-sub fzx-timer' }, sub) : sub) : null), ...content);
   function filterBar(items: ShopItem[]): HTMLElement | null {
     const counts = new Map<Filter, number>([['all', items.length]]);
     for (const it of items) counts.set(filterOf(it), (counts.get(filterOf(it)) ?? 0) + 1);
@@ -158,31 +154,26 @@ export const open: PanelOpen = (ctx, focus) => {
 
   function hero(it: ShopItem): HTMLElement {
     const c = CHARACTER_BY_ID[it.id];
-    const el = h('article', { class: 'sx-hero', 'data-id': it.id, style: `--rar:${RARITY_COLOR[c.rarity]}` });
+    const el = h('article', { class: 'sx-hero fzx-card', 'data-id': it.id, style: `--rar:${RARITY_COLOR[c.rarity]}` });
     const main = h('button', { class: 'sx-hero-main', type: 'button', onclick: () => sheet(it), 'aria-label': `${c.name}, this week's featured Fuzzy` },
-      h('span', { class: 'sx-hero-art' }, characterPortrait(c, 132)),
-      h('span', { class: 'sx-hero-t' },
-        h('small', { class: 'sx-eyebrow' }, 'Featured this week'),
-        h('b', null, c.name),
-        h('span', { class: 'sx-hero-line' }, rarityTag(c.rarity), h('em', null, c.personality)),
-        h('span', { class: 'sx-hero-desc' }, c.tagline)));
-    el.append(main, footer(it, el, main, true), countLine('New feature in', () => nextWeeklyReset(t())));
+      ribbon(it), h('span', { class: 'sx-hero-art' }, characterPortrait(c, 120)), h('b', { class: 'sx-hero-name' }, c.name));
+    el.append(main, countLine('', () => nextWeeklyReset(t())), footer(it, el, main));
     return el;
   }
 
   function earnStrip(): HTMLElement {
-    const pick = CHARACTERS.filter((c) => (c.rarity === 'legendary' || c.rarity === 'mythic') && c.unlock.kind !== 'secret').slice(0, 7);
-    return h('section', { class: 'sx-earn' },
-      h('div', { class: 'sx-earn-art' }, ...pick.map((c) => h('span', { class: 'sx-earn-pic', style: `--rar:${RARITY_COLOR[c.rarity]}`, title: `${c.name} — not for sale` }, characterPortrait(c, 40), h('i', null, icon('lock', 11))))),
-      h('div', { class: 'sx-earn-t' }, h('b', null, 'Not for sale — earn these'), h('span', null, 'Legendary and Mythic Fuzzies are never sold. Win them in the Pass, the Worlds, Endless and the weekly boards.')),
-      h('button', { class: 'sx-btn sx-link', type: 'button', onclick: () => ctx.go({ to: 'locker' }) }, 'Open the Locker'));
+    const pick = CHARACTERS.filter((c) => (c.rarity === 'legendary' || c.rarity === 'mythic') && c.unlock.kind !== 'secret').slice(0, 6);
+    return h('section', { class: 'sx-earnbar fzx-card' },
+      h('div', { class: 'sx-earn-art' }, ...pick.map((c) => h('span', { class: 'sx-earn-pic', style: `--rar:${RARITY_COLOR[c.rarity]}`, title: `${c.name} — not for sale` }, characterPortrait(c, 36), h('i', null, gicon('lock', 11))))),
+      h('b', { class: 'sx-earn-t' }, 'Earn these'),
+      h('button', { class: 'sx-btn sx-link', type: 'button', onclick: () => ctx.go({ to: 'locker' }) }, 'Locker'));
   }
   function teaser(): HTMLElement | null {
     if (seasons().length) return null;
     let best: { ev: EventId; at: number } | null = null;
     for (const ev of EVENT_ORDER) { const at = nextEventStart(ev, t()); if (at !== null && (!best || at < best.at)) best = { ev, at }; }
     if (!best) return null;
-    return h('section', { class: 'sx-teaser' }, h('span', { class: 'sx-teaser-ic' }, icon('sparkles', 20)), h('div', null, h('b', null, `Next event: ${EVENT_NAME[best.ev]} ${inDays(t(), best.at)}`), h('small', null, `Starts ${dateWords(best.at)} — seasonal styles appear here while it lasts.`)));
+    return h('section', { class: 'sx-teaser fzx-card' }, gtile('events', 44, 'soft'), h('div', null, h('b', null, `Next event: ${EVENT_NAME[best.ev]}`), h('small', null, `${inDays(t(), best.at)} · ${dateWords(best.at)}`)));
   }
 
   function renderFeatured(): HTMLElement[] {
@@ -191,9 +182,9 @@ export const open: PanelOpen = (ctx, focus) => {
     const out: HTMLElement[] = [];
     if (wkChar) out.push(hero(wkChar));
     const picks: ShopItem[] = [...(dayChar ? [dayChar] : []), ...weekly.filter((x) => x.type === 'cosmetic')];
-    out.push(section('Fresh picks', countLine('Daily picks change in', () => nextDailyReset(t())), grid(...picks.map((it) => card(it)))));
+    out.push(section('Fresh picks', countLine('', () => nextDailyReset(t())), grid(...picks.map((it) => card(it)))));
     for (const s of seasons()) {
-      out.push(section(`${s.name} collection`, countLine('Ends in', () => s.endsAt), grid(...s.items.slice(0, 3).map((it) => card(it)))));
+      out.push(section(`${s.name} collection`, countLine('Ends', () => s.endsAt), grid(...s.items.slice(0, 3).map((it) => card(it)))));
     }
     out.push(earnStrip());
     const te = teaser(); if (te) out.push(te);
@@ -206,13 +197,13 @@ export const open: PanelOpen = (ctx, focus) => {
     const parts: HTMLElement[] = [];
     if (noteEl) parts.push(noteEl);
     if (tab === 'featured') parts.push(...renderFeatured());
-    else if (tab === 'daily') parts.push(section("Today's picks", countLine('New picks in', () => nextDailyReset(t())), ...shelf(dailyItems(t()))));
-    else if (tab === 'weekly') parts.push(section("This week's picks", countLine('New picks in', () => nextWeeklyReset(t())), ...shelf(weeklyItems(t()))));
-    else if (tab === 'permanent') parts.push(section('Always on the shelf', 'These never rotate out.', ...shelf(permanentItems())));
+    else if (tab === 'daily') parts.push(section('Today', countLine('', () => nextDailyReset(t())), ...shelf(dailyItems(t()))));
+    else if (tab === 'weekly') parts.push(section('This week', countLine('', () => nextWeeklyReset(t())), ...shelf(weeklyItems(t()))));
+    else if (tab === 'permanent') parts.push(section('Always here', null, ...shelf(permanentItems())));
     else {
       for (const s of seasons()) {
         const fuzzies = s.eventFuzzies.map((id) => CHARACTER_BY_ID[id]).filter(Boolean);
-        parts.push(section(`${s.name} collection`, countLine('Ends in', () => s.endsAt),
+        parts.push(section(`${s.name} collection`, countLine('Ends', () => s.endsAt),
           ...(s.items.length ? shelf(s.items) : [h('p', { class: 'muted sx-empty' }, 'No styles in this collection.')]),
           ...(fuzzies.length ? [h('h4', { class: 'sx-sub-h' }, 'Event Fuzzy — earned, not bought'), grid(...fuzzies.map((c) => eventFuzzy(c, s.event)))] : [])));
       }
@@ -239,21 +230,17 @@ export const open: PanelOpen = (ctx, focus) => {
       h('div', { class: 'sx-sheet-art' }, art(it, 104)),
       h('div', { class: 'sx-sheet-t' },
         h('div', { class: 'sx-sheet-row' }, h('b', null, d.name), rarityTag(d.rarity)),
-        h('small', { class: 'sx-kind' }, kindWords(it)),
         h('p', null, blurbOf(it)),
-        it.type === 'character' ? h('p', { class: 'muted' }, CHARACTER_BY_ID[it.id].personality) : null,
         st === 'owned' || st === 'equipped'
-          ? h('p', { class: 'sx-sheet-own' }, icon('check', 15), st === 'equipped' ? 'You own this and you are wearing it.' : 'You own this one.')
-          : h('div', { class: 'sx-sheet-price' },
-            h('div', null, h('span', null, 'Price'), coinAmount(it.price, 17)),
-            h('div', null, h('span', null, 'You have'), coinAmount(coins(), 17)),
-            st === 'buy' ? h('div', { class: 'after' }, h('span', null, 'After buying'), coinAmount(after, 17)) : h('div', { class: 'need' }, h('span', null, 'You need'), coinAmount(it.price - coins(), 17))),
-        st === 'poor' ? h('p', { class: 'muted' }, 'Play a few rounds to earn more coins — you are closer than you think.') : null,
+          ? h('div', { class: 'sx-chips' }, h('span', { class: 'fzx-chip xp' }, gicon('check', 14), st === 'equipped' ? 'Equipped' : 'Yours'))
+          : h('div', { class: 'sx-chips' },
+            h('span', { class: 'fzx-chip' }, coinMark(16), `${it.price.toLocaleString()}`),
+            st === 'buy' ? h('span', { class: 'fzx-chip xp' }, 'Left', coinMark(15), after.toLocaleString()) : h('span', { class: 'fzx-chip' }, 'Need', coinMark(15), (it.price - coins()).toLocaleString())),
         err));
     let busy = false;
     const actions: HTMLElement[] = [btn(st === 'buy' ? 'Not now' : 'Close', { kind: 'ghost', onClick: () => m.close() })];
     if (st === 'buy') {
-      const go = btn(h('span', { class: 'sx-gobtn' }, 'Buy for ', coinAmount(it.price, 15)), { kind: 'primary', onClick: () => {
+      const go = btn(h('span', { class: 'sx-gobtn' }, 'Buy', price(it.price, 16)), { kind: 'primary', onClick: () => {
         if (busy) return; busy = true; go.setAttribute('disabled', '');
         const r = buy(it.id, t());
         if (!r.ok) { err.hidden = false; err.textContent = r.reason; busy = false; go.removeAttribute('disabled'); if (r.code === 'owned' || r.code === 'not-for-sale') render(true); return; }
@@ -320,7 +307,7 @@ export const open: PanelOpen = (ctx, focus) => {
       noteEl = noteBox(`${def.name} isn't in the shop today`, a ? `This ${shelfName === 'weekly' ? 'week\'s' : 'daily'} pick comes back on ${dateWords(a.at)} (${inDays(t(), a.at)}). Prices stay the same.` : 'It comes back later — check again soon.');
     }
   }
-  const noteBox = (title: string, text: string, action?: { label: string; go: NavTarget }): HTMLElement => h('div', { class: 'sx-note', role: 'status' }, icon('sparkles', 18), h('div', null, h('b', null, title), h('span', null, text)), action ? h('button', { class: 'sx-btn sx-link', type: 'button', onclick: () => ctx.go(action.go) }, action.label) : null);
+  const noteBox = (title: string, text: string, action?: { label: string; go: NavTarget }): HTMLElement => h('div', { class: 'sx-note fzx-card', role: 'status' }, gtile('help', 40, 'soft'), h('div', null, h('b', null, title), h('span', null, text)), action ? h('button', { class: 'sx-btn sx-link', type: 'button', onclick: () => ctx.go(action.go) }, action.label) : null);
   function highlight(id: string): void {
     const el = body.querySelector<HTMLElement>(`[data-id="${id}"]`);
     if (!el) return;

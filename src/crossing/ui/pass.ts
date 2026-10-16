@@ -3,13 +3,15 @@
  * track on wide screens. Tap a reward to claim it; the level you are on is highlighted and scrolled into view. Everything is read from
  * the save (store.ts) and the data (pass.ts, characters.ts, cosmetics.ts) — this file only draws and calls store.claimPass / claimAllPass.
  */
-import { h, btn, icon, modal, toast } from '../../ui/dom';
+import { h, btn, modal, toast } from '../../ui/dom';
 import type { PanelOpen } from '../hub';
 import { PASS_LEVELS, PASS_TRACK, XP, xpToReach, type PassReward } from '../pass';
 import { CHARACTER_BY_ID, RARITY_COLOR, type CharacterDef } from '../characters';
-import { COSMETIC_BY_ID, SLOT_NAME, type CosmeticDef } from '../cosmetics';
+import { COSMETIC_BY_ID, type CosmeticDef } from '../cosmetics';
 import { claimAllPass, claimPass, coins, equipCosmetic, hasCharacter, hasCosmetic, passClaimable, passInfo, save } from '../store';
-import { coinAmount, coinMark, rarityTag } from './kit';
+import { coinMark, rarityTag } from './kit';
+import { gicon } from './gicons';
+import './gameui.css';
 import { characterPortrait, cosmeticBadge } from './portrait';
 import './pass.css';
 
@@ -25,26 +27,20 @@ export const open: PanelOpen = (ctx, focus) => {
 
   // ───────── header ─────────
   const lvNum = h('b', null, '1');
-  const lvBadge = h('div', { class: 'px-lvl', 'aria-hidden': 'true' }, h('span', { class: 'px-lvl-in' }, lvNum, h('small', null, 'LEVEL')));
+  const lvBadge = h('div', { class: 'px-lvl', 'aria-hidden': 'true' }, lvNum, h('small', null, 'LV'));
   const xpText = h('b', null, '');
-  const xpSub = h('small', { class: 'px-xp-sub' }, '');
   const xpFill = h('i');
-  const infoBtn = h('button', { class: 'px-info', type: 'button', onclick: () => xpInfo() }, icon('star', 14), 'How to earn XP');
+  const xpBar = h('div', { class: 'fzx-prog px-prog', role: 'progressbar', 'aria-label': 'Fuzzy Pass XP' }, xpFill, xpText);
+  const infoBtn = h('button', { class: 'fzx-round px-info', type: 'button', 'aria-label': 'How to earn XP', title: 'How to earn XP', onclick: () => xpInfo() }, gicon('help', 22));
   const claimCount = h('span', { class: 'px-badge' }, '0');
-  const claimAll = h('button', { class: 'px-claimall', type: 'button', onclick: () => doClaimAll() }, h('span', null, 'Claim all'), claimCount);
-  const head = h('div', { class: 'px-head' },
-    lvBadge,
-    h('div', { class: 'px-xp' },
-      h('div', { class: 'px-xp-top' }, xpText, infoBtn),
-      h('div', { class: 'px-bar', role: 'progressbar', 'aria-label': 'Fuzzy Pass XP' }, xpFill),
-      xpSub),
-    claimAll);
+  const claimAll = h('button', { class: 'fzx-bigbtn px-claimall', type: 'button', onclick: () => doClaimAll() }, h('span', null, 'Claim all'), claimCount);
+  const head = h('div', { class: 'px-head fzx-card' }, lvBadge, xpBar, infoBtn, claimAll);
 
-  // the next big reward
+  // the next big reward: one small chip
   const nextArt = h('span', { class: 'px-next-art' });
   const nextTitle = h('b', null, '');
   const nextSub = h('small', null, '');
-  const nextBtn = h('button', { class: 'px-next', type: 'button' }, nextArt, h('span', { class: 'px-next-t' }, nextTitle, nextSub), h('span', { class: 'px-next-go' }, icon('down', 16)));
+  const nextBtn = h('button', { class: 'px-next', type: 'button' }, nextArt, nextTitle, nextSub);
 
   // ───────── the track ─────────
   const nodes = new Map<number, { li: HTMLElement; card: HTMLButtonElement; state: HTMLElement; lv: HTMLElement }>();
@@ -52,22 +48,20 @@ export const open: PanelOpen = (ctx, focus) => {
   for (const r of PASS_TRACK) {
     const { ch, co } = defs(r);
     const big = !!ch;
-    const art = ch ? characterPortrait(ch, 64) : co ? cosmeticBadge(co, 52) : h('span', { class: 'px-bigcoin' }, coinMark(r.level % 5 === 0 ? 46 : 38));
-    const name = ch ? ch.name : co ? co.name : `${r.coins} coins`;
-    const sub = ch ? 'New Fuzzy!' : co ? SLOT_NAME[co.slot] : r.level % 10 === 0 ? 'Big bonus' : r.level % 5 === 0 ? 'Bonus' : 'Level reward';
+    const art = ch ? characterPortrait(ch, 60) : co ? cosmeticBadge(co, 52) : h('span', { class: 'px-bigcoin' }, coinMark(r.level % 5 === 0 ? 46 : 38));
+    const name = ch ? ch.name : co ? co.name : `${r.coins}`;
     const state = h('span', { class: 'px-state' });
     const lv = h('span', { class: 'px-lv' }, String(r.level));
-    const card = h('button', { class: 'px-card', type: 'button', 'data-level': r.level, onclick: () => onCard(r.level) },
+    const card = h('button', { class: 'px-card fzx-card', type: 'button', 'data-level': r.level, onclick: () => onCard(r.level) },
       h('span', { class: 'px-art' }, art),
       h('span', { class: 'px-txt' },
         h('b', { class: 'px-name' }, name),
-        h('small', { class: 'px-sub' }, sub),
-        ch || co ? h('span', { class: 'px-coins' }, coinAmount(r.coins ?? 0, 13)) : null),
+        ch || co ? h('span', { class: 'fzx-chip' }, coinMark(15), String(r.coins ?? 0)) : null),
       state);
     const li = h('li', { class: `px-node${big ? ' big' : ''}${r.level % 5 === 0 || ch ? ' mile' : ''}`, 'data-level': r.level, style: `--rar:${colorOf(r)}` },
       h('div', { class: 'px-rail' }, h('i', { class: 'px-you' }, 'Now'), lv),
       card);
-    if (ch) card.append(h('span', { class: 'px-ribbon' }, rarityTag(ch.rarity)));
+    if (ch ?? co) card.append(h('span', { class: 'px-ribbon', 'aria-hidden': 'true' }, gicon('star', 12)));
     nodes.set(r.level, { li, card, state, lv });
     track.append(li);
   }
@@ -82,9 +76,9 @@ export const open: PanelOpen = (ctx, focus) => {
     const info = passInfo(), claimable = passClaimable();
     lvNum.textContent = String(info.level);
     lvBadge.style.setProperty('--p', String(info.maxed ? 100 : Math.round((info.into / info.need) * 100)));
-    xpText.textContent = info.maxed ? 'Max level reached!' : `${info.into.toLocaleString()} / ${info.need.toLocaleString()} XP`;
+    xpText.textContent = info.maxed ? 'MAX' : `${info.into.toLocaleString()} / ${info.need.toLocaleString()} XP`;
+    xpBar.classList.toggle('full', info.maxed);
     xpFill.style.width = `${info.maxed ? 100 : Math.round((info.into / info.need) * 100)}%`;
-    xpSub.textContent = info.maxed ? 'Every reward on the Pass is unlocked.' : `${(info.need - info.into).toLocaleString()} XP to level ${info.level + 1}`;
     claimCount.textContent = String(claimable.length);
     claimAll.classList.toggle('on', claimable.length > 0);
     claimAll.toggleAttribute('disabled', claimable.length === 0);
@@ -101,8 +95,8 @@ export const open: PanelOpen = (ctx, focus) => {
       n.li.classList.toggle('cur', r.level === info.level);
       if (n.card.dataset.st !== st) {
         n.card.dataset.st = st;
-        n.lv.replaceChildren(st === 'claimed' ? icon('check', 15) : st === 'locked' ? icon('lock', 13) : String(r.level));
-        n.state.replaceChildren(st === 'claimed' ? h('span', null, icon('check', 14), 'Claimed') : st === 'claimable' ? h('span', null, 'Claim') : h('span', null, icon('lock', 13), `Level ${r.level}`));
+        n.lv.replaceChildren(st === 'claimed' ? gicon('check', 18) : st === 'locked' ? gicon('lock', 16) : String(r.level));
+        n.state.replaceChildren(st === 'claimed' ? h('span', { class: 'px-done' }, gicon('check', 16)) : st === 'claimable' ? h('span', { class: 'fzx-bigbtn px-go' }, 'Claim') : h('span', { class: 'px-lockchip' }, gicon('lock', 14), String(r.level)));
       }
       const what = ch ? ch.name : co ? co.name : `${r.coins} coins`;
       n.card.setAttribute('aria-label', `Level ${r.level}: ${what}${ch || co ? ` and ${r.coins} coins` : ''}. ${st === 'claimed' ? 'Claimed.' : st === 'claimable' ? 'Ready to claim.' : 'Locked.'}`);
@@ -117,9 +111,9 @@ export const open: PanelOpen = (ctx, focus) => {
     if (!nextAny) return;
     const { ch, co } = defs(nextAny);
     const left = nextAny.level - info.level;
-    nextArt.replaceChildren(ch ? characterPortrait(ch, 42) : co ? cosmeticBadge(co, 38) : coinMark(30));
-    nextTitle.textContent = left <= 0 ? `Ready to claim: ${ch?.name ?? co?.name}` : `Next ${ch ? 'Fuzzy' : 'style'}: ${ch?.name ?? co?.name}`;
-    nextSub.textContent = left <= 0 ? `Level ${nextAny.level} · tap to find it` : `Level ${nextAny.level} · ${left === 1 ? '1 level' : `${left} levels`} to go`;
+    nextArt.replaceChildren(ch ? characterPortrait(ch, 34) : co ? cosmeticBadge(co, 32) : coinMark(26));
+    nextTitle.textContent = ch?.name ?? co?.name ?? '';
+    nextSub.textContent = left <= 0 ? 'Claim!' : `Lv ${nextAny.level}`;
     nextBtn.onclick = () => goTo(nextAny.level, true, true);
     nextBtn.classList.toggle('ready', left <= 0);
   }
@@ -207,27 +201,24 @@ export const open: PanelOpen = (ctx, focus) => {
   function detail(r: PassReward, st: NodeState): void {
     const { ch, co } = defs(r);
     const owned = ch ? hasCharacter(ch.id) : co ? hasCosmetic(co.id) : false;
-    const info = passInfo();
     const body = h('div', { class: 'px-detail', style: `--rar:${colorOf(r)}` },
       h('div', { class: 'px-detail-art' }, ch ? characterPortrait(ch, 112) : cosmeticBadge(co!, 96)),
       h('div', { class: 'px-detail-t' },
         h('div', { class: 'px-detail-row' }, h('b', null, ch?.name ?? co!.name), rarityTag((ch ?? co!).rarity)),
         h('p', null, ch ? ch.tagline : co!.blurb),
-        ch ? h('p', { class: 'muted' }, ch.personality) : h('p', { class: 'muted' }, `A ${SLOT_NAME[co!.slot].toLowerCase()} for any Fuzzy.`),
-        h('p', { class: `px-detail-status ${st}` },
-          st === 'claimed' ? (owned ? 'Claimed — it is in your Locker.' : 'Claimed.')
-            : st === 'claimable' ? 'Ready to claim!'
-              : `Reach level ${r.level} — ${r.level - info.level === 1 ? '1 level' : `${r.level - info.level} levels`} to go (${xpLeft(r.level)}).`),
-        h('div', { class: 'px-detail-coins' }, h('span', null, 'Also on this level:'), coinAmount(r.coins ?? 0, 15))));
+        h('div', { class: `px-detail-status ${st}` },
+          st === 'claimed' ? h('span', { class: 'fzx-chip xp' }, gicon('check', 14), owned ? 'In your Locker' : 'Claimed')
+            : st === 'claimable' ? h('span', { class: 'fzx-chip xp' }, 'Ready to claim')
+              : h('span', { class: 'fzx-chip' }, gicon('lock', 14), `Level ${r.level} · ${xpLeft(r.level)}`),
+          h('span', { class: 'fzx-chip' }, coinMark(15), String(r.coins ?? 0)))));
     const actions: HTMLElement[] = [btn('Close', { kind: 'ghost', onClick: () => m.close() })];
-    if (ch) actions.push(btn(owned ? 'Preview in Locker' : 'See in Locker', { kind: 'primary', onClick: () => { m.close(); ctx.go({ to: 'locker', id: ch.id }); } }));
+    if (ch) actions.push(btn('Preview in Locker', { kind: 'primary', onClick: () => { m.close(); ctx.go({ to: 'locker', id: ch.id }); } }));
     else if (co && owned) actions.push(btn('Equip', { kind: 'primary', onClick: () => { equipCosmetic(co.id); ctx.equipChanged(); toast(`${co.name} equipped`, 'good', 1500); m.close(); } }));
     const m = modal(ch ? `Level ${r.level} · ${ch.name}` : `Level ${r.level} · ${co!.name}`, body, { actions });
   }
   function xpInfo(): void {
     const row = (label: string, v: string) => h('li', null, h('span', null, label), h('b', null, v));
     const m = modal('How to earn XP', h('div', { class: 'px-xpinfo' },
-      h('p', { class: 'muted' }, 'You earn XP just by playing Fuzzy Crossing. Every level of the Pass is free — nothing here costs money.'),
       h('ul', null,
         row('Collect a Fuzzy', `+${XP.pickup} XP`), row('Collect a golden Fuzzy', `+${XP.gold} XP`), row('Fill a nest', `+${XP.nest} XP`), row('Clear a level', `+${XP.level} XP`),
         row('Finish a run', `+${XP.perHundredScore} XP per 100 points`), row('Endless Crossing', `+${XP.endlessPer10Rows} XP per 10 rows`),
