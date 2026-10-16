@@ -226,7 +226,7 @@ export function mountAssistant(): void {
     clearTimeout(talkingTimer);
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     big.mode('idle'); mini.mode('idle');
-    if (!busy) setStatus(assistant.aiKnown === false ? 'Built-in guide · AI is off here' : 'Here to help');
+    if (!busy) setStatus(assistant.aiKnown === false ? 'Built-in guide (free mode)' : 'Here to help');
   };
 
   /** Type the answer out while Fuzzy "talks", then swap in the formatted text. */
@@ -368,7 +368,7 @@ export function mountAssistant(): void {
       greet();
       render();
       paintChips();
-      void assistant.aiAvailable().then((on) => { if (!busy) setStatus(on ? 'Here to help' : 'Built-in guide · AI is off here'); });
+      void assistant.aiAvailable().then((on) => { if (!busy) setStatus(on ? 'Here to help' : 'Built-in guide (free mode)'); });
       big.do('wave'); mini.do('wave');
       if (soundOn()) sfx.wink();
       if (innerWidth > 760) setTimeout(() => input.focus(), 50);
@@ -379,12 +379,27 @@ export function mountAssistant(): void {
       stopTalking();
       if (listening) stopListening();
       root.classList.remove('open');
+      root.style.removeProperty('--fz-kb'); root.style.removeProperty('--fz-vvh');
       launcher.setAttribute('aria-expanded', 'false');
       setTimeout(() => { if (!open) panel.hidden = true; }, 220);
     },
     toggle() { if (open) api.close(); else api.open(); },
   };
   ui = api;
+  // phones: when the keyboard opens, iOS keeps the page the same size and slides the keyboard over it. Follow the *visible*
+  // area so the chat sits on top of the keyboard and keeps its shape instead of jumping or being covered.
+  const vv = window.visualViewport;
+  const fitKeyboard = () => {
+    if (!vv || !open || innerWidth > 760) { root.style.removeProperty('--fz-kb'); root.style.removeProperty('--fz-vvh'); return; }
+    const kb = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+    root.style.setProperty('--fz-kb', `${kb}px`);
+    root.style.setProperty('--fz-vvh', `${Math.round(vv.height)}px`);
+    log.scrollTop = log.scrollHeight;
+  };
+  vv?.addEventListener('resize', fitKeyboard);
+  vv?.addEventListener('scroll', fitKeyboard);
+  input.addEventListener('focus', () => { setTimeout(fitKeyboard, 60); setTimeout(fitKeyboard, 350); });
+  input.addEventListener('blur', () => setTimeout(fitKeyboard, 60));
   // phones: tuck the launcher aside while scrolling down (it sat on card titles), bring it back on the way up
   let lastY = scrollY;
   addEventListener('scroll', () => {

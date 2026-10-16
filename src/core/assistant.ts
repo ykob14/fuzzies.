@@ -126,16 +126,24 @@ function smallTalk(q: string): string | null {
 function guideAnswer(q: string): string {
   const talk = smallTalk(q);
   if (talk) return talk;
-  const hits = searchHelp(q, 2, screen, 5);
+  let hits = searchHelp(q, 2, screen, 5);
+  // a short follow-up ("and on my phone?", "what about PDF?") is read together with the question before it, like a person would
+  if (!hits.length) {
+    const before = [...chat].reverse().filter((m) => m.role === 'user' && m.text !== q).slice(0, 1).map((m) => m.text).join(' ');
+    if (before && q.split(/\s+/).length <= 6) { const more = searchHelp(`${before} ${q}`, 2, screen, 5); if (more.length) hits = more; }
+  }
   if (!hits.length) return `Hmm, that one isn’t in my built-in guide, and my full AI brain isn’t switched on here yet (the site owner can turn it on). I can still help with how to use the site, so try other words, say “tip”, or ask things like “how do I make a poster?” or “how do I earn Fuzzies?”. You can also look around [Templates](#/templates), [Settings](#/settings) and [Profile](#/profile).`;
-  // one topic, its few sentences that match the question best (in their own order) — not whole topics run together
+  // one topic: the few sentences/clauses that best match the question (in their own order), kept short — not a whole page
   const [best, next] = hits;
   const words = q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2);
-  const sentences = best.body.replace(/\s*\n\s*/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z(])/);
-  const score = (s: string) => words.reduce((n, w) => n + (s.toLowerCase().includes(w) ? 1 : 0), 0);
-  const keep = sentences.length <= 3 ? sentences
-    : sentences.map((s, i) => ({ s, i, n: score(s) + (i === 0 ? 0.5 : 0) })).sort((a, b) => b.n - a.n || a.i - b.i).slice(0, 3).sort((a, b) => a.i - b.i).map((x) => x.s);
-  return `**${best.title}**\n${keep.join(' ')}${next ? `\n\nAlso see: **${next.title}** — ask me about it.` : ''}`;
+  const pieces = best.body.replace(/\s*\n\s*/g, ' ').split(/(?<=[.!?;:])\s+(?=[A-Z(“"])/).map((x) => x.trim()).filter(Boolean);
+  const score = (x: string) => words.reduce((n, w) => n + (x.toLowerCase().includes(w.slice(0, Math.max(4, w.length - 2))) ? 1 : 0), 0);
+  const ranked = pieces.map((x, i) => ({ x, i, n: score(x) + (i === 0 ? 0.6 : 0) })).sort((a, b) => b.n - a.n || a.i - b.i);
+  const keep: typeof ranked = [];
+  let len = 0;
+  for (const r of ranked) { if (keep.length >= 3 || (keep.length && len + r.x.length > 520)) continue; keep.push(r); len += r.x.length; }
+  const text = keep.sort((a, b) => a.i - b.i).map((r) => (r.x.length > 420 ? `${r.x.slice(0, 400).replace(/\s+\S*$/, '')}…` : r.x)).join(' ');
+  return `**${best.title}**\n${text}${next ? `\n\nWant more? Ask me about **${next.title}**.` : ''}`;
 }
 
 // a new log-in or sign-out starts a fresh chat (nothing about one person lingers for the next)

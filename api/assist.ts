@@ -11,9 +11,15 @@ import { q } from './_lib/db.js';
 import { handle, requireUser, HttpError, clientIp as netOf, type AuthedUser } from './_lib/auth.js';
 import { systemPrompt, suggestionsFor, type AccountFacts, type ChatContext } from './_lib/guide.js';
 
-const aiKey = () => process.env.ANTHROPIC_API_KEY?.trim().replace(/^["']|["']$/g, '') ?? '';
+const clean = (v: string | undefined) => v?.trim().replace(/^["']|["']$/g, '') ?? '';
+const aiKey = () => clean(process.env.ANTHROPIC_API_KEY);
 const aiModel = () => (process.env.ASSIST_MODEL || process.env.ANTHROPIC_MODEL || '').trim();
-const aiReady = () => !!(aiKey() && aiModel());
+/** Which brain answers: Claude (paid) when its key + model are set, otherwise a FREE-tier provider if the owner pasted a free key
+ *  (Google Gemini or Groq — both have free plans with no card), otherwise none (the app shows its built-in guide). */
+type Provider = 'anthropic' | 'gemini' | 'groq';
+const provider = (): Provider | null =>
+  aiKey() && aiModel() ? 'anthropic' : clean(process.env.GEMINI_API_KEY) ? 'gemini' : clean(process.env.GROQ_API_KEY) ? 'groq' : null;
+const aiReady = () => provider() !== null;
 
 const MAX_TURNS = 16; // earlier messages sent back for context
 const MAX_CHARS = 1500; // per message
@@ -57,25 +63,49 @@ async function facts(u: AuthedUser): Promise<AccountFacts | null> {
   };
 }
 
-async function ask(system: string, messages: { role: 'user' | 'assistant'; content: string }[]): Promise<string> {
+type Turn = { role: 'user' | 'assistant'; content: string };
+
+async function post(url: string, headers: Record<string, string>, body: unknown): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-  let r: Response;
   try {
-    r = await fetch(`${process.env.ANTHROPIC_BASE_URL?.trim().replace(/\/+$/, '') || 'https://api.anthropic.com'}/v1/messages`, {
-      method: 'POST', signal: ctrl.signal,
-      headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: aiModel(), max_tokens: 900, temperature: 0.7, system, messages }),
-    });
+    return await fetch(url, { method: 'POST', signal: ctrl.signal, headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
   } catch { throw new HttpError(502, 'I couldn’t reach my brain just now — please try again in a moment.'); } finally { clearTimeout(timer); }
+}
+
+const base = (env: string | undefined, dflt: string) => clean(env).replace(/\/+$/, '') || dflt;
+
+async function ask(system: string, messages: Turn[]): Promise<string> {
+  const which = provider();
+  let r: Response;
+  if (which === 'anthropic') {
+    r = await post(`${base(process.env.ANTHROPIC_BASE_URL, 'https://api.anthropic.com')}/v1/messages`,
+      { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01' }, { model: aiModel(), max_tokens: 900, temperature: 0.7, system, messages });
+  } else if (which === 'gemini') {
+    const model = clean(process.env.GEMINI_MODEL) || 'gemini-2.5-flash';
+    r = await post(`${base(process.env.GEMINI_BASE_URL, 'https://generativelanguage.googleapis.com')}/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      { 'x-goog-api-key': clean(process.env.GEMINI_API_KEY) },
+      { systemInstruction: { parts: [{ text: system }] }, contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: { maxOutputTokens: 900, temperature: 0.7, ...(model.includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {}) } });
+  } else if (which === 'groq') {
+    r = await post(`${base(process.env.GROQ_BASE_URL, 'https://api.groq.com/openai')}/v1/chat/completions`,
+      { authorization: `Bearer ${clean(process.env.GROQ_API_KEY)}` },
+      { model: clean(process.env.GROQ_MODEL) || 'llama-3.3-70b-versatile', max_tokens: 900, temperature: 0.7, messages: [{ role: 'system', content: system }, ...messages] });
+  } else throw new HttpError(501, 'No AI is switched on.');
   if (!r.ok) {
-    const why = ((await r.json().catch(() => ({}))) as { error?: { type?: string } }).error?.type ?? '';
-    console.error('assist failed', r.status, why);
+    const j = (await r.json().catch(() => ({}))) as { error?: { type?: string; status?: string } };
+    const why = j.error?.type ?? j.error?.status ?? '';
+    console.error('assist failed', which, r.status, why);
     if (r.status === 429 || r.status === 529) throw new HttpError(503, 'Lots of people are asking me things right now — give me a moment and try again.');
-    throw new HttpError(502, `The AI service said no (${r.status}${why ? ` ${why}` : ''}). The site owner should check ANTHROPIC_API_KEY and the model name in Vercel.`);
+    throw new HttpError(502, `The AI service said no (${r.status}${why ? ` ${why}` : ''}). The site owner should check the AI key and model name in Vercel.`);
   }
-  const d = (await r.json()) as { content?: { type: string; text?: string }[] };
-  const text = (d.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('').trim();
+  const d = (await r.json()) as {
+    content?: { type: string; text?: string }[];
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    choices?: { message?: { content?: string } }[];
+  };
+  const text = (which === 'anthropic' ? (d.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('')
+    : which === 'gemini' ? (d.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('')
+    : d.choices?.[0]?.message?.content ?? '').trim();
   if (!text) throw new HttpError(502, 'I lost my words for a second — please ask again.');
   // only the app's own screens may be linked, whatever the model wrote
   return text.replace(/\]\((?!#\/(?:home|templates|projects|play|land|rewards|profile|settings)\))[^)]*\)/g, ']').slice(0, 4000);
@@ -95,10 +125,10 @@ export async function POST(req: Request): Promise<Response> {
     const ctx = readContext(b.context);
     if (action === 'status') return { ai: aiReady(), suggestions: suggestionsFor(ctx.screen) };
     if (action !== 'chat') throw new HttpError(400, 'Unknown action.');
-    if (!aiReady()) throw new HttpError(501, 'My AI brain isn’t switched on for this site yet (the owner adds ANTHROPIC_API_KEY and ANTHROPIC_MODEL in Vercel). Here’s the built-in guide instead.');
+    if (!aiReady()) throw new HttpError(501, 'My AI brain isn’t switched on for this site yet (the owner adds a free GEMINI_API_KEY, or ANTHROPIC_API_KEY + ANTHROPIC_MODEL, in Vercel). Here’s the built-in guide instead.');
 
     const raw = Array.isArray(b.messages) ? b.messages : [];
-    const messages: { role: 'user' | 'assistant'; content: string }[] = [];
+    const messages: Turn[] = [];
     for (const m of raw.slice(-MAX_TURNS)) {
       const o = (m ?? {}) as Record<string, unknown>;
       const content = str(o.text, MAX_CHARS);

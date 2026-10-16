@@ -2265,7 +2265,7 @@ img.fz-mark.real { object-fit: contain; vertical-align: middle; }
 .fzc-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 600 12.5px/1.2 var(--ui); padding: 7px 11px; border-radius: 999px; cursor: pointer; transition: border-color .15s, background .15s; }
 .fzc-chip:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 .fzc-row { display: flex; align-items: flex-end; gap: 6px; padding: 8px 10px 8px 12px; border-top: 1px solid var(--border); }
-.fzc-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 14px; padding: 9px 12px; font: 500 14.5px/1.35 var(--ui); color: var(--text); background: var(--bg); max-height: 120px; }
+.fzc-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 14px; padding: 9px 12px; font: 500 16px/1.35 var(--ui); /* 16px: iPhones zoom the whole page into anything smaller */ -webkit-text-size-adjust: 100%; color: var(--text); background: var(--bg); max-height: 120px; }
 .fzc-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 .fzc-mic.on { color: var(--accent); animation: fzcMic 1s ease-in-out infinite; }
 @keyframes fzcMic { 50% { background: color-mix(in srgb, var(--accent) 16%, transparent); } }
@@ -2290,9 +2290,9 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
   html[data-screen='edit'] .fz-assist { bottom: calc(150px + var(--safe-b, 0px)); right: 8px; }
   .fzc-launch { width: 60px; height: 60px; }
   .fzc-launch .fza { --s: 52px; }
-  .fz-assist.open { left: 0; right: 0; bottom: 0 !important; align-items: stretch; }
+  .fz-assist.open { left: 0; right: 0; bottom: var(--fz-kb, 0px) !important; align-items: stretch; }
   .fz-assist.open .fzc-launch, .fz-assist.open .fzc-hello { display: none; }
-  .fz-assist.open .fzc-panel { width: 100%; height: min(78dvh, 640px); border-radius: 22px 22px 0 0; border-bottom: 0; padding-bottom: var(--safe-b, 0px); transform-origin: 50% 100%; }
+  .fz-assist.open .fzc-panel { width: 100%; height: min(78dvh, 640px, calc(var(--fz-vvh, 100dvh) - 8px)); border-radius: 22px 22px 0 0; border-bottom: 0; padding-bottom: var(--safe-b, 0px); transform-origin: 50% 100%; }
 }
 @media (min-width: 761px) and (max-width: 960px) {
   html[data-screen='edit'] .fz-assist { bottom: calc(70px + var(--safe-b, 0px)); }
