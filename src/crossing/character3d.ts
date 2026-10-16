@@ -229,13 +229,13 @@ export function buildCharacter(def: CharacterDef, opts: RigOpts): CharacterRig {
   }
   shadows(parts);
   let locked = false;
-  const sil = silhouetteMaterial(rim); owned.push(sil);
+  const sil = silhouetteMaterial(rim), silGlass = silhouetteMaterial(rim, true); owned.push(sil, silGlass);
   function silhouette(o: THREE.Object3D, on: boolean): void {
     o.traverse((x) => {
       const m = x as THREE.Mesh;
       if ((m as unknown as THREE.Sprite).isSprite) { x.visible = !on; return; }
       if (!m.isMesh || x.userData.shadowBall) return;
-      if (on) { if (!x.userData.realMat) x.userData.realMat = m.material; m.material = sil; }
+      if (on) { if (!x.userData.realMat) x.userData.realMat = m.material; const real = x.userData.realMat as THREE.Material; m.material = real.transparent && real.opacity < 0.6 ? silGlass : sil; }
       else if (x.userData.realMat) { m.material = x.userData.realMat; delete x.userData.realMat; }
     });
   }

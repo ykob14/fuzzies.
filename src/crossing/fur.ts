@@ -230,7 +230,7 @@ function patchFur(m: THREE.MeshStandardMaterial, u: FinishUniforms): void {
         vec3 fzGlow = glow * fzFur;
         // locked: a dark silhouette with the rarity colour round the edge (the face too — it's a mystery)
         fzOut = mix(fzOut, vec3(0.07, 0.065, 0.09), uLocked); fzFur = mix(fzFur, 1.0, uLocked);
-        fzGlow = mix(fzGlow, uRim * (pow(fres, 1.15) * 2.6 + 0.05), uLocked);
+        fzGlow = mix(fzGlow, uRim * (pow(fres, 1.6) * 3.0 + 0.04), uLocked);
         diffuseColor *= vec4(${toLin('mix(fzS, fzOut, fzFur)')}, mix(1.0, alpha, fzFur * (1.0 - uLocked)) * fzTex.a);
       `)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, fzRough, fzFur);')
@@ -315,8 +315,8 @@ export function setBlink(m: THREE.Material, left: number, right: number): void {
 }
 
 /** a silhouette material for accessories of a locked Fuzzy: dark, with the rarity colour round the edge */
-export function silhouetteMaterial(rim: string): THREE.MeshStandardMaterial {
-  const m = new THREE.MeshStandardMaterial({ color: 0x121118, roughness: 0.7, metalness: 0 });
+export function silhouetteMaterial(rim: string, glassy = false): THREE.MeshStandardMaterial {
+  const m = new THREE.MeshStandardMaterial({ color: 0x121118, roughness: 0.7, metalness: 0, transparent: glassy, opacity: glassy ? 0.22 : 1, depthWrite: !glassy });
   const u = { uRim: { value: srgb(rim) } };
   m.userData.u = u;
   m.onBeforeCompile = (sh) => {
@@ -325,6 +325,6 @@ export function silhouetteMaterial(rim: string): THREE.MeshStandardMaterial {
       float fzR = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0), 1.1);
       totalEmissiveRadiance += pow(uRim, vec3(2.2)) * (fzR * 2.6 + 0.05);`);
   };
-  m.customProgramCacheKey = () => 'fz-silhouette';
+  m.customProgramCacheKey = () => 'fz-silhouette' + (glassy ? '-g' : '');
   return m;
 }
