@@ -1,65 +1,46 @@
-/* Happy Friday celebration — transforms and opacity only, so it stays smooth on phones. */
-.fz-friday { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; overflow: hidden; opacity: 0; transition: opacity .3s ease;
-  background: radial-gradient(120% 90% at 50% 40%, color-mix(in srgb, var(--accent) 78%, #1a0a14) 0%, color-mix(in srgb, var(--accent) 52%, #12060c) 55%, #12060c 100%); }
+/* Happy Friday — a real 3D line-up of the game's Fuzzies, a ribbon banner and a gift card. Transforms and opacity only. */
+.fz-friday { position: fixed; inset: 0; z-index: 400; overflow: hidden; opacity: 0; transition: opacity .35s ease; color: #fff;
+  background: radial-gradient(130% 80% at 50% 70%, color-mix(in srgb, var(--accent) 60%, #2a0a18) 0%, color-mix(in srgb, var(--accent) 34%, #1d0711) 55%, #14050c 100%); }
 .fz-friday.in { opacity: 1; }
 .fz-friday.out { opacity: 0; }
-.ff-rays { position: absolute; left: 50%; top: 42%; width: 150vmax; height: 150vmax; translate: -50% -50%; pointer-events: none; opacity: .5;
-  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .13) 0 8deg, transparent 8deg 20deg); animation: ffSpin 38s linear infinite;
-  -webkit-mask: radial-gradient(circle, #000 0%, transparent 52%); mask: radial-gradient(circle, #000 0%, transparent 52%); }
-@keyframes ffSpin { to { rotate: 360deg; } }
+.ff-beams { position: absolute; inset: -10% -20% 30% -20%; pointer-events: none; opacity: .55;
+  background: conic-gradient(from 160deg at 50% -8%, transparent 0 6deg, rgba(255, 236, 244, .22) 7deg 17deg, transparent 18deg 38deg, rgba(255, 236, 244, .16) 39deg 47deg, transparent 48deg 360deg), conic-gradient(from 195deg at 50% -8%, transparent 0 6deg, rgba(255, 236, 244, .2) 7deg 18deg, transparent 19deg 360deg);
+  -webkit-mask: linear-gradient(#000 0%, transparent 85%); mask: linear-gradient(#000 0%, transparent 85%); animation: ffSway 6s ease-in-out infinite alternate; transform-origin: 50% 0; }
+@keyframes ffSway { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
+.ff-floor { position: absolute; left: 50%; top: 56%; width: 150vmax; height: 34vmax; translate: -50% 0; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 55%, #fff) 0%, color-mix(in srgb, var(--accent) 22%, transparent) 55%, transparent 100%); opacity: .5; }
+.ff-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 
-/* the dancing crowd */
-.ff-f { position: absolute; width: calc(clamp(58px, 15vw, 104px) * var(--s, 1)); aspect-ratio: 1; translate: -50% -50%; pointer-events: none; will-change: transform; opacity: 0; animation: ffPop .55s cubic-bezier(.2, 1.5, .4, 1) var(--t) forwards; }
-.ff-f img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 8px 8px rgba(0, 0, 0, .28)); transform-origin: 50% 90%; will-change: transform; animation-delay: calc(var(--t) + .6s); animation-duration: var(--d); animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
-.ff-jump img { animation-name: ffJump; } .ff-sway img { animation-name: ffSway; } .ff-spin img { animation-name: ffTwirl; animation-duration: calc(var(--d) * 2.6); } .ff-bounce img { animation-name: ffBounce; }
-@keyframes ffPop { 0% { opacity: 0; transform: scale(0) rotate(-40deg) translateY(60px); } 70% { opacity: 1; transform: scale(1.2) rotate(8deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
-@keyframes ffJump { 0%, 100% { transform: translateY(0) scale(1.08, .9); } 45% { transform: translateY(-34%) scale(.94, 1.08); } 70% { transform: translateY(-34%) scale(.94, 1.08); } }
-@keyframes ffSway { 0%, 100% { transform: rotate(-12deg) translateY(0); } 50% { transform: rotate(12deg) translateY(-8%); } }
-@keyframes ffTwirl { 0%, 55%, 100% { transform: translateY(0) rotate(0); } 70% { transform: translateY(-26%) rotate(180deg); } 85% { transform: translateY(-26%) rotate(360deg); } }
-@keyframes ffBounce { 0%, 100% { transform: translateY(0) rotate(-4deg) scale(1.06, .92); } 50% { transform: translateY(-22%) rotate(5deg) scale(.96, 1.06); } }
+/* the ribbon */
+.ff-banner { position: absolute; left: 50%; top: max(4%, env(safe-area-inset-top)); width: min(560px, 94vw); translate: -50% 0; pointer-events: none; z-index: 2;
+  opacity: 0; transform: scale(.35) rotate(-6deg); animation: ffBanner .75s cubic-bezier(.2, 1.5, .4, 1) .85s forwards; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .35)); }
+.ff-banner svg { display: block; width: 100%; height: auto; overflow: visible; animation: ffFloat 3.4s ease-in-out 1.8s infinite; }
+@keyframes ffBanner { to { opacity: 1; transform: none; } }
+@keyframes ffFloat { 0%, 100% { transform: translateY(0) rotate(-.6deg); } 50% { transform: translateY(-5px) rotate(.6deg); } }
 
-/* the centre card */
-.ff-card { position: relative; z-index: 2; display: grid; justify-items: center; gap: 12px; width: min(420px, 80vw); text-align: center; padding: 0 8px; }
-.ff-title { margin: 0; display: grid; justify-items: center; gap: 0; font: 700 clamp(46px, 15vw, 108px)/.95 var(--brand); color: #fff; letter-spacing: .01em; }
-.ff-word { display: inline-flex; }
-.ff-l { display: inline-block; opacity: 0; transform: translateY(-140%) rotate(-14deg) scale(.6); animation: ffDrop .6s cubic-bezier(.2, 1.6, .4, 1) var(--k) forwards;
-  text-shadow: 0 .05em 0 color-mix(in srgb, var(--accent) 70%, #000), 0 .1em 0 rgba(0, 0, 0, .22); -webkit-text-stroke: .02em color-mix(in srgb, var(--accent) 60%, #000); paint-order: stroke fill; }
-.ff-l:nth-child(even) { animation-name: ffDrop2; }
-@keyframes ffDrop { 0% { opacity: 0; transform: translateY(-140%) rotate(-14deg) scale(.6); } 100% { opacity: 1; transform: none; } }
-@keyframes ffDrop2 { 0% { opacity: 0; transform: translateY(-140%) rotate(14deg) scale(.6); } 100% { opacity: 1; transform: none; } }
-.fz-friday:not(.calm) .ff-l { animation-name: ffDrop, ffWave; animation-duration: .6s, 1.3s; animation-delay: var(--k), calc(var(--k) + 1.2s); animation-iteration-count: 1, infinite; animation-fill-mode: forwards, none; animation-timing-function: cubic-bezier(.2, 1.6, .4, 1), ease-in-out; }
-@keyframes ffWave { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-6%) rotate(2deg); } }
-
-.ff-gift { opacity: 0; transform: scale(.3); animation: ffGiftIn .6s cubic-bezier(.2, 1.6, .4, 1) 2s forwards; margin-top: 4px; }
-.ff-gift .fzx-ic { animation: ffShake 1.6s ease-in-out 2.7s infinite; }
-@keyframes ffGiftIn { to { opacity: 1; transform: none; } }
-@keyframes ffShake { 0%, 60%, 100% { transform: rotate(0); } 66% { transform: rotate(-9deg) scale(1.05); } 72% { transform: rotate(9deg) scale(1.05); } 78% { transform: rotate(-6deg); } 84% { transform: rotate(5deg); } }
-.ff-msg { margin: 0; color: #fff; font: 600 17px/1.3 var(--brand); text-shadow: 0 2px 0 rgba(0, 0, 0, .25); opacity: 0; animation: ffFade .4s ease 2.3s forwards; min-height: 1.3em; }
-.ff-claim { opacity: 0; animation: ffRise .5s cubic-bezier(.2, 1.4, .4, 1) 2.4s forwards; min-width: 230px; background: #fff; color: var(--accent); box-shadow: 0 6px 0 color-mix(in srgb, var(--accent) 55%, #000), inset 0 -2px 0 rgba(0, 0, 0, .06); }
-.ff-claim .fzx-gi { color: var(--accent); }
-.ff-claim:active:not(:disabled) { box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, #000); }
-.ff-later { opacity: 0; animation: ffFade .4s ease 3s forwards; border: 0; background: transparent; color: rgba(255, 255, 255, .78); font: 600 14px/1 var(--ui); padding: 8px 14px; cursor: pointer; }
-@keyframes ffFade { to { opacity: 1; } }
-@keyframes ffRise { from { opacity: 0; transform: translateY(18px) scale(.9); } to { opacity: 1; transform: none; } }
-
-/* after the gift is opened */
-.ff-reward { display: none; align-items: center; gap: 10px; color: #fff; font: 700 clamp(44px, 12vw, 72px)/1 var(--brand); text-shadow: 0 4px 0 rgba(0, 0, 0, .25); }
-.ff-reward span { font-size: .4em; align-self: flex-end; padding-bottom: .22em; }
-.ff-reward svg, .ff-reward img { width: 1em !important; height: 1em !important; }
-.fz-friday.opened .ff-reward { display: flex; animation: ffBoom .7s cubic-bezier(.2, 1.6, .4, 1) both; }
-.fz-friday.opened .ff-gift { display: none; }
+/* the gift card */
+.ff-card { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); width: min(400px, 92vw); translate: -50% 0; z-index: 3; padding: 14px 14px 12px; display: grid; gap: 10px; text-align: left; color: var(--text);
+  background: var(--surface); transform: translateY(140%); animation: ffCard .6s cubic-bezier(.2, 1.3, .4, 1) 1.5s forwards; }
+@keyframes ffCard { to { transform: none; } }
+.ff-row { display: flex; align-items: center; gap: 12px; min-height: 84px; }
+.ff-gift { flex: none; display: block; line-height: 0; animation: ffShake 1.8s ease-in-out 2.4s infinite; transform-origin: 50% 85%; }
+.ff-gift svg { width: 92px; height: auto; display: block; filter: drop-shadow(0 4px 4px color-mix(in srgb, var(--accent) 25%, transparent)); }
+@keyframes ffShake { 0%, 62%, 100% { transform: rotate(0); } 68% { transform: rotate(-8deg) scale(1.05); } 74% { transform: rotate(8deg) scale(1.05); } 80% { transform: rotate(-5deg); } 86% { transform: rotate(4deg); } }
+.ff-lead { display: grid; gap: 5px; min-width: 0; }
+.ff-lead b { font: 700 22px/1.05 var(--brand); }
+.ff-lead small { font: 600 13px/1.2 var(--ui); color: var(--muted); }
+.ff-prize { display: none; align-items: center; gap: 6px; margin-left: auto; font: 700 34px/1 var(--brand); color: var(--accent); }
+.ff-prize span { font: 700 13px/1 var(--brand); color: var(--muted); align-self: flex-end; padding-bottom: 6px; }
+.ff-prize svg, .ff-prize img { width: 34px !important; height: 34px !important; }
+.fz-friday.opened .ff-prize { display: inline-flex; animation: ffBoom .6s cubic-bezier(.2, 1.6, .4, 1) both; }
+.fz-friday.opened .ff-gift { animation: ffPopGift .5s ease both; }
 @keyframes ffBoom { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: none; } }
-.fz-friday.opened .ff-f img { animation-duration: calc(var(--d) * .7); }
+@keyframes ffPopGift { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-6deg); } 100% { transform: scale(1); } }
+.ff-claim { width: 100%; min-height: 54px; font-size: 20px; }
+.ff-later { justify-self: center; border: 0; background: transparent; color: var(--muted); font: 600 13px/1 var(--ui); padding: 4px 12px; cursor: pointer; }
 
-/* confetti */
-.ff-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.ff-confetti i { position: absolute; top: -6%; width: var(--w); height: calc(var(--w) * 1.6); background: var(--c); border-radius: 2px; opacity: 0; will-change: transform; animation: ffFall var(--f) linear var(--dl) infinite; }
-@keyframes ffFall { 0% { opacity: 0; transform: translate(0, 0) rotate(0); } 8% { opacity: 1; } 100% { opacity: .9; transform: translate(var(--x), 112vh) rotate(var(--r)); } }
-
-/* calm: no dancing, everything simply appears */
-.fz-friday.calm .ff-f, .fz-friday.calm .ff-l, .fz-friday.calm .ff-gift, .fz-friday.calm .ff-msg, .fz-friday.calm .ff-claim, .fz-friday.calm .ff-later, .fz-friday.calm .ff-reward { animation: none !important; opacity: 1; transform: none; }
-.fz-friday.calm .ff-f { opacity: 1; } .fz-friday.calm .ff-rays, .fz-friday.calm .ff-f img, .fz-friday.calm .ff-gift .fzx-ic { animation: none !important; }
-:root[data-motion='reduce'] .ff-rays, :root[data-motion='reduce'] .ff-confetti { display: none; }
-@media (max-width: 600px) { .ff-claim { min-width: 200px; } }
-
-.ff-claim.now { animation-delay: .35s; }
+/* calm: everything is simply there, nothing moves */
+.fz-friday.calm .ff-banner, .fz-friday.calm .ff-card { animation: none !important; opacity: 1; transform: none; }
+.fz-friday.calm .ff-banner svg, .fz-friday.calm .ff-gift, .fz-friday.calm .ff-beams { animation: none !important; }
+:root[data-motion='reduce'] .ff-beams { display: none; }
+@media (max-width: 640px) { .ff-lead b { font-size: 19px; } .ff-gift svg { width: 74px; } .ff-prize { font-size: 30px; } .ff-prize span { display: none; } .ff-row { gap: 9px; } }

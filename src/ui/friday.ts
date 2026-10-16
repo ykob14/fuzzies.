@@ -13,8 +13,8 @@ import { rewards } from '../core/rewards';
 import { cloud } from '../core/cloud';
 import { api } from '../core/api';
 import { sync } from '../core/sync';
-import { friendUrl, FRIENDS } from '../content/friends';
-import { gicon } from '../crossing/ui/gicons';
+import { art } from '../crossing/ui/art';
+import { equippedCharacter } from '../crossing/store';
 import { celebrateFuzzies } from './celebrate';
 import '../crossing/ui/gameui.css';
 import './friday.css';
@@ -47,7 +47,7 @@ export async function maybeShowFriday(): Promise<void> {
       if (!r.available) { remember(day); return; } // claimed on another device (or the server doesn't think it's Friday)
     }
     if (document.querySelector('.fz-friday')) return;
-    show(day, cloudAccount);
+    void show(day, cloudAccount);
   } catch { /* offline or the server is busy: the surprise simply waits for the next visit */ }
 }
 
@@ -65,56 +65,66 @@ async function claim(day: string, cloudAccount: boolean): Promise<number> {
   return amount;
 }
 
-const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const soundOn = () => accounts.current?.settings.sound !== false;
 
-function show(day: string, cloudAccount: boolean): void {
+/** the ribbon: raspberry band with swallow-tail ends, cream lettering */
+function banner(): HTMLElement {
+  const OUT = '#8a1d49';
+  const star = (x: number, y: number, r: number, c = '#fff') => `<path d="M${x} ${y - r}q1.4 ${r - 1.4} ${r} ${r}q-${r - 1.4} 1.4 -${r} ${r}q-1.4 -${r - 1.4} -${r} -${r}q${r - 1.4} -1.4 ${r} -${r}z" fill="${c}"/>`;
+  const el = document.createElement('div');
+  el.className = 'ff-banner';
+  el.innerHTML = `<svg viewBox="0 0 440 170" aria-hidden="true">
+    <defs><linearGradient id="ffb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7aa8"/><stop offset="1" stop-color="#d6336c"/></linearGradient><linearGradient id="ffc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b52a5c"/><stop offset="1" stop-color="#8a1d49"/></linearGradient>
+    <path id="ffp" d="M52 106Q220 58 388 106"/></defs>
+    <path d="M10 66l62 8-12 38 12 38-62-6 20-36z" fill="url(#ffc)" stroke="${OUT}" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M430 66l-62 8 12 38-12 38 62-6-20-36z" fill="url(#ffc)" stroke="${OUT}" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M44 56Q220 8 396 56L396 134Q220 86 44 134Z" fill="url(#ffb)" stroke="${OUT}" stroke-width="5.5" stroke-linejoin="round"/>
+    <path d="M52 62Q220 16 388 62L388 78Q220 34 52 78Z" fill="#fff" opacity=".28"/>
+    <text font-family="Fredoka, 'Baloo 2', system-ui, sans-serif" font-weight="700" font-size="41" letter-spacing="1" fill="#fff8ee" stroke="${OUT}" stroke-width="7" stroke-linejoin="round" paint-order="stroke" text-anchor="middle"><textPath href="#ffp" startOffset="50%">HAPPY FRIDAY!</textPath></text>
+    ${star(34, 28, 12)}${star(412, 22, 9, '#ffe08a')}${star(402, 150, 8)}${star(26, 150, 7, '#ffe08a')}${star(224, 14, 7, '#ffe08a')}
+  </svg>`;
+  return el;
+}
+
+async function show(day: string, cloudAccount: boolean): Promise<void> {
   showing = true;
   const reduce = document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const phone = innerWidth < 600;
+  const phone = innerWidth < 640;
+  const hero = equippedCharacter();
 
-  // the crowd: the owner's Fuzzy Friends, spread round the edges so the middle stays free for the title and the gift
-  const picks = [...FRIENDS].sort(() => Math.random() - 0.5).slice(0, phone ? 10 : 15);
-  const slots = phone
-    ? [[14, 13], [86, 11], [13, 34], [87, 37], [14, 60], [86, 63], [24, 84], [50, 88], [76, 84], [50, 6]]
-    : [[9, 18], [91, 16], [18, 8], [82, 7], [7, 42], [93, 44], [11, 66], [89, 68], [24, 84], [76, 84], [50, 87], [37, 88], [63, 88], [31, 11], [69, 11]];
-  const crowd = picks.map((f, i) => {
-    const [x, y] = slots[i] ?? [rnd(8, 92), rnd(10, 90)];
-    const kind = ['jump', 'sway', 'spin', 'bounce'][i % 4];
-    return h('span', { class: `ff-f ff-${kind}`, style: `left:${x}%;top:${y}%;--i:${i};--d:${(rnd(0.55, 0.95)).toFixed(2)}s;--t:${(0.28 + i * 0.075).toFixed(2)}s;--s:${(rnd(0.85, 1.15)).toFixed(2)}` },
-      h('img', { src: friendUrl(f.id), alt: '', draggable: 'false', width: 96, height: 96 }));
-  });
+  // the 3D stage loads in the background and drops the Fuzzies in as soon as it is ready (on a slow phone the banner and the gift are already there)
+  let stage: import('./fridayScene').FridayScene | null = null;
+  let closed = false;
+  const stageReady = import('./fridayScene').then((m) => m.createFridayScene({ hero, phone, calm: reduce, sound: soundOn() })).catch((e) => { console.error(e); return null; });
 
-  // "HAPPY FRIDAY!" — letters drop in one by one
-  const word = (w: string, base: number) => h('span', { class: 'ff-word' }, ...[...w].map((c, i) => h('span', { class: 'ff-l', style: `--k:${(base + i * 0.06).toFixed(2)}s` }, c)));
-  const title = h('h1', { class: 'ff-title', 'aria-label': 'Happy Friday!' }, word('HAPPY', 1.0), word('FRIDAY!', 1.35));
-
-  // the gift
-  const giftBox = h('span', { class: 'ff-gift' }, h('span', { class: 'fzx-ic', style: '--sz:104px' }, gicon('events', 66)));
+  // the gift card
   const amountEl = h('b', { class: 'ff-amt' }, '0');
-  const reward = h('div', { class: 'ff-reward', 'aria-live': 'polite' }, fuzzyMark(44), amountEl, h('span', null, 'Fuzzies'));
-  const msg = h('p', { class: 'ff-msg' }, 'You have a Friday gift!');
-  const claimBtn = h('button', { class: 'fzx-bigbtn ff-claim', type: 'button' }, gicon('events', 24), 'Claim my gift!');
+  const gift = h('span', { class: 'ff-gift' }, art('events', 92));
+  const lead = h('div', { class: 'ff-lead' }, h('b', null, 'Your Friday gift'), h('small', null, 'Free Fuzzies, just for you'));
+  const prize = h('div', { class: 'ff-prize' }, fuzzyMark(46), amountEl);
+  const claimBtn = h('button', { class: 'fzx-bigbtn ff-claim', type: 'button' }, 'Claim');
   const later = h('button', { class: 'ff-later', type: 'button' }, 'Later');
-  const card = h('div', { class: 'ff-card' }, title, giftBox, reward, msg, claimBtn, later);
+  const card = h('div', { class: 'ff-card fzx-card' }, h('div', { class: 'ff-row' }, gift, lead, prize), claimBtn, later);
 
-  const confetti = reduce ? null : h('div', { class: 'ff-confetti', 'aria-hidden': 'true' }, ...Array.from({ length: phone ? 26 : 44 }, (_, i) => {
-    const cols = ['#ffffff', '#ffd1e1', '#ff6b9a', '#f5b014', '#d6336c'];
-    return h('i', { style: `left:${rnd(0, 100).toFixed(1)}%;--c:${cols[i % cols.length]};--w:${rnd(5, 10).toFixed(1)}px;--f:${rnd(2.2, 4).toFixed(2)}s;--dl:${(rnd(1.1, 3.4)).toFixed(2)}s;--r:${rnd(-540, 540).toFixed(0)}deg;--x:${rnd(-60, 60).toFixed(0)}px` });
-  }));
   const el = h('div', { class: `fz-friday ${reduce ? 'calm' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Happy Friday! A gift for you' },
-    h('div', { class: 'ff-rays', 'aria-hidden': 'true' }), confetti, ...crowd, card);
+    h('div', { class: 'ff-beams', 'aria-hidden': 'true' }), h('div', { class: 'ff-floor', 'aria-hidden': 'true' }),
+    banner(), card);
   document.body.append(el);
   requestAnimationFrame(() => el.classList.add('in'));
+  void stageReady.then((st) => {
+    if (!st) return;
+    if (closed) { st.dispose(); return; }
+    stage = st;
+    el.insertBefore(st.el, el.querySelector('.ff-banner'));
+    st.resize();
+    st.start();
+  });
+  const onResize = (): void => stage?.resize();
+  addEventListener('resize', onResize);
 
-  if (soundOn()) {
-    sfx.whoosh();
-    picks.forEach((_, i) => setTimeout(() => { if (i % 3 === 0) sfx.hop(); }, 280 + i * 75));
-    setTimeout(() => sfx.shimmer(), 1100);
-    setTimeout(() => sfx.giggle(), 1500);
-  }
+  if (soundOn()) { sfx.whoosh(); setTimeout(() => sfx.shimmer(), 900); setTimeout(() => sfx.giggle(), 1300); }
 
-  const close = (): void => { el.classList.add('out'); setTimeout(() => { el.remove(); showing = false; }, 320); removeEventListener('keydown', onKey); };
+  const close = (): void => { closed = true; el.classList.add('out'); removeEventListener('keydown', onKey); removeEventListener('resize', onResize); setTimeout(() => { stage?.dispose(); el.remove(); showing = false; }, 320); };
   const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close(); };
   addEventListener('keydown', onKey);
   later.addEventListener('click', close);
@@ -126,19 +136,20 @@ function show(day: string, cloudAccount: boolean): void {
     busy = true;
     claimBtn.disabled = true;
     claim(day, cloudAccount).then((amount) => {
-      if (!amount) { msg.textContent = 'You already opened today’s gift — see you next Friday!'; claimBtn.replaceWith(h('button', { class: 'fzx-bigbtn ff-claim now', type: 'button', onclick: close }, 'OK')); later.remove(); return; }
+      if (!amount) { lead.replaceChildren(h('b', null, 'Already opened!'), h('small', null, 'See you next Friday')); claimBtn.replaceWith(h('button', { class: 'fzx-bigbtn ff-claim now', type: 'button', onclick: close }, 'OK')); later.remove(); return; }
       el.classList.add('opened');
+      stage?.party();
       later.remove();
-      if (soundOn()) { sfx.boing(); setTimeout(() => sfx.shimmer(), 150); setTimeout(() => sfx.coins(), 700); }
-      msg.textContent = 'Your free Friday gift!';
+      if (soundOn()) { sfx.boing(); setTimeout(() => sfx.shimmer(), 150); setTimeout(() => sfx.coins(), 650); }
+      lead.replaceChildren(h('b', null, 'Happy Friday!'), h('small', null, 'Added to your Fuzzies'));
       const t0 = performance.now();
-      const tick = (t: number): void => { const k = Math.min(1, (t - t0) / 1000); amountEl.textContent = String(Math.round(amount * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(tick); };
+      const tick = (t: number): void => { const k = Math.min(1, (t - t0) / 1000); amountEl.textContent = '+' + Math.round(amount * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); };
       requestAnimationFrame(tick);
       claimBtn.replaceWith(h('button', { class: 'fzx-bigbtn ff-claim now', type: 'button', onclick: () => { close(); void celebrateFuzzies(amount, { spendCard: false }); } }, 'Yay!'));
     }).catch((e: Error) => {
       busy = false;
       claimBtn.disabled = false;
-      msg.textContent = e.message || 'Couldn’t open the gift right now — try again.';
+      lead.replaceChildren(h('b', null, 'Couldn’t open it'), h('small', null, e.message || 'Try again in a moment'));
     });
   });
 }
