@@ -17,6 +17,17 @@ import * as A from './skateArt';
 const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 
+/** each town rival skates its own lane beside the path you take, so nobody hides behind (or inside) anybody */
+const LANES = [-1.15, 1.15, -2.1];
+function rivalSpot(rs: SkateSim, i: number): { x: number; z: number } {
+  let o = LANES[i % LANES.length]; const e = edge(rs.pos.x, rs.pos.z);
+  const px = Math.cos(rs.heading), pz = -Math.sin(rs.heading); // sideways (left of travel is +… the sign doesn't matter, only that it is a side)
+  let x = rs.pos.x + px * o, z = rs.pos.z + pz * o;
+  if (edge(x, z).d > -0.5) { o = -o; x = rs.pos.x + px * o; z = rs.pos.z + pz * o; }
+  if (edge(x, z).d > -0.4) { x = rs.pos.x; z = rs.pos.z; }
+  void e; return { x, z };
+}
+
 export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): void {
   const adv = adventure('skate')!;
   const sim = new SkateSim(setup.variant, setup.seed);
@@ -41,7 +52,8 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
   let mirrorRoot: THREE.Group | null = null;
   const a = createArcade(stage, {
     cls: 'skate', setup, adv, hooks, buttonLabel: 'Onto the ice!',
-    rivals: { you: sim, make: () => new SkateSim(setup.variant, setup.seed), bot: BOTS.skate, decorate: (f) => dress(f, false), size: SIZE },
+    rivals: { you: sim, make: () => new SkateSim(setup.variant, setup.seed), bot: BOTS.skate, decorate: (f) => dress(f, false), size: SIZE,
+      pose: (rs: SkateSim, i: number) => { const o = rivalSpot(rs, i); return { x: o.x, z: o.z, heading: rs.heading, moving: rs.speed / SKATE.speed * 0.6 }; } },
     hud: { count: 'GATES' },
     world: { size: { hw: 17, hd: 12 }, treeLine: false, fence: false, flowers: 0, clouds: false, tufts: false, path: false, sky: 'snow' },
     controls: { mouseSteer: false },
@@ -177,11 +189,11 @@ export function run(stage: HTMLElement, setup: MiniSetup, hooks: MiniHooks): voi
     if (sim.state === 'playing') trailMe.add(sim.pos.x, sim.pos.z, sim.heading, t);
     trailMe.update(t); for (const m of mirrored) A.syncMirror(m.src, m.dst);
     const rf = a.rivals?.rivals ?? [];
-    rf.forEach((rr, i) => { const r = { sim: rr.sim as unknown as SkateSim }; if (!trailRiv[i]) { trailRiv[i] = A.trail(60, 3.5, mobile); scene.add(trailRiv[i].mesh); } if (r.sim.state === 'playing') trailRiv[i].add(r.sim.pos.x, r.sim.pos.z, r.sim.heading, t); trailRiv[i].update(t); });
+    rf.forEach((rr, i) => { const r = { sim: rr.sim as unknown as SkateSim }; if (!trailRiv[i]) { trailRiv[i] = A.trail(60, 3.5, mobile); scene.add(trailRiv[i].mesh); } if (r.sim.state === 'playing') { const o = rivalSpot(r.sim, i); trailRiv[i].add(o.x, o.z, r.sim.heading, t); } trailRiv[i].update(t); });
     sprayT -= dt;
     if (Math.abs(sim.turnRate) > 1.5 && sim.speed > 2 && sprayT <= 0) { sprayT = 0.07; const side = Math.sign(sim.turnRate); a.puff(new THREE.Vector3(sim.pos.x + Math.cos(sim.heading) * side * 0.16, 0.1, sim.pos.z - Math.sin(sim.heading) * side * 0.16), 2, '#f2f9ff'); if (Math.random() < 0.5) a.chips(new THREE.Vector3(sim.pos.x, 0.08, sim.pos.z), 1, '#ffffff'); }
     // the world
-    gates.forEach((g) => g.update(t));
+    gates.forEach((g, i) => { g.update(t); g.fade(a.camera.position, sim.gates[i]); });
     cheer = Math.max(0, cheer - dt * 0.8); crowd.update(t, dt, cheer); zam.update(t); snow.update(dt, a.camera.position);
     // the arrow to the lit gate (shows when it isn't straight ahead)
     const aim = sim.aim(); const err = wrap(Math.atan2(aim.x - sim.pos.x, aim.z - sim.pos.z) - sim.heading);

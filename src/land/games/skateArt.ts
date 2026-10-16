@@ -259,7 +259,7 @@ export function surroundings(mobile: boolean): THREE.Group {
 
 // ---------- gates: glowing arches in a colour sequence ----------
 export const GATE_COLORS = ['#ff4d7a', '#ff9a3d', '#ffd23f', '#7ed957', '#2ec4b6', '#4cc9f0', '#3a86ff', '#ff7fb7'];
-export interface GateArt { group: THREE.Group; mirror: THREE.Group; color: THREE.Color; setLit: (on: boolean) => void; update: (t: number) => void; burst: () => void }
+export interface GateArt { group: THREE.Group; mirror: THREE.Group; color: THREE.Color; setLit: (on: boolean) => void; update: (t: number) => void; burst: () => void; fade: (cam: THREE.Vector3, g: { x: number; z: number; nx: number; nz: number }) => void }
 export function gateArt(index: number, dir: { x: number; z: number }, mobile: boolean): GateArt {
   const color = C(GATE_COLORS[index % GATE_COLORS.length]); const group = new THREE.Group(); group.rotation.y = Math.atan2(dir.x, dir.z);
   const glowMat = (op: number) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
@@ -271,7 +271,7 @@ export function gateArt(index: number, dir: { x: number; z: number }, mobile: bo
   const halo = new THREE.Mesh(new THREE.TorusGeometry(GATE_HW, 0.26, 8, 24, Math.PI).scale(1, 0.5, 1), glowMat(0.34)); halo.position.y = 1.15; group.add(halo);
   const curtain = new THREE.Mesh(new THREE.PlaneGeometry(GATE_HW * 2, 1.9), new THREE.MeshBasicMaterial({ map: curtainTex(), color, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false })); curtain.position.y = 0.95; group.add(curtain);
   const line = new THREE.Mesh(new THREE.PlaneGeometry(GATE_HW * 2 + 0.3, 0.34).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false, toneMapped: false })); line.position.y = 0.045; group.add(line);
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.85, 15, 14, 1, true), new THREE.MeshBasicMaterial({ map: beamTex(), color, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false })); beam.position.y = 7.5; group.add(beam);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.55, 12, 14, 1, true), new THREE.MeshBasicMaterial({ map: beamTex(), color: color.clone().lerp(new THREE.Color('#ffffff'), 0.55), transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false })); beam.position.y = 6; group.add(beam);
   const pool = new THREE.Mesh(new THREE.CircleGeometry(GATE_HW * 1.5, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: T.glow('rgba(255,255,255,0.8)', 'rgba(255,255,255,0)'), color, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); pool.position.y = 0.05; group.add(pool);
   const chev: THREE.Mesh[] = []; const cs = new THREE.Shape(); cs.moveTo(-0.7, 0); cs.lineTo(0, 0.9); cs.lineTo(0.7, 0); cs.lineTo(0.45, 0); cs.lineTo(0, 0.55); cs.lineTo(-0.45, 0); cs.closePath();
   const cg = new THREE.ShapeGeometry(cs).rotateX(-Math.PI / 2);
@@ -289,9 +289,18 @@ export function gateArt(index: number, dir: { x: number; z: number }, mobile: bo
   return {
     group, mirror, color, setLit,
     burst: () => { burstT = 0; },
+    // the camera glides through gates sometimes: the closer it is, the more see-through the arch (and no beam in your face)
+    fade: (cam, g) => {
+      const ux = g.nx, uz = g.nz; const rx = cam.x - g.x, rz = cam.z - g.z;
+      const u = Math.max(-GATE_HW, Math.min(GATE_HW, rx * ux + rz * uz));
+      const dx = rx - ux * u, dz = rz - uz * u, dy = cam.y - 1.3; const d = Math.hypot(dx, dy, dz);
+      const k = Math.max(0, Math.min(1, (d - 1.2) / 2.4));
+      const was = archMat.opacity; if (Math.abs(k - was) > 0.01) { archMat.transparent = k < 0.99; archMat.opacity = k; archMat.needsUpdate = true; arch.visible = k > 0.03; }
+      const show = lit && k > 0.45; halo.visible = show; curtain.visible = show; beam.visible = lit && k > 0.2;
+    },
     update: (t) => {
       if (lit) {
-        archMat.emissiveIntensity = 1.8 + Math.sin(t * 5) * 0.5; (beam.material as THREE.MeshBasicMaterial).opacity = 0.45 + Math.sin(t * 3) * 0.12;
+        archMat.emissiveIntensity = 1.8 + Math.sin(t * 5) * 0.5; (beam.material as THREE.MeshBasicMaterial).opacity = 0.38 + Math.sin(t * 3) * 0.1;
         chev.forEach((c, i) => { const k = (t * 1.6 - i * 0.28) % 1; (c.material as THREE.MeshBasicMaterial).opacity = 0.2 + 0.7 * Math.max(0, Math.sin(k * Math.PI)); });
       }
       if (burstT < 1) { burstT = Math.min(1, burstT + 0.03); ring.scale.setScalar(1 + burstT * 3.2); (ring.material as THREE.MeshBasicMaterial).opacity = (1 - burstT) * 0.9; }
