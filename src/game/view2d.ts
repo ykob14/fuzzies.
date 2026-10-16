@@ -38,7 +38,7 @@ export class View2D implements View {
 
   fx(e: Fx, g: Crossing): void {
     const text = (x: number, y: number, t: string, color: string, size = 0.55, life = 1) => this.parts.push({ x, y, vx: 0, vy: -1.2, life, max: life, color, text: t, size });
-    if (e.kind === 'collect') { text(e.x + 0.5, e.row + 0.2, `+${e.amount}`, e.gold ? '#ffd23f' : '#fff'); this.burst(e.x + 0.5, e.row + 0.5, e.gold ? '#ffd23f' : '#ff7ac2', e.gold ? 16 : 8); }
+    if (e.kind === 'collect') { text(e.x + 0.5, e.row + 0.2, e.item ? e.item.emoji : `+${e.amount}`, e.gold ? '#ffd23f' : '#fff'); this.burst(e.x + 0.5, e.row + 0.5, e.gold ? '#ffd23f' : e.item ? e.item.colors[0] : '#ff7ac2', e.gold ? 16 : 8); }
     if (e.kind === 'home') { text(e.x + 0.5, 0.2, `+${e.amount}`, '#fff'); this.burst(e.x + 0.5, 0.5, '#ffd23f', 18); }
     if (e.kind === 'level') this.parts.push({ x: COLS / 2, y: ROWS / 2, vx: 0, vy: -0.6, life: 2, max: 2, color: '#fff', text: `LEVEL ${e.level}!`, size: 1.1 });
     if (e.kind === 'death') this.burst(e.x + 0.5, e.row + 0.5, e.how === 'splash' ? '#9be7ff' : g.skin.colors[0], 14);
@@ -141,7 +141,7 @@ export class View2D implements View {
     for (const tk of g.tokens) {
       c.globalAlpha = tk.life - tk.age < 2 ? 0.4 + 0.6 * Math.abs(Math.sin(tk.age * 10)) : 1;
       const bob = Math.sin(t * 5 + tk.x) * s * 0.06;
-      this.drawFuzzy(tk.x * s + s / 2, tk.row * s + s / 2 + bob, s * 0.22, tk.gold ? ['#fff3b0', '#e0a100'] : ['#ffb3e0', '#ff4f9a'], 'down', 0, false, tk.gold, t);
+      this.drawFuzzy(tk.x * s + s / 2, tk.row * s + s / 2 + bob, s * 0.22, tk.gold ? ['#fff3b0', '#e0a100'] : tk.ev ? tk.ev.colors : ['#ffb3e0', '#ff4f9a'], 'down', 0, false, tk.gold, t);
       c.globalAlpha = 1;
     }
 

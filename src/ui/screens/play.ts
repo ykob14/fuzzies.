@@ -15,8 +15,11 @@ import { claimable as missionsClaimable, viewMissions } from '../../crossing/mis
 import * as net from '../../crossing/net';
 import { BOARDS, BOARD_IDS } from '../../crossing/rewards-weekly';
 import { equippedCharacter } from '../../crossing/store';
-import { CHARACTERS, character, type CharacterDef } from '../../crossing/characters';
+import { CHARACTERS, character, EVENT_NAME, type CharacterDef, type EventId } from '../../crossing/characters';
 import { createHub, panelAvailable, type NavTarget } from '../../crossing/hub';
+import { activeOccurrences, claimableCount, eventItems, EVENTS } from '../../crossing/events';
+import { now as shopNow } from '../../crossing/shopData';
+import { createEventFx } from '../../crossing/ui/eventFx';
 import { coinMark, rarityTag, newDot } from '../../crossing/ui/kit';
 import { friendUrl } from '../../content/friends';
 import '../../crossing/ui/hub.css';
@@ -58,6 +61,7 @@ export function playScreen(): Screen {
   };
   const controls = h('div', { class: `dpad-wrap ${isTouch() ? '' : 'desktop'}` }, pad('up', 'up'), pad('left', 'back'), pad('right', 'play'), pad('down', 'down'));
 
+  const eventFx = createEventFx(isTouch());
   let game: Crossing | null = null;
   /** coins and XP earned in the game that is being played (shown on the game over card) */
   let runCoins = 0, runStartCoins = 0, runStartXp = 0, runStartPass = 1;
@@ -120,6 +124,8 @@ export function playScreen(): Screen {
       over: (r) => showOver(r),
       event: (e) => onGameEvent(e),
     });
+    game.eventItems = eventItems(); // seasonal pickups only while an event is on
+    eventFx.refresh();
     runCoins = 0;
     setHud({ score: 0, level: 1, lives: 3, fuzzies: 0, time: 1, best: a.stats.bestScore });
     requestAnimationFrame(() => dispatchEvent(new Event('fz:scene-ready'))); // lets the travel transition open up
@@ -130,7 +136,8 @@ export function playScreen(): Screen {
     if (e.kind === 'home') track('nest');
     if (e.kind === 'level') track('level', e.level);
     let ev: store.CrossingEvent | null = null;
-    if (e.kind === 'collect') ev = { kind: 'pickup', gold: e.gold };
+    if (e.kind === 'collect' && e.item) ev = { kind: 'eventItem', event: e.item.event as EventId };
+    else if (e.kind === 'collect') ev = { kind: 'pickup', gold: e.gold };
     else if (e.kind === 'home') ev = { kind: 'nest' };
     else if (e.kind === 'level') ev = { kind: 'levelClear' };
     else if (e.kind === 'hop') ev = { kind: 'hop' };
@@ -185,6 +192,13 @@ export function playScreen(): Screen {
     return t;
   }
 
+  /** the Events tile: what is on now (a dot when finished challenges wait to be claimed) */
+  function eventsTile(): HTMLElement | null {
+    if (!panelAvailable('events')) return null;
+    const on = activeOccurrences(shopNow());
+    return tile('Events', on.length ? `${EVENTS[on[0].id].theme.icon} ${EVENT_NAME[on[0].id]}` : 'Calendar', icon('sparkles', 22), () => go({ to: 'events', id: on[0]?.id }), claimableCount(store.save()) > 0);
+  }
+
   function showStart(): void {
     overlay.hidden = false;
     const me = equippedCharacter();
@@ -196,6 +210,7 @@ export function playScreen(): Screen {
       panelAvailable('pass') ? tile('Pass', `Level ${store.passInfo().level}`, icon('trophy', 22), () => go({ to: 'pass' }), claimable > 0) : null,
       panelAvailable('missions') ? tile('Missions', `${viewMissions(store.save(), 'daily').filter((v) => v.claimed).length} / 3 today`, icon('check', 22), () => go({ to: 'missions' }), missionsClaimable(store.save()).length > 0) : null,
       panelAvailable('shop') ? tile('Shop', h('span', { class: 'fzx-amt' }, coinMark(13), String(store.coins())), icon('unlock', 22), () => go({ to: 'shop' })) : null,
+      eventsTile(),
       boardsTile());
     overlay.replaceChildren(h('div', { class: 'go-card start fzx-menu' },
       h('div', { class: 'go-title' }, mascot(44), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across, grab coins, fill all 5 nests.')), h('span', { class: 'fzx-coins', title: 'Your Crossing Coins' }, coinMark(18), h('b', null, store.coins().toLocaleString()))),
@@ -364,7 +379,7 @@ export function playScreen(): Screen {
   const onVis = () => { if (document.hidden && game && !game.paused && overlay.hidden) togglePause(); };
   document.addEventListener('visibilitychange', onVis);
 
-  shellEl = h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn), controls, overlay);
+  shellEl = h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, eventFx.el, skipBtn), controls, overlay);
   const el = h('div', { class: 'page play' },
     // the start / pause / game-over card covers the whole shell (HUD and arrows too) so it fits on small screens
     shellEl);
@@ -373,6 +388,6 @@ export function playScreen(): Screen {
 
   return {
     el,
-    destroy: () => { if (game?.started && !game.over) void net.finishRun({ score: game.score, level: game.level }, true); gen++; hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
+    destroy: () => { if (game?.started && !game.over) void net.finishRun({ score: game.score, level: game.level }, true); gen++; hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); eventFx.destroy(); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
   };
 }

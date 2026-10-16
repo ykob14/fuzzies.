@@ -30,7 +30,9 @@ export const SKINS: Skin[] = [
 export type Dir = 'up' | 'down' | 'left' | 'right';
 export interface Obj { id: number; x: number; len: number; kind: 'log' | 'pad' | 'car' | 'truck' | 'bus'; color: string; sink?: number }
 export interface Lane { row: number; type: 'road' | 'river'; speed: number; span: number; objs: Obj[] }
-export interface Token { id: number; row: number; x: number; gold: boolean; obj?: Obj; off?: number; age: number; life: number }
+/** a seasonal pickup the screen asks the game to drop now and then during an event (cosmetic: no coins, no Fuzzies; the screen counts it) */
+export interface EventItem { event: string; emoji: string; colors: [string, string] }
+export interface Token { id: number; row: number; x: number; gold: boolean; obj?: Obj; off?: number; age: number; life: number; ev?: EventItem }
 export type DeathKind = 'splash' | 'crash' | 'bonk' | 'time';
 
 export interface Hud { score: number; level: number; lives: number; fuzzies: number; time: number; best: number }
@@ -39,7 +41,7 @@ export interface Result { score: number; level: number; fuzzies: number; homes: 
 /** Something happened that a view may want to show (particles, pop-up text, camera shake…). */
 export type Fx =
   | { kind: 'hop'; x: number; row: number }
-  | { kind: 'collect'; x: number; row: number; gold: boolean; amount: number }
+  | { kind: 'collect'; x: number; row: number; gold: boolean; amount: number; /** set when it was a seasonal event item */ item?: EventItem }
   | { kind: 'death'; x: number; row: number; how: DeathKind }
   | { kind: 'home'; x: number; row: number; amount: number }
   | { kind: 'level'; level: number; amount: number }
@@ -75,6 +77,8 @@ export class Crossing {
   clock = 0;
   timer = LIFE_TIME;
   score = 0; level = 1; lives = 3; fuzzies = 0; homesFilled = 0;
+  /** seasonal event pickups to drop now and then (empty = exactly the normal game); set by the screen when an event is on */
+  eventItems: EventItem[] = [];
   paused = false;
   over = false;
   started = false;
@@ -278,16 +282,17 @@ export class Crossing {
   }
 
   private spawnToken(): void {
-    const max = 3 + Math.min(4, Math.floor(this.level / 2));
+    const max = 3 + Math.min(4, Math.floor(this.level / 2)) + (this.eventItems.length ? 1 : 0);
     if (this.tokens.length >= max) return;
-    const gold = Math.random() < 0.08 + this.level * 0.01;
+    const ev = this.eventItems.length && Math.random() < 0.22 && !this.tokens.some((t) => t.ev) ? this.eventItems[Math.floor(Math.random() * this.eventItems.length)] : undefined;
+    const gold = !ev && Math.random() < 0.08 + this.level * 0.01;
     if (Math.random() < 0.55) {
       // on a road lane or the median, standing still
       const rows = [MEDIAN, 7, 8, 9, 10, 11];
       const row = rows[Math.floor(Math.random() * rows.length)];
       const x = Math.floor(Math.random() * COLS);
       if (this.tokens.some((t) => t.row === row && Math.abs(t.x - x) < 1)) return;
-      this.tokens.push({ id: nextId++, row, x, gold, age: 0, life: 9 + Math.random() * 4 });
+      this.tokens.push({ id: nextId++, row, x, gold, ev, age: 0, life: 9 + Math.random() * 4 });
     } else {
       // riding a log or lily pad
       const l = this.lanes.filter((x) => x.type === 'river')[Math.floor(Math.random() * 5)];
@@ -295,7 +300,7 @@ export class Crossing {
       const o = vis[Math.floor(Math.random() * vis.length)];
       if (!o) return;
       const off = Math.floor(Math.random() * o.len);
-      this.tokens.push({ id: nextId++, row: l.row, x: o.x + off, gold, obj: o, off, age: 0, life: 14 });
+      this.tokens.push({ id: nextId++, row: l.row, x: o.x + off, gold, ev, obj: o, off, age: 0, life: 14 });
     }
   }
 
@@ -303,6 +308,7 @@ export class Crossing {
     for (const t of this.tokens) {
       if (t.row !== row || Math.abs(t.x - x) > 0.62) continue;
       t.age = t.life; // remove
+      if (t.ev) { this.score += 25; this.emit({ kind: 'collect', x: t.x, row: t.row, gold: false, amount: 0, item: t.ev }); sfx.collect(); continue; }
       const n = t.gold ? 5 : 1;
       this.score += t.gold ? 100 : 25;
       this.give(n);
