@@ -1,0 +1,294 @@
+/* ==========================================================================================================
+   Mini-game skin — the look of every mini-game screen built on the shared kit (land/mgScene.ts): the "mission start" card,
+   the HUD, the pause menu, the banners / tips / floating numbers, the controls, and the results screens.
+   Same language as Fuzzy Crossing's lobby (crossing/ui/gameui.css): chunky raised cards (2 px border + a lip), big buttons that
+   squash on press, Fredoka for titles / numbers, picture icons instead of emoji, ONE brand colour (raspberry) on neutrals.
+   This file is loaded after styles.css and overrides the older plain rules by being more specific (it never edits them).
+   The Boat Race, Forest Challenge and Hairball Vacuum keep their own HUD — the HUD rules below are scoped to `.mgk` (the kit's root).
+   ========================================================================================================== */
+
+/* colours that must follow the screen's own light/dark tokens (Land pins a cream set), so they are computed here, not at :root */
+.mgk, .mg-intro, .race-paused, .adv-results {
+  --lip: color-mix(in srgb, var(--accent) 68%, #000);
+  --card-lip: color-mix(in srgb, var(--text) 13%, var(--surface));
+  --pill: color-mix(in srgb, var(--surface) 95%, transparent);
+  --soft: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+@property --k { syntax: '<number>'; inherits: false; initial-value: 1; }
+@keyframes mgWarn { 50% { transform: translateX(-50%) scale(1.12); } }
+@keyframes mgWarnBanner { 50% { transform: translateX(-50%) scale(1.05); } }
+@keyframes mgPopIn { from { opacity: 0; transform: translateY(16px) scale(.92); } 60% { transform: translateY(-3px) scale(1.015); } }
+@keyframes mgBob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+@keyframes mgSpin { to { rotate: 360deg; } }
+@keyframes mgHop { 0% { transform: translateY(0) scale(1.08, .9); } 40% { transform: translateY(-22px) scale(.96, 1.05); } 100% { transform: translateY(0) scale(1); } }
+@keyframes mgSwing { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+@keyframes mgPulseRing { 0%, 100% { box-shadow: 0 7px 0 var(--lip), 0 0 0 4px rgba(255, 255, 255, .75), 0 0 0 4px transparent; } 50% { box-shadow: 0 7px 0 var(--lip), 0 0 0 4px rgba(255, 255, 255, .75), 0 0 0 11px color-mix(in srgb, var(--accent) 35%, transparent); } }
+
+/* the shared chunky buttons (a big raspberry one, a raised white one) — also on elements that carry the older .btn classes */
+.mg-intro .fzx-bigbtn, .race-paused .fzx-bigbtn, .adv-results .fzx-bigbtn { width: 100%; min-height: 60px; border: 0; border-radius: 22px; color: #fff; font: 700 23px/1 var(--brand); letter-spacing: .01em; gap: 10px; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff), var(--accent)); box-shadow: 0 6px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, .3); }
+.mg-intro .fzx-bigbtn:active, .race-paused .fzx-bigbtn:active, .adv-results .fzx-bigbtn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--lip), inset 0 2px 0 rgba(255, 255, 255, .3); }
+.mg-intro .fzx-bigbtn .fzx-gi, .race-paused .fzx-bigbtn .fzx-gi, .adv-results .fzx-bigbtn .fzx-gi { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .16)); }
+.adv-results .fzx-bigbtn.btn-soft { background: var(--surface); color: var(--accent); border: 2px solid var(--card-lip); box-shadow: 0 5px 0 var(--card-lip); }
+.adv-results .fzx-bigbtn.btn-soft:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--card-lip); }
+.race-paused .fzx-sbtn, .adv-results .fzx-sbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 14px; border-radius: 18px; border: 2px solid var(--card-lip); background: var(--surface); color: var(--text); font: 700 15px/1 var(--brand); box-shadow: 0 4px 0 var(--card-lip); cursor: pointer; transition: transform .1s, box-shadow .1s; }
+.race-paused .fzx-sbtn:active, .adv-results .fzx-sbtn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--card-lip); }
+.race-paused .fzx-sbtn .fzx-gi, .adv-results .fzx-sbtn .fzx-gi { color: var(--accent); --tile: var(--surface); }
+
+/* ---------------------------------------------------------------- the mission start card (intro) */
+.mg-intro { position: absolute; inset: 0; z-index: 7; display: grid; place-items: center; padding: 12px; background: radial-gradient(circle at 50% 30%, rgba(60, 30, 50, .3), rgba(24, 16, 30, .58) 75%); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.mg-intro[hidden] { display: none; }
+.mg-intro .mg-intro-box { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(392px, 100%); max-height: calc(100% - 4px); padding: 0 16px 16px; text-align: center; overflow: auto; color: var(--text);
+  border-radius: 30px; border: 2px solid var(--card-lip); box-shadow: 0 6px 0 var(--card-lip), 0 28px 54px rgba(20, 12, 24, .42);
+  background: radial-gradient(120% 52% at 50% 0%, color-mix(in srgb, var(--accent) 17%, var(--surface)) 0%, var(--surface) 70%); animation: mgPopIn .46s cubic-bezier(.2, .9, .3, 1.1) both; }
+.mg-intro .mg-intro-box > * { flex: none; }
+.mg-stage { position: relative; height: 134px; margin: 0 -16px; display: grid; place-items: center; overflow: hidden; border-radius: 28px 28px 0 0; }
+.mg-rays { position: absolute; left: 50%; top: 52%; width: 300px; height: 300px; translate: -50% -50%; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--accent) 14%, transparent) 0 9deg, transparent 9deg 22deg); -webkit-mask: radial-gradient(circle, #000 20%, transparent 68%); mask: radial-gradient(circle, #000 20%, transparent 68%); animation: mgSpin 40s linear infinite; }
+.mg-hero.fzx-ic { --sz: 92px; position: relative; border-radius: 30%; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); box-shadow: 0 7px 0 var(--lip), 0 16px 26px color-mix(in srgb, var(--accent) 34%, transparent), inset 0 2px 0 rgba(255, 255, 255, .32); animation: mgBob 3.4s ease-in-out infinite; }
+.mg-hero .fzx-gi { filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .16)); }
+.mg-host { position: absolute; left: 50%; bottom: 16px; margin-left: 50px; display: grid; justify-items: center; gap: 0; }
+.mg-host b { position: relative; z-index: 1; margin-top: -7px; padding: 3px 9px 3px; border-radius: 99px; background: var(--surface); border: 2px solid var(--card-lip); font: 700 11.5px/1.1 var(--brand); letter-spacing: .01em; color: var(--text); box-shadow: 0 2px 0 var(--card-lip); max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a round Fuzzy portrait ringed in the Fuzzy's own colour */
+.mg-face { --sz: 44px; --ring: var(--accent); position: relative; display: block; width: var(--sz); height: var(--sz); flex: none; border-radius: 50%; background: color-mix(in srgb, var(--ring) 16%, var(--surface)); box-shadow: 0 0 0 3px var(--ring), 0 0 0 5px var(--surface), 0 3px 8px rgba(20, 12, 24, .25); }
+.mg-face img { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); object-fit: contain; border-radius: 50%; }
+.mg-intro h2 { margin: 0; font: 700 27px/1.1 var(--brand); letter-spacing: .005em; text-align: center; color: var(--text); }
+.mg-variant { align-self: center; margin-top: -4px; padding: 4px 11px; border-radius: 99px; font: 700 11.5px/1 var(--brand); letter-spacing: .07em; text-transform: uppercase; color: var(--accent); background: var(--soft); }
+.mg-goal { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 9px; margin: 0; font: 600 15px/1.25 var(--brand) !important; opacity: 1 !important; color: var(--text); }
+.mg-timechip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px 6px 8px; border-radius: 99px; color: #fff; font: 700 15px/1 var(--brand); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 84%, #fff), var(--accent)); box-shadow: 0 3px 0 var(--lip), inset 0 1px 0 rgba(255, 255, 255, .3); }
+.mg-timechip .fzx-gi { --tile: var(--accent); }
+.mg-goal-t { color: var(--text); }
+.mg-vs { display: flex; align-items: flex-start; justify-content: center; gap: 12px; margin: 2px 0 0; font: inherit; }
+.mg-vs-l { align-self: center; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--muted); font: 700 12px/1 var(--brand); letter-spacing: .04em; text-transform: uppercase; opacity: 1 !important; }
+.mg-rival { display: grid; justify-items: center; gap: 4px; min-width: 52px; }
+.mg-rival b { font: 700 12px/1 var(--brand); color: var(--text); max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-steps { margin: 0; padding: 4px 12px; display: grid; gap: 0; list-style: none; counter-reset: step; text-align: left; border-radius: 22px; border: 2px solid var(--card-lip); background: var(--surface); box-shadow: 0 4px 0 var(--card-lip); font: 600 15.5px/1.25 var(--brand); }
+.mg-steps li { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-radius: 0; background: none; box-shadow: none; }
+.mg-steps li + li { border-top: 2px dashed color-mix(in srgb, var(--text) 9%, var(--surface)); }
+.mg-steps li::before { counter-increment: step; content: counter(step); flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 15px/1 var(--brand); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 84%, #fff), var(--accent)); box-shadow: 0 3px 0 var(--lip), inset 0 1px 0 rgba(255, 255, 255, .3); }
+.mg-ctl { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 0; padding: 8px 12px; border-radius: 18px; background: var(--soft); color: color-mix(in srgb, var(--text) 82%, var(--surface)); font: 600 13.5px/1.25 var(--brand) !important; opacity: 1 !important; text-align: left; }
+.mg-ctl-ic { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--surface); color: var(--accent); box-shadow: 0 2px 0 var(--card-lip); }
+.mg-ctl-ic .fzx-gi { --tile: var(--surface); }
+.mg-start { margin-top: 2px; }
+.mg-intro .mg-more { font: inherit; opacity: 1; text-align: center; }
+.mg-intro .mg-more summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; padding: 7px 13px 7px 10px; border-radius: 99px; background: var(--surface-2); color: var(--muted); font: 700 12.5px/1 var(--brand); letter-spacing: .02em; }
+.mg-intro .mg-more summary::-webkit-details-marker { display: none; }
+.mg-intro .mg-more summary::before { content: none; }
+.mg-intro .mg-more summary .fzx-gi { --tile: var(--surface-2); color: var(--muted); }
+.mg-intro .mg-more[open] summary { color: var(--accent); background: var(--soft); }
+.mg-more-body { display: grid; gap: 8px; margin-top: 10px; padding: 11px 12px; border-radius: 18px; background: var(--surface-2); text-align: left; }
+.mg-more-body p { display: flex; align-items: flex-start; gap: 9px; margin: 0; font: 600 13px/1.35 var(--ui); color: var(--text); opacity: 1; }
+.mg-more-body .fzx-gi { flex: none; margin-top: 1px; color: var(--accent); --tile: var(--surface-2); }
+.mg-more-body .mg-twist { color: var(--accent); font-weight: 700; }
+@media (max-height: 700px) { .mg-stage { height: 104px; } .mg-hero.fzx-ic { --sz: 74px; } .mg-intro .mg-intro-box { gap: 8px; } .mg-steps li { padding: 6px 0; } }
+@media (min-width: 761px) { .mg-intro .mg-intro-box { width: min(420px, 100%); } }
+
+/* ---------------------------------------------------------------- the HUD (the kit's games only: `.mgk`) */
+.mgk .race-hud { color: var(--text); text-shadow: none; font-family: var(--brand); }
+.mgk .mg-score, .mgk .mg-count, .mgk .mg-time, .mgk .race-pause, .mgk .mg-meter, .mgk .mg-tierbar, .mgk .mg-chips, .mgk .forest-row, .mgk .mg-map { color: var(--text); text-shadow: none; }
+.mgk .mg-score, .mgk .mg-count { position: absolute; top: calc(11px + var(--safe-t, 0px)); display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 11px 0 6px; border-radius: 23px; background: var(--pill); border: 2px solid var(--card-lip); box-shadow: 0 3px 0 var(--card-lip), 0 8px 16px rgba(20, 12, 24, .18); backdrop-filter: none; line-height: 1; text-align: left; }
+.mgk .mg-score { left: 10px; }
+.mgk .mg-count { right: 62px; }
+.mgk .mg-score:not(:has(.mg-hic)), .mgk .mg-count:not(:has(.mg-hic)) { padding-left: 14px; }
+.mgk .mg-hic.fzx-ic { --sz: 28px; width: 28px; height: 28px; flex: none; box-shadow: 0 2px 0 var(--lip), inset 0 1px 0 rgba(255, 255, 255, .3); }
+.mgk .mg-stack { display: grid; gap: 3px; min-width: 0; }
+.mgk .mg-stack small { font: 700 9px/1 var(--brand); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); opacity: 1; white-space: nowrap; }
+.mgk .mg-stack b { font: 700 21px/1 var(--brand); font-variant-numeric: tabular-nums; color: var(--text); letter-spacing: 0; }
+.mgk .mg-score .mg-stack b { color: var(--accent); }
+.mgk .mg-score.bump b { animation: fzaCheer .4s ease-out 1; }
+.mgk .mg-count .forest-trees { position: absolute; right: -52px; top: calc(100% + 7px); max-width: 98px; padding: 4px 9px; border-radius: 10px; background: rgba(24, 16, 30, .68); color: #fff; font: 600 11px/1.15 var(--brand); letter-spacing: 0; text-transform: none; text-align: right; white-space: normal; pointer-events: none; opacity: 1; }
+.mgk .mg-count .forest-trees:empty { display: none; }
+.mgk.delivery .mg-count .forest-trees { display: none; }
+.mgk .mg-time { position: absolute; top: calc(5px + var(--safe-t, 0px)); left: 50%; transform: translateX(-50%); display: grid; place-items: center; width: 58px; height: 58px; min-width: 0; padding: 0; border: 0; border-radius: 50%; overflow: visible;
+  background: conic-gradient(var(--accent) calc(var(--k, 1) * 360deg), color-mix(in srgb, var(--text) 15%, var(--surface)) 0); box-shadow: 0 3px 0 var(--card-lip), 0 8px 16px rgba(20, 12, 24, .2); transition: --k 1s linear;
+  font: 700 15.5px/1 var(--brand); font-variant-numeric: tabular-nums; text-align: center; color: var(--text); }
+.mgk .mg-time::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 2px 0 rgba(0, 0, 0, .05); }
+.mgk .mg-time > * { position: relative; }
+.mgk .mg-time .fzx-gi, .mgk .mg-time .mg-timebar { display: none; }
+.mgk .mg-time.warn { color: var(--accent); animation: mgWarn .8s ease-in-out infinite; }
+.mgk .mg-time.warn::before { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); }
+.mgk .race-pause { position: absolute; top: calc(11px + var(--safe-t, 0px)); right: 10px; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--card-lip); background: var(--pill); color: var(--accent); box-shadow: 0 3px 0 var(--card-lip), 0 8px 16px rgba(20, 12, 24, .18); font-size: 0; cursor: pointer; pointer-events: auto; transition: transform .1s, box-shadow .1s; }
+.mgk .race-pause .fzx-gi { --tile: var(--surface); }
+.mgk .race-pause:active { transform: translateY(3px); box-shadow: 0 0 0 var(--card-lip); }
+/* the second row: rival standings (left), the meter / medal track (middle), the little caption + parcel chips (right) */
+.mgk .forest-board { top: calc(66px + var(--safe-t, 0px)); left: 10px; gap: 4px; }
+.mgk .forest-row { display: flex; align-items: center; gap: 6px; min-width: 108px; max-width: 118px; height: 30px; padding: 0 11px 0 4px; border-radius: 15px; background: var(--pill); border: 2px solid var(--card-lip); box-shadow: 0 2px 0 var(--card-lip); backdrop-filter: none; font: 700 12.5px/1 var(--brand); }
+.mgk .forest-row small { flex: none; width: 19px; height: 19px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--muted); font: 700 11px/1 var(--brand); opacity: 1; }
+.mgk .forest-row i { width: 10px; height: 10px; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px color-mix(in srgb, var(--text) 18%, transparent); }
+.mgk .forest-row b { flex: 1; font: 700 12.5px/1 var(--brand); }
+.mgk .forest-row span { font: 700 13.5px/1 var(--brand); font-variant-numeric: tabular-nums; }
+.mgk .forest-row.you { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-color: var(--accent); box-shadow: 0 2px 0 var(--lip); }
+.mgk .forest-row.you small { background: var(--accent); color: #fff; }
+.mgk .mg-meter { top: calc(68px + var(--safe-t, 0px)); width: min(250px, 44vw); gap: 4px; padding: 7px 12px 8px; border-radius: 18px; background: var(--pill); border: 2px solid var(--card-lip); box-shadow: 0 3px 0 var(--card-lip), 0 8px 16px rgba(20, 12, 24, .16); }
+.mgk .mg-meter .bar { height: 14px; border-radius: 99px; background: color-mix(in srgb, var(--text) 11%, var(--surface)); box-shadow: inset 0 2px 0 rgba(0, 0, 0, .07); }
+.mgk .mg-meter .bar i { border-radius: 99px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 52%, #fff), color-mix(in srgb, var(--accent) 62%, var(--surface))); box-shadow: inset 0 2px 0 rgba(255, 255, 255, .4); }
+.mgk .mg-meter.warm .bar i { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); }
+.mgk .mg-meter.hot .bar i { background: linear-gradient(180deg, var(--accent), var(--lip)); }
+.mgk .mg-meter b { font: 700 13.5px/1 var(--brand); letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+.mgk .mg-meter.hot b { color: var(--accent); }
+.mgk .mg-tierbar { left: 50%; top: calc(68px + var(--safe-t, 0px)); transform: translateX(-50%); width: min(150px, 33vw); padding: 12px 14px 12px; border-radius: 18px; background: var(--pill); border: 2px solid var(--card-lip); box-shadow: 0 3px 0 var(--card-lip), 0 8px 16px rgba(20, 12, 24, .16); backdrop-filter: none; }
+.mgk .mg-tierbar .track { height: 10px; background: color-mix(in srgb, var(--text) 11%, var(--surface)); box-shadow: inset 0 2px 0 rgba(0, 0, 0, .07); }
+.mgk .mg-tierbar .track > i { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); box-shadow: none; }
+.mgk .mg-tierbar .track > b { width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 3px solid var(--surface); background: color-mix(in srgb, var(--text) 22%, var(--surface)); box-shadow: 0 0 0 2px var(--card-lip); }
+.mgk .mg-tierbar .track > b.bronze.on { background: #cd7f3f; box-shadow: 0 0 0 2px #8c4a1c; }
+.mgk .mg-tierbar .track > b.silver.on { background: #c5ced8; box-shadow: 0 0 0 2px #8793a2; }
+.mgk .mg-tierbar .track > b.gold.on { background: #f5b014; box-shadow: 0 0 0 2px #b97800, 0 0 10px rgba(245, 176, 20, .7); }
+.mgk .mg-chips { top: calc(64px + var(--safe-t, 0px)); right: 62px; gap: 5px; padding: 6px 9px; border-radius: 15px; background: var(--pill); border: 2px solid var(--card-lip); box-shadow: 0 2px 0 var(--card-lip); }
+.mgk .mg-map { right: 10px; bottom: calc(10px + var(--safe-b, 0px)); box-sizing: border-box; padding: 4px; border-radius: 18px; background: var(--pill); border: 2px solid var(--card-lip); box-shadow: 0 3px 0 var(--card-lip), 0 8px 16px rgba(20, 12, 24, .16); filter: none; }
+/* the combo badge: appears while a chain runs */
+.mgk .mg-combo { top: calc(68px + var(--safe-t, 0px)); display: grid; justify-items: center; gap: 2px; padding: 5px 14px 6px; border-radius: 16px; color: #fff; text-shadow: none; white-space: nowrap; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 84%, #fff), var(--accent)); box-shadow: 0 4px 0 var(--lip), 0 10px 18px rgba(20, 12, 24, .22), inset 0 2px 0 rgba(255, 255, 255, .3); }
+.mgk:has(.mg-meter) .mg-combo, .mgk:has(.mg-tierbar) .mg-combo, .mgk:has(.ob-power) .mg-combo { top: calc(118px + var(--safe-t, 0px)); }
+.mgk .mg-combo b { font: 700 23px/1 var(--brand); }
+.mgk .mg-combo small { font: 600 10.5px/1.1 var(--brand); letter-spacing: .01em; opacity: .95; }
+/* banners, the 3-2-1 and TIME! flash, the control hint */
+.mgk .race-banner { top: 26%; padding: 11px 22px 12px; border-radius: 22px; background: var(--surface); color: var(--accent); border: 2px solid var(--card-lip); box-shadow: 0 4px 0 var(--card-lip), 0 16px 30px rgba(20, 12, 24, .28); font: 700 28px/1 var(--brand); letter-spacing: .005em; text-shadow: none; }
+.mgk .race-banner.combo { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 84%, #fff), var(--accent)); color: #fff; border-color: var(--lip); box-shadow: 0 4px 0 var(--lip), 0 16px 30px rgba(20, 12, 24, .28); }
+.mgk .race-banner.warn { background: var(--text); color: #fff; border-color: var(--text); box-shadow: 0 4px 0 color-mix(in srgb, var(--text) 70%, #000), 0 16px 30px rgba(20, 12, 24, .3); animation: mgWarnBanner .8s ease-in-out infinite; }
+.mgk .race-count { font: 800 108px/1 var(--brand); color: #fff; -webkit-text-stroke: 11px var(--accent); paint-order: stroke fill; text-shadow: 0 8px 0 var(--lip), 0 14px 26px rgba(20, 12, 24, .3); letter-spacing: .01em; }
+.mgk .race-count.go { color: #fff; }
+.mgk .race-hint { padding: 8px 15px; border-radius: 16px; background: var(--pill); color: var(--text); border: 2px solid var(--card-lip); box-shadow: 0 3px 0 var(--card-lip); font: 600 13.5px/1.2 var(--brand); text-shadow: none; }
+.mgk .mg-vignette { background: radial-gradient(ellipse at 50% 45%, rgba(0, 0, 0, 0) 58%, rgba(40, 20, 40, .2) 100%); }
+/* the coach: a tip with a little light-bulb badge (kept for the race, forest and vacuum too) */
+.mg-coach { width: max-content; max-width: min(430px, calc(100% - 24px)); padding: 9px 16px 10px 52px; border-radius: 20px; background: var(--surface); color: var(--text); border: 2px solid var(--card-lip); box-shadow: 0 4px 0 var(--card-lip), 0 14px 26px rgba(20, 12, 24, .26); font: 600 14.5px/1.3 var(--brand); text-align: left; }
+.mg-coach::before { content: ''; position: absolute; left: 9px; top: 50%; width: 32px; height: 32px; margin-top: -16px; border-radius: 31%; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 5a8 8 0 0 0-4.6 14.5c.9.7 1.3 1.6 1.3 2.7h6.6c0-1.1.4-2 1.3-2.7A8 8 0 0 0 16 5z' fill='%23fff'/%3E%3Crect x='12.6' y='23.6' width='6.8' height='3' rx='1.5' fill='%23fff'/%3E%3C/svg%3E") center / 24px no-repeat, linear-gradient(180deg, color-mix(in srgb, var(--accent) 84%, #fff), var(--accent)); box-shadow: 0 3px 0 var(--lip), inset 0 1px 0 rgba(255, 255, 255, .3); }
+/* floating "+10": white fill, raspberry outline, a hard drop — readable on any ground */
+.mg-float { font: 800 22px/1 var(--brand); color: #fff; -webkit-text-stroke: 5px var(--accent); paint-order: stroke fill; text-shadow: 0 3px 0 var(--lip); letter-spacing: .01em; }
+.mg-float.big { color: #fff; font-size: 27px; }
+.mg-float.gold { color: #ffd34a; -webkit-text-stroke: 5px #8a5a00; font-size: 31px; text-shadow: 0 3px 0 #5a3a00; }
+.mg-float.rival { color: #fff; -webkit-text-stroke: 4px color-mix(in srgb, var(--text) 70%, transparent); font-size: 15px; text-shadow: none; opacity: .95; }
+/* rival Fuzzies' name tags in the scene */
+.mg-rival-tag { gap: 5px; padding: 3px 9px 3px 4px; border-radius: 99px; background: var(--pill); color: var(--text); border: 2px solid var(--card-lip); box-shadow: 0 2px 0 var(--card-lip); font: 700 11.5px/1 var(--brand); }
+.mg-rival-tag small { min-width: 17px; height: 17px; background: var(--surface-2); color: var(--muted); font: 700 10.5px/1 var(--brand); }
+.mg-rival-tag i { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px color-mix(in srgb, var(--text) 18%, transparent); }
+.mg-rival-tag b { font: 700 11.5px/1 var(--brand); }
+.mg-rival-tag.lead { background: var(--accent); color: #fff; border-color: var(--lip); box-shadow: 0 2px 0 var(--lip); }
+.mg-rival-tag.lead small { background: rgba(255, 255, 255, .25); color: #fff; }
+/* controls: the thumb stick and the round action button */
+.joy { width: 124px; height: 124px; margin: -62px 0 0 -62px; background: rgba(255, 255, 255, .26); border: 3px solid rgba(255, 255, 255, .88); box-shadow: 0 8px 20px rgba(20, 12, 24, .2), inset 0 0 0 7px rgba(255, 255, 255, .14); }
+.joy-knob { width: 58px; height: 58px; border: 3px solid rgba(255, 255, 255, .92); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); box-shadow: 0 5px 0 var(--lip, #a8204f), 0 9px 16px rgba(20, 12, 24, .3); }
+.mgk .mg-action { min-width: 88px; height: 88px; padding: 0 20px; border: 0; border-radius: 999px; color: #fff; text-shadow: none; font: 700 16px/1.05 var(--brand); letter-spacing: .02em; text-align: center; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff), var(--accent)); box-shadow: 0 7px 0 var(--lip), 0 0 0 4px rgba(255, 255, 255, .75), inset 0 2px 0 rgba(255, 255, 255, .3); }
+.mgk .mg-action:active { transform: translateY(6px); box-shadow: 0 1px 0 var(--lip), 0 0 0 4px rgba(255, 255, 255, .75), inset 0 2px 0 rgba(255, 255, 255, .3); }
+.mgk .mg-action.on { animation: mgPulseRing .8s ease-in-out infinite; box-shadow: 0 7px 0 var(--lip), 0 0 0 4px rgba(255, 255, 255, .75), 0 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+/* the games' own round mute button (Obstacle Run, Brawl): a chunky white button with a picture instead of an emoji */
+.mgk .ob-mute { top: calc(116px + var(--safe-t, 0px)); right: 10px; width: 46px; height: 46px; border: 2px solid var(--card-lip); border-radius: 50%; background: var(--pill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4.6 12.4h4.6l7-5.6v18.4l-7-5.6H4.6z' fill='%23d6336c' stroke='%23d6336c' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M20.6 11.6c2.2 2.4 2.2 6.4 0 8.8M24.2 7.8c4.2 4.6 4.2 12.2 0 16.8' stroke='%23d6336c' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") center / 26px no-repeat; box-shadow: 0 3px 0 var(--card-lip); font-size: 0; color: transparent; }
+.mgk .ob-mute.off { background-color: var(--surface-2); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4.6 12.4h4.6l7-5.6v18.4l-7-5.6H4.6z' fill='%238a7565' stroke='%238a7565' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M21 12l7.6 8M28.6 12L21 20' stroke='%238a7565' stroke-width='2.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.mgk .ob-power { left: 50%; transform: translateX(-50%); top: calc(64px + var(--safe-t, 0px)); border-radius: 16px; background: var(--pill); color: var(--text); border: 2px solid var(--card-lip); box-shadow: 0 3px 0 var(--card-lip); font-family: var(--brand); }
+.mgk .ob-power i { background: color-mix(in srgb, var(--text) 12%, var(--surface)); }
+.mgk .ob-power u { background: var(--accent); }
+
+/* ---------------------------------------------------------------- the pause menu */
+.mgk .race-paused { z-index: 12; background: radial-gradient(circle at 50% 35%, rgba(60, 30, 50, .28), rgba(24, 16, 30, .6) 75%); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.mgk .race-paused[hidden] { display: none; }
+.mgk .race-paused-box { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(336px, calc(100% - 28px)); padding: 0 16px 16px; border-radius: 30px; border: 2px solid var(--card-lip); box-shadow: 0 6px 0 var(--card-lip), 0 26px 50px rgba(20, 12, 24, .42); text-align: center; color: var(--text);
+  background: radial-gradient(120% 48% at 50% 0%, color-mix(in srgb, var(--accent) 15%, var(--surface)) 0%, var(--surface) 72%); animation: mgPopIn .3s cubic-bezier(.2, .9, .3, 1.1) both; }
+.mgk .race-paused-box .mg-hero.fzx-ic { --sz: 64px; align-self: center; margin-top: -26px; animation: none; box-shadow: 0 5px 0 var(--lip), 0 10px 18px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 2px 0 rgba(255, 255, 255, .32); }
+.mgk .race-paused-box h2 { margin: 2px 0 -4px; font: 700 30px/1 var(--brand); }
+.mgk .race-paused-box p { margin: 0 0 4px; font: 700 12px/1 var(--brand); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); opacity: 1; }
+.mgk .race-paused-box .mg-pause-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mgk .race-paused-box .mg-pause-row .fzx-sbtn { min-height: 54px; padding: 0 8px; }
+.mgk .race-paused-box .mg-sound.off { color: var(--muted); }
+.mgk .race-paused-box .mg-sound.off .fzx-gi { color: var(--muted); }
+.mgk .race-paused-box .mg-quit { min-height: 48px; border-color: transparent; box-shadow: none; background: transparent; color: var(--muted); }
+.mgk .race-paused-box .mg-quit .fzx-gi { color: var(--muted); }
+.mgk .race-paused-box .mg-quit:active { transform: none; }
+
+/* ---------------------------------------------------------------- the results screens */
+.adv-results { z-index: 9; background: radial-gradient(circle at 50% 28%, rgba(255, 240, 246, .22), rgba(24, 16, 30, .66) 72%); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.adv-results .adv-results-card { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(404px, 100%); max-height: calc(100% - 4px); padding: 0 16px 16px; overflow: auto; border-radius: 30px; border: 2px solid var(--card-lip); box-shadow: 0 6px 0 var(--card-lip), 0 28px 56px rgba(20, 12, 24, .45); color: var(--text); text-align: center;
+  background: radial-gradient(120% 46% at 50% 0%, color-mix(in srgb, var(--accent) 17%, var(--surface)) 0%, var(--surface) 68%); animation: mgPopIn .5s cubic-bezier(.2, .9, .3, 1.1) both; }
+.adv-results .adv-results-card > * { flex: none; }
+.adv-results h2 { margin: 0; font: 700 31px/1.05 var(--brand); letter-spacing: .005em; color: var(--text); }
+.adv-results.won h2 { animation: fzaCheer .9s cubic-bezier(.3, .7, .4, 1) 1; }
+.mg-results .adv-results-card > h2:first-child { margin-top: 16px; }
+.mg-rs-stage { position: relative; height: 156px; margin: 0 -16px; display: grid; place-items: center; overflow: hidden; border-radius: 28px 28px 0 0; }
+.mg-rs-stage .mg-rays { width: 330px; height: 330px; top: 56%; }
+.mg-rs-hero { position: relative; width: 116px; height: 116px; object-fit: contain; display: block; margin-top: 6px; filter: drop-shadow(0 9px 10px color-mix(in srgb, var(--accent) 30%, transparent)); animation: mgHop 1.1s ease-out 1; }
+.mg-rs-medal { position: absolute; left: 50%; bottom: 6px; margin-left: 38px; transform-origin: 50% 0; animation: mgSwing 2.8s ease-in-out infinite; filter: drop-shadow(0 5px 5px rgba(20, 12, 24, .3)); }
+.mg-rs-medal .mg-medal { display: block; }
+.adv-results .mg-rs-game { align-self: center; display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 4px 12px 4px 5px; border-radius: 99px; background: var(--surface-2); color: var(--text); font: 700 13px/1 var(--brand); text-transform: none; letter-spacing: .01em; }
+.mg-rs-game .fzx-ic { --sz: 24px; box-shadow: 0 2px 0 color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+.mg-rs-score { display: grid; justify-items: center; gap: 5px; margin-top: 2px; }
+.mg-rs-score small { font: 700 12px/1 var(--brand); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.adv-results .adv-score { margin: 0; font: 700 58px/1 var(--brand); color: var(--accent); letter-spacing: -.01em; font-variant-numeric: tabular-nums; text-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 16%, transparent); }
+.mg-rs-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.mg-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px 7px 9px; border-radius: 99px; background: var(--surface-2); color: var(--text); font: 700 14px/1 var(--brand); }
+.mg-chip b { font: inherit; }
+.adv-results .mg-chip.tier { padding: 8px 15px; margin: 0; color: var(--text); background: var(--surface-2); font: 700 15px/1 var(--brand); box-shadow: inset 0 0 0 2px var(--card-lip); }
+.adv-results .mg-chip.tier.t1 { background: #fff1c2; box-shadow: inset 0 0 0 2px #f1c348; color: #6f4a00; }
+.adv-results .mg-chip.tier.t2 { background: #edf1f6; box-shadow: inset 0 0 0 2px #b7c1cd; color: #4b5663; }
+.adv-results .mg-chip.tier.t3 { background: #fbe8d6; box-shadow: inset 0 0 0 2px #d9a577; color: #6e3d15; }
+.adv-results .mg-chip.tier.t4 { background: var(--soft); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 30%, var(--surface)); color: var(--accent); }
+.mg-chip.c-best { color: var(--accent); background: var(--soft); }
+.mg-chip.c-best .fzx-gi, .mg-chip.c-xp .fzx-gi, .mg-chip.c-lvl .fzx-gi, .mg-chip.c-time .fzx-gi { color: var(--accent); --tile: var(--soft); }
+.mg-chip.c-time { background: var(--surface-2); }
+.mg-chip.c-xp, .mg-chip.c-lvl { color: var(--accent); background: var(--soft); }
+.mg-rs-earn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.mg-chip.c-money.big { padding: 9px 17px 9px 11px; border: 2px solid color-mix(in srgb, #f5b014 50%, var(--card-lip)); background: #fff7df; box-shadow: 0 4px 0 color-mix(in srgb, #f5b014 45%, var(--card-lip)); font: 700 20px/1 var(--brand); color: #8a5a00; }
+.mg-chip.c-money .fzx-gi { color: #f5b014; --tile: #fff7df; }
+.mg-rs-note { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; padding: 9px 12px; border-radius: 16px; background: var(--surface-2); color: var(--muted); font: 600 13px/1.3 var(--brand); text-align: left; }
+.mg-rs-note .fzx-gi { flex: none; color: var(--muted); --tile: var(--surface-2); }
+.adv-results .adv-next { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; color: #2f9e5b; font: 700 13.5px/1.2 var(--brand); }
+.adv-results .adv-next:empty { display: none; }
+.adv-results .adv-next .fzx-gi { --tile: var(--surface); }
+/* stat tiles */
+.mg-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.mg-stats.n1 { grid-template-columns: minmax(0, 1fr); } .mg-stats.n2, .mg-stats.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mg-stats > span.fzx-card { display: grid; justify-items: center; align-content: center; gap: 5px; min-height: 62px; padding: 10px 6px 9px; border-radius: 18px; background: var(--surface); box-shadow: 0 3px 0 var(--card-lip); }
+.mg-stats b { font: 700 22px/1 var(--brand); color: var(--text); font-variant-numeric: tabular-nums; }
+.mg-stats small { font: 700 10.5px/1.15 var(--brand); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+@media (min-width: 440px) { .mg-stats.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* standings / finishing order */
+.adv-results .mg-rs-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; text-align: left; }
+.adv-results .mg-rs-list li { display: flex; align-items: center; gap: 9px; min-height: 46px; padding: 5px 12px 5px 8px; border-radius: 18px; border: 2px solid var(--card-lip); background: var(--surface); box-shadow: 0 3px 0 var(--card-lip); font: 600 14px/1.1 var(--brand); outline: 0; }
+.adv-results .mg-rs-list li.you { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); box-shadow: 0 3px 0 var(--lip); }
+.adv-results .mg-rs-list li b { flex: 1; min-width: 0; font: 700 15px/1.1 var(--brand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adv-results .mg-rs-list li small { font: 700 14px/1 var(--brand); color: var(--muted); opacity: 1; font-variant-numeric: tabular-nums; }
+.adv-results .mg-rs-list li.you small { color: var(--accent); }
+.mg-rank { flex: none; display: grid; place-items: center; width: 26px; }
+.mg-rs-list .mg-face { box-shadow: 0 0 0 2px var(--card-lip); }
+/* the race podium */
+.mg-results .adv-results-card > h2:first-child { text-align: center; }
+.mg-podium { display: flex; align-items: flex-end; justify-content: center; gap: 8px; margin: 2px 0 0; }
+.mg-podium .adv-step { display: grid; justify-items: center; gap: 4px; width: 104px; }
+.mg-podium .adv-step b { max-width: 100px; font: 700 13.5px/1.1 var(--brand); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-podium .adv-step.you b { color: var(--accent); }
+.mg-podium .mg-pod-pic { width: 68px; height: 68px; object-fit: contain; animation: mgBob 3s ease-in-out infinite; filter: drop-shadow(0 6px 6px rgba(20, 12, 24, .2)); }
+.mg-podium .adv-block { width: 100%; display: grid; place-items: center; border-radius: 16px 16px 6px 6px; background: var(--surface); border: 2px solid var(--card-lip); box-shadow: 0 3px 0 var(--card-lip); }
+.mg-podium .adv-step.p1 .adv-block { height: 84px; background: #fff1c2; border-color: #f1c348; box-shadow: 0 3px 0 #d9a82e; }
+.mg-podium .adv-step.p2 .adv-block { height: 62px; background: #edf1f6; border-color: #b7c1cd; box-shadow: 0 3px 0 #98a4b2; }
+.mg-podium .adv-step.p3 .adv-block { height: 48px; background: #fbe8d6; border-color: #d9a577; box-shadow: 0 3px 0 #bd8858; }
+.mg-podium .adv-empty { width: 68px; height: 68px; }
+/* the buttons */
+.mg-rs-actions { display: grid; gap: 10px; margin: 2px -16px -16px; padding: 10px 16px 16px; position: sticky; bottom: 0; background: linear-gradient(to top, var(--surface) 78%, color-mix(in srgb, var(--surface) 0%, transparent)); border-radius: 0 0 28px 28px; }
+.mg-rs-actions .adv-back.fzx-sbtn { min-height: 50px; }
+/* trophy line */
+.adv-results .adv-trophy { margin: 0; border-radius: 20px; border-width: 2px; background: var(--surface); box-shadow: 0 3px 0 color-mix(in srgb, var(--tc, #e45a78) 45%, var(--card-lip)); }
+.adv-results .adv-trophy b { color: var(--text); font: 700 15px/1.2 var(--brand); }
+.adv-results .adv-trophy i { color: var(--muted); }
+.adv-results .adv-trophy-cup { color: var(--tc, #e45a78); --tile: var(--surface); }
+@media (max-height: 880px) {
+  .mg-rs-stage { height: 116px; } .mg-rs-hero { width: 88px; height: 88px; } .mg-rs-medal .mg-medal { height: 50px; width: auto; }
+  .adv-results .adv-score { font-size: 46px; } .adv-results h2 { font-size: 26px; } .adv-results .adv-results-card { gap: 7px; }
+  .adv-results .mg-rs-list { gap: 5px; } .adv-results .mg-rs-list li { min-height: 40px; padding: 3px 11px 3px 7px; }
+  .mg-stats > span.fzx-card { min-height: 52px; padding: 7px 5px 6px; gap: 3px; } .mg-stats b { font-size: 20px; }
+  .mg-chip.c-money.big { padding: 7px 15px 7px 10px; font-size: 18px; } .adv-results .mg-chip.tier { padding: 6px 13px; }
+}
+@media (min-width: 761px) { .adv-results .adv-results-card { width: min(430px, 100%); } }
+:root[data-motion='reduce'] .mg-rays, :root[data-motion='reduce'] .mg-hero, :root[data-motion='reduce'] .mg-intro-box, :root[data-motion='reduce'] .race-paused-box, :root[data-motion='reduce'] .adv-results-card,
+:root[data-motion='reduce'] .mg-rs-hero, :root[data-motion='reduce'] .mg-rs-medal, :root[data-motion='reduce'] .mg-pod-pic, :root[data-motion='reduce'] .mgk .mg-time.warn, :root[data-motion='reduce'] .mgk .race-banner.warn, :root[data-motion='reduce'] .mgk .mg-action.on { animation: none !important; }
+
+/* ---------------------------------------------------------------- computers: a little more room */
+@media (min-width: 761px) {
+  .mgk .mg-score, .mgk .mg-count, .mgk .race-pause { top: calc(15px + var(--safe-t, 0px)); height: 48px; } .mgk .race-pause { width: 48px; }
+  .mgk .mg-time { top: calc(9px + var(--safe-t, 0px)); width: 62px; height: 62px; font-size: 16.5px; }
+  .mgk .mg-hic.fzx-ic { --sz: 32px; width: 32px; height: 32px; } .mgk .mg-stack b { font-size: 24px; } .mgk .mg-stack small { font-size: 9.5px; }
+  .mgk .mg-score { left: 16px; } .mgk .race-pause { right: 16px; } .mgk .mg-count { right: 72px; }
+  .mgk .forest-board { top: calc(76px + var(--safe-t, 0px)); left: 16px; } .mgk .mg-meter, .mgk .mg-tierbar, .mgk .ob-power { top: calc(80px + var(--safe-t, 0px)); }
+  .mgk .mg-chips { top: calc(76px + var(--safe-t, 0px)); right: 72px; } .mgk .mg-count .forest-trees { right: -56px; } .mgk .ob-mute { top: calc(128px + var(--safe-t, 0px)); right: 16px; }
+  .mgk .mg-combo { top: calc(80px + var(--safe-t, 0px)); } .mgk:has(.mg-meter) .mg-combo, .mgk:has(.mg-tierbar) .mg-combo, .mgk:has(.ob-power) .mg-combo { top: calc(130px + var(--safe-t, 0px)); }
+  .mgk .mg-tierbar { width: 170px; } .mgk .forest-row { max-width: 140px; }
+}
+@media (max-width: 380px) {
+  .mgk .mg-stack b { font-size: 19px; } .mgk .mg-count { right: 58px; } .mgk .race-pause { width: 42px; height: 42px; } .mgk .mg-time { width: 54px; height: 54px; font-size: 14.5px; }
+  .mgk .mg-score, .mgk .mg-count { padding-right: 9px; }
+}

@@ -20,6 +20,9 @@ import { groundTex, treeRing, type GroundKind, type TreeKind } from './games/sce
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
 import { mountControls, lockPage, type Controls } from '../ui/joystick';
 import { introCard, coach as makeCoach } from '../ui/mgIntro';
+import { mgIcon, mgTile, gameTile } from './mgIcons';
+import '../crossing/ui/gameui.css';
+import './mgSkin.css';
 import type { Adventure, Variant } from './adventures';
 import { RivalField, type Playable, type RivalBot, type RivalInfo } from './rivals';
 
@@ -99,15 +102,19 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   const W = o.world ?? {};
   const size = W.size ?? { hw: 16, hd: 11 };
   // ---- DOM ----
-  const root = el('div', `${o.cls} mg`);
+  const root = el('div', `${o.cls} mg mgk`);
   const canvas = document.createElement('canvas'); canvas.className = 'race-canvas';
   const hud = el('div', 'race-hud mg-hud');
-  const scoreEl = el('div', 'race-lap mg-score'); const scoreN = el('b', '', '0'); scoreEl.append(el('small', '', o.hud?.score ?? 'SCORE'), scoreN);
-  const countEl = el('div', 'race-pos mg-count'); const countN = el('b', '', '0'); const countS = el('small', 'forest-trees', ''); countEl.append(el('small', '', o.hud?.count ?? ''), countN, countS);
+  const team = adv.id === 'brawl';
+  const stack = (label: string, big: HTMLElement, sub?: HTMLElement): HTMLElement => { const st = el('span', 'mg-stack'); st.append(el('small', '', label), big); if (sub) st.append(sub); return st; };
+  const scoreEl = el('div', 'race-lap mg-score'); const scoreN = el('b', '', '0'); if (!team) scoreEl.append(mgTile('star', 30, 'mg-hic')); scoreEl.append(stack(o.hud?.score ?? 'SCORE', scoreN));
+  const countEl = el('div', 'race-pos mg-count'); const countN = el('b', '', '0'); const countS = el('small', 'forest-trees', ''); if (!team) countEl.append(gameTile(adv.id, 30, 'mg-hic')); countEl.append(stack(o.hud?.count ?? '', countN), countS);
   if (!o.hud?.count) countEl.hidden = true;
-  const timeEl = el('div', 'race-time forest-time mg-time'); const timeN = el('span', '', adv.limit ? `${Math.floor(adv.limit / 60)}:${String(adv.limit % 60).padStart(2, '0')}` : '0:00'); timeEl.append(timeN);
+  const timeEl = el('div', 'race-time forest-time mg-time'); const timeN = el('span', '', adv.limit ? `${Math.floor(adv.limit / 60)}:${String(adv.limit % 60).padStart(2, '0')}` : '0:00');
+  const timeBar = el('i', 'mg-timebar'); timeBar.append(el('u', ''));
+  timeEl.append(mgIcon('clock', 20), timeN, timeBar);
   const comboEl = el('div', 'mg-combo'); const comboN = el('b', '', '×1'); const comboS = el('small', ''); comboEl.append(comboN, comboS);
-  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause'); pauseBtn.textContent = '❚❚';
+  const pauseBtn = el('button', 'race-pause'); pauseBtn.type = 'button'; pauseBtn.setAttribute('aria-label', 'Pause'); pauseBtn.append(mgIcon('pause', 20));
   const bannerEl = el('div', 'race-banner');
   const count = el('div', 'race-count');
   const floats = el('div', 'mg-floats');
@@ -127,10 +134,13 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   const variant: Variant | null = setup.variant ? adv.variants?.[setup.variant] ?? null : null;
   const intro = introCard({ adv, variant, host: setup.host, mobile, buttonLabel: o.buttonLabel ?? 'Let’s go!', onStart: () => start(), extra: o.extra, vs: field?.rivals.map((r) => r.info) });
   const pauseOverlay = el('div', 'race-paused'); pauseOverlay.hidden = true;
-  const resume = el('button', 'btn btn-primary btn-lg', 'Resume'); resume.type = 'button';
-  const restart = el('button', 'btn btn-soft', 'Restart'); restart.type = 'button';
-  const quit = el('button', 'btn btn-ghost', 'Back to town'); quit.type = 'button';
-  const pbox = el('div', 'race-paused-box'); pbox.append(el('h2', '', 'Paused'), el('p', '', 'Take your time.'), resume, restart, quit);
+  const bigBtn = (cls: string, icon: string, label: string): HTMLButtonElement => { const b = el('button', cls); b.type = 'button'; b.append(mgIcon(icon, 24), el('span', '', label)); return b; };
+  const resume = bigBtn('btn btn-primary fzx-bigbtn', 'play', 'Resume');
+  const restart = bigBtn('btn btn-soft fzx-sbtn', 'restart', 'Restart');
+  const soundBtn = bigBtn('fzx-sbtn mg-sound', setup.sound ? 'soundOn' : 'soundOff', setup.sound ? 'Sound on' : 'Sound off');
+  const quit = bigBtn('btn btn-ghost fzx-sbtn mg-quit', 'town', 'Back to town');
+  const pbox = el('div', 'race-paused-box'); const prow = el('div', 'mg-pause-row'); prow.append(restart, soundBtn);
+  pbox.append(gameTile(adv.id, 64, 'mg-hero'), el('h2', '', 'Paused'), el('p', '', adv.short), resume, prow, quit);
   pauseOverlay.append(pbox);
   const vignette = el('div', 'mg-vignette');
   root.append(canvas, vignette, hud, intro, pauseOverlay);
@@ -279,6 +289,12 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   let paused = false, done = false, finishedAt = 0, startedFlag = false, pendingResult: MiniResult | null = null;
   const play = (f: () => void) => { if (setup.sound) try { f(); } catch { /* no audio */ } };
   const togglePause = () => { if (done || !intro.hidden) return; paused = !paused; pauseOverlay.hidden = !paused; };
+  // the pause menu's Sound button: a kit-wide mute (remembered), applied through the same `setup.sound` every game already checks
+  const MUTE_KEY = 'fz.mg.mute';
+  const paintSound = () => { soundBtn.replaceChildren(mgIcon(setup.sound ? 'soundOn' : 'soundOff', 24), el('span', '', setup.sound ? 'Sound on' : 'Sound off')); soundBtn.classList.toggle('off', !setup.sound); };
+  try { if (localStorage.getItem(MUTE_KEY) === '1') setup.sound = false; } catch { /* storage blocked */ }
+  paintSound();
+  soundBtn.addEventListener('click', () => { setup.sound = !setup.sound; try { localStorage.setItem(MUTE_KEY, setup.sound ? '0' : '1'); } catch { /* storage blocked */ } paintSound(); });
   pauseBtn.addEventListener('click', togglePause);
   resume.addEventListener('click', togglePause);
   quit.addEventListener('click', () => { destroy(); hooks.onQuit(); });
@@ -294,8 +310,8 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   let lastSec = -1, lastCombo = 1, lastScore = -1;
   const setScore = (n: number) => { if (n === lastScore) return; lastScore = n; scoreN.textContent = String(n); scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump'); };
   const setCount = (text: string, sub?: string) => { if (countN.textContent !== text) countN.textContent = text; if (sub !== undefined && countS.textContent !== sub) countS.textContent = sub; };
-  const setTime = (left: number, w = left <= 10) => { const s = Math.ceil(left); if (s !== lastSec) { lastSec = s; timeN.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; timeEl.classList.toggle('warn', w && s > 0); } };
-  const setCombo = (chain: number, mult: number, next: { at: number; mult: number } | null) => { if (chain > 1) { comboEl.classList.add('on'); comboN.textContent = `×${mult}`; comboS.textContent = next ? `${chain} in a row · ${next.at - chain} more for ×${next.mult}` : `${chain} in a row · MAX`; if (mult !== lastCombo) { comboEl.classList.remove('bump'); void comboEl.offsetWidth; comboEl.classList.add('bump'); } } else comboEl.classList.remove('on'); lastCombo = mult; };
+  const setTime = (left: number, w = left <= 10) => { const s = Math.ceil(left); if (s !== lastSec) { lastSec = s; timeN.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; timeEl.classList.toggle('warn', w && s > 0); if (adv.limit) timeEl.style.setProperty('--k', String(Math.max(0, Math.min(1, left / adv.limit)))); } };
+  const setCombo = (chain: number, mult: number, next: { at: number; mult: number } | null) => { if (chain > 1) { comboEl.classList.add('on'); comboN.textContent = `×${mult}`; comboS.textContent = next ? `${chain} in a row · ×${next.mult} in ${next.at - chain}` : `${chain} in a row · MAX`; if (mult !== lastCombo) { comboEl.classList.remove('bump'); void comboEl.offsetWidth; comboEl.classList.add('bump'); } } else comboEl.classList.remove('on'); lastCombo = mult; };
   const finish = (r: MiniResult, flashText = 'TIME!') => {
     if (done || pendingResult) return;
     if (field) {
