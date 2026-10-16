@@ -48,6 +48,22 @@ export function freshCrossing(): CrossingSave {
   };
 }
 
+/** Seasonal event progress from a saved copy: only well-formed `${event}-${year}` keys, plain non-negative whole counters, challenge ids as strings. */
+const EVENT_KEY = /^[a-z]+-\d{4}$/, PROGRESS_KEY = /^[a-z]{3,12}$/, BAD_KEY = new Set(['constructor', 'prototype']);
+function cleanEvents(raw: unknown): CrossingSave['events'] {
+  const out: CrossingSave['events'] = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!EVENT_KEY.test(k) || !v || typeof v !== 'object') continue;
+    const e = v as { progress?: unknown; claimed?: unknown };
+    const progress: Record<string, number> = {};
+    if (e.progress && typeof e.progress === 'object' && !Array.isArray(e.progress)) for (const [pk, pv] of Object.entries(e.progress as Record<string, unknown>)) if (PROGRESS_KEY.test(pk) && !BAD_KEY.has(pk) && typeof pv === 'number' && Number.isFinite(pv) && pv >= 0) progress[pk] = Math.min(1_000_000, Math.floor(pv));
+    const claimed = Array.isArray(e.claimed) ? [...new Set(e.claimed.filter((x): x is string => typeof x === 'string' && PROGRESS_KEY.test(x) && !BAD_KEY.has(x)))] : [];
+    out[k] = { progress, claimed };
+  }
+  return out;
+}
+
 /** Fill in anything missing in a saved copy; the old Fuzzy Crossing skins a player already unlocked become characters they own. */
 export function migrateCrossing(raw: Partial<CrossingSave> | undefined, unlocked: string[] = [], oldSkin = 'classic'): CrossingSave {
   const f = freshCrossing();
@@ -60,6 +76,7 @@ export function migrateCrossing(raw: Partial<CrossingSave> | undefined, unlocked
   if (!raw) { const c = CHARACTERS.find((x) => x.legacy === oldSkin); if (c && s.owned.includes(c.id)) s.equipped.character = c.id; }
   if (!s.owned.includes(s.equipped.character)) s.equipped.character = START_CHARACTER;
   for (const slot of SLOTS) if (!s.ownedCosmetics.includes(s.equipped[slot])) s.equipped[slot] = DEFAULT_COSMETIC[slot];
+  s.events = cleanEvents(s.events);
   s.coins = Math.max(0, Math.floor(s.coins)); s.xp = Math.max(0, Math.floor(s.xp));
   s.passClaimed = uniq(s.passClaimed.map(String)).map(Number).filter((n) => n >= 1 && n <= PASS_LEVELS);
   return s;

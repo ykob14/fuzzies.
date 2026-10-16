@@ -423,10 +423,10 @@ export class View3D implements View {
       }
       let v = this.tokens.get(tk.id);
       if (!v) {
-        const colors: [string, string] = tk.gold ? ['#fff1a8', '#d99a00'] : ['#ffc0e4', '#ff4f9a'];
+        const colors: [string, string] = tk.gold ? ['#fff1a8', '#d99a00'] : tk.ev ? tk.ev.colors : ['#ffc0e4', '#ff4f9a'];
         const model = M.makeFuzzy(this.mats, colors, 0.12, 0.045, 9, { mouth: true, metallic: tk.gold });
         model.face.rotation.x = -0.55;
-        const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, color: tk.gold ? 0xffd34d : 0xff7ac2, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.55 }));
+        const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, color: tk.gold ? 0xffd34d : tk.ev ? new THREE.Color(tk.ev.colors[0]).getHex() : 0xff7ac2, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.55 }));
         aura.scale.setScalar(tk.gold ? 0.9 : 0.65);
         this.scene.add(model.group, aura);
         v = { model, aura };
@@ -622,8 +622,9 @@ export class View3D implements View {
     }
     if (e.kind === 'collect') {
       const y = (g.onRiver(e.row) ? 0.2 : 0) + 0.3;
-      this.sparks(e.x + 0.5, y, e.row + 0.5, e.gold ? 0xffd34d : 0xff7ac2, e.gold ? 26 : 14);
-      this.text(`+${e.amount}`, e.gold ? '#ffd23f' : '#ffffff', e.x + 0.5, y + 0.4, e.row + 0.5);
+      this.sparks(e.x + 0.5, y, e.row + 0.5, e.gold ? 0xffd34d : e.item ? new THREE.Color(e.item.colors[0]).getHex() : 0xff7ac2, e.gold ? 26 : 14);
+      if (e.item) this.text(e.item.emoji, '#ffffff', e.x + 0.5, y + 0.5, e.row + 0.5, 0.9, 1.1, true);
+      else this.text(`+${e.amount}`, e.gold ? '#ffd23f' : '#ffffff', e.x + 0.5, y + 0.4, e.row + 0.5);
     }
     if (e.kind === 'home') {
       this.sparks(e.x + 0.5, 0.4, 0.5, 0xffd34d, 30);

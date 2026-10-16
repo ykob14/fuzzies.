@@ -84,13 +84,14 @@ function cosmeticHow(x: CosmeticDef): string {
     case 'season': return `${EVENT_NAME[k.event]} event · ${k.price} coins`;
     case 'weekly': return `Finish in a weekly top ${k.top}`;
     case 'achievement': return `Achievement: ${ACHIEVEMENT_HINT[k.id] ?? k.id}`;
+    case 'event': return `${EVENT_NAME[k.event]} ${k.year} event keepsake`;
   }
 }
 function cosmeticTarget(x: CosmeticDef): { nav: NavTarget; panel: PanelName } | null {
   const k = x.unlock;
   if (k.kind === 'pass') return { nav: { to: 'pass', level: k.level }, panel: 'pass' };
   if (k.kind === 'shop') return { nav: { to: 'shop', item: x.id }, panel: 'shop' };
-  if (k.kind === 'season') return { nav: { to: 'events', id: k.event }, panel: 'events' };
+  if (k.kind === 'season' || k.kind === 'event') return { nav: { to: 'events', id: k.event }, panel: 'events' };
   if (k.kind === 'weekly') return { nav: { to: 'leaderboard' }, panel: 'leaderboard' };
   if (k.kind === 'achievement') return { nav: { to: 'missions' }, panel: 'missions' };
   return null;

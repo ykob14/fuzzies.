@@ -8,7 +8,7 @@
  */
 import { accounts } from '../core/account';
 import { todayKey } from '../core/util';
-import { CHARACTERS, CHARACTER_BY_ID, type CharacterDef } from './characters';
+import { CHARACTERS, CHARACTER_BY_ID, type CharacterDef, type EventId } from './characters';
 import { COSMETIC_BY_ID } from './cosmetics';
 import { PASS_TRACK, passLevel, XP } from './pass';
 
@@ -120,6 +120,7 @@ export type CrossingEvent =
   | { kind: 'levelClear'; world?: number; level?: number; stars?: number; flawless?: boolean }
   | { kind: 'advance' } // the Fuzzy reached a row it hadn't reached yet in this life
   | { kind: 'trainPassed' } // survived a train crossing
+  | { kind: 'eventItem'; event: EventId } // picked up a seasonal event item (cosmetic: no coins, no XP; events.ts counts it)
   | { kind: 'run'; score: number; level: number; rows?: number; mode?: 'classic' | 'world' | 'endless'; /** set by report(): beat the previous Endless record */ record?: boolean };
 export const COIN = { pickup: 1, gold: 5, nest: 3, level: 10, runBonusPer100: 2 } as const;
 /** coins / XP a single event is worth (the game uses these too to show the running total) */

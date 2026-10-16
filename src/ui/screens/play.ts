@@ -14,7 +14,10 @@ import { initCrossing } from '../../crossing/init';
 import * as net from '../../crossing/net';
 import { BOARDS, BOARD_IDS } from '../../crossing/rewards-weekly';
 import { equippedCharacter } from '../../crossing/store';
+import type { EventId } from '../../crossing/characters';
 import { createHub, type NavTarget } from '../../crossing/hub';
+import { eventItems } from '../../crossing/events';
+import { createEventFx } from '../../crossing/ui/eventFx';
 import '../../crossing/ui/hub.css';
 import { renderLobby } from '../../crossing/ui/lobby';
 import { renderResults } from '../../crossing/ui/results';
@@ -73,6 +76,7 @@ export function playScreen(): Screen {
   };
   const controls = h('div', { class: `dpad-wrap ${isTouch() ? '' : 'desktop'}` }, pad('up', 'up'), pad('left', 'back'), pad('right', 'play'), pad('down', 'down'));
 
+  const eventFx = createEventFx(isTouch());
   let game: Crossing | null = null;
   let mode: PlayMode = { kind: 'classic' };
   /** the level complete / failed card is showing (keys must not restart anything behind it) */
@@ -164,6 +168,8 @@ export function playScreen(): Screen {
       event: (e) => onGameEvent(e),
       levelEnd: (r) => (erun ? endlessStretchEnd(r) : showLevelEnd(r)),
     }, def ? { mode: 'world', level: def } : { mode: 'classic' });
+    game.eventItems = eventItems(); // seasonal pickups only while an event is on
+    eventFx.refresh();
     runCoins = 0;
     setHud({ score: 0, level: 1, lives: def?.lives ?? 3, fuzzies: 0, time: 1, best: a.stats.bestScore, goal: def ? { nests: 0, nestsNeed: def.goal.nests, coins: def.goal.coins ? 0 : undefined, coinsNeed: def.goal.coins, timeLeft: def.goal.timeLimit, maxLives: def.lives } : undefined });
     requestAnimationFrame(() => dispatchEvent(new Event('fz:scene-ready'))); // lets the travel transition open up
@@ -175,7 +181,8 @@ export function playScreen(): Screen {
     if (e.kind === 'home') track('nest');
     if (e.kind === 'level') track('level', e.level);
     let ev: store.CrossingEvent | null = null;
-    if (e.kind === 'collect') ev = { kind: 'pickup', gold: e.gold };
+    if (e.kind === 'collect' && e.item) ev = { kind: 'eventItem', event: e.item.event as EventId };
+    else if (e.kind === 'collect') ev = { kind: 'pickup', gold: e.gold };
     else if (e.kind === 'home') ev = { kind: 'nest' };
     else if (e.kind === 'level') ev = { kind: 'levelClear' };
     else if (e.kind === 'hop') ev = { kind: 'hop' };
@@ -585,7 +592,7 @@ export function playScreen(): Screen {
   const onVis = () => { if (document.hidden && game && !game.paused && overlay.hidden) togglePause(); };
   document.addEventListener('visibilitychange', onVis);
 
-  shellEl = h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn, goalPill, wipe), controls, overlay);
+  shellEl = h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, eventFx.el, skipBtn, goalPill, wipe), controls, overlay);
   if (import.meta.env.DEV) {
     // test hook: drive the game by hand (software WebGL runs at ~1 fps)
     (window as unknown as { __fc: unknown }).__fc = {
@@ -603,6 +610,6 @@ export function playScreen(): Screen {
 
   return {
     el,
-    destroy: () => { if (game?.started && !game.over) void net.finishRun({ score: game.score, level: game.level }, true); gen++; clearTimeout(bannerTimer); erun?.road.destroy(); erun = null; hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
+    destroy: () => { if (game?.started && !game.over) void net.finishRun({ score: game.score, level: game.level }, true); gen++; clearTimeout(bannerTimer); erun?.road.destroy(); erun = null; hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); eventFx.destroy(); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
   };
 }

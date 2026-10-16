@@ -7,6 +7,7 @@
  * DATA ONLY. Drawn by character3d.ts / the game view.
  */
 import type { EventId, Rarity } from './characters';
+import { keepsakeCosmetics } from './eventData';
 
 export type CosmeticSlot = 'trail' | 'jump' | 'celebration' | 'extra';
 export const SLOTS: CosmeticSlot[] = ['trail', 'jump', 'celebration', 'extra'];
@@ -18,7 +19,9 @@ export type CosmeticUnlock =
   | { kind: 'shop'; slot: 'permanent' | 'daily' | 'weekly'; price: number }
   | { kind: 'season'; event: EventId; price: number }
   | { kind: 'weekly'; top: number }
-  | { kind: 'achievement'; id: string };
+  | { kind: 'achievement'; id: string }
+  /** an event keepsake: earned in that event's year only (see eventData.ts / events.ts), never sold, owned for good */
+  | { kind: 'event'; event: EventId; year: number };
 
 export interface CosmeticDef { id: string; slot: CosmeticSlot; name: string; rarity: Rarity; icon: string; blurb: string; unlock: CosmeticUnlock }
 
@@ -27,7 +30,7 @@ const shop = (price: number, slot: 'permanent' | 'daily' | 'weekly' = 'permanent
 const pass = (level: number): CosmeticUnlock => ({ kind: 'pass', level });
 const season = (event: EventId, price: number): CosmeticUnlock => ({ kind: 'season', event, price });
 
-export const COSMETICS: CosmeticDef[] = [
+const BASE_COSMETICS: CosmeticDef[] = [
   // trails (10)
   c('trail', 'trail-none', 'No trail', 'common', '·', 'Clean and simple.', { kind: 'free' }),
   c('trail', 'trail-sparkle', 'Sparkle trail', 'common', '✨', 'Little stars follow every hop.', pass(2)),
@@ -88,6 +91,9 @@ export const COSMETICS: CosmeticDef[] = [
   c('celebration', 'cele-candles', 'Candle glow', 'rare', '🕯️', 'Warm lights for every nest.', season('hanukkah', 450)),
   c('celebration', 'cele-lantern', 'Lantern parade', 'rare', '🏮', 'Red lanterns rise into the sky.', season('lunar', 450)),
 ];
+
+/** the shop's and Pass's cosmetics + every year's event keepsakes (data in eventData.ts) */
+export const COSMETICS: CosmeticDef[] = [...BASE_COSMETICS, ...keepsakeCosmetics()];
 
 export const COSMETIC_BY_ID: Record<string, CosmeticDef> = Object.fromEntries(COSMETICS.map((x) => [x.id, x]));
 export const DEFAULT_COSMETIC: Record<CosmeticSlot, string> = { trail: 'trail-none', jump: 'jump-puff', celebration: 'cele-spin', extra: 'extra-none' };

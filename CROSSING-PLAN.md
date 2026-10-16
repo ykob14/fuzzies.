@@ -38,7 +38,9 @@ src/crossing/
   store.ts        economy + unlock engine  hub.ts        screens layer + navigation (How to Unlock deep links)
   ui/kit.ts       coin mark, rarity tag    ui/locker.ts · pass.ts · shop.ts · celebrate.ts · (worlds, endless, missions, leaderboard, events)
   character3d.ts  (stage 1) builds a Fuzzy from a CharacterDef: fur finish + accessories + animations
-  levels.ts / endless.ts / missions.ts / achievements.ts / events.ts / shopData.ts (later stages)
+  levels.ts / endless.ts / missions.ts / achievements.ts / shopData.ts (later stages)
+  eventData.ts    seasonal events as DATA (8 events + year-keyed keepsakes)   events.ts  pure event rules   eventsLive.ts  store hooks (progress, claims, grants)
+  ui/events.ts    Events screen   ui/eventFx.ts  weather layer over the board
 ```
 Single doors: `grantCharacter/grantCosmetic` (queues the celebration), `report(event)` (the game tells the store what happened; missions/achievements subscribe with `onReport`), `evaluate()` (opens characters whose requirement is met).
 
@@ -51,7 +53,7 @@ Single doors: `grantCharacter/grantCosmetic` (queues the celebration), `report(e
 5. **Endless** — seeded generator that is provably crossable, coins/collectibles, events, records.
 6. **Missions + achievements** — 3 daily, weekly, long-term, hidden.
 7. **Weekly competitions** — server: signed run sessions, plausibility validation, weekly reset (UTC Monday), boards (score / fastest crossing / longest streak), rewards (trophies, cosmetics, Rainbow/Nebula Fuzzies).
-8. **Seasonal events** — reusable event system (8 events), each with a map theme, obstacles, a Fuzzy, outfits, challenges; new collectibles every year.
+8. **Seasonal events** ✅ (branch `q-events`) — `eventData.ts` (8 events: look, 6 challenges + finale, pickup item; year-keyed keepsakes = the only thing a new year adds), `events.ts` (pure rules: windows, progress only while on, idempotent claims, derived grants), `eventsLive.ts` (store hooks), `ui/events.ts` (Now / Calendar / Collection), `ui/eventFx.ts` (weather + colour wash over the board), event pickups in Classic (`Crossing.eventItems`). Checked by `tools/crossing/events-check.ts` + `events-browser.cjs`. Not done: per-event map decor / obstacles in the 3D scene (the `decor` tags in the theme are waiting for a view that uses them).
 9. **Polish** — dynamic music, sfx, splash/weather effects, camera, victory/defeat sequences, performance on phones, full regression.
 
 Nothing is deployed to the live site until a stage is verified **and** the owner says so.
