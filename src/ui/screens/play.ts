@@ -10,6 +10,8 @@ import { travel } from '../travel';
 import { h, btn, icon, fuzzyMark } from '../dom';
 import { isTouch } from '../../core/util';
 import * as store from '../../crossing/store';
+import * as net from '../../crossing/net';
+import { BOARDS, BOARD_IDS } from '../../crossing/rewards-weekly';
 import { equippedCharacter } from '../../crossing/store';
 import { CHARACTERS, character, type CharacterDef } from '../../crossing/characters';
 import { createHub, panelAvailable, type NavTarget } from '../../crossing/hub';
@@ -172,6 +174,14 @@ export function playScreen(): Screen {
     return b;
   };
 
+  /** the weekly boards tile; a dot appears when last week's rewards are waiting */
+  function boardsTile(): HTMLElement | null {
+    if (!panelAvailable('leaderboard')) return null;
+    const t = tile('Boards', 'Weekly', icon('star', 22), () => go({ to: 'leaderboard' }));
+    void net.claimableWeeks().then((w) => { if (w.length && t.isConnected) t.append(newDot()); });
+    return t;
+  }
+
   function showStart(): void {
     overlay.hidden = false;
     const me = equippedCharacter();
@@ -181,7 +191,8 @@ export function playScreen(): Screen {
     const tiles = h('div', { class: 'fzx-tiles' },
       panelAvailable('locker') ? tile('Locker', `${store.ownedCount()} / ${CHARACTERS.length}`, icon('gift', 22), () => go({ to: 'locker' }), pendingNew) : null,
       panelAvailable('pass') ? tile('Pass', `Level ${store.passInfo().level}`, icon('trophy', 22), () => go({ to: 'pass' }), claimable > 0) : null,
-      panelAvailable('shop') ? tile('Shop', h('span', { class: 'fzx-amt' }, coinMark(13), String(store.coins())), icon('unlock', 22), () => go({ to: 'shop' })) : null);
+      panelAvailable('shop') ? tile('Shop', h('span', { class: 'fzx-amt' }, coinMark(13), String(store.coins())), icon('unlock', 22), () => go({ to: 'shop' })) : null,
+      boardsTile());
     overlay.replaceChildren(h('div', { class: 'go-card start fzx-menu' },
       h('div', { class: 'go-title' }, mascot(44), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across, grab coins, fill all 5 nests.')), h('span', { class: 'fzx-coins', title: 'Your Crossing Coins' }, coinMark(18), h('b', null, store.coins().toLocaleString()))),
       h('button', { class: 'fzx-hero', type: 'button', onclick: () => go({ to: 'locker', id: me.id }), 'aria-label': `Your Fuzzy: ${me.name}. Open the Locker` },
@@ -224,6 +235,7 @@ export function playScreen(): Screen {
       skipBtn.hidden = true;
       if (game !== g) return; // a new game replaced this one
       g.start();
+      net.startRun(); // weekly boards: a run session for signed-in players (never blocks the game)
       goPop();
     };
     if (view?.playIntro && !a.settings.reduceMotion) {
@@ -237,6 +249,7 @@ export function playScreen(): Screen {
     if (!game || !overlay.hidden && !game.paused) return;
     const p = !game.paused;
     game.setPaused(p);
+    net.pauseRun(p);
     pauseBtn.replaceChildren(icon(p ? 'play' : 'pause', 16));
     if (p) {
       overlay.hidden = false;
@@ -271,6 +284,18 @@ export function playScreen(): Screen {
     });
     const rank = a.topScores.indexOf(a.topScores.find((s) => s.at === entry.at)!) + 1;
     store.report({ kind: 'run', score: r.score, level: r.level, mode: 'classic' });
+    const boardsLine = net.canCompete() ? h('button', { class: 'fzx-boardsline', type: 'button', hidden: true, onclick: () => go({ to: 'leaderboard' }) }) : null;
+    void net.finishRun({ score: r.score, level: r.level }).then((rep) => {
+      if (!boardsLine || !rep) return;
+      if (rep.queued) { boardsLine.textContent = 'Your score will go on the weekly boards when you are back online.'; boardsLine.hidden = false; return; }
+      if (!rep.accepted) return;
+      const gained = BOARD_IDS.filter((b) => rep.standing[b].improved && rep.standing[b].rank).sort((x, y) => rep.standing[x].rank! - rep.standing[y].rank!)[0];
+      const shown = gained ?? 'score';
+      const rk = rep.standing[shown].rank;
+      if (!rk) return;
+      boardsLine.replaceChildren(icon('star', 15), h('span', null, gained ? `New weekly best — #${rk} for ${BOARDS[shown].title}` : `Weekly boards: you are #${rk} for ${BOARDS[shown].title}`));
+      boardsLine.hidden = false;
+    });
     const gainedCoins = store.save().coinsEarned - runStartCoins, gainedXp = store.save().xp - runStartXp;
     const pass = store.passInfo();
     const levelsUp = pass.level - runStartPass;
@@ -287,6 +312,7 @@ export function playScreen(): Screen {
         h('i', { class: 'fzx-passbar-track' }, h('i', { style: `width:${pass.maxed ? 100 : Math.round((pass.into / pass.need) * 100)}%` })),
         store.passClaimable().length ? h('em', null, `${store.passClaimable().length} reward${store.passClaimable().length > 1 ? 's' : ''} to claim`) : null),
       rank > 0 && !isBest ? h('p', { class: 'hint center' }, `#${rank} in your top 10 scores!`) : null,
+      boardsLine,
       topList(entry.at, 3),
       btn('Play again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { void newGame().then(begin); } }),
       h('div', { class: 'btn-row' },
@@ -342,6 +368,6 @@ export function playScreen(): Screen {
 
   return {
     el,
-    destroy: () => { gen++; hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
+    destroy: () => { if (game?.started && !game.over) void net.finishRun({ score: game.score, level: game.level }, true); gen++; hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
   };
 }
