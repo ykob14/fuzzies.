@@ -6,7 +6,10 @@
  * view3d.ts (realistic 3D) or view2d.ts (classic 2D, also the fallback without WebGL).
  */
 import { sfx } from './sound';
+import { wsfx } from './worldSounds';
 import type { CharacterDef } from '../crossing/characters';
+import * as S from '../crossing/sim';
+import type { LevelDef, RowSpec, ObjSpec } from '../crossing/sim';
 
 export const COLS = 11;
 export const ROWS = 13;
@@ -28,13 +31,20 @@ export const SKINS: Skin[] = [
 ];
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
-export interface Obj { id: number; x: number; len: number; kind: 'log' | 'pad' | 'car' | 'truck' | 'bus'; color: string; sink?: number }
-export interface Lane { row: number; type: 'road' | 'river'; speed: number; span: number; objs: Obj[] }
+/** `kind`: Classic uses log / pad / car / truck / bus; world levels add the rest (see crossing/sim.ts). `spec` = the world level's object */
+export interface Obj { id: number; x: number; len: number; kind: S.ObjKind; color: string; sink?: number; spec?: ObjSpec }
+/** `type`: Classic rows are road / river; world levels use every surface. `spec` = the world level's row */
+export interface Lane { row: number; type: S.Surface; speed: number; span: number; objs: Obj[]; spec?: RowSpec }
 export interface Token { id: number; row: number; x: number; gold: boolean; obj?: Obj; off?: number; age: number; life: number }
-export type DeathKind = 'splash' | 'crash' | 'bonk' | 'time';
+export type DeathKind = 'splash' | 'crash' | 'bonk' | 'time' | 'train' | 'zap';
 
-export interface Hud { score: number; level: number; lives: number; fuzzies: number; time: number; best: number }
+export interface Hud { score: number; level: number; lives: number; fuzzies: number; time: number; best: number;
+  /** world levels: what's left to do */
+  goal?: { nests: number; nestsNeed: number; coins?: number; coinsNeed?: number; timeLeft?: number; maxLives: number } }
 export interface Result { score: number; level: number; fuzzies: number; homes: number }
+/** how a world level ended */
+export interface LevelResult { cleared: boolean; stars: number; livesLost: number; score: number; coins: number; nests: number; time: number; reason?: 'lives' | 'time' }
+export interface GameOpts { mode: 'classic' | 'world'; level?: LevelDef }
 
 /** Something happened that a view may want to show (particles, pop-up text, camera shake…). */
 export type Fx =
@@ -42,7 +52,18 @@ export type Fx =
   | { kind: 'collect'; x: number; row: number; gold: boolean; amount: number }
   | { kind: 'death'; x: number; row: number; how: DeathKind }
   | { kind: 'home'; x: number; row: number; amount: number }
-  | { kind: 'level'; level: number; amount: number };
+  | { kind: 'level'; level: number; amount: number }
+  /** the Fuzzy reached a row it hadn't reached yet in this life */
+  | { kind: 'advance'; row: number }
+  /** a train passed along a rail row while the Fuzzy was alive on/crossing that row's lane (once per train per life) — emitted by the Worlds engine */
+  | { kind: 'train-passed'; row: number }
+  // world levels
+  | { kind: 'bump'; x: number; row: number }
+  | { kind: 'slide'; x: number; row: number }
+  | { kind: 'teleport'; x: number; row: number; tx: number; trow: number }
+  | { kind: 'unlock'; nests: number[] }
+  | { kind: 'levelComplete'; stars: number }
+  | { kind: 'levelFailed'; reason: 'lives' | 'time' };
 
 export interface View {
   resize(): void;
@@ -80,14 +101,34 @@ export class Crossing {
   private raf = 0;
   private last = 0;
   private running = false;
+  // ---------- world levels ----------
+  /** the world level being played (undefined = Classic) */
+  readonly def?: LevelDef;
+  /** the world level's clock: everything in the level is a function of it (0 = the moment you start) */
+  wt = -6;
+  /** which of the 5 nest spots are open in this level (Classic: all) */
+  nestOpen = [true, true, true, true, true];
+  /** Coin Rush: the nests stay shut until enough coins are collected */
+  locked = false;
+  coinsGot = 0;
+  livesLost = 0;
+  maxLives = 3;
+  cleared = false;
+  private hopDir: Dir = 'up';
+  private rowSpec: (RowSpec | undefined)[] = [];
 
   constructor(private view: View, readonly skin: Skin, private best: number, private hooks: {
     hud: (h: Hud) => void;
     fuzzy: (amount: number) => void;
     over: (r: Result) => void;
     event?: (e: Fx) => void;
-  }) {
-    this.buildLanes();
+    /** world levels end here instead of `over` */
+    levelEnd?: (r: LevelResult) => void;
+  }, opts: GameOpts = { mode: 'classic' }) {
+    if (opts.mode === 'world' && opts.level) {
+      this.def = opts.level;
+      this.setupWorld(opts.level);
+    } else this.buildLanes();
     view.reset(this);
     // Render even before the player presses start, so the board is visible behind the menu.
     this.loop();
@@ -126,6 +167,28 @@ export class Crossing {
     ];
   }
 
+  /** world level: rows, coins, nests and lives come from the LevelDef */
+  private setupWorld(d: LevelDef): void {
+    this.rowSpec = Array.from({ length: ROWS }, (_, r) => S.rowOf(d, r));
+    this.lanes = d.rows.map((L) => ({
+      row: L.row, type: L.surface, speed: L.speed, span: L.span, spec: L,
+      objs: L.objs.map((o) => ({ id: nextId++, x: S.objX(L, o, this.wt), len: o.len, kind: o.kind, color: o.color, spec: o })),
+    }));
+    this.nestOpen = HOMES.map((c) => d.nests.includes(c));
+    this.homes = HOMES.map(() => false);
+    this.lives = this.maxLives = d.lives;
+    this.timer = d.timer;
+    this.locked = !!d.goal.coins;
+    this.tokens = d.coins.map((c) => ({ id: nextId++, row: c.row, x: c.col, gold: !!c.gold, age: 0, life: Infinity }));
+  }
+  get world(): boolean { return !!this.def; }
+  /** seconds per life */
+  get lifeTime(): number { return this.def?.timer ?? LIFE_TIME; }
+  /** world levels: set the level clock so the level is exactly at 0 when start() is called after `seconds` (intro / banner) */
+  prime(seconds: number): void { if (this.def) this.wt = -Math.max(0, seconds); }
+  /** the row's world-level spec (undefined in Classic or for rows 0 / 12) */
+  spec(row: number): RowSpec | undefined { return this.rowSpec[row]; }
+
   resize(): void { this.view.resize(); }
 
   private emit(e: Fx): void {
@@ -141,7 +204,7 @@ export class Crossing {
       const dt = Math.min(0.05, Math.max(0, (t - this.last) / 1000)); // never step backwards in time
       this.last = t;
       // Before start the world keeps moving gently behind the menu; the player is frozen.
-      if (!this.paused && !this.over) this.update(dt, this.running);
+      if (!this.paused && !this.over) { if (this.def) this.updateWorld(dt, this.running); else this.update(dt, this.running); }
       this.view.render(this, this.paused ? 0 : dt);
     };
     this.raf = requestAnimationFrame(tick);
@@ -150,7 +213,14 @@ export class Crossing {
   start(): void {
     if (this.running) return;
     this.running = this.started = true;
+    if (this.def) { this.wt = 0; this.placeObjects(); }
     this.emitHud();
+  }
+  /** Dev/test hook: stop the animation loop and drive the game by hand with step(dt). */
+  manual(): void { cancelAnimationFrame(this.raf); }
+  step(dt: number, draw = true): void {
+    if (!this.paused && !this.over) { if (this.def) this.updateWorld(dt, this.running); else this.update(dt, this.running); }
+    if (draw) this.view.render(this, this.paused ? 0 : dt);
   }
 
   setPaused(p: boolean): void { this.paused = p; this.last = performance.now(); }
@@ -160,6 +230,7 @@ export class Crossing {
   input(d: Dir): void {
     if (!this.running || this.paused || this.over || this.dying) return;
     if (this.hop) { this.queued = d; return; }
+    if (this.def) { this.inputWorld(d); return; }
     this.facing = d;
     const river = this.onRiver(this.py);
     const base = river ? this.px : Math.round(this.px);
@@ -174,15 +245,22 @@ export class Crossing {
   }
 
   // ---------- simulation ----------
-  onRiver(row: number): boolean { return row >= 1 && row <= 5; }
+  onRiver(row: number): boolean { return this.def ? S.needsRide(this.rowSpec[row]) : row >= 1 && row <= 5; }
+  /** standing here moves you sideways (river riders, hover lanes) */
+  carries(row: number): boolean { return this.def ? S.carries(this.rowSpec[row]) : row >= 1 && row <= 5; }
   laneAt(row: number): Lane | undefined { return this.lanes.find((l) => l.row === row); }
   /** 0 = floating, 1 = fully under water. Pads start sinking at 0.55 so players get a warning. */
   sinkAmount(o: Obj): number {
+    if (o.spec) { const L = this.laneOf(o); return L?.spec ? S.sinkAmount(L.spec, o.spec, this.wt) : 0; }
     if (o.sink === undefined) return 0;
     const s = Math.sin(this.clock * 0.9 + o.sink);
     return Math.max(0, Math.min(1, (s - 0.55) / 0.27));
   }
-  sunk(o: Obj): boolean { return o.sink !== undefined && Math.sin(this.clock * 0.9 + o.sink) > 0.82; }
+  sunk(o: Obj): boolean {
+    if (o.spec) { const L = this.laneOf(o); return !!L?.spec && S.sunk(L.spec, o.spec, this.wt); }
+    return o.sink !== undefined && Math.sin(this.clock * 0.9 + o.sink) > 0.82;
+  }
+  private laneOf(o: Obj): Lane | undefined { return this.lanes.find((l) => l.objs.includes(o)); }
 
   private update(dt: number, live: boolean): void {
     this.clock += dt;
@@ -243,7 +321,7 @@ export class Crossing {
   }
 
   private land(): void {
-    if (this.py < this.furthest) { this.furthest = this.py; this.score += 10; }
+    if (this.py < this.furthest) { this.furthest = this.py; this.score += 10; this.emit({ kind: 'advance', row: this.py }); }
     if (this.py === GOAL) {
       const col = Math.round(this.px);
       const hi = HOMES.indexOf(col);
@@ -304,6 +382,10 @@ export class Crossing {
       this.give(n);
       this.emit({ kind: 'collect', x: t.x, row: t.row, gold: t.gold, amount: n });
       if (t.gold) sfx.gold(); else sfx.collect();
+      if (this.def) {
+        this.coinsGot++;
+        if (this.locked && this.coinsGot >= (this.def.goal.coins ?? 0)) { this.locked = false; this.emit({ kind: 'unlock', nests: this.def.nests }); wsfx.unlock(); }
+      }
     }
   }
 
@@ -319,13 +401,20 @@ export class Crossing {
     this.hop = null;
     this.queued = null;
     this.px = vx; this.py = Math.round(vy);
-    if (kind === 'splash') sfx.splash(); else sfx.crash();
+    if (kind === 'splash') sfx.splash(); else if (kind === 'zap') wsfx.zap(); else if (kind === 'train') wsfx.horn(); else sfx.crash();
     this.emit({ kind: 'death', x: vx, row: this.py, how: kind });
   }
 
   private afterDeath(): void {
     this.dying = null;
     this.lives--;
+    if (this.def) {
+      this.livesLost++;
+      this.trainNear = {};
+      if (this.lives <= 0) { this.endLevel(false, 'lives'); return; }
+      this.resetPlayer();
+      return;
+    }
     if (this.lives <= 0) {
       this.over = true;
       sfx.over();
@@ -337,11 +426,140 @@ export class Crossing {
   }
 
   private resetPlayer(): void {
-    this.px = 5; this.py = START; this.furthest = START; this.timer = LIFE_TIME; this.hop = null; this.facing = 'up';
+    this.px = 5; this.py = START; this.furthest = START; this.timer = this.lifeTime; this.hop = null; this.facing = 'up';
+    if (this.def) this.queued = null;
   }
 
   private emitHud(): void {
-    this.hooks.hud({ score: this.score, level: this.level, lives: this.lives, fuzzies: this.fuzzies, time: Math.max(0, this.timer / LIFE_TIME), best: Math.max(this.best, this.score) });
+    const d = this.def;
+    this.hooks.hud({ score: this.score, level: d ? d.level : this.level, lives: this.lives, fuzzies: this.fuzzies, time: Math.max(0, this.timer / this.lifeTime), best: Math.max(this.best, this.score),
+      goal: d ? { nests: this.homesFilled, nestsNeed: d.goal.nests, coins: d.goal.coins ? this.coinsGot : undefined, coinsNeed: d.goal.coins, timeLeft: d.goal.timeLimit ? Math.max(0, d.goal.timeLimit - Math.max(0, this.wt)) : undefined, maxLives: this.maxLives } : undefined });
+  }
+
+  // ---------- world levels (the rules live in crossing/sim.ts, shared with the fairness solver) ----------
+  private placeObjects(): void {
+    for (const l of this.lanes) if (l.spec) for (const o of l.objs) o.x = S.objX(l.spec, o.spec!, this.wt);
+  }
+
+  private inputWorld(d: Dir): void {
+    const tg = S.hopTarget(this.def!, this.py, this.px, d);
+    this.facing = d;
+    if (!tg) {
+      // a tree / snowman / tombstone in the way: a little bump, no hop
+      const ty = d === 'up' ? this.py - 1 : d === 'down' ? this.py + 1 : this.py;
+      if (ty >= 0 && ty <= START) { this.emit({ kind: 'bump', x: this.px, row: this.py }); wsfx.bump(); }
+      return;
+    }
+    this.hopDir = d;
+    this.hop = { fx: this.px, fy: this.py, tx: tg.tx, ty: tg.ty, t: 0 };
+    this.emit({ kind: 'hop', x: this.px, row: this.py });
+    sfx.hop();
+  }
+
+  private updateWorld(dt: number, live: boolean): void {
+    const t0 = this.wt;
+    this.clock += dt;
+    this.wt += dt;
+    const t = this.wt;
+    this.placeObjects();
+    if (this.tokens.length) this.tokens = this.tokens.filter((tk) => tk.age < tk.life);
+    if (!live) return;
+    if (this.dying) {
+      this.dying.t += dt;
+      if (this.dying.t > 1.1) this.afterDeath();
+      return;
+    }
+    const tl = this.def!.goal.timeLimit;
+    if (tl && t >= tl) { this.endLevel(false, 'time'); return; }
+    this.timer -= dt;
+    if (this.timer <= 0) { this.die('time'); return; }
+
+    if (this.hop) {
+      this.hop.t += dt / S.HOP_TIME;
+      const hp = this.hop;
+      const L = this.rowSpec[hp.fy];
+      if (hp.fy === hp.ty && S.carries(L)) { const dd = S.disp(L!, t) - S.disp(L!, t0); hp.fx += dd; hp.tx += dd; }
+      if (hp.t >= 1 - 1e-9) {
+        this.px = hp.tx; this.py = hp.ty;
+        this.hop = null;
+        this.landWorld();
+        if (this.queued && !this.dying && !this.hop && !this.over) { const q = this.queued; this.queued = null; this.input(q); }
+      }
+    } else if (S.carries(this.rowSpec[this.py])) {
+      const L = this.rowSpec[this.py]!;
+      if (S.needsRide(L) && !S.rideAt(L, this.px, t)) { this.die('splash'); return; }
+      this.px += S.disp(L, t) - S.disp(L, t0);
+      if (S.needsRide(L)) { if (this.px < -0.45 || this.px > COLS - 0.55) { this.die('splash'); return; } }
+      else this.px = Math.max(0, Math.min(COLS - 1, this.px));
+    }
+    if (this.dying || this.over) return;
+    const [vx, vy] = this.visualPos();
+    const row = Math.round(vy);
+    const L = this.rowSpec[row];
+    if (L) {
+      const hz = S.hazardAt(L, vx, t);
+      if (hz) { this.die(hz === 'splash' ? 'splash' : hz); return; }
+    }
+    this.collectAt(vx, row);
+    this.trackTrains(t, row);
+    this.emitHud();
+  }
+
+  /** "survived a train": a train went by on a rail row the Fuzzy was on or right next to, and the Fuzzy is still fine */
+  private trainNear: Record<number, boolean> = {};
+  private trackTrains(t: number, row: number): void {
+    for (const l of this.lanes) {
+      const L = l.spec;
+      if (!L?.train) continue;
+      const passing = S.trainWarning(L, t) && S.objX(L, L.objs[0], t) < COLS + 1 && S.objX(L, L.objs[0], t) + L.objs[0].len > -1;
+      if (passing && Math.abs(row - L.row) <= 1) this.trainNear[L.row] = true;
+      if (!passing && this.trainNear[L.row]) { this.trainNear[L.row] = false; this.emit({ kind: 'train-passed', row: L.row }); }
+    }
+  }
+
+  private landWorld(): void {
+    const d = this.def!;
+    if (this.py < this.furthest) { this.furthest = this.py; this.score += 10; this.emit({ kind: 'advance', row: this.py }); }
+    if (this.py === GOAL) {
+      const col = Math.round(this.px);
+      const hi = HOMES.indexOf(col);
+      if (hi < 0 || !this.nestOpen[hi] || this.homes[hi] || this.locked) { this.die('bonk'); return; }
+      this.homes[hi] = true;
+      this.homesFilled++;
+      this.score += 50 + Math.round(this.timer * 2);
+      this.give(2);
+      this.emit({ kind: 'home', x: col, row: GOAL, amount: 2 });
+      sfx.home();
+      if (this.homesFilled >= d.goal.nests) { this.endLevel(true); return; }
+      this.resetPlayer();
+      return;
+    }
+    const L = this.rowSpec[this.py];
+    if (!S.carries(L)) {
+      const tp = S.teleportFrom(d, this.py, Math.round(this.px));
+      if (tp) {
+        this.emit({ kind: 'teleport', x: this.px, row: this.py, tx: tp.to[1], trow: tp.to[0] });
+        wsfx.teleport();
+        this.px = tp.to[1]; this.py = tp.to[0];
+        if (this.py < this.furthest) { this.furthest = this.py; this.score += 10; this.emit({ kind: 'advance', row: this.py }); }
+        return;
+      }
+      const sl = S.slideNext(d, this.py, Math.round(this.px), this.hopDir);
+      if (sl) { this.hop = { fx: this.px, fy: this.py, tx: sl.tx, ty: sl.ty, t: 0 }; this.emit({ kind: 'slide', x: this.px, row: this.py }); wsfx.slide(); return; }
+    }
+    if (S.needsRide(L) && !S.rideAt(L!, this.px, this.wt)) this.die('splash');
+  }
+
+  private endLevel(cleared: boolean, reason?: 'lives' | 'time'): void {
+    if (this.over) return;
+    this.over = true;
+    this.cleared = cleared;
+    this.hop = null;
+    const stars = cleared ? S.starsFor(this.livesLost) : 0;
+    if (cleared) { this.score += 200 + (this.maxLives - this.livesLost) * 50; wsfx.win(); this.emit({ kind: 'levelComplete', stars }); }
+    else { sfx.over(); this.emit({ kind: 'levelFailed', reason: reason ?? 'lives' }); }
+    this.emitHud();
+    this.hooks.levelEnd?.({ cleared, stars, livesLost: this.livesLost, score: this.score, coins: this.coinsGot, nests: this.homesFilled, time: Math.max(0, this.wt), reason });
   }
 
   /** Where the fuzzy is drawn: [column, row, hop height 0..1]. */
