@@ -11,6 +11,7 @@ import * as T from '../../game/textures3d';
 import { RINK, GATE_HW, trackPoint, trackLength } from './skate';
 import { canvas, tex, once, C, rng } from './orchardArt';
 import { blob, treeRing } from './sceneArt';
+import { FRIENDS, friendUrl } from '../../content/friends';
 
 const BRAND = '#d6336c';
 const FONT = `'Fredoka', ui-rounded, 'Arial Rounded MT Bold', system-ui, sans-serif`;
@@ -157,44 +158,80 @@ export function stands(mobile: boolean): Crowd {
   const top = H0 + (ROWS - 1) * RISE, oBack = O0 + ROWS * TREAD;
   const wall = new THREE.Mesh(strip(path, { o: oBack, y: top - 0.2 }, { o: oBack, y: top + 3.2 }, 16.4, (p) => !isEast(p)), new THREE.MeshStandardMaterial({ map: bannerTex(), roughness: 0.8, side: THREE.DoubleSide })); grp.add(wall);
   grp.add(new THREE.Mesh(strip(path, { o: oBack, y: top + 3.2 }, { o: oBack + 0.5, y: top + 3.2 }, 4, (p) => !isEast(p)), concrete));
-  // the fans: round furry blobs with two eyes, in the team colours (one instanced mesh each for body, eye whites, pupils)
-  const R = rng(23); const spots: { x: number; y: number; z: number; yaw: number; ph: number; sp: number; col: THREE.Color }[] = [];
-  const pal = [BRAND, '#2f7fd1', '#ffd447', '#1fa98a', '#ff8a3d', '#ffffff', '#4cc9f0', '#ff9ec4', '#7ed957'].map((h) => C(h));
+  // the fans: the owner's own Fuzzy characters (the 40 illustrated Fuzzies, one texture atlas, ONE instanced mesh of upright cards)
+  const R = rng(23); const COLS = 8, ROWS_A = 5, cell = mobile ? 96 : 128;
+  // the sporty / cheerful ones turn up more often (hockey helmet, headphones, sunglasses, rainbow, the plain classics)
+  const weights: Record<string, number> = { f40: 5, f18: 2.5, f13: 2.5, f30: 2.5, f01: 2, f02: 2, f03: 2, f04: 2, f23: 1.5, f34: 1.5, f22: 1.5 };
+  const wAll = FRIENDS.map((f) => weights[f.id] ?? 1); const wSum = wAll.reduce((x, y) => x + y, 0);
+  const pick = (): number => { let r = R() * wSum; for (let i = 0; i < wAll.length; i++) { r -= wAll[i]; if (r <= 0) return i; } return 0; };
+  const rows: { x: number; y: number; z: number; yaw: number; sc: number; f: number; ph: number; sp: number }[] = [];
+  const step = mobile ? 0.92 : 0.74;
   for (let k = 0; k < ROWS; k++) {
-    const o = O0 + k * TREAD + TREAD * 0.5, h = H0 + k * RISE; const step = 0.82;
+    const o = O0 + k * TREAD + TREAD * 0.5, h = H0 + k * RISE;
     const L = trackLength(-o); const n = Math.floor(L / step);
     for (let i = 0; i < n; i++) {
-      if (R() < 0.12) continue;
-      const p = trackPoint((i / n) * L + R() * 0.2, -o); const nx = -p.tz, nz = p.tx;
+      if (R() < 0.07) continue;
+      const p = trackPoint((i / n) * L + R() * 0.25, -o); const nx = -p.tz, nz = p.tx;
       if (nx > 0.96) continue;
-      spots.push({ x: p.x, y: h + 0.3, z: p.z, yaw: Math.atan2(-nx, -nz), ph: R() * 6.28, sp: 2 + R() * 2, col: pal[(R() * pal.length) | 0].clone().multiplyScalar(0.8 + R() * 0.3) });
+      rows.push({ x: p.x + (R() - 0.5) * 0.12, y: h - 0.02, z: p.z + (R() - 0.5) * 0.12, yaw: Math.atan2(-nx, -nz) + (R() - 0.5) * 0.5, sc: 0.8 + R() * 0.3 + k * 0.03, f: pick(), ph: R() * 6.28, sp: 2 + R() * 2 });
     }
   }
-  const bodyGeo = blob(0.28, 1, 0.1, 3), eyeGeo = new THREE.SphereGeometry(0.075, 8, 6), pupGeo = new THREE.SphereGeometry(0.042, 6, 5);
-  const body = new THREE.InstancedMesh(bodyGeo, new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.95 }), spots.length);
-  const eyes = new THREE.InstancedMesh(eyeGeo, new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4 }), spots.length * 2);
-  const pups = new THREE.InstancedMesh(pupGeo, new THREE.MeshStandardMaterial({ color: '#1d1b22', roughness: 0.3 }), spots.length * 2);
-  spots.forEach((s, i) => body.setColorAt(i, s.col)); grp.add(body, eyes, pups);
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3(), sq = new THREE.Vector3();
-  let acc = 0, cheerPrev = 0;
-  const update = (t: number, dt: number, cheer: number) => {
-    acc += dt; if (acc < 0.05 && cheer === 0 && cheerPrev === 0) return; acc = 0; cheerPrev = cheer;
-    spots.forEach((s, i) => {
-      const jump = cheer > 0 ? Math.abs(Math.sin(t * 9 + s.ph)) * 0.3 * Math.min(1, cheer) : 0;
-      const y = s.y + Math.sin(t * s.sp + s.ph) * 0.025 + jump; const squash = 1 + Math.sin(t * s.sp * 1.5 + s.ph) * 0.03 - jump * 0.1;
-      q.setFromAxisAngle(up, s.yaw); sq.set(1 / Math.sqrt(squash), squash, 1 / Math.sqrt(squash));
-      m.compose(v.set(s.x, y, s.z), q, sq); body.setMatrixAt(i, m);
-      for (let e = 0; e < 2; e++) {
-        const lx = (e ? 1 : -1) * 0.1, lz = 0.235; // local → world (rotate by yaw)
-        const wx = s.x + lx * Math.cos(s.yaw) + lz * Math.sin(s.yaw), wz = s.z - lx * Math.sin(s.yaw) + lz * Math.cos(s.yaw);
-        m.compose(v.set(wx, y + 0.06, wz), q, one); eyes.setMatrixAt(i * 2 + e, m);
-        const px = wx + 0.033 * Math.sin(s.yaw), pz = wz + 0.033 * Math.cos(s.yaw);
-        m.compose(v.set(px, y + 0.06, pz), q, one); pups.setMatrixAt(i * 2 + e, m);
-      }
-    });
-    body.instanceMatrix.needsUpdate = eyes.instanceMatrix.needsUpdate = pups.instanceMatrix.needsUpdate = true;
+  const geo = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
+  const aCell = new Float32Array(rows.length * 4), aAnim = new Float32Array(rows.length * 2);
+  const crowdMat = new THREE.MeshBasicMaterial({ color: '#e6eaf4', alphaTest: 0.35, side: THREE.DoubleSide });
+  crowdMat.alphaToCoverage = true;
+  const uni = { uT: { value: 0 }, uCheer: { value: 0 } };
+  crowdMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uT = uni.uT; sh.uniforms.uCheer = uni.uCheer;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec4 aCell; attribute vec2 aAnim; uniform float uT; uniform float uCheer;')
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\n  vMapUv = aCell.xy + uv * aCell.zw;\n#endif')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+  float ph = aAnim.x, sp = aAnim.y;
+  transformed.y *= 1.0 + sin(uT * sp * 1.5 + ph) * 0.03 + uCheer * 0.04 * sin(uT * 9.0 + ph);
+  transformed.y += sin(uT * sp + ph) * 0.018 + abs(sin(uT * 9.0 + ph * 3.0)) * 0.24 * uCheer;
+  transformed.x += sin(uT * sp * 0.8 + ph) * 0.03 * position.y * (1.0 + uCheer * 2.0);`);
   };
-  update(0, 1, 0);
+  crowdMat.visible = false; // until the pictures are in
+  const cards = new THREE.InstancedMesh(geo, crowdMat, rows.length); cards.frustumCulled = false;
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3(), sq = new THREE.Vector3();
+  rows.forEach((s, i) => {
+    q.setFromAxisAngle(up, s.yaw); sq.setScalar(s.sc); m.compose(v.set(s.x, s.y, s.z), q, sq); cards.setMatrixAt(i, m);
+    aCell.set([(s.f % COLS) / COLS, 1 - (Math.floor(s.f / COLS) + 1) / ROWS_A, 1 / COLS, 1 / ROWS_A], i * 4); aAnim.set([s.ph, s.sp], i * 2);
+  });
+  geo.setAttribute('aCell', new THREE.InstancedBufferAttribute(aCell, 4)); geo.setAttribute('aAnim', new THREE.InstancedBufferAttribute(aAnim, 2));
+  grp.add(cards);
+  // the atlas: 8 × 5 cells drawn from the 40 pictures, transparent edges given the colour of their neighbours (no dark fringes)
+  const { c: atlas, g: ag } = canvas(COLS * cell, ROWS_A * cell);
+  const atlasTex = new THREE.CanvasTexture(atlas); atlasTex.colorSpace = THREE.SRGBColorSpace; atlasTex.generateMipmaps = true; atlasTex.minFilter = THREE.LinearMipmapLinearFilter; atlasTex.anisotropy = 4;
+  crowdMat.map = atlasTex;
+  let left = FRIENDS.length;
+  const settle = () => {
+    if (--left > 0) return;
+    const W = atlas.width, H = atlas.height; const img = ag.getImageData(0, 0, W, H), d = img.data; const has = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) has[i] = d[i * 4 + 3] > 215 ? 1 : 0;
+    for (let pass = 0; pass < 5; pass++) {
+      const add: number[] = [];
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x; if (has[i]) continue;
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const j = i + dy * W + dx; if (has[j]) { r += d[j * 4]; g += d[j * 4 + 1]; b += d[j * 4 + 2]; n++; } }
+        if (n) add.push(i, (r / n) | 0, (g / n) | 0, (b / n) | 0);
+      }
+      for (let k = 0; k < add.length; k += 4) { const i = add[k]; d[i * 4] = add[k + 1]; d[i * 4 + 1] = add[k + 2]; d[i * 4 + 2] = add[k + 3]; has[i] = 1; }
+    }
+    ag.putImageData(img, 0, 0); atlasTex.needsUpdate = true; crowdMat.visible = true; crowdMat.needsUpdate = true;
+  };
+  FRIENDS.forEach((f, i) => {
+    const im = new Image(); im.decoding = 'async';
+    im.onload = () => { ag.drawImage(im, (i % COLS) * cell + 3, Math.floor(i / COLS) * cell + 3, cell - 6, cell - 6); settle(); };
+    im.onerror = () => settle();
+    im.src = friendUrl(f.id);
+  });
+  let cur = 0;
+  const update = (t: number, dt: number, cheer: number) => {
+    cur += (Math.min(1, cheer) - cur) * Math.min(1, dt * 6); uni.uT.value = t; uni.uCheer.value = cur;
+  };
   return { group: grp, update };
 }
 
