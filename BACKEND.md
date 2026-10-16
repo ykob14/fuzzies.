@@ -220,6 +220,51 @@ claimed by whoever signs up with that address first. Add one in Supabase → SQL
 `insert into fz_admins (user_id) select id from fz_users where email = 'you@gmail.com';` (`ADMIN_EMAILS` is no longer read.)
 Optional `ASSIST_HOURLY_CAP` (default 1500) caps the assistant's AI messages for the whole site per hour.
 
+## Fuzzy Crossing weekly boards
+
+Weekly competitions inside the Fuzzy Crossing tab (separate from Fuzzies Land): **Highest score**, **Fastest crossing** (all 5 nests of level 1
+without losing a life) and **Survival streak** (most nests in a row without losing a life). One best result per player per board per week; only
+signed-in cloud accounts can compete, everybody can read the boards. No new environment variables or services — the tables are created by the
+same schema script as everything else (`api/_lib/db.ts`, row-level security on, no public grants).
+
+**Endpoint** `POST /api/crossing { action, … }` (`api/crossing.ts`): `run.start`, `run.finish`, `board.get`, `weekly.status`, `weekly.claim`.
+Rules of the checks: `api/_lib/crossing-rules.ts`. Week maths + reward table (shared with the app): `src/crossing/rewards-weekly.ts`.
+
+**Weeks** are ISO weeks in UTC: Monday 00:00 UTC to the next Monday (the week key looks like `2026-W42`). The **server** decides which week it is;
+nothing the app sends is believed. A run counts for the week it *finishes* in, so a finished week never changes and its rewards can be handed out
+safely. There is nothing to schedule: the new week's boards are simply empty, and the reset needs no job.
+
+**Tables** (all `fz_cx_*`): `fz_cx_runs` (every run: server start/finish times, status `open | finishing | accepted | rejected:<reason> | abandoned`,
+flags, the submitted numbers), `fz_cx_scores` (the best result per `(week_key, board, user_id)`; `created_at` = when that best was reached, the
+earlier one wins a tie), `fz_cx_claims` (a finished week's reward, once per player per board; the rank is frozen when first claimed),
+`fz_cx_players` (emoji + colour or Fuzzy Friend id shown next to a name — never an email), `fz_cx_hits` (request stamps for rate limits only).
+
+**Rewards** by final rank on each board (`TIER_DEFS`): top 1 — trophy, Nebula + Rainbow Fuzzies, Neon trail, Champion pose, 1,000 coins;
+top 3 — trophy, Rainbow, Neon trail, Champion pose, 600 coins; top 10 — trophy, Rainbow, Neon trail, Champion pose, 400 coins; top 25 — trophy, Neon
+trail, 300 coins; top 100 — trophy, 200 coins. A finished week stays claimable for 8 weeks. The app applies rewards through the Crossing store; coins are
+only paid together with a *new* trophy, so claiming twice (or from two devices) never pays twice.
+
+**What the checks do and don't mean.** The game's rules run in the player's browser, so the server can only check that a result is *plausible*:
+a signed-in player opens a run (`run.start`: one open run per player, a random secret kept only as a hash), the server times it, and `run.finish`
+must fit the server's stopwatch (claimed time ≤ server time + 3 s), the hop rate (0.14 s per hop), the minimum hops per nest (12), the token spawn
+rate, a hard score ceiling worked out from the run's own statistics, streak/nest/level consistency and a physical minimum for the fastest time (14 s;
+under 20 s is flagged). A run can be finished once and expires after 45 minutes. Limits: 40 runs an hour per player, 20 finishes a minute, 90 board
+reads a minute per network address. A determined cheater who reproduces a *believable* run (right pace, right statistics) cannot be told from a
+very good player. Runs the checks accept but find odd carry `flags` (see below).
+
+**Operating it**
+- *Look at suspicious runs:* `select u.username, r.flags, r.result, r.started_at, r.finished_at from fz_cx_runs r join fz_users u on u.id = r.user_id where r.flags <> '' order by r.started_at desc;`
+  and rejected ones: `… where r.status like 'rejected:%'` (the reason code is after the colon).
+- *Remove someone from a week's boards:* `delete from fz_cx_scores where user_id = '<id>' and week_key = '2026-W42';` (before the week ends; after it
+  ends and rewards were claimed, delete the `fz_cx_claims` rows too if you want them to be able to re-claim nothing — rewards already in a player's save stay).
+- *"Reset" a week:* there is nothing to reset. To wipe one week's results for everyone: `delete from fz_cx_scores where week_key = '2026-W42'; delete from fz_cx_claims where week_key = '2026-W42';`
+- *Test the roll-over without waiting:* the dev server honours an `x-cx-now: <ms>` request header (or env `CX_NOW`) **only** when `PAY_TEST=1` and the build is not
+  a production one; on Vercel production it is always ignored. `tools/crossing/boards-api.mjs` uses it to play whole weeks.
+
+**Tests** (see the file headers): `bash tools/crossing/run.sh boards-check.ts` (week maths, rules, reward table — no database),
+`node tools/crossing/boards-api.mjs` (API on a real Postgres + the cloud dev server), `node tools/crossing/boards-browser.cjs` (Playwright:
+sign up, play, boards at phone / tablet / computer, collecting rewards).
+
 ## Security notes
 
 - Every `fz_` table has row-level security on with no policies and no grants for Supabase's `anon` / `authenticated`
