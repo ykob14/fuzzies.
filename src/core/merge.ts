@@ -48,6 +48,8 @@ function mergeAt(key: string, base: J, local: J, remote: J): J {
     if (key === 'daily' && local.last !== remote.last) return String(local.last) > String(remote.last) ? local : remote;
     // Fuzzy Crossing's daily/weekly missions follow the same rule: the later day (week) wins as a whole
     if (key === 'missions' && local.week !== undefined && local.day === remote.day && local.week !== remote.week) return String(local.week) > String(remote.week) ? local : remote;
+    // Endless Crossing's "today" record belongs to one UTC day: the later day wins as a whole
+    if (key === 'today' && local.day !== remote.day) return String(local.day) > String(remote.day) ? local : remote;
     // a town is one connected thing (buildings can't be half-moved): the most recently saved one wins
     if (key === 'land') return Number(local.savedAt ?? 0) >= Number(remote.savedAt ?? 0) ? local : remote;
     const b = isObj(base) ? base : {};

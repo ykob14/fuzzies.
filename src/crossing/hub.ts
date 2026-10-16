@@ -31,7 +31,7 @@ export interface PanelCtx {
   /** the equipped character changed: the menu preview and the game board should update */
   equipChanged(): void;
   /** start a game from inside a screen (worlds, endless…) */
-  play(mode: { kind: 'classic' } | { kind: 'world'; world: number; level: number } | { kind: 'endless' } | { kind: 'event'; id: string }): void;
+  play(mode: { kind: 'classic' } | { kind: 'world'; world: number; level: number } | { kind: 'endless'; daily?: boolean } | { kind: 'event'; id: string }): void;
   /** set the title shown in the bar */
   title(text: string): void;
 }
@@ -45,6 +45,7 @@ const LOADERS: Partial<Record<PanelName, () => Promise<{ open: PanelOpen }>>> = 
   missions: () => import('./ui/missions'),
   leaderboard: () => import('./ui/leaderboard'),
   worlds: () => import('./ui/worlds'),
+  endless: () => import('./ui/endless'),
 };
 export const panelAvailable = (n: PanelName): boolean => !!LOADERS[n];
 export const PANEL_TITLE: Record<PanelName, string> = { locker: 'Fuzzy Locker', pass: 'Fuzzy Pass', shop: 'Fuzzy Shop', worlds: 'Worlds', endless: 'Endless Crossing', missions: 'Missions', leaderboard: 'Weekly Boards', events: 'Events' };
