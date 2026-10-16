@@ -10,6 +10,9 @@ import * as T from './textures3d';
 import * as M from './models3d';
 import { sfx } from './sound';
 import { glbFuzzy, glbReady } from './fuzzyGlb';
+import { WorldScene } from './world3d';
+import * as WM from './worldModels3d';
+import type { LevelDef } from '../crossing/sim';
 
 const WORLD_X0 = -40, WORLD_X1 = 51;
 const CAM_H = 7.4, CAM_BACK = 5.8;
@@ -21,12 +24,21 @@ const bump = (t: number, a: number, b: number, soft = 0.12) => Math.min(THREE.Ma
 const WATER_Y = -0.18;
 const CURB = 0.07;
 
-interface Mood { name: string; elevation: number; azimuth: number; turbidity: number; rayleigh: number; mie: number; sun: string; sunI: number; hemiSky: string; hemiGround: string; hemiI: number; fog: string; exposure: number; env: number; night: number }
+interface Mood { name: string; elevation: number; azimuth: number; turbidity: number; rayleigh: number; mie: number; sun: string; sunI: number; hemiSky: string; hemiGround: string; hemiI: number; fog: string; exposure: number; env: number; night: number; fogNear?: number; fogFar?: number }
 const MOODS: Mood[] = [
   { name: 'day', elevation: 48, azimuth: 215, turbidity: 4, rayleigh: 1.1, mie: 0.004, sun: '#fff1dc', sunI: 3.2, hemiSky: '#a9c8f0', hemiGround: '#3f4a2a', hemiI: 0.45, fog: '#cfdbe4', exposure: 0.62, env: 0.4, night: 0 },
   { name: 'golden', elevation: 12, azimuth: 250, turbidity: 8, rayleigh: 2.2, mie: 0.01, sun: '#ffab5e', sunI: 3.0, hemiSky: '#f3c08e', hemiGround: '#3a2e1f', hemiI: 0.35, fog: '#e3c4a6', exposure: 0.6, env: 0.35, night: 0.25 },
   { name: 'dusk', elevation: 3, azimuth: 285, turbidity: 3, rayleigh: 0.8, mie: 0.003, sun: '#9fb3ff', sunI: 0.9, hemiSky: '#4b5a8a', hemiGround: '#1a1c28', hemiI: 0.3, fog: '#252d45', exposure: 0.85, env: 0.35, night: 1 },
 ];
+/** extra looks for the world levels (Classic keeps MOODS above) */
+const WORLD_MOODS: Record<LevelDef['mood'], Mood> = {
+  day: MOODS[0], golden: MOODS[1], dusk: MOODS[2],
+  night: { name: 'night', elevation: 2, azimuth: 300, turbidity: 2, rayleigh: 0.5, mie: 0.002, sun: '#a9b8ff', sunI: 0.8, hemiSky: '#3a4470', hemiGround: '#14151f', hemiI: 0.32, fog: '#1d2238', exposure: 0.95, env: 0.3, night: 1, fogNear: 16, fogFar: 55 },
+  storm: { name: 'storm', elevation: 25, azimuth: 230, turbidity: 12, rayleigh: 3.2, mie: 0.02, sun: '#c9d3e0', sunI: 1.7, hemiSky: '#8e9bb0', hemiGround: '#2c3326', hemiI: 0.55, fog: '#7d8898', exposure: 0.62, env: 0.3, night: 0.45, fogNear: 14, fogFar: 48 },
+  snow: { name: 'snow', elevation: 30, azimuth: 205, turbidity: 6, rayleigh: 1.4, mie: 0.006, sun: '#fff6ec', sunI: 2.6, hemiSky: '#cfe2f3', hemiGround: '#8fa3b5', hemiI: 0.6, fog: '#dde8f1', exposure: 0.6, env: 0.45, night: 0, fogNear: 18, fogFar: 60 },
+  fog: { name: 'fog', elevation: 18, azimuth: 220, turbidity: 9, rayleigh: 2, mie: 0.02, sun: '#e8e2d6', sunI: 2.0, hemiSky: '#c4ccd4', hemiGround: '#3f4a36', hemiI: 0.55, fog: '#bcc6cf', exposure: 0.6, env: 0.35, night: 0.2, fogNear: 10, fogFar: 36 },
+  neon: { name: 'neon', elevation: 2, azimuth: 300, turbidity: 2, rayleigh: 0.4, mie: 0.002, sun: '#8fa8ff', sunI: 0.9, hemiSky: '#3b3f8a', hemiGround: '#140f24', hemiI: 0.38, fog: '#15163a', exposure: 1.0, env: 0.35, night: 1, fogNear: 18, fogFar: 60 },
+};
 
 interface Pop { obj: THREE.Object3D; vel: THREE.Vector3; life: number; max: number; kind: 'drop' | 'spark' | 'text' | 'ring' | 'puff'; grow?: number }
 
@@ -48,6 +60,15 @@ export class View3D implements View {
   private objs = new Map<number, { node: THREE.Group; mats?: THREE.Material[]; obj: Obj; lane: Lane }>();
   private tokens = new Map<number, { model: M.FuzzyModel; aura: THREE.Sprite }>();
   private nests: { nest: THREE.Group; fuzzy: M.FuzzyModel }[] = [];
+  /** the Classic board (kept while a world level is shown, hidden) */
+  private classic = new THREE.Group();
+  private classicNests: { nest: THREE.Group; fuzzy: M.FuzzyModel }[] = [];
+  private classicLamps: { light: THREE.PointLight; halo: THREE.Sprite }[] = [];
+  /** the world level's scenery (null in Classic) */
+  private world: WorldScene | null = null;
+  private worldKey = 'classic';
+  private built = new Map<number, WM.Built>();
+  private coins = new Map<number, THREE.Group>();
   private player!: M.FuzzyModel;
   private playerSkin = '';
   private pops: Pop[] = [];
@@ -69,7 +90,7 @@ export class View3D implements View {
   private disposed = false;
 
   /** `deluxe` = the hero is the owner's 3D Fuzzy model (when it has loaded; it can't wink, so the intro just smiles). */
-  constructor(private canvas: HTMLCanvasElement, mobile: boolean, private deluxe = false) {
+  constructor(private canvas: HTMLCanvasElement, private mobile: boolean, private deluxe = false) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile ? 1.75 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -89,7 +110,10 @@ export class View3D implements View {
     this.scene.add(s, s.target, this.hemi);
     this.sky.scale.setScalar(900);
 
+    this.scene.add(this.classic);
     this.buildWorld();
+    this.classicNests = this.nests;
+    this.classicLamps = this.lamps;
     this.resize();
   }
 
@@ -101,7 +125,7 @@ export class View3D implements View {
     const m = new THREE.Mesh(g, mat);
     m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2);
     m.receiveShadow = true;
-    this.scene.add(m);
+    this.classic.add(m);
     return m;
   }
 
@@ -113,7 +137,7 @@ export class View3D implements View {
     m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     m.receiveShadow = true;
     m.castShadow = true;
-    this.scene.add(m);
+    this.classic.add(m);
     return m;
   }
 
@@ -156,11 +180,11 @@ export class View3D implements View {
       b.castShadow = b.receiveShadow = true;
       hedge.add(b);
     }
-    this.scene.add(hedge);
+    this.classic.add(hedge);
     for (const col of HOMES) {
       const nest = M.makeNest(m);
       nest.position.set(col + 0.5, 0.02, 0.5);
-      this.scene.add(nest);
+      this.classic.add(nest);
       const fuzzy = M.makeFuzzy(m, ['#ff86bb', '#b8235f'], 0.22, 0.07, 12);
       fuzzy.group.position.set(col + 0.5, 0.22, 0.52);
       fuzzy.group.visible = false;
@@ -174,22 +198,22 @@ export class View3D implements View {
       tree.position.set(-14 + r() * 39, 0, far ? -1.2 - r() * 7 : 13.6 + r() * 6);
       if (!far && tree.position.x > -1.5 && tree.position.x < 12.5) tree.position.x += tree.position.x < 5.5 ? -6 : 6;
       tree.rotation.y = r() * 6.28;
-      this.scene.add(tree);
+      this.classic.add(tree);
     }
     for (const [x, z] of [[-1.2, 6.5], [12.2, 6.5], [-1.2, 12.6], [12.2, 12.6]] as [number, number][]) {
       const lamp = M.makeLamp(m, x < 5 ? 1 : -1);
       lamp.group.position.set(x, CURB, z);
-      this.scene.add(lamp.group);
+      this.classic.add(lamp.group);
       const head = lamp.head.clone().add(lamp.group.position);
       const light = new THREE.PointLight(0xffc77a, 0, 7, 1.6);
       light.position.copy(head);
       const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, color: 0xffd08a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
       halo.position.copy(head);
       halo.scale.setScalar(1.1);
-      this.scene.add(light, halo);
+      this.classic.add(light, halo);
       this.lamps.push({ light, halo });
     }
-    this.scene.add(M.makeGrass(9000, [
+    this.classic.add(M.makeGrass(9000, [
       { x0: -12, x1: 23, z0: -5, z1: 0.9 },
       { x0: -12, x1: 23, z0: 13.05, z1: 19 },
     ], 5, this.time));
@@ -199,7 +223,10 @@ export class View3D implements View {
     const idx = (level - 1) % MOODS.length;
     if (idx === this.mood) return;
     this.mood = idx;
-    const md = MOODS[idx];
+    this.applyMood(MOODS[idx]);
+  }
+
+  private applyMood(md: Mood): void {
     const u = this.sky.material.uniforms;
     u.turbidity.value = md.turbidity;
     u.rayleigh.value = md.rayleigh;
@@ -223,7 +250,7 @@ export class View3D implements View {
     this.hemi.groundColor.set(md.hemiGround);
     this.hemi.intensity = md.hemiI;
     this.scene.background = new THREE.Color(md.fog);
-    this.scene.fog = new THREE.Fog(md.fog, 22, 70);
+    this.scene.fog = new THREE.Fog(md.fog, md.fogNear ?? 22, md.fogFar ?? 70);
     this.renderer.toneMappingExposure = md.exposure;
     const n = md.night;
     this.mats.head.emissiveIntensity = 0.8 + n * 3;
@@ -258,25 +285,56 @@ export class View3D implements View {
     if (this.intro) this.intro.t = INTRO.end;
   }
 
+  /** switch between the Classic board and a world level's scenery */
+  private useWorld(g: Crossing): void {
+    const key = g.def ? g.def.id : 'classic';
+    if (key === this.worldKey) return;
+    this.worldKey = key;
+    this.world?.dispose();
+    this.world = null;
+    this.mood = -1;
+    if (g.def) {
+      this.world = new WorldScene(g.def, this.mats, this.mobile, g.skin.colors, this.sparkTex);
+      this.scene.add(this.world.group);
+      this.classic.visible = false;
+      this.nests = this.world.nests;
+      this.lamps = this.world.lamps;
+      this.applyMood(WORLD_MOODS[g.def.mood] ?? MOODS[0]);
+      this.mood = 100;
+    } else {
+      this.classic.visible = true;
+      this.nests = this.classicNests;
+      this.lamps = this.classicLamps;
+    }
+  }
+
   reset(g: Crossing): void {
     for (const o of this.objs.values()) { this.scene.remove(o.node); o.mats?.forEach((m) => m.dispose()); }
     this.objs.clear();
+    this.built.clear();
     for (const t of this.tokens.values()) this.scene.remove(t.model.group, t.aura);
     this.tokens.clear();
+    for (const c of this.coins.values()) this.scene.remove(c);
+    this.coins.clear();
+    this.useWorld(g);
     for (const lane of g.lanes) for (const o of lane.objs) {
       let node: THREE.Group, mats: THREE.Material[] | undefined;
-      if (o.kind === 'log') node = M.makeLog(this.mats, o.len);
+      if (lane.spec) {
+        const b = WM.makeObject(this.mats, o.kind, o.len, o.color, o.id);
+        node = b.node; mats = b.mats;
+        this.built.set(o.id, b);
+      } else if (o.kind === 'log') node = M.makeLog(this.mats, o.len);
       else if (o.kind === 'pad') { const p = M.makePads(this.mats, o.len, o.id % 3 !== 0, o.id); node = p.group; mats = p.mats; }
       else {
         const trailers = ['#eceff2', '#d9dde2', '#f5f1e6', o.color];
-        node = M.makeVehicle(this.mats, o.kind, o.kind === 'bus' ? ['#f2b705', '#e63946', '#1d6fd8', '#2a9d8f'][o.id % 4] : o.color, trailers[o.id % trailers.length]);
+        node = M.makeVehicle(this.mats, o.kind as 'car' | 'truck' | 'bus', o.kind === 'bus' ? ['#f2b705', '#e63946', '#1d6fd8', '#2a9d8f'][o.id % 4] : o.color, trailers[o.id % trailers.length]);
         node.rotation.y = lane.speed > 0 ? 0 : Math.PI;
       }
       node.userData.phase = (o.id * 1.7) % 6.28;
       this.scene.add(node);
       this.objs.set(o.id, { node, mats, obj: o, lane });
     }
-    this.setMood(g.level);
+    if (!g.def) this.setMood(g.level);
     this.ensurePlayer(g);
   }
 
@@ -299,6 +357,7 @@ export class View3D implements View {
 
   destroy(): void {
     this.disposed = true;
+    this.world?.dispose();
     this.envRT?.dispose();
     this.pmrem.dispose();
     this.renderer.dispose();
@@ -308,6 +367,7 @@ export class View3D implements View {
 
   /** Height of whatever the fuzzy is standing on at a given column/row. */
   private groundY(g: Crossing, x: number, row: number): number {
+    if (this.world && g.def) return this.world.groundY(g, x, row);
     if (row === MEDIAN || row === START) return CURB;
     if (row === GOAL) return 0.05;
     if (!g.onRiver(row)) return 0;
@@ -330,7 +390,9 @@ export class View3D implements View {
     wn.offset.y = t * 0.02;
 
     // lane objects
+    if (this.world && g.def) this.world.update(g, t, dt, this.camLook);
     for (const { node, mats, obj: o, lane } of this.objs.values()) {
+      if (lane.spec && this.world) { this.world.place(node, this.built.get(o.id)!, o, lane, g, t); continue; }
       const cx = o.x + o.len / 2;
       node.visible = cx > -7 && cx < COLS + 7;
       if (!node.visible) continue;
@@ -351,6 +413,14 @@ export class View3D implements View {
     const live = new Set<number>();
     for (const tk of g.tokens) {
       live.add(tk.id);
+      if (g.def) {
+        // world levels: Crossing Coins on the coin trails (they don't move)
+        let c = this.coins.get(tk.id);
+        if (!c) { c = WM.coin(tk.gold); this.scene.add(c); this.coins.set(tk.id, c); }
+        c.position.set(tk.x + 0.5, this.groundY(g, tk.x, tk.row) + 0.36 + Math.sin(t * 3 + tk.id) * 0.05, tk.row + 0.5);
+        c.rotation.y = t * 2.2 + tk.id;
+        continue;
+      }
       let v = this.tokens.get(tk.id);
       if (!v) {
         const colors: [string, string] = tk.gold ? ['#fff1a8', '#d99a00'] : ['#ffc0e4', '#ff4f9a'];
@@ -372,6 +442,7 @@ export class View3D implements View {
       (v.aura.material as THREE.SpriteMaterial).opacity = (tk.gold ? 0.75 : 0.5) * blink * (0.8 + Math.sin(t * 6 + tk.id) * 0.2);
     }
     for (const [id, v] of this.tokens) if (!live.has(id)) { this.scene.remove(v.model.group, v.aura); this.tokens.delete(id); }
+    for (const [id, c] of this.coins) if (!live.has(id)) { this.scene.remove(c); this.coins.delete(id); }
 
     // nests
     this.nests.forEach((n, i) => {
@@ -562,8 +633,21 @@ export class View3D implements View {
       this.text(`LEVEL ${e.level}!`, '#ffffff', this.camLook.x, 1.8, this.camLook.z + 2.2, 2.6, 2.2);
       for (let i = 0; i < 4; i++) this.sparks(this.camLook.x - 3 + i * 2, 1, this.camLook.z + 2, [0xff7ac2, 0xffd34d, 0x4cc9f0, 0x7c4dff][i], 18);
     }
+    if (e.kind === 'bump') { this.puff(e.x + 0.5, 0.2, e.row + 0.2, 0xffffff, 4, 0.4); this.shake = 0.15; }
+    if (e.kind === 'slide') this.sparks(e.x + 0.5, 0.06, e.row + 0.5, 0xe6f6ff, 6, 0.35);
+    if (e.kind === 'teleport') {
+      this.sparks(e.x + 0.5, 0.4, e.row + 0.5, 0xff3d81, 22, 0.7);
+      this.sparks(e.tx + 0.5, 0.4, e.trow + 0.5, 0x39e6ff, 22, 0.7);
+      this.ripple(e.tx + 0.5, e.trow + 0.5, 1.2);
+    }
+    if (e.kind === 'unlock') for (const c of e.nests) { this.sparks(c + 0.5, 0.5, 0.5, 0xffd34d, 26); this.text('OPEN!', '#ffd23f', c + 0.5, 1.1, 0.5, 0.8, 1.4); }
+    if (e.kind === 'levelComplete') {
+      this.text('LEVEL CLEAR!', '#ffffff', this.camLook.x, 1.8, this.camLook.z + 2.2, 2.4, 2.4);
+      for (let i = 0; i < 6; i++) setTimeout(() => { if (!this.disposed) this.sparks(this.camLook.x - 4 + Math.random() * 8, 1.2 + Math.random(), this.camLook.z + 1 + Math.random() * 2, [0xff7ac2, 0xffd34d, 0x4cc9f0, 0x7cf29a][i % 4], 26, 1.2); }, i * 220);
+    }
     if (e.kind === 'death') {
       const x = e.x + 0.5, z = e.row + 0.5;
+      if (e.how === 'zap') { this.sparks(x, 0.4, z, 0xbfe6ff, 30, 1.1); this.puff(x, 0.3, z, 0x30303a, 10, 1); this.shake = 0.6; return; }
       if (e.how === 'splash') {
         for (let i = 0; i < 26; i++) this.drop(x, WATER_Y + 0.05, z);
         this.ripple(x, z, 1.4); setTimeout(() => this.ripple(x, z, 1.1), 180);

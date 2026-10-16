@@ -1,6 +1,8 @@
 /** Classic flat 2D look for Fuzzy Crossing (also used when a device has no WebGL). */
 import { COLS, ROWS, GOAL, MEDIAN, START, HOMES, type Crossing, type Dir, type Fx, type Obj, type View } from './crossing';
 import { sfx } from './sound';
+import * as S from '../crossing/sim';
+import { WORLD_BY_N } from '../crossing/worlds';
 
 const INTRO_END = 3.2;
 const smooth = (a: number, b: number, t: number) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
@@ -79,6 +81,7 @@ export class View2D implements View {
     }
     c.setTransform(this.dpr * zoom, 0, 0, this.dpr * zoom, this.dpr * ox, this.dpr * oy);
 
+    if (g.def) { this.renderWorld(g); this.drawPlayer(g, t, it, blink, wink, hopUp); this.drawParts(); return; }
     for (let r = 0; r < ROWS; r++) {
       const y = r * s;
       if (r === GOAL) {
@@ -145,6 +148,12 @@ export class View2D implements View {
       c.globalAlpha = 1;
     }
 
+    this.drawPlayer(g, t, it, blink, wink, hopUp);
+    this.drawParts();
+  }
+
+  private drawPlayer(g: Crossing, t: number, it: unknown, blink: number, wink: number, hopUp: number): void {
+    const c = this.ctx, s = this.cell;
     const [vx, vy, lift] = g.visualPos();
     const d = g.dying;
     if (!d || d.t < 0.45) {
@@ -163,6 +172,10 @@ export class View2D implements View {
       c.strokeStyle = `rgba(255,255,255,${Math.max(0, 1 - d.t)})`; c.lineWidth = 2;
       for (let i = 0; i < 2; i++) { c.beginPath(); c.arc(g.px * s + s / 2, g.py * s + s / 2, s * (0.2 + d.t * (0.5 + i * 0.3)), 0, Math.PI * 2); c.stroke(); }
     }
+  }
+
+  private drawParts(): void {
+    const c = this.ctx, s = this.cell;
 
     for (const p of this.parts) {
       c.globalAlpha = Math.max(0, p.life / p.max);
@@ -175,6 +188,92 @@ export class View2D implements View {
       } else { c.fillStyle = p.color; c.beginPath(); c.arc(p.x * s, p.y * s, p.size * s, 0, Math.PI * 2); c.fill(); }
     }
     c.globalAlpha = 1;
+  }
+
+  // ---------- world levels: simple, readable drawing of every surface, object and hazard ----------
+  private renderWorld(g: Crossing): void {
+    const c = this.ctx, s = this.cell, W = COLS * s, d = g.def!, th = WORLD_BY_N(d.world).theme, t = g.wt;
+    const blink = Math.floor(g.clock * 4) % 2 === 0;
+    for (let r = 0; r < ROWS; r++) {
+      const y = r * s;
+      const L = g.spec(r);
+      if (r === GOAL) {
+        c.fillStyle = th.grass2; c.fillRect(0, y, W, s);
+        for (let i = 0; i < COLS; i++) { c.fillStyle = i % 2 ? '#40916c' : '#52b788'; c.beginPath(); c.arc(i * s + s / 2, y + s * 0.55, s * 0.42, 0, Math.PI * 2); c.fill(); }
+        continue;
+      }
+      const surf = L?.surface ?? 'grass';
+      c.fillStyle = surf === 'road' ? th.road : surf === 'river' ? th.river : surf === 'rail' ? '#7a6a5a' : surf === 'ice' ? th.ice : surf === 'conveyor' ? th.conveyor : r % 2 ? th.grass : th.grass2;
+      c.fillRect(0, y, W, s);
+      if (surf === 'road' && g.spec(r + 1)?.surface === 'road') { c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = Math.max(1, s * 0.05); c.setLineDash([s * 0.4, s * 0.35]); c.beginPath(); c.moveTo(0, y + s); c.lineTo(W, y + s); c.stroke(); c.setLineDash([]); }
+      if (surf === 'rail') {
+        c.fillStyle = '#5a4030'; for (let x = 0; x < COLS * 3; x++) c.fillRect(x * s / 3 + s * 0.05, y + s * 0.1, s * 0.12, s * 0.8);
+        c.fillStyle = '#c8ccd2'; c.fillRect(0, y + s * 0.25, W, s * 0.06); c.fillRect(0, y + s * 0.69, W, s * 0.06);
+        if (L && S.trainWarning(L, t)) { c.fillStyle = blink ? 'rgba(255,42,61,0.4)' : 'rgba(255,42,61,0.15)'; c.fillRect(0, y, W, s); }
+      }
+      if (surf === 'ice') { c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 1; for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo((i * 2.3) * s, y + s * 0.2); c.lineTo((i * 2.3 + 0.6) * s, y + s * 0.8); c.stroke(); } }
+      if (surf === 'conveyor' && L) { c.strokeStyle = L.speed > 0 ? '#ff3d81' : '#39e6ff'; c.lineWidth = Math.max(2, s * 0.08); const off = ((S.disp(L, t) % 2) + 2) % 2; for (let x = -2; x < COLS + 2; x += 2) { const cx = (x + off) * s; const dirn = L.speed > 0 ? 1 : -1; c.beginPath(); c.moveTo(cx - dirn * s * 0.2, y + s * 0.25); c.lineTo(cx + dirn * s * 0.15, y + s * 0.5); c.lineTo(cx - dirn * s * 0.2, y + s * 0.75); c.stroke(); } }
+      if (L?.flood) { const lv = S.floodLevel(L, t); if (lv > 0) { c.fillStyle = `rgba(47,134,214,${Math.min(0.9, lv)})`; c.fillRect(0, y, W, s); } }
+      if (L?.signal) { const st = S.signalLight(L, t); c.fillStyle = st === 'stop' ? '#36e07a' : st === 'amber' ? (blink ? '#ffb020' : '#7a5a10') : '#ff2a3d'; c.beginPath(); c.arc(s * 0.25, y + s * 0.5, s * 0.16, 0, Math.PI * 2); c.fill(); c.beginPath(); c.arc(W - s * 0.25, y + s * 0.5, s * 0.16, 0, Math.PI * 2); c.fill(); }
+      if (L?.blocks) { c.font = `${Math.round(s * 0.7)}px system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; const em = surf === 'ice' || th.props === 'snow' ? '⛄' : th.props === 'haunted' ? '🪦' : th.props === 'tropical' ? '🌴' : th.props === 'neon' ? '🔷' : th.props === 'legend' ? '💎' : th.props === 'city' ? '🪴' : '🌳'; for (const b of L.blocks) c.fillText(em, b * s + s / 2, y + s * 0.52); }
+    }
+    // teleport pads
+    for (const tp of d.teleports) for (const [e, col] of [[tp.from, '#ff3d81'], [tp.to, '#39e6ff']] as [[number, number], string][]) { c.strokeStyle = col; c.lineWidth = Math.max(2, s * 0.08); c.beginPath(); c.arc(e[1] * s + s / 2, e[0] * s + s / 2, s * (0.3 + Math.sin(t * 4) * 0.04), 0, Math.PI * 2); c.stroke(); }
+    // nests (only the open ones), locked in Coin Rush
+    HOMES.forEach((col, i) => {
+      if (!g.nestOpen[i]) return;
+      const x = col * s;
+      c.fillStyle = th.river; c.beginPath(); c.roundRect(x + s * 0.06, s * 0.12, s * 0.88, s * 0.88, s * 0.3); c.fill();
+      c.fillStyle = '#c9a25a'; c.beginPath(); c.arc(x + s / 2, s * 0.58, s * 0.34, 0, Math.PI * 2); c.fill();
+      if (g.homes[i]) this.drawFuzzy(x + s / 2, s * 0.55, s * 0.36, g.skin.colors, 'up', 0, true);
+      else if (g.locked) { c.strokeStyle = '#ffd23f'; c.lineWidth = Math.max(2, s * 0.06); for (let k = -1; k <= 1; k++) { c.beginPath(); c.moveTo(x + s / 2 + k * s * 0.15, s * 0.3); c.lineTo(x + s / 2 + k * s * 0.15, s * 0.85); c.stroke(); } }
+    });
+    // objects
+    for (const l of g.lanes) {
+      const L = l.spec!;
+      const y = l.row * s;
+      for (const o of l.objs) {
+        const x = o.x * s, w = o.len * s;
+        if (x > W + s || x + w < -s) continue;
+        const os = o.spec!;
+        if (L.surface === 'river') {
+          const sink = S.sinkAmount(L, os, t);
+          c.globalAlpha = S.sunk(L, os, t) ? 0.18 : 1 - sink * 0.6;
+          const col = o.kind === 'turtle' ? '#3f8f5a' : o.kind === 'boat' ? os.color : o.kind === 'raft' ? '#eef8ff' : o.kind === 'bridge' ? '#b07a45' : o.kind === 'pad' ? '#5cc96b' : '#9c6236';
+          c.fillStyle = col;
+          if (o.kind === 'turtle') for (let i = 0; i < o.len; i++) { c.beginPath(); c.ellipse(x + (i + 0.5) * s, y + s / 2, s * 0.4, s * 0.32, 0, 0, Math.PI * 2); c.fill(); }
+          else if (o.kind === 'pad') for (let i = 0; i < o.len; i++) { c.beginPath(); c.arc(x + (i + 0.5) * s, y + s / 2, s * 0.4, 0.35, Math.PI * 2 - 0.35); c.lineTo(x + (i + 0.5) * s, y + s / 2); c.fill(); }
+          else { c.beginPath(); c.roundRect(x + 2, y + s * 0.14, w - 4, s * 0.72, s * (o.kind === 'boat' ? 0.4 : 0.25)); c.fill(); }
+          if (o.kind === 'bridge' && sink > 0) { c.fillStyle = blink ? '#ff2a3d' : '#7a1010'; c.fillRect(x + 2, y + s * 0.1, s * 0.15, s * 0.15); c.fillRect(x + w - s * 0.17, y + s * 0.1, s * 0.15, s * 0.15); }
+          c.globalAlpha = 1;
+          continue;
+        }
+        if (o.kind === 'ghost') c.globalAlpha = 0.12 + S.ghostAlpha(L, os, t) * 0.85;
+        if (o.kind === 'train') {
+          c.fillStyle = os.color; c.beginPath(); c.roundRect(x, y + s * 0.1, w, s * 0.8, s * 0.2); c.fill();
+          c.fillStyle = 'rgba(30,40,70,0.7)'; for (let k = 0.6; k < o.len - 0.4; k += 0.6) c.fillRect(x + k * s, y + s * 0.25, s * 0.35, s * 0.25);
+        } else if (['deer', 'rabbit', 'bat', 'crab', 'sled', 'handcar'].includes(o.kind)) {
+          c.font = `${Math.round(s * 0.75)}px system-ui, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+          const em = { deer: '🦌', rabbit: '🐇', bat: '🦇', crab: '🦀', sled: '🛷', handcar: '🛤️' }[o.kind as 'deer'];
+          for (let k = 0; k < Math.max(1, Math.round(o.len)); k++) c.fillText(em, x + (k + 0.5) * s, y + s * 0.52);
+        } else this.drawVehicle(o, x, y, w, l.speed > 0);
+        c.globalAlpha = 1;
+      }
+      // hazards drawn over the row
+      if (L.lasers) { const st = S.laserState(L, t); if (st !== 'off') { c.strokeStyle = st === 'on' ? '#ff3d81' : 'rgba(255,61,129,0.45)'; c.lineWidth = st === 'on' ? Math.max(3, s * 0.12) : 1.5; if (st === 'warn' && !blink) c.globalAlpha = 0.4; c.beginPath(); c.moveTo(0, y + s * 0.5); c.lineTo(W, y + s * 0.5); c.stroke(); c.globalAlpha = 1; } }
+      if (L.strikes) for (const st of S.strikesAt(L, t)) {
+        const cx = st.col * s + s / 2, cy = y + s / 2;
+        c.strokeStyle = st.hit ? '#ffffff' : `rgba(160,216,255,${0.4 + 0.6 * st.k})`; c.lineWidth = Math.max(2, s * 0.08);
+        c.beginPath(); c.ellipse(cx, cy, s * 0.45 * st.width, s * 0.42, 0, 0, Math.PI * 2); c.stroke();
+        if (st.hit) { c.fillStyle = 'rgba(255,255,220,0.7)'; c.beginPath(); c.ellipse(cx, cy, s * 0.42 * st.width, s * 0.4, 0, 0, Math.PI * 2); c.fill(); }
+      }
+    }
+    // coins
+    for (const tk of g.tokens) {
+      const cx = tk.x * s + s / 2, cy = tk.row * s + s / 2 + Math.sin(g.clock * 4 + tk.x) * s * 0.05;
+      c.fillStyle = tk.gold ? '#ffd23f' : '#f5b014'; c.beginPath(); c.arc(cx, cy, s * (tk.gold ? 0.27 : 0.22), 0, Math.PI * 2); c.fill();
+      c.strokeStyle = '#b97800'; c.lineWidth = Math.max(1, s * 0.04); c.stroke();
+    }
   }
 
   private drawVehicle(o: Obj, x: number, y: number, w: number, right: boolean): void {
