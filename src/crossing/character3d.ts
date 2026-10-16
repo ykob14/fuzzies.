@@ -102,6 +102,13 @@ const CELEBRATIONS: Record<CelebrateStyle, { dur: number; f: Clip['f']; ev: Clip
   }, ev: [[0.36, 'roar']], emote: 'bang' },
 };
 
+/** moves a celebration cosmetic can add on top of the Fuzzy's own (see cosmetics.ts) */
+const EXTRA_MOVES: Record<string, { dur: number; f: Clip['f']; ev: Clip['ev']; emote?: Emote }> = {
+  moonwalk: { dur: 2.2, f: (p, k) => { const s = Math.sin(k * PI); p.z -= 0.55 * s; p.ry += 0.5 * s; p.rz += Math.sin(k * TAU * 4) * 0.08 * s; p.y += Math.abs(Math.sin(k * TAU * 4)) * 0.05 * s; p.rx -= 0.08 * s; }, ev: [[0.1, 'cheer']], emote: 'note' },
+};
+/** which move a celebration cosmetic asks for (null = the Fuzzy's own celebration) */
+export const COSMETIC_MOVE: Record<string, string> = { 'cele-dance': 'dance', 'cele-flip': 'backflip', 'cele-moon': 'moonwalk', 'cele-spin': '', 'cele-heart': '', 'cele-confetti': '', 'cele-fireworks': '', 'cele-champion': '' };
+
 const MOOD_LOOK: Record<Mood, (p: Pose, t: number) => void> = {
   happy: (p, t) => { p.y += Math.max(0, Math.sin(t * 3.4)) ** 6 * 0.1; p.rz += Math.sin(t * 1.7) * 0.03; },
   cool: (p, t) => { p.rx -= 0.07; p.ry += Math.sin(t * 0.6) * 0.18; p.rz += Math.sin(t * 1.2) * 0.04; },
@@ -146,6 +153,8 @@ export interface CharacterRig {
   group: THREE.Group;
   /** the squash target the game's view scales (pivot at the centre) */
   body: THREE.Group;
+  /** follows the Fuzzy's middle through every jump and spin (for trails and effects) */
+  core: THREE.Object3D;
   radius: number;
   /** the shape the game's view expects (no pupils/eyes to move: the face is the owner's) */
   model: M3.FuzzyModel;
@@ -352,18 +361,17 @@ export function buildCharacter(def: CharacterDef, opts: RigOpts): CharacterRig {
   }
 
   const rig: CharacterRig = {
-    def, group, body, radius: r, model, glb: useGlb,
+    def, group, body, core: motion, radius: r, model, glb: useGlb,
     tick,
     play(anim, style) {
-      if (locked && anim !== 'idle' && anim !== 'look') return 0;
       if (anim === 'idle') { clip = null; return 0; }
       if (anim === 'look') return start('look', LOOK_AROUND);
       if (anim === 'jump') { const s = (style as JumpStyle) || def.jump; return start('jump', JUMPS[s] ?? JUMPS.bounce); }
-      const s = (style as CelebrateStyle) || def.celebrate; const c = CELEBRATIONS[s] ?? CELEBRATIONS.cheer;
+      const s = (style as CelebrateStyle) || def.celebrate; const c = CELEBRATIONS[s] ?? EXTRA_MOVES[s] ?? CELEBRATIONS.cheer;
       const d = start('celebrate', c);
       if (c.emote) setTimeout(() => rig.emote(c.emote!), 250);
       if (s === 'giggle' || s === 'cheer') setTimeout(() => rig.wink(), 350);
-      voice?.celebrate(s);
+      voice?.celebrate(CELEBRATIONS[s] ? s : def.celebrate);
       return d;
     },
     gameHop(k) { game = { k: clamp01(k), on: true }; },

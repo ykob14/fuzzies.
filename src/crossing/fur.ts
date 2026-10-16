@@ -229,8 +229,8 @@ function patchFur(m: THREE.MeshStandardMaterial, u: FinishUniforms): void {
         float fzRough = rough, fzMetal = metal;
         vec3 fzGlow = glow * fzFur;
         // locked: a dark silhouette with the rarity colour round the edge (the face too — it's a mystery)
-        fzOut = mix(fzOut, vec3(0.05, 0.05, 0.07), uLocked); fzFur = mix(fzFur, 1.0, uLocked);
-        fzGlow = mix(fzGlow, uRim * pow(fres, 1.4) * 1.6, uLocked);
+        fzOut = mix(fzOut, vec3(0.07, 0.065, 0.09), uLocked); fzFur = mix(fzFur, 1.0, uLocked);
+        fzGlow = mix(fzGlow, uRim * (pow(fres, 1.15) * 2.6 + 0.05), uLocked);
         diffuseColor *= vec4(${toLin('mix(fzS, fzOut, fzFur)')}, mix(1.0, alpha, fzFur * (1.0 - uLocked)) * fzTex.a);
       `)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, fzRough, fzFur);')
@@ -316,14 +316,14 @@ export function setBlink(m: THREE.Material, left: number, right: number): void {
 
 /** a silhouette material for accessories of a locked Fuzzy: dark, with the rarity colour round the edge */
 export function silhouetteMaterial(rim: string): THREE.MeshStandardMaterial {
-  const m = new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: 0.7, metalness: 0 });
+  const m = new THREE.MeshStandardMaterial({ color: 0x121118, roughness: 0.7, metalness: 0 });
   const u = { uRim: { value: srgb(rim) } };
   m.userData.u = u;
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);
     sh.fragmentShader = 'uniform vec3 uRim;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
-      float fzR = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0), 1.4);
-      totalEmissiveRadiance += pow(uRim, vec3(2.2)) * fzR * 1.6;`);
+      float fzR = pow(1.0 - clamp(abs(dot(normalize(vNormal), normalize(vViewPosition))), 0.0, 1.0), 1.1);
+      totalEmissiveRadiance += pow(uRim, vec3(2.2)) * (fzR * 2.6 + 0.05);`);
   };
   m.customProgramCacheKey = () => 'fz-silhouette';
   return m;
