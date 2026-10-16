@@ -39,6 +39,4 @@
 /* side buttons with a word under the picture (Look, Crossing) so nobody has to guess what they do */
 .page.land .land-round.labeled { width: 68px; height: 64px; border-radius: 20px; grid-template-rows: 1fr auto; padding: 5px 0 6px; gap: 0; }
 .page.land .land-round.labeled .land-round-l { font: 800 10.5px/1 var(--brand, inherit); letter-spacing: 0; color: var(--link, #3a2f26); }
-.page.land .land-round.labeled.land-play { border-color: var(--lacc, #d6336c); }
-.page.land .land-round.labeled.land-play .land-round-l { color: var(--lacc, #d6336c); }
 @media (max-width: 560px) { .page.land .land-round.labeled { width: 64px; height: 60px; } }

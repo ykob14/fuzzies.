@@ -2076,7 +2076,6 @@ export function landScreen(): Screen {
     round(landIcon('edit', 30), 'Edit town — move, store & rearrange', () => (selMode ? saveLayout() : enterSelect()), 'land-select'),
     round(landIcon('car', 32), 'Parking Escape — the puzzle game', () => openParking(), 'land-park-btn'),
     round(landIcon('orbit', 30), 'Look around — turn, tilt and get close', () => toggleLook(), 'land-lookbtn', 'Look'),
-    round(landIcon('portal', 32), 'Play Fuzzy Crossing', () => goPlay(s.buildings.find((b) => b.item === 'gate')?.id), 'land-play', 'Crossing'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
       round(landIcon('zoomIn', 20), 'Zoom in', () => { view?.zoom(0.8); tut.emit('zoom'); }),
       round(landIcon('zoomOut', 20), 'Zoom out', () => { view?.zoom(1.25); tut.emit('zoom'); }))].filter((x) => x !== null) as HTMLElement[]);
