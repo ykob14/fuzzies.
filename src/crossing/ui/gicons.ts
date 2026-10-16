@@ -76,6 +76,8 @@ const G: Record<string, string> = {
   boom: `<path d="M16 3l3 7 7-3-3 7 7 3-7 3 3 7-7-3-3 7-3-7-7 3 3-7-7-3 7-3-3-7 7 3z" fill="currentColor" transform="scale(.9) translate(1.8 1.8)"/>`,
   /** train */
   train: `<rect x="7" y="5" width="18" height="18" rx="5" fill="currentColor"/><rect x="10" y="9" width="12" height="6.4" rx="2" fill="${CUT}"/><circle cx="12.5" cy="19" r="1.5" fill="${CUT}"/><circle cx="19.5" cy="19" r="1.5" fill="${CUT}"/><path d="M10 28l3-4.5M22 28l-3-4.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>`,
+  /** a little flame (day streak) */
+  flame: `<path d="M16 3c1 5 8 8 8 15a8 8 0 0 1-16 0c0-3 1.6-4.6 3-6 .2 2.2 1.2 3.4 2.4 3.6C14 12 14 7 16 3z" fill="currentColor"/><path d="M16 28a4.4 4.4 0 0 1-4.4-4.4c0-2.2 1.6-3 2.6-4.4 1 .8 1.4 1.8 1.4 2.8.6-.4 1.2-1.2 1.4-2.4 1.8 1.2 3.4 2.6 3.4 4A4.4 4.4 0 0 1 16 28z" fill="var(--tile, #ffd45a)"/>`,
   /** crown (mythic etc.) */
   crown: `<path d="M4.5 22.5 3.4 9.6l7.2 5.6L16 6l5.4 9.2 7.2-5.6-1.1 12.9z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.5" y="24" width="21" height="3.4" rx="1.7" fill="currentColor"/>`,
   /** Pass / Shop additions: one picture per cosmetic slot, a clock */

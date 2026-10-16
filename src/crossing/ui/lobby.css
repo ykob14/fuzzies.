@@ -123,3 +123,36 @@
 
 :root[data-motion='reduce'] .fzx-fc-peek { animation: none; }
 
+
+/* ---- the living stage ---- */
+.fzx-stage { cursor: default; }
+.fzx-3d { position: relative; width: 100%; flex: 1 1 auto; min-height: 150px; display: grid; place-items: center; }
+.fzx-3d .fzl-stage { position: absolute; inset: 0; z-index: 1; }
+.fzx-3d .fzl-canvas { width: 100%; height: 100%; display: block; cursor: pointer; touch-action: none; }
+.fzx-3d .fzl-hint { display: none; }
+.fzx-3d.live .fzx-lb-fuzzy, .fzx-3d.live .fzx-ground { opacity: 0; pointer-events: none; }
+.fzx-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; }
+.fzx-sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.fzx-sky i { position: absolute; left: -30%; height: 26px; width: 84px; border-radius: 99px; background: rgba(255, 255, 255, .8); box-shadow: 22px -10px 0 -2px rgba(255, 255, 255, .8), 46px 2px 0 -4px rgba(255, 255, 255, .8); opacity: .75; animation: fzxCloud 38s linear infinite; }
+.fzx-sky i:nth-child(1) { top: 14%; animation-duration: 46s; }
+.fzx-sky i:nth-child(2) { top: 34%; transform: scale(.7); animation-duration: 62s; animation-delay: -22s; }
+.fzx-sky i:nth-child(3) { top: 6%; transform: scale(.55); animation-duration: 80s; animation-delay: -50s; opacity: .55; }
+@keyframes fzxCloud { to { left: 120%; } }
+:root[data-motion='reduce'] .fzx-sky i { animation: none; }
+.fzx-name { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 2px 6px; cursor: pointer; color: var(--text); font: inherit; }
+.fzx-name > svg { color: var(--muted); background: var(--surface-2); border-radius: 50%; padding: 4px; width: 22px; height: 22px; }
+.fzx-bubble { position: absolute; z-index: 3; right: 2%; top: 4%; max-width: 62%; padding: 9px 13px; border-radius: 18px 18px 18px 6px; background: var(--surface); border: 2px solid var(--card-lip); box-shadow: 0 4px 0 var(--card-lip); font: 700 14px/1.2 var(--brand); color: var(--text); opacity: 0; transform: translateY(8px) scale(.92); transform-origin: 0 100%; pointer-events: none; transition: opacity .25s, transform .3s cubic-bezier(.2, 1.5, .4, 1); }
+.fzx-bubble.on { opacity: 1; transform: none; }
+.fzx-streak { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 6px 10px 6px 8px; border-radius: 99px; background: color-mix(in srgb, var(--gold) 16%, var(--surface)); border: 2px solid color-mix(in srgb, var(--gold) 45%, var(--card-lip)); font: 700 15px/1 var(--brand); color: #b97800; --tile: #ffd45a; }
+.fzx-streak .fzx-gi { color: #f08a00; }
+
+/* ---- life: things arrive, the Play button shimmers ---- */
+.fzx-lobby > * { animation: fzxArrive .5s cubic-bezier(.2, 1.3, .4, 1) both; }
+.fzx-lobby > :nth-child(1) { animation-delay: 0s; } .fzx-lobby > :nth-child(2) { animation-delay: .06s; } .fzx-lobby > :nth-child(3) { animation-delay: .12s; }
+.fzx-lobby > :nth-child(4) { animation-delay: .18s; } .fzx-lobby > :nth-child(5) { animation-delay: .24s; } .fzx-lobby > :nth-child(6) { animation-delay: .3s; } .fzx-lobby > :nth-child(7) { animation-delay: .36s; }
+@keyframes fzxArrive { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+.fzx-lobby.fzx-results > * { animation: none; }
+.fzx-play { position: relative; overflow: hidden; }
+.fzx-play::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 38px; left: -60px; transform: skewX(-22deg); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent); animation: fzxShine 4.2s ease-in-out 1.2s infinite; pointer-events: none; }
+@keyframes fzxShine { 0% { left: -60px; } 28%, 100% { left: calc(100% + 40px); } }
+:root[data-motion='reduce'] .fzx-lobby > *, :root[data-motion='reduce'] .fzx-play::after { animation: none !important; }

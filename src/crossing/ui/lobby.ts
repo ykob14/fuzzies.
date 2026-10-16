@@ -10,6 +10,7 @@ import { CHARACTERS, RARITY_NAME, RARITY_COLOR, type CharacterDef } from '../cha
 import { viewMissions, claimable as missionsClaimable } from '../missions';
 import { panelAvailable, type NavTarget, type PanelName } from '../hub';
 import { friendUrl } from '../../content/friends';
+import { accounts } from '../../core/account';
 import { coinMark, newDot } from './kit';
 import { gicon, gtile, type GIcon } from './gicons';
 import { art, type ArtName } from './art';
@@ -60,14 +61,17 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
   const helpBtn = h('button', { class: 'fzx-round', type: 'button', 'aria-label': 'How to play', onclick: () => showHelp() }, gicon('help', 22));
   const gearBtn = o.gfx ? h('button', { class: 'fzx-round', type: 'button', 'aria-label': 'Options', onclick: () => showOptions() }, gicon('gear', 22)) : null;
   const coinPill = h('button', { class: 'fzx-coinpill', type: 'button', 'aria-label': `${s.coins} coins. Open the shop`, onclick: open('shop') }, coinMark(22), h('b', null, s.coins.toLocaleString()), panelAvailable('shop') ? h('span', { class: 'fzx-plus' }, gicon('plus', 12)) : null);
-  const top = h('header', { class: 'fzx-lb-top' }, lvl, h('span', { class: 'fzx-sp' }), helpBtn, gearBtn, coinPill);
+  const streak = accounts.current?.daily.streak ?? 0;
+  const streakChip = streak > 0 ? h('span', { class: 'fzx-streak', title: `${streak} day${streak > 1 ? 's' : ''} in a row` }, gicon('flame', 18), h('b', null, String(streak))) : null;
+  const top = h('header', { class: 'fzx-lb-top' }, lvl, streakChip, h('span', { class: 'fzx-sp' }), helpBtn, gearBtn, coinPill);
 
   // ---- the stage: your Fuzzy ----
-  const stage = h('button', { class: 'fzx-stage', type: 'button', onclick: () => o.go({ to: 'locker', id: o.me.id }), 'aria-label': `Your Fuzzy: ${o.me.name}. Open the Locker` },
+  const stage = h('div', { class: 'fzx-stage' },
     h('span', { class: 'fzx-rays', 'aria-hidden': 'true' }),
-    bigPortrait(o.me, 190),
-    h('span', { class: 'fzx-ground', 'aria-hidden': 'true' }),
-    h('span', { class: 'fzx-name' }, h('b', null, o.me.name), h('em', { style: `--rar:${RARITY_COLOR[o.me.rarity]}` }, RARITY_NAME[o.me.rarity])));
+    h('span', { class: 'fzx-sky', 'aria-hidden': 'true' }, h('i', null), h('i', null), h('i', null)),
+    h('div', { class: 'fzx-3d' }, bigPortrait(o.me, 190), h('span', { class: 'fzx-ground', 'aria-hidden': 'true' })),
+    h('button', { class: 'fzx-name', type: 'button', onclick: () => o.go({ to: 'locker', id: o.me.id }), 'aria-label': `${o.me.name}. Open the Locker` },
+      h('b', null, o.me.name), h('em', { style: `--rar:${RARITY_COLOR[o.me.rarity]}` }, RARITY_NAME[o.me.rarity]), gicon('plus', 13)));
 
   // ---- Play ----
   const modes: { id: PanelName; ic: ArtName; label: string; sub: string }[] = [
@@ -137,5 +141,52 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
     const el = sheet('Options', body, () => el.remove());
     root.append(el);
   }
+  requestAnimationFrame(() => mountHero(root, stage, o.me, o.touch, { claim, missions: strip?.classList.contains('ready') ?? false, streak }));
   return root;
+}
+
+// ---------- the living Fuzzy: your character in 3D on its podium, looking at you, answering taps, with something to say ----------
+function linesFor(def: CharacterDef, f: { claim: number; missions: boolean; streak: number }): string[] {
+  const hr = new Date().getHours();
+  const out: string[] = [hr < 12 ? 'Good morning!' : hr < 18 ? 'Hi there!' : 'Good evening!'];
+  if (new Date().getDay() === 5) out.push('It’s Fuzzie Friday!');
+  if (f.claim > 0) out.push('A Pass reward is waiting!');
+  if (f.missions) out.push('Your missions are ready!');
+  if (f.streak > 1) out.push(`${f.streak} days in a row — wow!`);
+  out.push('Ready to cross?', 'Tap me!', 'Let’s hop!', def.tagline);
+  return out;
+}
+const REACT = ['Hehe!', 'Wheee!', 'Again!', 'That tickles!', 'Yay!', 'Boing!'];
+
+function mountHero(root: HTMLElement, stage: HTMLElement, me: CharacterDef, touch: boolean, f: { claim: number; missions: boolean; streak: number }): void {
+  const box = stage.querySelector<HTMLElement>('.fzx-3d');
+  if (!box || !root.isConnected) return;
+  const bubble = h('div', { class: 'fzx-bubble', role: 'status' });
+  box.append(bubble);
+  let n = 0, hold = 0;
+  const say = (t: string, ms = 3600): void => { bubble.textContent = t; bubble.classList.remove('on'); void bubble.offsetWidth; bubble.classList.add('on'); clearTimeout(hold); hold = window.setTimeout(() => bubble.classList.remove('on'), ms); };
+  const lines = linesFor(me, f);
+  const talk = window.setInterval(() => { if (!root.isConnected) return; say(lines[n++ % lines.length]); }, 7000);
+  const first = window.setTimeout(() => say(lines[n++ % lines.length]), 1400);
+  let room: Awaited<ReturnType<typeof import('./showroom').createShowroom>> | null = null;
+  let gone = false;
+  const watch = window.setInterval(() => {
+    if (root.isConnected) return;
+    gone = true; clearInterval(watch); clearInterval(talk); clearTimeout(first); clearTimeout(hold);
+    room?.dispose(); room = null;
+  }, 800);
+  const hasGL = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } })();
+  if (!hasGL) return;
+  void import('./showroom').then(async (m) => {
+    if (gone) return;
+    const r = await m.createShowroom({ mobile: touch, dist: 5.2 });
+    if (gone) { r.dispose(); return; }
+    room = r;
+    const eq = store.save().equipped;
+    await r.show(me, { locked: false, extra: eq.extra && eq.extra !== 'extra-none' ? eq.extra : null, fx: { trail: eq.trail, jump: eq.jump, celebration: eq.celebration } });
+    if (gone) return;
+    box.classList.add('live');
+    box.prepend(r.el);
+    r.onTap = () => { const k = Math.random(); r.play(k < 0.5 ? 'jump' : 'celebrate'); say(REACT[Math.floor(Math.random() * REACT.length)], 2200); };
+  }).catch((e) => console.error(e));
 }

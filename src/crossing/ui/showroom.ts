@@ -59,7 +59,8 @@ function podium(): { group: THREE.Group; ring: THREE.MeshStandardMaterial; dispo
   return { group: g, ring, dispose: () => { geos.forEach((x) => x.dispose()); mats.forEach((m) => m.dispose()); ring.dispose(); } };
 }
 
-export async function createShowroom(opts: { mobile: boolean }): Promise<Showroom> {
+export async function createShowroom(opts: { mobile: boolean; dist?: number }): Promise<Showroom> {
+  const baseDist = opts.dist ?? 7.4;
   const el = document.createElement('div'); el.className = 'fzl-stage';
   const canvas = document.createElement('canvas'); canvas.className = 'fzl-canvas'; canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', 'Your Fuzzy in 3D — drag to turn it');
   const hint = document.createElement('span'); hint.className = 'fzl-hint'; hint.textContent = 'Drag to turn';
@@ -95,7 +96,7 @@ export async function createShowroom(opts: { mobile: boolean }): Promise<Showroo
 
   let rig: CharacterRig | null = null, current: CharacterDef | null = null, curOpts: ShowOpts = { locked: false };
   let extra: string | null = null, fxSel: NonNullable<ShowOpts['fx']> = {};
-  let yaw = -0.45, pitch = 0.2, dist = 7.4, spin = 0, idle = 0, dragging = false, pop = 1, aspect = 1;
+  let yaw = -0.45, pitch = 0.2, dist = baseDist, spin = 0, idle = 0, dragging = false, pop = 1, aspect = 1;
   let mystery: THREE.Sprite | null = null;
   const motion = !reducedMotion();
   const target = new THREE.Vector3(0, 0.2, 0);
@@ -142,7 +143,7 @@ export async function createShowroom(opts: { mobile: boolean }): Promise<Showroo
   // ---------- input: drag to turn (with a flick), up/down tilt, wheel + pinch zoom, double-tap reset, tap ----------
   const ptrs = new Map<number, { x: number; y: number }>();
   let last = { x: 0, y: 0, t: 0 }, down = { x: 0, y: 0, t: 0 }, lastTap = 0, pinch0 = 0, dist0 = dist, moved = 0;
-  const reset = () => { yaw = -0.45; pitch = 0.2; dist = 7.4; spin = 0; };
+  const reset = () => { yaw = -0.45; pitch = 0.2; dist = baseDist; spin = 0; };
   canvas.addEventListener('pointerdown', (e) => {
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { canvas.setPointerCapture(e.pointerId); } catch { /* gone */ }
