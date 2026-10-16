@@ -1,7 +1,9 @@
 /**
  * Fuzzie Brawl Arena — RULES only (no DOM, no Three.js): a top-down 3v3 battle. Your Fuzzy and two town Fuzzies (blue) against
  * three (pink) in a hedged meadow arena with rocks, low walls, destructible crates and bushes to hide in. Everyone shoots
- * aimed bolts (three charges that reload), fills a special by landing hits (Energy Burst, Bubble Shield, Zoom Dash, Bloom Heal),
+ * bolts (three charges that reload) — YOUR shooting is made easy: one fire press/hold auto-aims at the best enemy in a wide cone
+ * round where you are heading (leading a moving target a little, never into a wall or a bush it hides in), a manual aim snaps
+ * to an enemy near the line, and your bolts are fatter and hit a little forgivingly. Fills a special by landing hits (Energy Burst, Bubble Shield, Zoom Dash, Bloom Heal),
  * gets knocked out at 0 HP and pops back at their own gate 3 s later. Points: a knockout = 1, holding the Sunflower ring in the
  * middle alone for 6 s = 1. First to 10 or the higher score when the 70 seconds run out wins (a tie → 15 s of sudden overtime,
  * then a draw). The computer Fuzzies path round cover (A* on a 1 m grid), chase, back off to heal, strafe, dodge bolts, hide
@@ -17,9 +19,11 @@ export interface Fighter {
   x: number; z: number; vx: number; vz: number; face: number; hp: number; maxHp: number; ammo: number; cool: number; charge: number;
   alive: boolean; respawn: number; shield: number; dash: number; dashX: number; dashZ: number; hurtAt: number; shotAt: number; hidden: boolean;
   kos: number; deaths: number; dmg: number; healed: number; specials: number; skill: number;
+  /** the enemy your easy shot is locked on (-1 none) and when you last held fire (the Fuzzy keeps facing its target) */
+  lock: number; aimHold: number;
   ai: { goalX: number; goalZ: number; path: { x: number; z: number }[]; replan: number; think: number; strafe: number; strafeT: number; target: number; mode: 'fight' | 'zone' | 'retreat' | 'cover'; aimErr: number; stuck: number; lx: number; lz: number };
 }
-export interface Shot { id: number; team: Team; by: number; x: number; z: number; dx: number; dz: number; speed: number; left: number; dmg: number; role: Role; alive: boolean }
+export interface Shot { id: number; team: Team; by: number; x: number; z: number; dx: number; dz: number; speed: number; left: number; dmg: number; role: Role; alive: boolean; /** extra hit radius (the player's bolts are forgiving) */ pad: number }
 export interface Pickup { id: number; x: number; z: number; alive: boolean }
 export interface BrawlEvent {
   kind: 'shot' | 'hit' | 'ko' | 'respawn' | 'special' | 'blocked' | 'crate' | 'crateBreak' | 'heart' | 'heal' | 'zone' | 'zoneTick' | 'contest' | 'lead' | 'warn' | 'overtime' | 'timeup' | 'win' | 'wall' | 'dodge';
@@ -42,6 +46,8 @@ export const ROLES: Record<Role, RoleStats> = {
 export const SPECIAL = { burst: { r: 3.3, dmg: 48, push: 3 }, shield: { time: 3.2, k: 0.3 }, dash: { dist: 5, time: 0.22 }, heal: { r: 4.2, amount: 50 } };
 export const SCORING = { win: 600, draw: 250, ko: 120, dmgK: 1, healK: 1, zone: 60, tierNames: ['Victory', 'Draw', 'Close fight', 'Defeat'] };
 export const AMMO = 3;
+/** easy shooting (the player only): the target cone, how much to lead, how near a manual aim snaps, how fat the bolts are */
+export const EASY = { cone: 1.5, near: 0.62, lead: 0.7, snapSide: 1.1, hitPad: 0.15, holdFace: 0.18 };
 
 /** the arena: one half, mirrored through the middle so both teams get the same map */
 const HALF: [number, number, number, number, Box['kind']][] = [
@@ -56,6 +62,10 @@ export const SPAWN: Record<Team, { x: number; z: number }[]> = {
 };
 const CELL = 0.5, GW = Math.round((ARENA.hw * 2) / CELL), GD = Math.round((ARENA.hd * 2) / CELL);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+
+/** who plays with and against you: your team-mates and the three pink Fuzzies (skills are the computer's, 0–1) */
+export const SKILLS = { ally: [0.62, 0.58], foe: [0.72, 0.76, 0.8] };
+export function lineup(mine: Role): { allies: Role[]; foes: Role[] } { const others = (['burst', 'guard', 'zip', 'bloom'] as Role[]).filter((r) => r !== mine); return { allies: [others[1], others[2]], foes: ['burst', 'guard', 'zip'] }; }
 
 export interface Roster { name: string; skin: [string, string]; role: Role; skill?: number; you?: boolean }
 
@@ -86,7 +96,7 @@ export class BrawlSim {
       const st = ROLES[r.role]; const sp = SPAWN[team][i % 3];
       this.fighters.push({ id: this.fighters.length, team, role: r.role, name: r.name, skin: r.skin, you: !!r.you, x: sp.x, z: sp.z, vx: 0, vz: 0, face: team === 0 ? Math.PI : 0,
         hp: st.hp, maxHp: st.hp, ammo: AMMO, cool: 0, charge: 0, alive: true, respawn: 0, shield: 0, dash: 0, dashX: 0, dashZ: 0, hurtAt: -9, shotAt: -9, hidden: false,
-        kos: 0, deaths: 0, dmg: 0, healed: 0, specials: 0, skill: r.skill ?? 0.7,
+        kos: 0, deaths: 0, dmg: 0, healed: 0, specials: 0, skill: r.skill ?? 0.7, lock: -1, aimHold: -9,
         ai: { goalX: sp.x, goalZ: sp.z, path: [], replan: 0, think: 0, strafe: 1, strafeT: 0, target: -1, mode: 'zone', aimErr: 0, stuck: 0, lx: sp.x, lz: sp.z } });
     };
     blue.forEach((r, i) => add(r, 0, i)); pink.forEach((r, i) => add(r, 1, i));
@@ -166,6 +176,46 @@ export class BrawlSim {
     return true;
   }
 
+  // ---------------------------------------------------------------- easy aim (the player)
+  /** the direction you are heading: the move stick when it is pushed, else where you face */
+  private headingOf(f: Fighter, move?: Vec2 | null): Vec2 { const l = move ? Math.hypot(move.x, move.z) : 0; return move && l > 0.25 ? { x: move.x / l, z: move.z / l } : { x: Math.sin(f.face), z: Math.cos(f.face) }; }
+  /** where to point so a moving target is met: its position a little ahead (never behind a wall — then it is its own spot) */
+  private leadAim(f: Fighter, t: Fighter): Vec2 {
+    const d = Math.hypot(t.x - f.x, t.z - f.z), tt = d / ROLES[f.role].boltSpeed * EASY.lead;
+    const px = t.x + t.vx * tt, pz = t.z + t.vz * tt; const ok = !this.blockedAt(px, pz, 0.2) && this.los(f, { x: px, z: pz });
+    return ok ? { x: px - f.x, z: pz - f.z } : { x: t.x - f.x, z: t.z - f.z };
+  }
+  /** the best enemy for an easy shot: seen (no walls, no bushes), within reach, nearest in a wide cone round your heading (low health and the one you already had pull a little), else a close one anywhere */
+  pickTarget(f: Fighter, move?: Vec2 | null): Fighter | null {
+    const st = ROLES[f.role], h = this.headingOf(f, move), reach = st.range + 0.6;
+    let best: Fighter | null = null, bs = 1e9;
+    for (const e of this.fighters) {
+      if (e.team === f.team || !e.alive || !this.sees(f, e)) continue;
+      const dx = e.x - f.x, dz = e.z - f.z, d = Math.hypot(dx, dz); if (d > reach) continue;
+      const ang = Math.acos(clamp((dx * h.x + dz * h.z) / (d || 1), -1, 1)), inCone = ang <= EASY.cone;
+      if (!inCone && d > st.range * EASY.near) continue;
+      const s = d * (1 + ang * 0.35) - (1 - e.hp / e.maxHp) * 1.6 - (f.lock === e.id ? 1.4 : 0) + (inCone ? 0 : 3);
+      if (s < bs) { bs = s; best = e; }
+    }
+    f.lock = best ? best.id : -1; return best;
+  }
+  /** the shot a fire press makes: no manual aim → the best target (or straight ahead); a manual aim → that line, snapped to an enemy close to it */
+  aimPreview(f: Fighter, move?: Vec2 | null, aim?: Vec2 | null): { x: number; z: number; target: Fighter | null } {
+    const al = aim ? Math.hypot(aim.x, aim.z) : 0;
+    if (aim && al > 0.05) {
+      const ux = aim.x / al, uz = aim.z / al, reach = ROLES[f.role].range + 0.6; let best: Fighter | null = null, bd = 1e9;
+      for (const e of this.fighters) {
+        if (e.team === f.team || !e.alive || !this.sees(f, e)) continue;
+        const dx = e.x - f.x, dz = e.z - f.z, along = dx * ux + dz * uz, side = Math.abs(dx * uz - dz * ux);
+        if (along > 0.3 && along < reach && side < EASY.snapSide + along * 0.06 && along < bd) { bd = along; best = e; }
+      }
+      f.lock = best ? best.id : -1;
+      return best ? { ...this.leadAim(f, best), target: best } : { x: ux, z: uz, target: null };
+    }
+    const t = this.pickTarget(f, move);
+    return t ? { ...this.leadAim(f, t), target: t } : { ...this.headingOf(f, move), target: null };
+  }
+
   // ---------------------------------------------------------------- actions
   /** fire along (dx, dz); false when out of charges / cooling down */
   fire(f: Fighter, dx: number, dz: number): boolean {
@@ -174,7 +224,7 @@ export class BrawlSim {
     f.ammo -= 1; f.cool = st.cool; f.face = base; f.shotAt = this.time;
     for (let i = 0; i < st.pellets; i++) {
       const off = st.pellets > 1 ? (i - (st.pellets - 1) / 2) * st.spread : 0; const an = base + off;
-      const s: Shot = { id: this.nid++, team: f.team, by: f.id, x: f.x + Math.sin(an) * 0.5, z: f.z + Math.cos(an) * 0.5, dx: Math.sin(an), dz: Math.cos(an), speed: st.boltSpeed, left: st.range - 0.5, dmg: st.dmg, role: f.role, alive: true };
+      const s: Shot = { id: this.nid++, team: f.team, by: f.id, x: f.x + Math.sin(an) * 0.5, z: f.z + Math.cos(an) * 0.5, dx: Math.sin(an), dz: Math.cos(an), speed: st.boltSpeed, left: st.range - 0.5, dmg: st.dmg, role: f.role, alive: true, pad: f.you && !this.autopilot ? EASY.hitPad : 0 };
       // zip's two bolts go one after the other
       if (f.role === 'zip' && i === 1) { s.x -= s.dx * 0.7; s.z -= s.dz * 0.7; s.left += 0.7; }
       this.shots.push(s); if (i === 0) this.events.push({ kind: 'shot', f, shot: s });
@@ -243,7 +293,13 @@ export class BrawlSim {
     for (const f of order) {
       if (!f.alive) continue;
       let move: Vec2 = { x: 0, z: 0 };
-      if (f.you && !this.autopilot) { if (you) { move = you.move; if (you.fire && you.aim) this.fire(f, you.aim.x, you.aim.z); if (you.special) this.special(f, you.aim?.x ?? Math.sin(f.face), you.aim?.z ?? Math.cos(f.face)); } }
+      if (f.you && !this.autopilot) {
+        if (you) {
+          move = you.move;
+          if (you.fire) { const a = this.aimPreview(f, move, you.aim); f.aimHold = this.time; if (!this.fire(f, a.x, a.z)) f.face = Math.atan2(a.x, a.z); }
+          if (you.special) { const al = you.aim ? Math.hypot(you.aim.x, you.aim.z) : 0; const a = al > 0.05 ? you.aim! : Math.hypot(move.x, move.z) > 0.25 ? move : this.aimPreview(f, move, null); this.special(f, a.x, a.z); }
+        }
+      }
       else move = this.think(f, dt);
       this.walk(f, move, dt);
     }
@@ -273,7 +329,7 @@ export class BrawlSim {
     f.vx += (tx - f.vx) * k; f.vz += (tz - f.vz) * k;
     const x0 = f.x, z0 = f.z; this.moveBy(f, f.vx * dt, f.vz * dt);
     if (Math.abs(f.x - x0) < 1e-4 && Math.abs(f.vx) > 0.5) f.vx *= 0.5; if (Math.abs(f.z - z0) < 1e-4 && Math.abs(f.vz) > 0.5) f.vz *= 0.5;
-    if (l > 0.2 && this.time - f.shotAt > 0.4) f.face = Math.atan2(mx, mz);
+    if (l > 0.2 && this.time - f.shotAt > 0.4 && this.time - f.aimHold > EASY.holdFace) f.face = Math.atan2(mx, mz);
   }
   private moveShots(dt: number): void {
     for (const s of this.shots) {
@@ -284,7 +340,7 @@ export class BrawlSim {
       for (const f of this.fighters) {
         if (f.team === s.team || !f.alive || f.dash > 0) continue;
         const ex = f.x - s.x, ez = f.z - s.z; const t = clamp((ex * s.dx + ez * s.dz) / Math.max(1e-6, step), 0, 1);
-        const px = s.x + s.dx * step * t, pz = s.z + s.dz * step * t; if (Math.hypot(f.x - px, f.z - pz) < RADIUS + 0.12 && t < hitT) { hitT = t; hitF = f; }
+        const px = s.x + s.dx * step * t, pz = s.z + s.dz * step * t; if (Math.hypot(f.x - px, f.z - pz) < RADIUS + 0.12 + s.pad && t < hitT) { hitT = t; hitF = f; }
       }
       const wall = this.rayBox(s.x, s.z, nx, nz);
       if (wall && (!hitF || wall.t < hitT)) {

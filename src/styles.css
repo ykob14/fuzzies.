@@ -2664,14 +2664,24 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .br-role small { font: 500 10.5px/1.25 var(--ui); color: #7a6a55; text-align: center; }
 .br-role.on { border-color: var(--rc); background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--rc) 30%, transparent); transform: translateY(-1px); }
 @media (max-width: 760px) { .br-role-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .br-role small { display: none; } }
-.brawl .br-special { position: absolute; right: 22px; bottom: calc(150px + var(--safe-b, 0px)); width: 74px; height: 74px; border: 0; border-radius: 50%; background: rgba(20, 30, 50, .55); color: #fff; pointer-events: auto; cursor: pointer; display: grid; place-items: center; z-index: 6; }
-.brawl .br-special i { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(#ffd34a calc(var(--k, 0) * 360deg), transparent 0); -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%); mask: radial-gradient(circle, transparent 58%, #000 60%); }
-.brawl .br-special span { font-size: 28px; line-height: 1; filter: grayscale(.8); opacity: .65; }
-.brawl .br-special small { position: absolute; bottom: -18px; font: 800 10px/1 var(--ui); letter-spacing: .06em; opacity: .8; }
-.brawl .br-special.ready { background: rgba(255, 176, 46, .92); box-shadow: 0 0 0 4px rgba(255, 211, 74, .5), 0 6px 18px rgba(0, 0, 0, .3); animation: br-ready .9s ease-in-out infinite; }
+.brawl .br-fire, .brawl .br-special { position: absolute; border: 0; border-radius: 50%; color: #fff; pointer-events: auto; cursor: pointer; display: grid; place-items: center; z-index: 6; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.brawl .br-fire { right: 18px; bottom: calc(34px + var(--safe-b, 0px)); width: 104px; height: 104px; background: radial-gradient(circle at 50% 38%, #ff8fb4, #d6336c 72%); box-shadow: 0 0 0 5px rgba(255, 255, 255, .55), 0 8px 22px rgba(0, 0, 0, .35); transition: transform .08s; }
+.brawl .br-fire i { position: absolute; inset: -9px; border-radius: 50%; background: conic-gradient(#ffd34a calc(var(--k, 1) * 360deg), rgba(20, 30, 50, .35) 0); -webkit-mask: radial-gradient(circle, transparent 62%, #000 64%); mask: radial-gradient(circle, transparent 62%, #000 64%); pointer-events: none; }
+.brawl .br-fire svg { width: 46px; height: 46px; filter: drop-shadow(0 2px 0 rgba(120, 20, 60, .55)); pointer-events: none; }
+.brawl .br-fire small { position: absolute; bottom: 14px; font: 900 11px/1 var(--ui); letter-spacing: .1em; text-shadow: 0 1px 2px rgba(120, 20, 60, .6); pointer-events: none; }
+.brawl .br-fire.on { transform: scale(.94); box-shadow: 0 0 0 5px rgba(255, 226, 122, .9), 0 4px 14px rgba(0, 0, 0, .35); }
+.brawl .br-fire.lock:not(.empty) { box-shadow: 0 0 0 5px rgba(255, 226, 122, .85), 0 8px 22px rgba(0, 0, 0, .35); }
+.brawl .br-fire.empty { filter: saturate(.55) brightness(.9); }
+.brawl .br-special { right: 132px; bottom: calc(112px + var(--safe-b, 0px)); width: 74px; height: 74px; background: rgba(20, 30, 50, .58); box-shadow: 0 0 0 3px rgba(255, 255, 255, .4); }
+.brawl .br-special i { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(#ffd34a calc(var(--k, 0) * 360deg), transparent 0); -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%); mask: radial-gradient(circle, transparent 58%, #000 60%); pointer-events: none; }
+.brawl .br-special span { font-size: 28px; line-height: 1; filter: grayscale(.8); opacity: .65; pointer-events: none; }
+.brawl .br-special small { position: absolute; bottom: -18px; font: 800 10px/1 var(--ui); letter-spacing: .06em; opacity: .9; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, .5); pointer-events: none; }
+.brawl .br-special.ready { background: rgba(255, 176, 46, .95); box-shadow: 0 0 0 4px rgba(255, 211, 74, .6), 0 6px 18px rgba(0, 0, 0, .3); animation: br-ready .9s ease-in-out infinite; }
 .brawl .br-special.ready span { filter: none; opacity: 1; }
 @keyframes br-ready { 50% { transform: scale(1.07); } }
-@media (pointer: fine) { .brawl .br-special { width: 60px; height: 60px; bottom: calc(26px + var(--safe-b, 0px)); } .brawl .br-special small { content: ''; } .brawl .br-special small::after { content: ' · SPACE'; } }
+@media (pointer: fine) { .brawl .br-fire { width: 84px; height: 84px; bottom: calc(30px + var(--safe-b, 0px)); } .brawl .br-fire svg { width: 36px; height: 36px; } .brawl .br-fire small { bottom: 10px; font-size: 10px; } .brawl .br-fire small::after { content: ' · SPACE'; } .brawl .br-special { width: 60px; height: 60px; right: 120px; bottom: calc(40px + var(--safe-b, 0px)); } }
+@media (max-height: 520px) { .brawl .br-fire { width: 84px; height: 84px; bottom: calc(18px + var(--safe-b, 0px)); } .brawl .br-special { width: 62px; height: 62px; right: 116px; bottom: calc(26px + var(--safe-b, 0px)); } }
+.brawl:not(.br-live) .br-fire, .brawl:not(.br-live) .br-special, .brawl:not(.br-live) .br-sticks, .brawl:not(.br-live) .br-ring, .brawl:not(.br-live) .br-first { display: none; }
 .brawl .br-mute { position: absolute; right: 12px; top: calc(118px + var(--safe-t, 0px)); width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(20, 30, 50, .42); color: #fff; font-size: 17px; line-height: 1; pointer-events: auto; cursor: pointer; z-index: 6; }
 .brawl .br-mute.off { background: rgba(20, 30, 50, .62); }
 .brawl .br-ring { position: absolute; left: 50%; top: calc(84px + var(--safe-t, 0px)); transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: rgba(20, 30, 50, .5); color: #fff; font: 700 13px/1 var(--ui); white-space: nowrap; pointer-events: none; }
@@ -2689,6 +2699,7 @@ html[data-screen='edit'] .fz-assist { bottom: calc(66px + var(--safe-b, 0px)); }
 .brawl .br-sticks.gone { opacity: 0; }
 .brawl .mg-coach, .brawl .mg-coach.on { top: calc(124px + var(--safe-t, 0px)); bottom: auto; }
 :root[data-motion='reduce'] .brawl .br-special.ready, :root[data-motion='reduce'] .brawl .br-hurt.on { animation: none; }
+:root[data-motion='reduce'] .brawl .br-fire { transition: none; }
 
 /* ---- mini-games on phones: a drag steers the game, never the page (mgScene adds html.mg-open while a game is open) ---- */
 html.mg-open, html.mg-open body { overflow: hidden; overscroll-behavior: none; }
