@@ -27,7 +27,9 @@ export interface TemplateMeta {
   name: string;
   category: string; // CatDef id ('' = uncategorised)
   sub: string;      // SubDef id
-  format: string;   // FORMATS key or a classic format label
+  format: string;   // FORMATS key or a classic format label (the page size)
+  /** What it is for people (KINDS key): the "Format" filter and the label on cards — a logo and a post share a size. */
+  kind: string;
   formatLabel: string;
   width: number;
   height: number;
@@ -61,6 +63,62 @@ const wordsOf = (...parts: (string | string[] | undefined)[]) => [...new Set(par
 
 function hash(s: string): number { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
+/** What a template is, in people's words. Page sizes alone mislead (a logo, a menu post and an Instagram post are all
+ * 1080 × 1080; a YouTube thumbnail, an RSVP card and a web banner are all 16:9), so kindOf() also reads the topic,
+ * tags and wording. The keys are the gallery's "Format" filter values. */
+export const KINDS: Record<string, string> = {
+  post: 'Instagram post', carousel: 'Instagram carousel', story: 'Story', poster: 'Poster', flyer: 'Flyer', invitation: 'Invitation',
+  card: 'Card', banner: 'Banner', youtube: 'YouTube thumbnail', presentation: 'Presentation', logo: 'Logo', 'business-card': 'Business card',
+  menu: 'Menu', resume: 'Résumé', invoice: 'Invoice', newsletter: 'Newsletter', letterhead: 'Letterhead', calendar: 'Calendar',
+  planner: 'Planner', document: 'Document', certificate: 'Certificate', wallpaper: 'Phone wallpaper',
+};
+/** Extra search words per kind ("instagram", "thumbnail", "cv"…). */
+export const KIND_WORDS: Record<string, string[]> = {
+  post: ['instagram', 'post', 'social', 'square'], carousel: ['instagram', 'carousel', 'post', 'social', 'swipe'], story: ['instagram', 'story', 'stories', 'reel', 'social'],
+  poster: ['poster', 'print'], flyer: ['flyer', 'leaflet', 'print'], invitation: ['invitation', 'invite', 'card'], card: ['card', 'greeting'],
+  banner: ['banner', 'header', 'cover'], youtube: ['youtube', 'thumbnail', 'video'], presentation: ['presentation', 'slides', 'deck', 'slide'],
+  logo: ['logo', 'brand'], 'business-card': ['business', 'card'], menu: ['menu'], resume: ['resume', 'cv'], invoice: ['invoice', 'bill'],
+  newsletter: ['newsletter'], letterhead: ['letterhead', 'letter'], calendar: ['calendar'], planner: ['planner', 'printable'],
+  document: ['document', 'printable'], certificate: ['certificate', 'award'], wallpaper: ['wallpaper', 'phone', 'background'],
+};
+const INVITE = /rsvp|invit|join us|save the date|celebrate with|party|reply/i;
+function kindOf(o: { size: string; w: number; h: number; pages: number; sub: string; tags: string[]; name: string; use?: string; celebration?: boolean; text?: string }): string {
+  const t = new Set(o.tags.map((x) => x.toLowerCase()));
+  const said = (...ws: string[]) => ws.some((w) => t.has(w) || o.name.toLowerCase().includes(w));
+  const square = o.w === o.h, wide = o.w > o.h * 1.15, size = o.size;
+  if (size === 'bizcard' || size === 'business-card' || o.sub === 'business-card') return 'business-card';
+  if (o.sub === 'resume') return 'resume';
+  if (size === 'logo' || (square && (o.sub === 'branding' || said('logo')) && !said('carousel'))) return 'logo';
+  if (size === 'youtube' || (wide && (o.sub === 'youtube' || said('thumbnail')))) return 'youtube';
+  if (size === 'wallpaper' || o.sub === 'wallpaper') return 'wallpaper';
+  if (size === 'document') {
+    if (o.sub === 'menu' || said('menu')) return 'menu';
+    if (said('invoice')) return 'invoice';
+    if (said('newsletter')) return 'newsletter';
+    if (said('letterhead')) return 'letterhead';
+    if (said('calendar')) return 'calendar';
+    if (o.sub === 'planner' || said('planner')) return 'planner';
+    return 'document';
+  }
+  if (size === 'slides' || size === 'presentation' || (wide && o.sub === 'presentation')) return 'presentation';
+  if (square) return o.pages > 1 || o.sub === 'carousel' ? 'carousel' : 'post';
+  if (size === 'social') return 'post';
+  if (size === 'story') return 'story';
+  if (size === 'poster') return 'poster';
+  if (size === 'flyer') return 'flyer';
+  if (size === 'certificate' || o.sub === 'certificate') return 'certificate';
+  if (wide) return said('rsvp', 'reply card') ? 'card' : 'banner';
+  if (size === 'invitation') return 'invitation';
+  if (size === 'card') {
+    if (o.use === 'invitation' || o.use === 'party' || said('invitation', 'rsvp', 'save the date')) return 'invitation';
+    if (o.use === 'flyer') return 'flyer';
+    if (o.use === 'greeting' || o.use === 'social') return 'card';
+    if (o.text && INVITE.test(o.text)) return 'invitation';
+    return o.celebration ? 'card' : 'flyer';
+  }
+  return o.h > o.w * 1.6 ? 'story' : o.h > o.w ? 'poster' : 'banner';
+}
+
 /** Layouts a critic review found amateur next to Canva (racing-flag strips on wedding invites, "ADMIT ONE" on greetings,
  * numbers that mean nothing, balloons on every occasion): no longer used to generate templates. Their code stays so a
  * design made from one still has its source, and they can come back once redesigned. */
@@ -92,16 +150,17 @@ function plan(cat: CatDef, sub: SubDef): TemplateMeta[] {
     if (a.fits && !a.fits(sub.events[event])) event = sub.events.findIndex((e) => a.fits!(e));
     const ev = sub.events[event];
     const f = FORMATS[format];
+    const kind = kindOf({ size: format, w: f.w, h: f.h, pages: a.id === 'slides' ? 3 : 1, sub: sub.id, tags: sub.keywords, name: ev.title, celebration: cat.kind === 'celebrations', text: [ev.kicker, ev.cta, ...ev.details].join(' ') });
     return {
       id: `${sub.id}--${a.id}${n > 1 ? `-${n}` : ''}`,
       name: ev.title,
       category: cat.id, sub: sub.id,
-      format, formatLabel: f.label, width: f.w, height: f.h, pages: a.id === 'slides' ? 3 : 1,
+      format, kind, formatLabel: KINDS[kind], width: f.w, height: f.h, pages: a.id === 'slides' ? 3 : 1,
       style: a.style, colors: pal.families, occasion: ev.occasion,
       tags: [...sub.keywords, ev.occasion, a.label, pal.label],
       cost: 0, source: 'library' as const, addedAt: LIBRARY_ADDED, version: 1,
       recipe: { arch: a.id, pal: pal.id, voice, event, format },
-      words: wordsOf(ev.title, ev.kicker, sub.label, cat.label, sub.keywords, ev.occasion, a.style, a.label, pal.families, f.label),
+      words: wordsOf(ev.title, ev.kicker, sub.label, cat.label, sub.keywords, ev.occasion, a.style, a.label, pal.families, KIND_WORDS[kind]),
     };
   });
 }
@@ -127,11 +186,13 @@ const CLASSIC_PLACES: Record<string, [string, string, string, string[]]> = { // 
 function classicMeta(t: Template): TemplateMeta {
   const [category, sub, style, colors] = CLASSIC_PLACES[t.id] ?? ['', '', 'Classic', []];
   const s = subById(sub);
+  const format = norm(t.category).replace(/ /g, '-');
+  const kind = kindOf({ size: format, w: t.design.width, h: t.design.height, pages: t.design.pages.length, sub, tags: s?.sub.keywords ?? [], name: t.name, celebration: s?.cat.kind === 'celebrations' });
   return {
-    id: t.id, name: t.name, category: s?.cat.id ?? category, sub, format: norm(t.category).replace(/ /g, '-'), formatLabel: t.category,
+    id: t.id, name: t.name, category: s?.cat.id ?? category, sub, format, kind, formatLabel: KINDS[kind],
     width: t.design.width, height: t.design.height, pages: t.design.pages.length,
     style, colors, occasion: '', tags: s?.sub.keywords ?? [], cost: t.cost, source: 'classic', addedAt: CLASSIC_ADDED, version: 1,
-    words: wordsOf(t.name, t.category, s?.sub.label, s?.cat.label, s?.sub.keywords, style, colors),
+    words: wordsOf(t.name, t.category, s?.sub.label, s?.cat.label, s?.sub.keywords, style, colors, KIND_WORDS[kind]),
   };
 }
 
@@ -140,11 +201,13 @@ const collectionBuilders = new Map<string, { set: CollectionSet; t: CollectionTe
 const USE_WORDS: Record<string, string[]> = { greeting: ['greeting', 'greetings', 'card', 'wishes'], invitation: ['invitation', 'invite', 'rsvp'], party: ['party', 'parties', 'event'], social: ['social', 'social media', 'instagram', 'post'], flyer: ['flyer', 'flyers', 'leaflet'], poster: ['poster', 'posters', 'print'] };
 function collectionMeta(set: CollectionSet, t: CollectionTemplate): TemplateMeta {
   const f = FORMATS[t.format], s = subById(set.sub);
+  const pages = 1 + (t.more?.length ?? 0);
+  const kind = kindOf({ size: t.format, w: f.w, h: f.h, pages, sub: set.sub, tags: t.tags, name: t.name, use: t.use, celebration: s?.cat.kind === 'celebrations' });
   return {
-    id: `${set.sub}--${t.id}`, name: t.name, category: s?.cat.id ?? 'celebrations', sub: set.sub, format: t.format, formatLabel: f.label,
-    width: f.w, height: f.h, pages: 1 + (t.more?.length ?? 0), style: t.style, colors: t.colors, occasion: t.occasion, tags: [...t.tags, 'illustrated'], use: t.use,
+    id: `${set.sub}--${t.id}`, name: t.name, category: s?.cat.id ?? 'celebrations', sub: set.sub, format: t.format, kind, formatLabel: KINDS[kind],
+    width: f.w, height: f.h, pages, style: t.style, colors: t.colors, occasion: t.occasion, tags: [...t.tags, 'illustrated'], use: t.use,
     cost: 0, source: 'collection', addedAt: set.addedAt, version: 1,
-    words: wordsOf(t.name, t.tags, s?.sub.label, s?.cat.label, s?.sub.keywords, t.style, t.colors, f.label, t.occasion, 'illustrated', t.use ? USE_WORDS[t.use] : []),
+    words: wordsOf(t.name, t.tags, s?.sub.label, s?.cat.label, s?.sub.keywords, t.style, t.colors, KIND_WORDS[kind], t.occasion, 'illustrated', t.use ? USE_WORDS[t.use] : []),
   };
 }
 
@@ -186,7 +249,11 @@ export const metaById = (id: string): TemplateMeta | undefined => published.get(
 /** Add/refresh templates published from the template manager (server). */
 export function setPublished(list: TemplateMeta[], merge = false): void {
   if (!merge) published.clear();
-  for (const m of list) published.set(m.id, { ...m, source: 'published', words: wordsOf(m.name, m.tags, subById(m.sub)?.sub.label, subById(m.sub)?.cat.label, subById(m.sub)?.sub.keywords, m.style, m.colors, m.formatLabel, m.occasion) });
+  for (const m of list) {
+    const s = subById(m.sub);
+    const kind = kindOf({ size: m.format, w: m.width, h: m.height, pages: m.pages, sub: m.sub, tags: m.tags ?? [], name: m.name, use: m.use, celebration: s?.cat.kind === 'celebrations' });
+    published.set(m.id, { ...m, kind, formatLabel: KINDS[kind] ?? m.formatLabel, source: 'published', words: wordsOf(m.name, m.tags, s?.sub.label, s?.cat.label, s?.sub.keywords, m.style, m.colors, m.formatLabel, KIND_WORDS[kind], m.occasion) });
+  }
   listeners.forEach((f) => f());
 }
 export function onCatalogChange(fn: () => void): () => void { listeners.add(fn); return () => listeners.delete(fn); }
@@ -226,6 +293,8 @@ export async function loadTemplateDoc(m: TemplateMeta): Promise<Design> {
   return d;
 }
 /** Text sizes depend on fonts; when fonts arrive, rebuild library documents so pictures and layouts are exact. */
+/** Rebuild one library document next time (its fonts arrived after it was laid out). */
+export function forgetBuiltDoc(id: string): void { docs.delete(id); }
 export function forgetBuiltDocs(): void { for (const [id] of docs) { const src = metaById(id)?.source; if (src === 'library' || src === 'collection') docs.delete(id); } }
 
 /** A `Template` (the shape the rest of the app uses) for a catalog entry. */

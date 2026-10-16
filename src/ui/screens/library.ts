@@ -14,7 +14,8 @@ import { loadPublished, searchPublished } from '../../content/library/remote';
 import { templateRights } from '../../content/library/admin';
 import { h, btn, icon, fuzzyMark, modal } from '../dom';
 import { createBlank, createDialog, useCatalogTemplate } from '../create';
-import { lazyThumb } from '../libthumbs';
+import { lazyThumb, prefetch } from '../libthumbs';
+import { catIcon, topicIcon } from '../catIcons';
 
 const PAGE = 36;
 const BLANKS: [string, number, number, string][] = [
@@ -22,12 +23,17 @@ const BLANKS: [string, number, number, string][] = [
   ['Presentation', 1920, 1080, '16:9'], ['Invitation', 1500, 2100, '5 × 7'], ['Certificate', 2000, 1414, 'Landscape A4'],
 ];
 
+/** "Menus" and "Menu" say the same thing: show it once. */
+const plain = (x?: string) => (x ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+const sameWord = (topic: string | undefined, kind: string) => { const a = plain(topic), b = plain(kind); return !!a && !!b && (a === b || a === b + 's' || a + 's' === b); };
+
 export function libraryScreen(): Screen {
   const params = new URLSearchParams(location.hash.split('?')[1] ?? '');
   let q = params.get('q') ?? '';
   const f: Filters = { category: params.get('cat') ?? undefined, sub: params.get('sub') ?? undefined, use: params.get('use') ?? undefined };
   let shown = PAGE;
   let results: TemplateMeta[] = [];
+  const el = h('div', { class: 'page lib' });
 
   // ---------- header: search ----------
   const input = h('input', { class: 'input lib-search-input', type: 'search', placeholder: 'Search templates — “basketball tryouts”, “wedding”, “sale”…', 'aria-label': 'Search templates', value: q, autocomplete: 'off' });
@@ -50,12 +56,12 @@ export function libraryScreen(): Screen {
     for (const cat of CATEGORIES_TREE) {
       const isOpen = open.has(cat.id);
       const toggle = h('span', { class: `lib-caret ${isOpen ? 'open' : ''}`, role: 'button', 'aria-label': isOpen ? `Collapse ${cat.label}` : `Expand ${cat.label}` }, icon('chevR', 14));
-      const head = item(cat.label, f.category === cat.id && !f.sub, n(cat.id), () => { f.category = cat.id; f.sub = undefined; f.use = undefined; open.add(cat.id); shown = PAGE; fill(); }, 'lib-cat', h('span', { class: 'lib-emoji' }, cat.emoji));
+      const head = item(cat.label, f.category === cat.id && !f.sub, n(cat.id), () => { f.category = cat.id; f.sub = undefined; f.use = undefined; open.add(cat.id); shown = PAGE; fill(); }, 'lib-cat', h('span', { class: 'lib-emoji' }, catIcon(cat.id, 17)));
       head.setAttribute('aria-expanded', String(isOpen));
       toggle.addEventListener('click', (e) => { e.stopPropagation(); if (open.has(cat.id)) open.delete(cat.id); else open.add(cat.id); renderTree(); });
       head.prepend(toggle);
       const subs = h('div', { class: 'lib-subs', hidden: !isOpen },
-        ...cat.subcategories.filter((s) => n(cat.id, s.id)).map((s) => item(s.label, f.sub === s.id, n(cat.id, s.id), () => { f.category = cat.id; f.sub = s.id; f.use = undefined; shown = PAGE; fill(); }, 'lib-sub', h('span', { class: 'lib-emoji' }, s.emoji))));
+        ...cat.subcategories.filter((s) => n(cat.id, s.id)).map((s) => item(s.label, f.sub === s.id, n(cat.id, s.id), () => { f.category = cat.id; f.sub = s.id; f.use = undefined; shown = PAGE; fill(); }, 'lib-sub')));
       tree.append(h('div', { class: 'lib-group' }, head, subs));
     }
   }
@@ -99,37 +105,60 @@ export function libraryScreen(): Screen {
   function card(m: TemplateMeta): HTMLElement {
     const locked = !rewards.isUnlocked(m.id, m.cost);
     const topic = subById(m.sub)?.sub.label;
-    const preview = h('button', { type: 'button', class: 'lib-peek', title: 'Preview & similar templates', 'aria-label': `Preview ${m.name}` }, icon('eye', 16));
+    // computers: an eye on hover; phones: a small "⋯" in the corner (40 px to tap, ~26 px to see) or press and hold the card
+    const preview = h('button', { type: 'button', class: 'lib-peek', title: 'Preview & similar templates', 'aria-label': `Preview ${m.name}` },
+      h('span', { class: 'lib-peek-dot' }, h('span', { class: 'peek-eye' }, icon('eye', 16)), h('span', { class: 'peek-more' }, icon('more', 16))));
     preview.addEventListener('click', (e) => { e.stopPropagation(); openPreview(m); });
     const el = h('div', { class: `lib-card ${locked ? 'locked' : ''}`, role: 'button', tabindex: '0', title: locked ? `Unlock for ${m.cost} Fuzzies` : `Use “${m.name}”` },
       h('div', { class: 'lib-thumb' }, lazyThumb(m, 300),
         locked ? h('span', { class: 'lock-badge lg' }, icon('lock', 14), fuzzyMark(16), String(m.cost)) : null,
         m.pages > 1 ? h('span', { class: 'lib-pages' }, `${m.pages} pages`) : null,
         preview, h('span', { class: 'tcard-hover' }, locked ? 'Unlock' : 'Use template')),
-      h('div', { class: 'lib-meta' }, h('b', null, m.name), h('small', null, [topic, m.formatLabel].filter(Boolean).join(' · '))));
-    const go = () => void useCatalogTemplate(m);
+      h('div', { class: 'lib-meta' }, h('b', null, m.name), h('small', null, [topic, sameWord(topic, m.formatLabel) ? '' : m.formatLabel].filter(Boolean).join(' · '))));
+    let held = false, timer = 0, x0 = 0, y0 = 0;
+    const go = () => { if (held) { held = false; return; } void useCatalogTemplate(m); };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' || (e.target as Element).closest('.lib-peek')) return;
+      held = false; x0 = e.clientX; y0 = e.clientY;
+      clearTimeout(timer);
+      timer = window.setTimeout(() => { held = true; navigator.vibrate?.(8); openPreview(m); }, 480);
+    });
+    el.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) { clearTimeout(timer); timer = 0; } });
+    for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, () => { clearTimeout(timer); timer = 0; });
+    el.addEventListener('contextmenu', (e) => { if (held || timer) e.preventDefault(); });
     el.addEventListener('click', go);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     return el;
   }
-  const row = (title: string, list: TemplateMeta[], more?: () => void, note?: string) => list.length ? h('section', { class: 'lib-row' },
-    h('div', { class: 'sec-head' }, h('div', null, h('h2', null, title), note ? h('small', { class: 'muted' }, note) : null), more ? h('button', { class: 'link', type: 'button', onclick: more }, 'See all') : null),
+  const row = (title: string, list: TemplateMeta[], more?: () => void, note?: string, lead?: Node | null) => list.length ? h('section', { class: 'lib-row' },
+    h('div', { class: 'sec-head' }, h('div', null, h('h2', null, lead ?? null, title), note ? h('small', { class: 'muted' }, note) : null), more ? h('button', { class: 'link', type: 'button', onclick: more }, 'See all') : null),
     h('div', { class: 'lib-strip' }, ...list.map(card))) : null;
 
   // ---------- preview with related templates ----------
+  let previewWin: { close: () => void } | null = null; // closed with the screen (a hash change leaves the window up otherwise)
   function openPreview(m: TemplateMeta): void {
     const topic = subById(m.sub);
-    const facts = [topic ? `${topic.cat.label} › ${topic.sub.label}` : '', `${m.formatLabel} · ${m.width} × ${m.height}`, m.pages > 1 ? `${m.pages} pages` : '', m.style, m.colors.join(', ')].filter(Boolean);
+    const cap = (x: string) => x.replace(/^./, (c) => c.toUpperCase());
+    const facts: [string, string][] = ([
+      ['Topic', topic ? `${topic.cat.label} › ${topic.sub.label}` : ''],
+      ['Format', m.formatLabel],
+      ['Size', `${m.width} × ${m.height} px`],
+      ['Pages', m.pages > 1 ? String(m.pages) : ''],
+      ['Style', m.style],
+      ['Colours', m.colors.filter((c) => !/confetti|pattern/.test(c)).map(cap).join(', ')],
+      ['Price', rewards.isUnlocked(m.id, m.cost) ? 'Free' : `${m.cost} Fuzzies`],
+    ] as [string, string][]).filter(([, v]) => v);
     const rel = related(catalog(), m, 8);
     const body = h('div', { class: 'lib-preview' },
       h('div', { class: 'lib-preview-pic' }, lazyThumb(m, 560, 1)),
       h('div', { class: 'lib-preview-side' },
-        h('ul', { class: 'lib-facts' }, ...facts.map((x) => h('li', null, x))),
+        h('dl', { class: 'lib-facts' }, ...facts.flatMap(([k, v]) => [h('dt', null, k), h('dd', null, v)])),
         h('p', { class: 'muted' }, 'Every word, colour, photo and shape is editable. Your copy is saved in My designs — the template itself never changes.'),
         btn(rewards.isUnlocked(m.id, m.cost) ? 'Use this template' : `Unlock for ${m.cost} Fuzzies`, { kind: 'primary', size: 'lg', icon: 'edit', class: 'btn-block', onClick: () => { mo.close(); void useCatalogTemplate(m); } })),
       rel.length ? h('div', { class: 'lib-related' }, h('h3', null, 'Similar templates'), h('div', { class: 'lib-strip small' }, ...rel.map((r) =>
         h('button', { type: 'button', class: 'lib-rel', title: r.name, onclick: () => { mo.close(); openPreview(r); } }, lazyThumb(r, 200, 1), h('span', null, r.name))))) : null);
     const mo = modal(m.name, body, { wide: true });
+    previewWin = mo;
   }
 
   // ---------- main content ----------
@@ -173,8 +202,8 @@ export function libraryScreen(): Screen {
         return b;
       }));
       strip.scrollLeft = 0;
-      chips.replaceChildren(...[{ id: '', label: 'All', emoji: '' }, ...cats].map((c) => {
-        const b = h('button', { type: 'button', class: `chip ${setCat === c.id ? 'on' : ''}`, 'aria-pressed': String(setCat === c.id) }, c.emoji ? `${c.emoji} ${c.label}` : c.label);
+      chips.replaceChildren(...[{ id: '', label: 'All' }, ...cats].map((c) => {
+        const b = h('button', { type: 'button', class: `chip ${setCat === c.id ? 'on' : ''}`, 'aria-pressed': String(setCat === c.id) }, c.id ? catIcon(c.id, 16) : null, c.label);
         b.addEventListener('click', () => { setCat = c.id; const x = chips.scrollLeft; draw(); chips.scrollLeft = x; });
         return b;
       }));
@@ -203,22 +232,28 @@ export function libraryScreen(): Screen {
     // only while the gallery is the current screen (opening a template changes the address to the editor)
     if (location.hash.startsWith('#/templates') && location.hash !== hash) history.replaceState(null, '', hash);
     main.replaceChildren();
+    el.classList.toggle('browsing', !filtering);
     if (!filtering) {
       const pick = (ids: string[]) => ids.map((id) => metaById(id)).filter((m): m is TemplateMeta => !!m).slice(0, 12);
       const onePerTopic = (list: TemplateMeta[]) => list.filter((m, i, arr) => !m.sub || arr.findIndex((x) => x.sub === m.sub) === i);
-      main.append(...[blanks(), holidays(),
+      const recent = onePerTopic([...all].sort((a, b) => b.addedAt - a.addedAt || quality(b) - quality(a))).slice(0, 12);
+      prefetch(recent.slice(0, 6));
+      // phones: templates first, the blank sizes below the collections (they filled the whole first screen)
+      const phone = matchMedia('(max-width: 760px)').matches;
+      main.append(...[phone ? null : blanks(), holidays(), phone ? blanks() : null,
         row('Recently used', pick(usage.recent()), undefined, 'On this device'),
         row('Trending this week', pick(usage.trending().map(([id]) => id)), undefined, 'Most used by everyone in the last 7 days'),
         row('Popular', pick(usage.popular().map(([id]) => id)), undefined, 'Most used of all time'),
-        row('Recently added', onePerTopic([...all].sort((a, b) => b.addedAt - a.addedAt)).slice(0, 12)),
-        ...CATEGORIES_TREE.map((cat) => row(`${cat.emoji} ${cat.label}`, onePerTopic(all.filter((m) => m.category === cat.id).sort((a, b) => usage.uses(b.id) - usage.uses(a.id) || quality(b) - quality(a))).slice(0, 12),
-          () => { f.category = cat.id; open.add(cat.id); shown = PAGE; fill(); })),
+        row('Recently added', recent),
+        ...CATEGORIES_TREE.map((cat) => row(cat.label, onePerTopic(search(all, '', { category: cat.id }, usage)).slice(0, 12),
+          () => { f.category = cat.id; open.add(cat.id); shown = PAGE; fill(); }, undefined, catIcon(cat.id, 20))),
       ].filter((x): x is HTMLElement => !!x));
       return;
     }
     const topic = f.sub ? subById(f.sub) : null;
-    const heading = topic ? `${topic.sub.emoji} ${topic.sub.label}` : f.category ? CATEGORIES_TREE.find((c) => c.id === f.category)?.label ?? 'Templates' : q.trim() ? `Results for “${q.trim()}”` : 'Templates';
-    main.append(h('div', { class: 'lib-results-head' }, h('h2', null, heading), count), useRow);
+    const heading = topic ? topic.sub.label : f.category ? CATEGORIES_TREE.find((c) => c.id === f.category)?.label ?? 'Templates' : q.trim() ? `Results for “${q.trim()}”` : 'Templates';
+    const lead = topic ? topicIcon(topic.sub.id, 30) : f.category ? catIcon(f.category, 22) : null;
+    main.append(h('div', { class: 'lib-results-head' }, h('h2', null, lead, heading), count), useRow);
     if (!results.length) {
       main.append(h('div', { class: 'empty' }, fuzzyMark(48), h('p', null, 'No templates match yet.'), h('p', { class: 'muted' }, 'Try fewer words or clear a filter — or start from a blank design.'), btn('Start from blank', { kind: 'primary', icon: 'plus', onClick: () => createDialog() })));
       return;
@@ -239,10 +274,10 @@ export function libraryScreen(): Screen {
   void templateRights().then((r) => {
     if (r.admin && main.isConnected) headActions.append(btn('Manage templates', { kind: 'ghost', icon: 'settings', onClick: () => void import('../templateManager').then((m) => m.openTemplateManager(r.ai)) }));
   });
-  const el = h('div', { class: 'page lib' },
-    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Templates'), h('p', { class: 'muted' }, `${catalog().length} original, fully editable templates for every event, sport and celebration.`)), headActions),
+  el.append(
+    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Templates'), h('p', { class: 'muted lib-intro' }, `${catalog().length} original, fully editable templates for every event, sport and celebration.`)), headActions),
     h('div', { class: 'lib-searchbar' }, icon('search', 20), input),
     h('div', { class: 'lib-layout' }, h('aside', { class: 'lib-side' }, tree), h('div', { class: 'lib-body' }, filterRow, main)));
   if (q) setTimeout(() => input.focus(), 50);
-  return { el, destroy: () => { io.disconnect(); offCat(); offAcc(); } };
+  return { el, destroy: () => { previewWin?.close(); io.disconnect(); offCat(); offAcc(); } };
 }

@@ -50,9 +50,9 @@ export function loadPublished(): Promise<void> {
 /** When the server holds more than we loaded, look there too (results are merged into the catalog). */
 export async function searchPublished(q: string, f: Filters): Promise<void> {
   if (!more || !q.trim()) return;
-  const key = JSON.stringify([q.trim().toLowerCase(), f.category, f.sub, f.format]);
+  const key = JSON.stringify([q.trim().toLowerCase(), f.category, f.sub]);
   if (asked.has(key)) return;
   asked.add(key);
-  const d = await list({ q: q.trim(), cat: f.category, sub: f.sub, format: f.format, limit: '60' });
+  const d = await list({ q: q.trim(), cat: f.category, sub: f.sub, limit: '60' });
   if (d?.items.length) setPublished(d.items, true);
 }

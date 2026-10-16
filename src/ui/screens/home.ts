@@ -12,6 +12,7 @@ import { designCard, templateCard } from './cards';
 import { missionsCard } from '../missions';
 import { mascot } from '../mascot';
 import { travel } from '../travel';
+import { landIcon } from '../landIcons';
 
 /** Topics in season, by month (Jan = 0) — Home shows these first until real usage numbers exist. */
 const SEASON: string[][] = [
@@ -88,6 +89,7 @@ export function homeScreen(): Screen {
     const list = popular.length >= 8 ? popular.slice(0, 12)
       : [...new Map([...season.flatMap((sub) => pick(sub, 3)), ...EVERYDAY.flatMap((sub) => pick(sub, 1))].map((m) => [m.id, m])).values()].slice(0, 12);
     if (!list.length) { classic(); return; }
+    t.prefetch(list.slice(0, 6));
     featuredHead.textContent = popular.length >= 8 ? 'Popular templates' : season.length ? 'Templates for this season' : 'Templates for you';
     featured.replaceChildren(...list.map((m) => {
       const locked = !rewards.isUnlocked(m.id, m.cost);
@@ -115,12 +117,12 @@ export function homeScreen(): Screen {
 
   const land = a.land;
   const landCard = h('section', { class: 'land-promo' },
-    h('div', { class: 'lp-art', 'aria-hidden': 'true' }, h('span', null, '🏡'), h('span', null, '🌾'), h('span', null, '🍄'), h('span', null, '⛲')),
+    h('div', { class: 'lp-art', 'aria-hidden': 'true' }, ...(['house', 'wheat', 'barn', 'flower'] as const).map((n) => h('span', null, landIcon(n, 36)))),
     h('div', null,
       h('p', { class: 'hero-kicker' }, 'Your town'),
       h('h2', null, 'Fuzzies Land'),
       h('p', null, 'Build houses, grow crops, bake treats and fill orders for the Fuzzies who live there. Level up to earn Fuzzies.'),
-      h('div', { class: 'gp-stats' }, h('span', null, `⭐ Level ${land.level}`), h('span', null, `🪙 ${land.coins}`)),
+      h('div', { class: 'gp-stats' }, h('span', null, landIcon('star', 16), `Level ${land.level}`), h('span', null, landIcon('coin', 16), `${land.coins.toLocaleString()} coins`)),
       btn('Visit my town', { kind: 'primary', size: 'lg', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) })));
 
   // your work first, then ideas, then play
