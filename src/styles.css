@@ -3189,3 +3189,40 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
 /* Home: the Fuzzies Land card's four tiles are drawn town stickers (emoji looked different on every device) */
 .lp-art span svg { width: 36px; height: 36px; }
 .gp-stats .land-ic { width: 16px; height: 16px; }
+
+/* ===== Home: illustrated cards (Fuzzy Crossing, Fuzzies Land) and Fuzzy faces on the missions ===== */
+.home-play .game-promo, .home-play .land-promo, .game-promo, .land-promo { padding: 0; gap: 0; overflow: hidden; grid-template-columns: 1fr; align-content: start; }
+.home-play .gp-art, .home-play .lp-art, .gp-art, .lp-art { display: block; height: 208px; order: -1; border-radius: 0; margin: 0; padding: 0; grid-template-columns: none; position: relative; }
+.home-play .lp-art span { height: auto; }
+.ha-scene, .ha-scene svg { display: block; width: 100%; height: 100%; }
+.game-promo .gp-text, .land-promo > div:last-child { padding: 20px 24px 24px; }
+.land-promo > div:last-child { display: block; }
+.ha-scene svg { overflow: hidden; }
+@keyframes haDrive { from { translate: -130px 0; } to { translate: 470px 0; } }
+@keyframes haHop { 0%, 100% { translate: 0 0; } 45% { translate: 0 -12px; } }
+@keyframes haBob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+@keyframes haDrift { from { translate: -14px 0; } to { translate: 26px 0; } }
+@keyframes haWalk { 0%, 100% { translate: -8px 0; } 50% { translate: 8px -3px; } }
+@keyframes haSmoke { from { translate: 0 8px; opacity: 0; } 30% { opacity: 1; } to { translate: 6px -14px; opacity: 0; } }
+.ha-car { animation: haDrive 8s linear infinite; }
+.ha-car-b { animation-duration: 6.5s; animation-delay: -3s; } .ha-car-c { animation-duration: 9s; animation-delay: -5s; } .ha-car-d { animation-duration: 7s; animation-delay: -1s; }
+.ha-log { animation: haDrive 11s linear infinite; } .ha-log2 { animation-delay: -5.5s; animation-duration: 13s; }
+.ha-hop { animation: haHop 1.6s ease-in-out infinite; }
+.ha-coin { animation: haBob 2s ease-in-out infinite; }
+.ha-cloud { animation: haDrift 9s ease-in-out infinite alternate; } .ha-cloud2 { animation-duration: 12s; animation-delay: -4s; }
+.ha-walk { animation: haWalk 3.4s ease-in-out infinite; } .ha-w2 { animation-delay: -1.2s; animation-duration: 4s; } .ha-w3 { animation-delay: -2.2s; animation-duration: 3.8s; }
+.ha-smoke { animation: haSmoke 3.2s ease-out infinite; }
+:root[data-motion='reduce'] .ha-scene * { animation: none !important; }
+.game-promo .gp-art .ha-scene { border-radius: 0; }
+
+.mission-face { position: relative; flex: none; width: 46px; height: 46px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); display: grid; place-items: center; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent); }
+.mission-face img { width: 40px; height: 40px; object-fit: contain; display: block; }
+.mission-face.done { background: color-mix(in srgb, #2f9e5b 14%, var(--surface)); }
+.mission-face i { position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; background: #2f9e5b; color: #fff; font: 800 12px/20px var(--ui); text-align: center; font-style: normal; box-shadow: 0 0 0 2px var(--surface); }
+.mission.done { opacity: .85; }
+@media (max-width: 760px) {
+  .home-play .gp-art, .home-play .lp-art, .gp-art, .lp-art { height: 150px; }
+  .game-promo .gp-text, .land-promo > div:last-child { padding: 16px 18px 20px; }
+  .land-promo h2, .game-promo h2 { font-size: 26px; }
+}
+.missions > .mission { width: 100%; box-sizing: border-box; }

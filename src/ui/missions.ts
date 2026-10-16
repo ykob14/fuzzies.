@@ -2,6 +2,7 @@
 import { todaysMissions, missionProgress, missionDone, ACHIEVEMENTS, ALL_DONE_BONUS } from '../core/missions';
 import { accounts } from '../core/account';
 import { h, fuzzyMark, icon } from './dom';
+import { missionFace } from './homeArt';
 
 /** Live card: re-renders itself when progress changes, and stops listening once removed from the page. */
 export function missionsCard(): HTMLElement {
@@ -21,7 +22,7 @@ export function missionsCard(): HTMLElement {
         const p = missionProgress(m), ok = missionDone(m);
         const go = m.kind === 'game' ? '#/play' : m.event === 'template' ? '#/templates' : m.event === 'design' ? null : '#/projects';
         const row = h(go ? 'a' : 'div', { class: `mission ${ok ? 'done' : ''}`, ...(go ? { href: go } : {}) },
-          h('span', { class: 'mission-ic' }, ok ? '✅' : m.icon),
+          missionFace(m.id, ok),
           h('div', { class: 'mission-body' },
             h('b', null, m.text),
             h('div', { class: 'progress small' }, h('div', { style: `width:${(p / m.target) * 100}%` })),

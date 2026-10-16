@@ -11,6 +11,7 @@ import { createBlank, createDialog, useCatalogTemplate } from '../create';
 import { designCard, templateCard } from './cards';
 import { missionsCard } from '../missions';
 import { mascot } from '../mascot';
+import { crossingArt, landArt } from '../homeArt';
 import { travel } from '../travel';
 import { landIcon } from '../landIcons';
 
@@ -113,11 +114,11 @@ export function homeScreen(): Screen {
         h('span', null, icon('trophy', 16), ` Best ${a.stats.bestScore}`),
         h('span', null, fuzzyMark(16), ` ${a.stats.fuzziesFromGame} collected`)),
       btn('Play now', { kind: 'primary', size: 'lg', icon: 'play', onClick: () => (location.hash = '#/play') })),
-    h('div', { class: 'gp-art', 'aria-hidden': 'true' }, ...['road', 'river', 'road'].map((k) => h('div', { class: `gp-lane ${k}` })), h('div', { class: 'gp-fuzzy' }, mascot(64))));
+    h('div', { class: 'gp-art', 'aria-hidden': 'true' }, crossingArt()));
 
   const land = a.land;
   const landCard = h('section', { class: 'land-promo' },
-    h('div', { class: 'lp-art', 'aria-hidden': 'true' }, ...(['house', 'wheat', 'barn', 'flower'] as const).map((n) => h('span', null, landIcon(n, 36)))),
+    h('div', { class: 'lp-art', 'aria-hidden': 'true' }, landArt()),
     h('div', null,
       h('p', { class: 'hero-kicker' }, 'Your town'),
       h('h2', null, 'Fuzzies Land'),
