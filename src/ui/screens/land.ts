@@ -1451,7 +1451,7 @@ export function landScreen(): Screen {
   function onMove(e: PointerEvent): void {
     if (orbitDrag && view) {
       view.orbit(-(e.clientX - orbitDrag.x) * 0.006, (e.clientY - orbitDrag.y) * 0.004);
-      orbitDrag = { x: e.clientX, y: e.clientY }; paintLook();
+      orbitDrag = { x: e.clientX, y: e.clientY };
       return;
     }
     const prev = pts.get(e.pointerId);
@@ -1474,9 +1474,14 @@ export function landScreen(): Screen {
       const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
       // twisting the two fingers turns the town round
       const ang = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-      if (pinchAng !== null) { let da = ang - pinchAng; if (da > Math.PI) da -= Math.PI * 2; else if (da < -Math.PI) da += Math.PI * 2; if (Math.abs(da) > 0.004) { view.orbit(-da); paintLook(); } }
+      if (pinchAng !== null) { let da = ang - pinchAng; if (da > Math.PI) da -= Math.PI * 2; else if (da < -Math.PI) da += Math.PI * 2; if (Math.abs(da) > 0.004) { view.orbit(-da); } }
       pinchAng = ang;
-      if (pinchMid) view.nudge(mid.x - pinchMid.x, mid.y - pinchMid.y);
+      if (pinchMid) {
+        const mx = mid.x - pinchMid.x, my = mid.y - pinchMid.y;
+        // both fingers sliding up or down together (without pinching) tilt the view, like a map app; anything else pans
+        if (Math.abs(my) > Math.abs(mx) * 1.6 && Math.abs(d - pinch) < 4 && Math.abs(my) > 0.5) view.orbit(0, my * 0.006);
+        else view.nudge(mx, my);
+      }
       if (pinch && d > 0) { view.zoom(pinch / d, mid.x, mid.y); if (Math.abs(pinch - d) > 2) tut.emit('zoom'); }
       pinch = d; pinchMid = mid;
       return;
@@ -1863,7 +1868,7 @@ export function landScreen(): Screen {
     if (x || y) tut.emit('pan');
     // Q / E turn the town, F / V tilt it
     view?.setKeyOrbit((keys.has('e') ? 1 : 0) - (keys.has('q') ? 1 : 0), (keys.has('f') ? 1 : 0) - (keys.has('v') ? 1 : 0));
-    paintLook();
+   
   };
   function onKeyDown(e: KeyboardEvent): void {
     if (playing) return; // a game is open on top of the town
@@ -2072,32 +2077,12 @@ export function landScreen(): Screen {
   paintMusic();
   // browsers only allow sound after a tap/click: start the music on the first one if it couldn't start yet
   stage.addEventListener('pointerdown', () => { if (!music.playing) setTimeout(() => music.start(), 50); });
-  // "Look around": turn the town, tilt it and get close — like walking round a toy town
-  const lookBtn = (ic: Parameters<typeof landIcon>[0], title: string, on: () => void, flip = false) => {
-    const b = h('button', { class: `land-look-b ${flip ? 'flip' : ''}`, type: 'button', title, 'aria-label': title }, landIcon(ic, 26));
-    b.addEventListener('click', () => { on(); paintLook(); });
-    return b;
-  };
-  const lookResetBtn = lookBtn('undo', 'Back to the usual view', () => view?.resetView());
-  const lookPop = h('div', { class: 'land-look', hidden: true },
-    lookBtn('rotate', 'Turn left', () => view?.turnBy(-45), true), lookBtn('rotate', 'Turn right', () => view?.turnBy(45)),
-    lookBtn('tiltUp', 'Look from higher up', () => view?.tiltBy(10)), lookBtn('tiltDown', 'Look from lower down', () => view?.tiltBy(-10)),
-    lookBtn('zoomIn', 'Closer', () => view?.zoom(0.7)), lookBtn('zoomOut', 'Farther', () => view?.zoom(1.4)),
-    lookResetBtn,
-    h('small', null, isTouch() ? 'Twist two fingers to turn' : 'Right-drag or Q / E to turn'));
-  stage.append(lookPop);
-  function paintLook(): void {
-    lookResetBtn.classList.toggle('on', !!view?.turned);
-    stage.querySelector('.land-lookbtn')?.classList.toggle('turned', !!view?.turned);
-  }
-  function toggleLook(): void { lookPop.hidden = !lookPop.hidden; stage.querySelector('.land-lookbtn')?.classList.toggle('open', !lookPop.hidden); }
   const sideToggle = h('button', { class: 'land-side-toggle', type: 'button' }, landIcon('chevRight', 18));
   const sideBody = h('div', { class: 'land-side-body' }, ...[
     musicBtn,
     round(landIcon('compass', 30), 'Adventures — today’s mission', () => (panel?.kind === 'adventures' ? openPanel(null) : openPanel({ kind: 'adventures' })), 'land-adv-btn'),
     round(landIcon('edit', 30), 'Edit town — move, store & rearrange', () => (selMode ? saveLayout() : enterSelect()), 'land-select'),
     round(landIcon('car', 32), 'Parking Escape — the puzzle game', () => openParking(), 'land-park-btn'),
-    round(landIcon('orbit', 30), 'Look around — turn, tilt and get close', () => toggleLook(), 'land-lookbtn', 'Look'),
     isTouch() ? null : h('div', { class: 'land-zoom' },
       round(landIcon('zoomIn', 20), 'Zoom in', () => { view?.zoom(0.8); tut.emit('zoom'); }),
       round(landIcon('zoomOut', 20), 'Zoom out', () => { view?.zoom(1.25); tut.emit('zoom'); }))].filter((x) => x !== null) as HTMLElement[]);
@@ -2139,7 +2124,7 @@ export function landScreen(): Screen {
       try { cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null'); if (!cam || !Number.isFinite(cam.x) || !Number.isFinite(cam.z) || !Number.isFinite(cam.d)) cam = null; } catch { cam = null; }
       if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), openShop: (tab: 'decor') => openPanel({ kind: 'shop', tab }), trophies: TR, adv: A, openParking, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, devSet, syncMissions, setStatus: () => A.setStatus(s, now()), talking: () => !!talk, playing: () => playing }; // for tests
       if (a.settings.reduceMotion) view.placeAt(cam); else view.swoopIn(cam);
-      setTimeout(() => { if (alive && !tut.active && !packedAway()) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
+      setTimeout(() => { if (alive && !packedAway() && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
       setTimeout(() => { if (alive) startTutorial(); }, a.settings.reduceMotion ? 300 : 2200);
       resumeEditing();
