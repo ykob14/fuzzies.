@@ -165,12 +165,12 @@ export function stands(mobile: boolean): Crowd {
   const wAll = FRIENDS.map((f) => weights[f.id] ?? 1); const wSum = wAll.reduce((x, y) => x + y, 0);
   const pick = (): number => { let r = R() * wSum; for (let i = 0; i < wAll.length; i++) { r -= wAll[i]; if (r <= 0) return i; } return 0; };
   const rows: { x: number; y: number; z: number; yaw: number; sc: number; f: number; ph: number; sp: number }[] = [];
-  const step = mobile ? 0.92 : 0.74;
-  for (let k = 0; k < ROWS; k++) {
+  const step = mobile ? 1.9 : 1.4; // a friendly crowd, not a wall: the first rows only, with gaps
+  for (let k = 0; k < (mobile ? 2 : 3); k++) {
     const o = O0 + k * TREAD + TREAD * 0.5, h = H0 + k * RISE;
     const L = trackLength(-o); const n = Math.floor(L / step);
     for (let i = 0; i < n; i++) {
-      if (R() < 0.07) continue;
+      if (R() < 0.22) continue;
       const p = trackPoint((i / n) * L + R() * 0.25, -o); const nx = -p.tz, nz = p.tx;
       if (nx > 0.96) continue;
       rows.push({ x: p.x + (R() - 0.5) * 0.12, y: h - 0.02, z: p.z + (R() - 0.5) * 0.12, yaw: Math.atan2(-nx, -nz) + (R() - 0.5) * 0.5, sc: 0.8 + R() * 0.3 + k * 0.03, f: pick(), ph: R() * 6.28, sp: 2 + R() * 2 });
