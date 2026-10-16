@@ -49,9 +49,9 @@ function rewardChips(payout: A.Payout | null, pending: boolean): HTMLElement | n
   if (pending) return h('p', { class: 'mg-rs-note' }, mgIcon('info', 18), h('span', null, 'You’re offline — your reward will be added when you’re back online.'));
   if (!payout) return null;
   return h('div', { class: 'mg-rs-earn' },
-    chip('coin big', gicon('coin', 24), h('b', null, `+${payout.coins} coins`)),
-    chip('xp', gicon('star', 15), h('b', null, `+${payout.xp} XP`)),
-    ...(payout.levelUps.length ? [chip('lvl', gicon('flag', 15), h('b', null, `Level ${payout.levelUps[payout.levelUps.length - 1]}!`))] : []));
+    chip('c-money big', gicon('coin', 24), h('b', null, `+${payout.coins} coins`)),
+    chip('c-xp', gicon('star', 15), h('b', null, `+${payout.xp} XP`)),
+    ...(payout.levelUps.length ? [chip('c-lvl', gicon('flag', 15), h('b', null, `Level ${payout.levelUps[payout.levelUps.length - 1]}!`))] : []));
 }
 
 /** a trophy earned or upgraded by this run (see land/trophies.ts) */
@@ -70,15 +70,22 @@ function actions(back: () => void, again: (() => void) | undefined, againLabel: 
   const backBtn = (primary: boolean): HTMLElement => h('button', { class: `btn ${primary ? 'btn-primary fzx-bigbtn' : 'btn-soft fzx-sbtn'} adv-back`, type: 'button', onclick: back }, mgIcon('town', primary ? 24 : 20), h('span', null, 'Back to town'));
   if (!again) return h('div', { class: 'mg-rs-actions' }, backBtn(true));
   return h('div', { class: 'mg-rs-actions' },
-    h('button', { class: 'btn btn-soft fzx-bigbtn mg-again', type: 'button', onclick: again }, mgIcon('play', 24), h('span', null, againLabel)),
+    h('button', { class: 'btn btn-primary fzx-bigbtn mg-again', type: 'button', onclick: again }, mgIcon('play', 24), h('span', null, againLabel)),
     backBtn(false));
+}
+
+/** your own portrait: the owner's pink Fuzzy */
+function youFace(size: number): HTMLElement {
+  const f = h('span', { class: 'mg-face', title: 'You' }, h('img', { src: HERO, alt: '', width: size, height: size, draggable: 'false' }));
+  f.style.setProperty('--sz', `${size}px`);
+  return f;
 }
 
 /** the standings of a contest: rank medal, face, name, score; you are marked */
 function standings(rows: { name: string; score: number; you: boolean; place: number }[]): HTMLElement {
   return h('ol', { class: 'adv-order adv-standings mg-rs-list' }, ...rows.map((x) => h('li', { class: x.you ? 'you' : '' },
     h('span', { class: 'mg-rank' }, medalGraphic(x.place, 30)),
-    faceOf(x.name, undefined, 34),
+    x.you ? youFace(34) : faceOf(x.name, undefined, 34),
     h('b', null, x.you ? `${x.name} (you)` : x.name),
     h('small', null, `${fmtScore(x.score)} pts`))));
 }
@@ -101,7 +108,7 @@ export function renderScoreResults(o: ScoreResultOpts): HTMLElement {
       h('div', { class: 'mg-rs-score' }, h('small', null, 'Score'), scoreEl),
       h('div', { class: 'mg-rs-chips' },
         h('span', { class: `adv-tier mg-chip tier t${Math.min(4, o.place)}` }, `${contest ? `${A.placeWord(o.place)} place` : o.tier}`),
-        newBest ? chip('best', gicon('trophy', 15), 'New personal best!') : null),
+        newBest ? chip('c-best', gicon('trophy', 15), 'New personal best!') : null),
       contest ? standings(o.standings!) : null,
       o.stats.length ? h('div', { class: `adv-stats mg-stats n${Math.min(4, o.stats.length)}` }, ...o.stats.map((x) => h('span', { class: 'fzx-card' }, h('b', null, x.value), h('small', null, x.label)))) : null,
       rewardChips(o.payout, o.pending),
@@ -132,7 +139,7 @@ export function renderRaceResults(o: ResultOpts): HTMLElement {
         h('span', { class: 'mg-rank' }, medalGraphic(x.place, 30)),
         h('b', null, x.you ? `${x.name} (you)` : x.name),
         h('small', null, A.placeWord(x.place))))),
-      h('div', { class: 'mg-rs-chips' }, chip('time', mgIcon('clock', 16), h('b', null, `Your time ${fmt(o.timeMs)}`))),
+      h('div', { class: 'mg-rs-chips' }, chip('c-time', mgIcon('clock', 16), h('b', null, `Your time ${fmt(o.timeMs)}`))),
       rewardChips(o.payout, o.pending),
       trophyLine(o.trophy),
       nextLine(o.adv, o.payout, o.next),
