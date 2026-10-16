@@ -341,12 +341,13 @@ export function palm(seed: number, h = 2.2): THREE.Group {
   for (let i = 0; i < 8; i++) { const seg = at(mesh(new THREE.CylinderGeometry(0.07, 0.09, h / 8 + 0.02, 8), trunk), lean * i * 0.12, h * (i + 0.5) / 8, 0); g.add(seg); }
   const top = new THREE.Vector3(lean * 0.96, h, 0);
   for (let i = 0; i < 7; i++) {
-    const s = new THREE.Shape(); s.moveTo(0, 0); s.quadraticCurveTo(0.5, 0.18, 1.0, -0.15); s.quadraticCurveTo(0.5, 0.0, 0, 0);
+    const s = new THREE.Shape(); s.moveTo(0, 0); s.quadraticCurveTo(0.6, 0.3, 1.3, -0.25); s.quadraticCurveTo(0.6, -0.08, 0, 0);
     const f = new THREE.Mesh(new THREE.ShapeGeometry(s), leaf);
     f.castShadow = true;
     const pivot = new THREE.Group(); pivot.position.copy(top); pivot.rotation.y = (i / 7) * Math.PI * 2 + r() * 0.3; pivot.add(f); f.rotation.x = -Math.PI / 2 + 0.3; f.rotation.z = -0.35;
     g.add(pivot);
   }
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), leaf); crown.position.copy(top); g.add(crown);
   g.add(at(mesh(new THREE.SphereGeometry(0.09, 8, 6), std('#6b4a2a')), top.x + 0.08, h - 0.05, 0.05), at(mesh(new THREE.SphereGeometry(0.09, 8, 6), std('#6b4a2a')), top.x - 0.06, h - 0.07, -0.07));
   return g;
 }

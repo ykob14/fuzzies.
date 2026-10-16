@@ -33,7 +33,7 @@ const MOODS: Mood[] = [
 /** extra looks for the world levels (Classic keeps MOODS above) */
 const WORLD_MOODS: Record<LevelDef['mood'], Mood> = {
   day: MOODS[0], golden: MOODS[1], dusk: MOODS[2],
-  night: { name: 'night', elevation: 2, azimuth: 300, turbidity: 2, rayleigh: 0.5, mie: 0.002, sun: '#a9b8ff', sunI: 0.8, hemiSky: '#3a4470', hemiGround: '#14151f', hemiI: 0.32, fog: '#1d2238', exposure: 0.95, env: 0.3, night: 1, fogNear: 16, fogFar: 55 },
+  night: { name: 'night', elevation: 2, azimuth: 300, turbidity: 2, rayleigh: 0.5, mie: 0.002, sun: '#a9b8ff', sunI: 0.8, hemiSky: '#5a66a0', hemiGround: '#262a3a', hemiI: 0.6, fog: '#262c48', exposure: 1.15, env: 0.3, night: 1, fogNear: 16, fogFar: 55 },
   storm: { name: 'storm', elevation: 25, azimuth: 230, turbidity: 12, rayleigh: 3.2, mie: 0.02, sun: '#c9d3e0', sunI: 1.7, hemiSky: '#8e9bb0', hemiGround: '#2c3326', hemiI: 0.55, fog: '#7d8898', exposure: 0.62, env: 0.3, night: 0.45, fogNear: 14, fogFar: 48 },
   snow: { name: 'snow', elevation: 30, azimuth: 205, turbidity: 6, rayleigh: 1.4, mie: 0.006, sun: '#fff6ec', sunI: 2.6, hemiSky: '#cfe2f3', hemiGround: '#8fa3b5', hemiI: 0.6, fog: '#dde8f1', exposure: 0.6, env: 0.45, night: 0, fogNear: 18, fogFar: 60 },
   fog: { name: 'fog', elevation: 18, azimuth: 220, turbidity: 9, rayleigh: 2, mie: 0.02, sun: '#e8e2d6', sunI: 2.0, hemiSky: '#c4ccd4', hemiGround: '#3f4a36', hemiI: 0.55, fog: '#bcc6cf', exposure: 0.6, env: 0.35, night: 0.2, fogNear: 10, fogFar: 36 },

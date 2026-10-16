@@ -71,21 +71,21 @@ const LAYOUTS: string[][] = [
   ],
   // 4 Railway Rush — trains with lights + bell, handcars, level crossings
   [
-    'g r g rail g gc g rail g g g',
-    'r g rail g hc g gc rail g l g',
-    'rail g r rail g gc hc g rail l g',
-    'r rail hc g rail g l l rail g g',
-    'rail r rail g hc rail g l rail l g',
-    'r rail r rail g hc rail g l p g',
-    'rail hc rail g r rail gc rail l l g',
-    'rt rail r rail g rail hc rail l p l',
-    'rail r rail hc rail g rail l rail l g',
-    'rail g rail hc g rail gc rail l g g',
-    'r rail rt rail hc g rail rail l p l',
-    'rail rail r hc rail g rail l rail l l',
-    'rail r rail rail hc g rail rail l ps l',
+    'g r g rail g gc g rail g l g',
+    'r g rail hc g gc rail r g l g',
+    'rail r g rail hc gc r rail g l l',
+    'r rail hc r rail g l l rail p g',
+    'rail r rail hc r rail g l rail l g',
+    'r rail r rail hc rail g rail l p l',
+    'rail hc rail r rt rail gc rail l l p',
+    'rt rail r rail hc rail r rail l p l',
+    'rail r rail hc rail r rail l rail l l',
+    'rail g rail hc r rail gc rail l g l',
+    'r rail rt rail hc r rail rail l p l',
+    'rail rail r hc rail rt rail l rail l l',
+    'rail r rail rail hc r rail rail l ps l',
     'rt rail rail r rail hc rail rail l l ps',
-    'rail rail r rail rail g rail rail l rail l',
+    'rail rail r rail rail hc rail rail l rail l',
   ],
   // 5 Stormy Valley — lightning rings, wind on the river, the river rising over the banks
   [
@@ -139,7 +139,7 @@ const LAYOUTS: string[][] = [
     'bat gh bat gh bat g sw l sw sw sw',
     'gh bat gh gb bat gh sw sw sw l sw',
     'bat gh bat gh bat gb sw sw l sw sw',
-    'gh bat gh bat gh bat sw sw sw sw l',
+    'gh bat gh g gh bat sw l sw g sw',
   ],
   // 8 Tropical Island — boats, drawbridges, crabs, the tide
   [
@@ -179,26 +179,26 @@ const LAYOUTS: string[][] = [
   ],
   // 10 Legendary Fuzzy World — everything together; level 15 is the Titan Crossing
   [
-    'r rail g rl gc g l t g ps g',
+    'r rail g rl gc z l t g ps g',
     'rs rail z g gh gc ps w t l g',
     'ice sled g rail rl gc t dw w b g',
-    'rail rs z gh g gc b dw t l g',
+    'rail rs z gh rh gc b dw t l g',
     'rh rail z sled gh g w t l ps g',
-    'rail rs gh z rail g t b dw w g',
-    'sled ice rail rh las gc ps l t w g',
-    'rail rh z gh rail g w dw b t l',
-    'rs rail las z gh g t ps w dw b',
-    'gc rail rh gc z g gc t w ps g',
     'rail rs gh z rail g t b dw w ps',
-    'rh rail las gh z g w t ps dw b',
-    'rail rs z rail gh g b w t dw ps',
-    'rh rail gh las rail g t dw w ps b',
-    'stomp rail stomp rh stomp g stomp t stomp w g',
+    'sled rs rail rh las z ps l t w ps',
+    'rail rh z gh rail rs w dw b t l',
+    'rs rail las z gh rh t ps w dw b',
+    'gc rail rh gc z g gc t w ps g',
+    'rail rs gh z rail las t b dw w ps',
+    'rh rail las gh z rs w t ps dw b',
+    'rail rs z rail gh las b w t dw ps',
+    'rh rail gh las rail rs z dw w ps b',
+    'stomp rail stomp rh stomp gh stomp t stomp w ps',
   ],
 ];
 
 /** per-level seed variant (the fairness check bumps an entry when a design needs another seed) */
-const VARIANT: number[][] = Array.from({ length: 10 }, () => Array(15).fill(0));
+const VARIANT: Record<string, number> = { '7-15': 1, '9-14': 3 };
 
 const NAMES: string[][] = [
   ['First Hops', 'Coin Trail', 'Lily Lane', 'Truck Stop', 'Morning Dash', 'Sinking Pads', 'Bus Route', 'Meadow Run', 'Duck Pond', 'Golden Meadow', 'Busy Bridge', 'Picnic Rush', 'River Bend', 'Sunset Fields', 'Meadow Marathon'],
@@ -230,9 +230,11 @@ const between = (r: () => number, a: number, b: number) => a + r() * (b - a);
 const pickOf = <T,>(r: () => number, xs: T[]): T => xs[Math.floor(r() * xs.length)];
 
 /** speed factor for the level: later worlds and later levels are quicker */
-const pace = (c: Ctx) => 1 + 0.5 * c.W + 0.32 * c.d;
+/** the world's tier comes in gradually: each world opens gently with its new mechanic, then climbs */
+const tier = (c: Ctx) => c.W * (0.55 + 0.45 * Math.min(1, c.d));
+const pace = (c: Ctx) => 1 + 0.8 * tier(c) + 0.32 * c.d;
 /** gaps get tighter */
-const tight = (c: Ctx) => Math.max(0.6, 1 - 0.22 * c.d - 0.2 * c.W);
+const tight = (c: Ctx) => Math.max(0.55, 1 - 0.22 * c.d - 0.32 * tier(c));
 /** static river spans (fallen trees, drawbridges): one-cell gaps only on even columns, so every nest column stays reachable */
 function spans(c: Ctx): [number, number][] {
   const evens = [0, 2, 4, 6, 8, 10];
@@ -308,7 +310,7 @@ const B: Record<string, Builder> = {
   rail: (c, row) => {
     const v = dirOf(row, c.w) * between(c.r, 13, 16) * (1 + 0.1 * c.W);
     const len = 8 + Math.floor(c.r() * 3);
-    const period = between(c.r, 6.2, 8.2) - c.d * 1.2;
+    const period = between(c.r, 6.0, 7.8) - c.d * 1.2 - c.W * 0.8;
     const span = Math.abs(v) * period;
     const start = v > 0 ? COLS + OFFSCREEN - span : -OFFSCREEN - len;
     const o: ObjSpec = { x: start + c.r() * (span - len), len, kind: 'train', color: pickOf(c.r, ['#c8553d', '#2b6cb0', '#2f855a', '#d69e2e']) };
@@ -341,8 +343,8 @@ const B: Record<string, Builder> = {
   // ----- the Titan -----
   stomp: (c, row) => {
     const cols: number[] = [];
-    for (let i = 0; i < 12; i++) cols.push([1, 5, 9, 3, 7][(i + row) % 5]);
-    return { row, surface: 'grass', speed: 0, objs: [], span: 1, start: 0, strikes: { period: 2.1, phase: 1.3 + (row % 3) * 0.7, cols, width: 3, warn: 1.25, dur: 0.4 } };
+    for (let i = 0; i < 12; i++) cols.push([2, 8, 5, 1, 9, 4, 7][(i + row) % 7]);
+    return { row, surface: 'grass', speed: 0, objs: [], span: 1, start: 0, strikes: { period: 1.25, phase: 1.3 + (row % 3) * 0.4, cols, width: 5, warn: 1.2, dur: 0.55 } };
   },
 };
 export const TOKENS = Object.keys(B);
@@ -383,7 +385,7 @@ export function getLevel(w: number, l: number, variant?: number): LevelDef {
   const key = `${w}-${l}-${variant ?? ''}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const def = buildLevel(w, l, variant ?? VARIANT[w - 1][l - 1]);
+  const def = buildLevel(w, l, variant ?? VARIANT[`${w}-${l}`] ?? 0);
   cache.set(key, def);
   return def;
 }
@@ -396,7 +398,8 @@ export function buildLevel(w: number, l: number, variant = 0): LevelDef {
   const milestone = milestoneOf(w, l);
   // difficulty inside the world (0..1) and the world tier (0..1); milestones push a little harder, No-Miss a little gentler
   let d = (l - 1) / (LEVELS_PER_WORLD - 1);
-  if (milestone === 'timeAttack' || milestone === 'boss') d = Math.min(1, d + 0.08);
+  if (milestone === 'timeAttack') d = Math.min(1, d + 0.08);
+  if (milestone === 'boss') d = 1.15;
   if (milestone === 'noMiss') d = Math.max(0, d - 0.15);
   const c: Ctx = { r, d, W: (w - 1) / 9, w };
   const rows: RowSpec[] = [];
@@ -454,4 +457,4 @@ export function buildLevel(w: number, l: number, variant = 0): LevelDef {
 
 /** the layout string of a level (for the uniqueness check) */
 export const layoutOf = (w: number, l: number): string => LAYOUTS[w - 1][l - 1];
-export const setVariant = (w: number, l: number, v: number): void => { VARIANT[w - 1][l - 1] = v; cache.clear(); };
+export const setVariant = (w: number, l: number, v: number): void => { VARIANT[`${w}-${l}`] = v; cache.clear(); };

@@ -393,8 +393,8 @@ export class WorldScene {
     for (let i = 0; i < n; i++) {
       const p = i < n * 0.65 ? far(i) : near();
       switch (th.props) {
-        case 'city': place(WM.building(i * 7 + 3, false), p.setZ(p.z < 0 ? p.z - 2 : p.z + 1.5)); break;
-        case 'neon': place(WM.building(i * 5 + 11, true), p.setZ(p.z < 0 ? p.z - 2 : p.z + 1.5)); break;
+        case 'city': if (p.z < 0) place(WM.building(i * 7 + 3, false), p.setZ(p.z - 2)); else place(M.makeTree(m, i * 7 + 3, 0.8), p); break;
+        case 'neon': if (p.z < 0) place(WM.building(i * 5 + 11, true), p.setZ(p.z - 2)); else place(WM.lampPost(['#ff3d81', '#39e6ff'][i % 2], 1.6), p); break;
         case 'snow': place(WM.pine(i * 3 + 1, true, 1.1), p); if (i % 7 === 0) place(WM.snowman(i), p.clone().add(new THREE.Vector3(1.2, 0, 0.4))); break;
         case 'tropical': place(i % 3 ? WM.palm(i * 13 + 5, 2 + r() * 1.4) : WM.rock(i, '#b9a27a', 1.4), p); break;
         case 'haunted': place(i % 2 ? WM.deadTree(i * 11) : WM.tombstone(i), p); if (i % 6 === 0) place(WM.lampPost('#ffb347', 1.6), p.clone().add(new THREE.Vector3(0.8, 0, 0))); break;
@@ -462,7 +462,7 @@ export class WorldScene {
 
   private buildWeather(): void {
     const w = this.def.weather;
-    const n = this.mobile ? 500 : 900;
+    const n = w === 'mist' ? 90 : this.mobile ? 500 : 900;
     const pos = new Float32Array(n * 3), vel = new Float32Array(n * 3), col = new Float32Array(n * 3);
     const r = T.rng(this.def.seed % 777);
     const c = new THREE.Color();
@@ -471,7 +471,7 @@ export class WorldScene {
       petals: ['#ffc2dc', '#ffffff', '#ffd6e8'], fireflies: ['#fff3a0'], embers: ['#ffb347', '#ff7a1a', '#ffd27a'], mist: ['#e9edf5'],
     };
     for (let i = 0; i < n; i++) {
-      pos.set([-6 + r() * 23, r() * 9, -4 + r() * 20], i * 3);
+      pos.set([-6 + r() * 23, w === 'mist' ? r() * 1.2 : r() * 9, -4 + r() * 20], i * 3);
       const fall = w === 'rain' || w === 'storm' ? 9 + r() * 4 : w === 'snow' ? 0.6 + r() * 0.6 : w === 'embers' ? -(0.3 + r() * 0.5) : w === 'fireflies' ? 0 : w === 'mist' ? 0 : 0.5 + r() * 0.5;
       vel.set([(r() - 0.5) * (w === 'leaves' || w === 'petals' ? 1.2 : 0.3) + (w === 'storm' ? -2 : 0), -fall, (r() - 0.5) * 0.3], i * 3);
       c.set(palette[w]?.[i % (palette[w]?.length ?? 1)] ?? '#ffffff');
@@ -480,8 +480,8 @@ export class WorldScene {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const size = w === 'rain' || w === 'storm' ? 0.06 : w === 'snow' ? 0.12 : w === 'mist' ? 2.4 : w === 'fireflies' ? 0.16 : 0.13;
-    const mat = this.mat(new THREE.PointsMaterial({ size, map: this.sparkTex, vertexColors: true, transparent: true, opacity: w === 'mist' ? 0.09 : 0.85, depthWrite: false, blending: w === 'embers' || w === 'fireflies' ? THREE.AdditiveBlending : THREE.NormalBlending }));
+    const size = w === 'rain' || w === 'storm' ? 0.06 : w === 'snow' ? 0.12 : w === 'mist' ? 1.4 : w === 'fireflies' ? 0.16 : 0.13;
+    const mat = this.mat(new THREE.PointsMaterial({ size, map: this.sparkTex, vertexColors: true, transparent: true, opacity: w === 'mist' ? 0.05 : 0.85, depthWrite: false, blending: w === 'embers' || w === 'fireflies' ? THREE.AdditiveBlending : THREE.NormalBlending }));
     this.weather = new THREE.Points(geo, mat);
     this.weather.frustumCulled = false;
     this.weatherVel = vel;
@@ -503,8 +503,9 @@ export class WorldScene {
         a[i] += v[i] * dt + (w === 'snow' || w === 'petals' || w === 'leaves' ? Math.sin(t * 1.3 + i) * 0.004 : 0);
         a[i + 1] += v[i + 1] * dt + (w === 'fireflies' ? Math.sin(t * 2 + i) * 0.005 : 0);
         a[i + 2] += v[i + 2] * dt;
-        if (a[i + 1] < 0) a[i + 1] += 9;
-        if (a[i + 1] > 9) a[i + 1] -= 9;
+        const top = w === 'mist' ? 1.2 : 9;
+        if (a[i + 1] < 0) a[i + 1] += top;
+        if (a[i + 1] > top) a[i + 1] -= top;
         const dx = a[i] - look.x, dz = a[i + 2] - look.z;
         if (dx < -12) a[i] += 24; else if (dx > 12) a[i] -= 24;
         if (dz < -10) a[i + 2] += 20; else if (dz > 10) a[i + 2] -= 20;
