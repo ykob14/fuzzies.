@@ -3084,10 +3084,18 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
   .page.lib .lib-row .sec-head { margin-bottom: 6px; }
   .page.lib .lib-row .sec-head small { display: none; }
   .lib-strip.holidays .lib-holiday { flex-basis: 150px; }
-  .lib-holiday-pic { height: 170px; }
+  .lib-holiday-pic { height: 160px; padding: 8px; }
+  .lib-holiday { align-content: start; gap: 6px; padding: 8px; }
+  .lib-holiday-label b { font-size: 14px; }
+  .lib-holiday-label small { font-size: 12px; }
+  .lib-results-head + .chips, .page.lib .sec-head + .lib-strip { margin-top: 0; }
   .lib-strip.blanks { gap: 10px; }
-  .lib-strip.blanks .lib-blank { width: 96px; padding: 10px 6px; }
-  .lib-strip.blanks .lib-blank-shape { width: 44px; height: 44px; }
+  .lib-strip.blanks .lib-blank { padding: 10px 6px; }
+  .lib-strip.blanks .lib-blank { width: 112px; }
+  .lib-strip.blanks .lib-blank b { white-space: nowrap; }
+  .lib-strip.blanks .lib-blank-shape { width: 56px; height: 56px; }
+  .lib-strip.blanks .lib-blank-shape > span { transform: scale(.78); }
+  .lib-set-cats { display: none; } /* the topic chips above already do this on a phone */
   .lib-preview-pic { height: 40vh; padding: 12px; }
 }
 /* Home: the Fuzzies Land card's four tiles are drawn town stickers (emoji looked different on every device) */

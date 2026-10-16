@@ -23,6 +23,10 @@ const BLANKS: [string, number, number, string][] = [
   ['Presentation', 1920, 1080, '16:9'], ['Invitation', 1500, 2100, '5 × 7'], ['Certificate', 2000, 1414, 'Landscape A4'],
 ];
 
+/** "Menus" and "Menu" say the same thing: show it once. */
+const plain = (x?: string) => (x ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+const sameWord = (topic: string | undefined, kind: string) => { const a = plain(topic), b = plain(kind); return !!a && !!b && (a === b || a === b + 's' || a + 's' === b); };
+
 export function libraryScreen(): Screen {
   const params = new URLSearchParams(location.hash.split('?')[1] ?? '');
   let q = params.get('q') ?? '';
@@ -110,7 +114,7 @@ export function libraryScreen(): Screen {
         locked ? h('span', { class: 'lock-badge lg' }, icon('lock', 14), fuzzyMark(16), String(m.cost)) : null,
         m.pages > 1 ? h('span', { class: 'lib-pages' }, `${m.pages} pages`) : null,
         preview, h('span', { class: 'tcard-hover' }, locked ? 'Unlock' : 'Use template')),
-      h('div', { class: 'lib-meta' }, h('b', null, m.name), h('small', null, [topic, m.formatLabel].filter(Boolean).join(' · '))));
+      h('div', { class: 'lib-meta' }, h('b', null, m.name), h('small', null, [topic, sameWord(topic, m.formatLabel) ? '' : m.formatLabel].filter(Boolean).join(' · '))));
     let held = false, timer = 0, x0 = 0, y0 = 0;
     const go = () => { if (held) { held = false; return; } void useCatalogTemplate(m); };
     el.addEventListener('pointerdown', (e) => {
@@ -131,6 +135,7 @@ export function libraryScreen(): Screen {
     h('div', { class: 'lib-strip' }, ...list.map(card))) : null;
 
   // ---------- preview with related templates ----------
+  let previewWin: { close: () => void } | null = null; // closed with the screen (a hash change leaves the window up otherwise)
   function openPreview(m: TemplateMeta): void {
     const topic = subById(m.sub);
     const cap = (x: string) => x.replace(/^./, (c) => c.toUpperCase());
@@ -153,6 +158,7 @@ export function libraryScreen(): Screen {
       rel.length ? h('div', { class: 'lib-related' }, h('h3', null, 'Similar templates'), h('div', { class: 'lib-strip small' }, ...rel.map((r) =>
         h('button', { type: 'button', class: 'lib-rel', title: r.name, onclick: () => { mo.close(); openPreview(r); } }, lazyThumb(r, 200, 1), h('span', null, r.name))))) : null);
     const mo = modal(m.name, body, { wide: true });
+    previewWin = mo;
   }
 
   // ---------- main content ----------
@@ -273,5 +279,5 @@ export function libraryScreen(): Screen {
     h('div', { class: 'lib-searchbar' }, icon('search', 20), input),
     h('div', { class: 'lib-layout' }, h('aside', { class: 'lib-side' }, tree), h('div', { class: 'lib-body' }, filterRow, main)));
   if (q) setTimeout(() => input.focus(), 50);
-  return { el, destroy: () => { io.disconnect(); offCat(); offAcc(); } };
+  return { el, destroy: () => { previewWin?.close(); io.disconnect(); offCat(); offAcc(); } };
 }
