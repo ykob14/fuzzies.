@@ -15,8 +15,8 @@ const aiKey = () => process.env.ANTHROPIC_API_KEY?.trim().replace(/^["']|["']$/g
 const aiModel = () => (process.env.ASSIST_MODEL || process.env.ANTHROPIC_MODEL || '').trim();
 const aiReady = () => !!(aiKey() && aiModel());
 
-const MAX_TURNS = 12; // earlier messages sent back for context
-const MAX_CHARS = 1200; // per message
+const MAX_TURNS = 16; // earlier messages sent back for context
+const MAX_CHARS = 1500; // per message
 const LIMIT_USER = 40; // messages per hour per account
 const LIMIT_IP = 15; // messages per hour per network address for visitors
 const LIMIT_IP_ALL = 90; // and for everyone behind one address (shared Wi-Fi is fine, floods are not)
@@ -65,7 +65,7 @@ async function ask(system: string, messages: { role: 'user' | 'assistant'; conte
     r = await fetch(`${process.env.ANTHROPIC_BASE_URL?.trim().replace(/\/+$/, '') || 'https://api.anthropic.com'}/v1/messages`, {
       method: 'POST', signal: ctrl.signal,
       headers: { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: aiModel(), max_tokens: 450, temperature: 0.5, system, messages }),
+      body: JSON.stringify({ model: aiModel(), max_tokens: 900, temperature: 0.7, system, messages }),
     });
   } catch { throw new HttpError(502, 'I couldn’t reach my brain just now — please try again in a moment.'); } finally { clearTimeout(timer); }
   if (!r.ok) {

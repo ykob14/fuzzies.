@@ -277,6 +277,46 @@ data. Fuzzies Land acting oddly: leave and come back (it saves after every actio
     asks: ['The app shows an old screen', 'I have no sound', 'My designs are missing on my phone'],
   },
   {
+    id: 'designtips', title: 'Design tips (make it look professional)', screens: ['edit', 'templates', 'home'],
+    keywords: ['tip', 'tips', 'advice', 'better', 'professional', 'pro', 'look good', 'improve', 'ugly', 'plain', 'boring', 'font', 'fonts', 'colour', 'color', 'colors', 'contrast', 'readable', 'layout', 'align', 'spacing', 'idea', 'ideas', 'inspiration', 'poster', 'flyer', 'logo'],
+    body: `Good designs follow a few simple habits. One clear headline, much bigger than everything else. At most two fonts (one for titles, one for small text).
+One accent colour plus neutrals, and brand colours from Settings → Brand kit if you have them. Text must be easy to read: dark on light or light on dark, and put a
+solid shape or a dark layer behind text that sits on a photo. Leave empty space around things. Line things up: select several, then use Position → align and
+space evenly; smart guides snap edges and centres. Use one good photo instead of many small ones. Keep a design to one message. Zoom out and squint: if the headline
+still stands out, it works. Start from a template that is close to what you want, then change the words, colours and photos until it is yours.`,
+    asks: ['Give me tips to make my design look professional', 'Which fonts go well together?', 'How do I make text easier to read?'],
+  },
+  {
+    id: 'ideas', title: 'What to make (ideas by goal)', screens: ['home', 'templates', 'edit'],
+    keywords: ['what should i make', 'ideas', 'idea', 'birthday', 'invitation', 'invite', 'business', 'logo', 'business card', 'resume', 'cv', 'menu', 'newsletter', 'invoice', 'letterhead', 'planner', 'calendar', 'wedding', 'save the date', 'youtube', 'thumbnail', 'carousel', 'presentation', 'slides', 'sports', 'schedule', 'announcement', 'sale', 'flyer', 'poster', 'story', 'instagram', 'social', 'school', 'club', 'resident assistant', 'ra', 'team'],
+    body: `Search Templates for the goal. There are ready-made sets for: social posts and Stories, flyers and posters, invitations and greetings for every holiday,
+birthdays, babies and weddings (save the date, RSVP, welcome sign), menus, logos, business cards, résumés and CVs (US Letter), newsletters, invoices, letterheads,
+planners and calendars (weekly, monthly, to-do, habit tracker), YouTube thumbnails, Instagram carousels and slide decks (several pages in one template), sports
+(schedules, final scores, team photos, player spotlight), team and staff pages (meet the team, resident assistants, student council), hiring posts, real-estate
+listings, webinars and events. Pick the shape first (post, story, poster, presentation, document, business card), then filter by style or colour.
+Templates with several pages open as a whole set you can edit page by page.`,
+    asks: ['What should I make for a bake sale?', 'Do you have résumé templates?', 'I need a logo — where do I start?'],
+  },
+  {
+    id: 'editorpro', title: 'Editor power tools', screens: ['edit'],
+    keywords: ['crop', 'rename layer', 'layers', 'reorder', 'drag layer', 'font search', 'recent fonts', 'align', 'space evenly', 'distribute', 'alt', 'copy', 'duplicate', 'multi', 'select all', 'lock', 'icons', 'icon', 'elements', 'collections', 'download panel', 'shortcut', 'shortcuts', 'keys', 'phone', 'done'],
+    body: `Crop in place: double-click (double-tap) a photo or press Crop, drag to move the picture inside its frame, scroll or pinch to zoom, Enter or Done to finish.
+Layers panel: drag a layer's grip to reorder, double-click (or F2) to rename, the eye hides and the lock locks. The font menu has search, a Recent group and groups of
+styles; all fonts are free. Select several layers and Position offers align and Space evenly; hold Alt while dragging to drag a copy; resizing snaps to edges with guides.
+Elements has shapes, a big icon set that recolours (two colour slots), illustrated holiday collections that load as you scroll, and QR codes. Shortcuts: Ctrl/Cmd+Z undo,
+Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+G group, Ctrl/Cmd+D duplicate, Delete removes, arrows nudge, Ctrl/Cmd+S save now, Tab steps through objects. On phones the toolbar scrolls sideways and
+a pinned Done button closes it; the top bar's ⋯ menu holds the rest.`,
+    asks: ['How do I crop a photo?', 'How do I reorder layers?', 'What keyboard shortcuts are there?'],
+  },
+  {
+    id: 'aboutme', title: 'About the Fuzzy helper', screens: ['*'],
+    keywords: ['who are you', 'what are you', 'helper', 'assistant', 'ai', 'chatbot', 'fuzzy helper', 'voice', 'hide you', 'microphone', 'talk to you', 'name'],
+    body: `The blue Fuzzy in the corner of the website is the helper. You can ask it how to do anything on the site, ask for design tips, wording ideas, a plan for a project
+or just chat. It answers on the website screens (it stays out of the games on purpose). With real AI switched on for the site it can talk about almost anything and
+gives full answers; otherwise it answers from the built-in guide. Tap the speaker to hear it, the microphone to speak, ⋯ to clear the chat or hide it (Settings → Fuzzy helper brings it back).`,
+    asks: ['What can you help me with?', 'Can I talk to you out loud?'],
+  },
+  {
     id: 'privacy', title: 'Privacy & safety', screens: ['*'],
     keywords: ['privacy', 'private', 'data', 'safe', 'security', 'what do you know', 'see my', 'password', 'secret', 'scam'],
     body: `Passwords are stored hashed; the site never asks for a wallet recovery phrase or private key, never sends a transaction for log-in, and never
@@ -285,6 +325,22 @@ Fuzzies balance, town level, counts) as of your last sync — never passwords, e
 the server. Shared design links contain the design itself; anyone with the link can see it.`,
     asks: ['What can you see about my account?', 'Is this safe?'],
   },
+];
+
+/** Little how-to-use-it-better tips (the helper hands them out on request; each links to the place that helps). */
+export const TIPS: string[] = [
+  'Start from a template that is close, then change the words, colours and photos — it is much faster than a blank page. [Browse templates](#/templates)',
+  'Tap a photo frame in a template to drop in your own picture from your phone or computer. Double-tap any photo later to swap it.',
+  'Set your brand colours and fonts once in [Settings](#/settings) → Brand kit; they show first in every colour and font picker.',
+  'Use at most two fonts and one accent colour. It is the quickest way to make a design look professional.',
+  'Select several things, then Position → align or Space evenly. Neat spacing makes everything look designed.',
+  'Double-click a photo to crop it in place: drag to move the picture inside its frame, scroll or pinch to zoom.',
+  'The Download button can save every page as PDF, or one page as a transparent PNG. Share makes a link anyone can open.',
+  'Your Fuzzies add up: come back every day for the bonus and finish the three daily missions. [See Rewards](#/rewards)',
+  'Press Ctrl/Cmd+K anywhere to jump to a template, a design or a screen.',
+  'Alt-drag copies a layer, Ctrl/Cmd+D duplicates it, Ctrl/Cmd+G groups things so they move together.',
+  'Several-page templates (slide decks, carousels, planners) open as a whole set — edit page by page at the bottom.',
+  'Take a break in Fuzzies Land: your town keeps growing while you are away, and it pays coins when you come back. [Visit the town](#/land)',
 ];
 
 /** Topics for a screen (always including the everywhere ones), most specific first. */
@@ -296,25 +352,25 @@ export function helpFor(screen: string): HelpTopic[] {
   return [...mine, ...rest, ...all];
 }
 
-const STOP = new Set(['how', 'do', 'does', 'i', 'a', 'an', 'the', 'my', 'me', 'can', 'to', 'is', 'it', 'in', 'on', 'of', 'what', 'where', 'why', 'this', 'that', 'you', 'for', 'with', 'and', 'or', 'are', 'be', 'get', 'want', 'please', 'am', 'was', 'not']);
+const STOP = new Set(['how', 'do', 'does', 'i', 'a', 'an', 'the', 'my', 'me', 'can', 'to', 'is', 'it', 'in', 'on', 'of', 'what', 'where', 'why', 'this', 'that', 'you', 'for', 'with', 'and', 'or', 'are', 'be', 'get', 'want', 'please', 'am', 'was', 'not', 'about', 'tell', 'give', 'show', 'some', 'need', 'just', 'any', 'would', 'could', 'like', 'your', 'have', 'there']);
 
 /**
  * Simple search over the guide for the built-in Quick help (no AI): word matches in title, example questions, keywords and body;
  * topics for the screen the person is on get a small head start.
  */
-export function searchHelp(query: string, limit = 4, screen = ''): HelpTopic[] {
+export function searchHelp(query: string, limit = 4, screen = '', min = 2): HelpTopic[] {
   const words = query.toLowerCase().split(/[^\p{L}\p{N}.$']+/u).filter((w) => w.length > 1 && !STOP.has(w));
   if (!words.length) return [];
   const scored = HELP.map((t) => {
-    let score = t.screens.includes(screen) ? 2 : 0;
+    let score = 0;
     const title = t.title.toLowerCase(), body = t.body.toLowerCase(), asks = (t.asks ?? []).join(' ').toLowerCase();
     for (const w of words) {
       if (title.includes(w)) score += 5;
       if (asks.includes(w)) score += 3;
-      if (t.keywords.some((k) => k === w)) score += 4; else if (t.keywords.some((k) => k.includes(w) || w.includes(k))) score += 2;
+      if (t.keywords.some((k) => k === w)) score += 4; else if (t.keywords.some((k) => k.length > 3 && w.length > 3 && (k.includes(w) || w.includes(k)))) score += 2;
       if (body.includes(w)) score += 1;
     }
-    return { t, score };
-  }).filter((x) => x.score > 2).sort((a, b) => b.score - a.score);
+    return { t, score, rank: score + (t.screens.includes(screen) ? 2 : 0) };
+  }).filter((x) => x.score > min).sort((a, b) => b.rank - a.rank);
   return scored.slice(0, limit).map((x) => x.t);
 }

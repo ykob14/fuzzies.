@@ -5,7 +5,7 @@
  */
 import { api, ApiError, cloudEnabled } from './api';
 import { accounts } from './account';
-import { HELP, helpFor, searchHelp, type HelpTopic } from '../content/help';
+import { HELP, TIPS, helpFor, searchHelp, type HelpTopic } from '../content/help';
 
 export type Role = 'user' | 'assistant';
 /** `kind`: 'ai' = Claude's answer, 'guide' = the built-in guide (no AI), 'note' = a message from the app itself. */
@@ -73,12 +73,12 @@ export const assistant = {
 
   /** Send a question. Resolves with the assistant's message once it is in the history; rejects with a readable Error. */
   async ask(text: string): Promise<Msg> {
-    const t = text.trim().slice(0, 1200);
+    const t = text.trim().slice(0, 1500);
     if (!t) throw new Error('Say something first.');
     push({ role: 'user', text: t, kind: 'note', at: Date.now() });
     if (await this.aiAvailable()) {
       try {
-        const history = chat.filter((m) => m.kind !== 'note' || m.role === 'user').slice(-12).map((m) => ({ role: m.role, text: m.text }));
+        const history = chat.filter((m) => m.kind !== 'note' || m.role === 'user').slice(-16).map((m) => ({ role: m.role, text: m.text }));
         const r = await api<{ reply: string }>('assist', 'chat', { messages: history, context: context() });
         return push({ role: 'assistant', text: r.reply, kind: 'ai', at: Date.now() });
       } catch (e) {
@@ -104,10 +104,30 @@ function push(m: Msg): Msg {
   return m;
 }
 
+let tipAt = Math.floor(Math.random() * TIPS.length);
+const nextTip = () => TIPS[tipAt++ % TIPS.length];
+
+/** Friendly built-in replies for hellos, thanks, who-are-you, jokes and "give me a tip" (no AI needed). */
+function smallTalk(q: string): string | null {
+  const t = q.toLowerCase().replace(/[^\p{L}\p{N}' ]+/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  const has = (re: RegExp) => re.test(t);
+  if (has(/^(hi|hello|hey|hiya|yo|hello fuzzy|hi fuzzy|good (morning|afternoon|evening)|sup|what's up|whats up)\b/) && t.split(' ').length <= 4) return 'Hi hi! hehe. I’m Fuzzy. Ask me how to do anything here, say “tip” and I’ll share a trick, or tell me what you want to make and I’ll point you to the best place to start.';
+  if (has(/^(thanks|thank you|thx|ty|cheers)\b/)) return 'You’re so welcome! hehe. I’m right here if you need anything else.';
+  if (has(/\b(who|what) are you\b|\byour name\b|\bwhat can you do\b|\bhow can you help\b/)) return 'I’m Fuzzy, the fluffy helper of this site! I can show you where everything is, walk you through any tool step by step, and give design tips. Try “how do I add my own photo?”, “tips for a poster” or just say “tip”. With the real AI switched on for the site I can also chat about almost anything.';
+  if (has(/\bjoke\b|make me laugh/)) return 'Why did the designer bring a ladder? To reach the **high-res** images! hehe';
+  if (has(/^(tip|tips|trick|tricks|advice)\b|\b(give|tell|show) me (a |some )?(tip|tips|trick|tricks)\b|how (can|do) i (use|get the most (out )?of) (this|the site|fuzzies)( better)?|use (this|it|the site) better/)) return `Here’s a tip: ${nextTip()}\n\nSay “tip” again for another one.`;
+  if (has(/\b(i('m| am) (bored|sad|tired)|bored)\b/)) return 'Aww! A little play might help: a quick round of [Fuzzy Crossing](#/play) or a stroll around your town in [Fuzzies Land](#/land). Or make something silly in the editor. hehe';
+  if (has(/\b(love|like) you\b|you('re| are) (cute|great|awesome|the best|amazing)/)) return 'Aww, you’re making my fur fluffier! hehe. Thank you!';
+  return null;
+}
+
 /** The built-in guide's best matches, written as a short answer (used when there is no AI). */
 function guideAnswer(q: string): string {
-  const hits = searchHelp(q, 2, screen);
-  if (!hits.length) return 'I couldn’t find that in my guide. Try other words, or have a look around [Settings](#/settings) and [Profile](#/profile).';
+  const talk = smallTalk(q);
+  if (talk) return talk;
+  const hits = searchHelp(q, 2, screen, 5);
+  if (!hits.length) return `Hmm, that one isn’t in my built-in guide, and my full AI brain isn’t switched on here yet (the site owner can turn it on). I can still help with how to use the site, so try other words, say “tip”, or ask things like “how do I make a poster?” or “how do I earn Fuzzies?”. You can also look around [Templates](#/templates), [Settings](#/settings) and [Profile](#/profile).`;
   // one topic, its few sentences that match the question best (in their own order) — not whole topics run together
   const [best, next] = hits;
   const words = q.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2);

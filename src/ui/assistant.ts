@@ -1,39 +1,31 @@
 /**
- * The Fuzzy assistant: a small blue Fuzzy that lives in a corner of every screen and opens a chat window.
- * Pictures of the real 3D model (sky-blue fur) give it eyes that blink, a wink, a giggle, talking mouths and a thinking face;
+ * The Fuzzy assistant: a small sky-blue Fuzzy (the owner's own picture) that lives in a corner of every screen and opens a chat window.
+ * Photo frames give it eyes that blink, a wink and talking mouths; a thinking and a listening pose come from CSS;
  * CSS does the bouncing, waving and listening pulse. Answers come from `core/assistant.ts` (Claude on the server with the site
  * guide, or the built-in guide when AI is off — each answer says which). Optional voice: the browser's speech synthesis, pitched up
  * and friendly, with a synthesised giggle for the "hehe"s; the microphone button uses the browser's speech recognition when it has one.
  * Mounted once at app level (ui/app.ts) and placed per screen with CSS so it never covers buttons.
  */
-import { h, icon, fuzzySvg, popMenu, toast } from './dom';
+import { h, icon, popMenu, toast } from './dom';
 import { assistant, type Msg } from '../core/assistant';
 import { accounts } from '../core/account';
 import { sfx } from '../game/sound';
-import type { AssistFace, AssistFrames } from '../game/mascot3d';
+export type AssistFace = 'open' | 'wink' | 'blink' | 'giggle' | 'talkA' | 'talkB' | 'think' | 'listen';
+export type AssistFrames = Record<AssistFace, string>;
 
 /** Screens where the helper never shows (the owner's choice: website only, not the play areas). */
 const PLAY_SCREENS = new Set(['play', 'land']);
 
-const BLUE: [string, string] = ['#9ad8ff', '#3b86d6'];
-const flat = (face: 'open' | 'wink' | 'blink' | 'giggle') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fuzzySvg(BLUE, face, 'fa' + face));
-let frames: AssistFrames = {
-  open: flat('open'), wink: flat('wink'), blink: flat('blink'), giggle: flat('giggle'),
-  talkA: flat('giggle'), talkB: flat('open'), think: flat('open'), listen: flat('open'),
+// The helper is the owner's own Fuzzy picture in sky blue (public/art/helper): open, wink, blink and two talking mouths.
+const PIC = (n: string) => `/art/helper/${n}.webp`;
+const frames: AssistFrames = {
+  open: PIC('open'), wink: PIC('wink'), blink: PIC('blink'), giggle: PIC('wink'),
+  talkA: PIC('talkA'), talkB: PIC('talkB'), think: PIC('open'), listen: PIC('open'),
 };
-let real = false;
+const real = true; // the picture never swaps for a rendered model
 const faces = new Set<{ img: HTMLImageElement; face: AssistFace }>();
-
 function loadFrames(): void {
-  if (real) return;
-  try { const c = document.createElement('canvas'); if (!(c.getContext('webgl2') || c.getContext('webgl'))) return; } catch { return; }
-  const go = () => import('../game/mascot3d').then((m) => m.renderAssistantFrames()).then((f) => {
-    Object.values(f).forEach((src) => { const i = new Image(); i.src = src; });
-    frames = f; real = true;
-    for (const x of faces) { x.img.src = frames[x.face]; x.img.closest('.fza')?.classList.add('real'); }
-  }).catch(() => { /* keep the drawing */ });
-  const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
-  if (idle) idle(() => void go(), { timeout: 4000 }); else setTimeout(() => void go(), 1200);
+  Object.values(frames).forEach((src) => { const i = new Image(); i.src = src; }); // so face swaps never flicker
 }
 
 /** A blue Fuzzy face that can be told what to do: idle blinking, talking, thinking, listening, a wave or a cheer. */
@@ -181,10 +173,10 @@ export function mountAssistant(): void {
   const head = h('div', { class: 'fzc-head' }, mini.el, h('div', { class: 'fzc-who' }, h('b', null, 'Fuzzy'), status), h('div', { class: 'fzc-hb' }, voiceBtn, moreBtn, minBtn));
   const log = h('div', { class: 'fzc-log', role: 'log', 'aria-live': 'polite' });
   const chips = h('div', { class: 'fzc-chips' });
-  const input = h('textarea', { class: 'fzc-input', rows: '1', placeholder: 'Ask about Fuzzies…', 'aria-label': 'Your question', maxlength: '1200' });
+  const input = h('textarea', { class: 'fzc-input', rows: '1', placeholder: 'Ask me anything…', 'aria-label': 'Your question', maxlength: '1500' });
   const micBtn = h('button', { class: 'fzc-ib fzc-mic', type: 'button', title: 'Speak your question', 'aria-label': 'Speak your question' }, icon('mic', 18));
   const sendBtn = h('button', { class: 'fzc-send', type: 'button', title: 'Send', 'aria-label': 'Send' }, icon('send', 18));
-  const foot = h('div', { class: 'fzc-foot' }, h('small', null, 'Fuzzy knows the Fuzzies guide and can slip up — check anything important.'));
+  const foot = h('div', { class: 'fzc-foot' }, h('small', null, 'Fuzzy is a helper and can slip up — double-check anything important.'));
   const panel = h('section', { class: 'fzc-panel', role: 'dialog', 'aria-label': 'Fuzzy, the Fuzzies helper', hidden: 'true' },
     head, log, chips, h('div', { class: 'fzc-row' }, input, micBtn, sendBtn), foot);
   const root = h('div', { class: 'fz-assist' }, panel, label, launcher);
