@@ -1,6 +1,6 @@
 /* Fuzzy Crossing "game skin": the shared look of every Crossing screen — chunky raised cards, a lip under buttons, picture tiles.
    One brand colour (raspberry) on neutrals; gold is only for coins. */
-.fzx-lobby, .fzx-ms, .fzx-layer {
+:root {
   --lip: color-mix(in srgb, var(--accent) 68%, #000);
   --card-lip: color-mix(in srgb, var(--text) 13%, var(--surface));
   --gold: #f5b014;
