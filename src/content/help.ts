@@ -20,7 +20,7 @@ and a town-builder, Fuzzies Land. Fuzzies (the tokens) are earned by designing, 
 premium templates, graphics, stickers, app themes and game looks (every font and text style is free). The mascot (a fluffy Fuzzy) lives in the logo.
 Screens: Home (#/home), Templates (#/templates), My designs (#/projects), the editor (#/edit/<id>), Play = Fuzzy Crossing (#/play),
 Fuzzies Land (#/land), Rewards (#/rewards), Profile (#/profile), Settings (#/settings). On phones the tab bar at the bottom has
-Home, Templates, Create (+), Designs and Play (Fuzzies Land is on the Home screen and linked from Play; your profile is the picture at the top right, and the blue Fuzzy button next to it opens this helper). On computers the menu is on the left (it folds into icons with the arrow button).
+Home, Templates, Create (+), Designs and Land (Fuzzies Land; Fuzzy Crossing and the other games are on the Home screen and in the Crossing Gate in your town; your profile is the picture at the top right, and the blue Fuzzy button next to it opens this helper). On computers the menu is on the left (it folds into icons with the arrow button).
 Quick find: Ctrl/Cmd+K or the search box at the top jumps to any screen, template or design.`;
 
 export const HELP: HelpTopic[] = [
