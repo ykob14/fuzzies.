@@ -66,6 +66,27 @@ export const COSMETICS: CosmeticDef[] = [
   c('extra', 'extra-backpack', 'Tiny backpack', 'rare', '🎒', 'For adventures.', pass(26)),
   c('extra', 'extra-cape', 'Hero cape', 'epic', '🦸', 'Flaps in the wind.', shop(1000, 'weekly')),
   c('extra', 'extra-wings', 'Angel wings', 'epic', '🪽', 'Little feathered wings.', pass(47)),
+  // ── Fuzzy Shop: the daily selection (cheap pieces, 4 days to see them all) ──
+  c('trail', 'trail-music', 'Music notes', 'common', '🎵', 'Hops come with a little tune.', shop(150, 'daily')),
+  c('trail', 'trail-clover', 'Lucky clover trail', 'common', '🍀', 'Leaves a little luck behind.', shop(180, 'daily')),
+  c('trail', 'trail-butterfly', 'Butterfly trail', 'rare', '🦋', 'Butterflies flutter after you.', shop(320, 'daily')),
+  c('jump', 'jump-confetti', 'Confetti pop', 'common', '🎊', 'A tiny party on every landing.', shop(150, 'daily')),
+  c('jump', 'jump-bloom', 'Tulip bloom', 'common', '🌷', 'Flowers pop up where you land.', shop(180, 'daily')),
+  c('jump', 'jump-comet', 'Comet crash', 'rare', '☄️', 'Lands like a shooting star.', shop(350, 'daily')),
+  c('celebration', 'cele-wave', 'Big wave', 'common', '👋', 'Waves to everyone watching.', shop(150, 'daily')),
+  c('celebration', 'cele-cheer', 'Cheer squad', 'common', '📣', 'Cheers for the winner: you!', shop(200, 'daily')),
+  c('celebration', 'cele-rocket', 'Rocket launch', 'rare', '🚀', 'Blast off from the nest.', shop(400, 'daily')),
+  c('extra', 'extra-party', 'Party hat', 'common', '🥳', 'Every crossing is a party.', shop(150, 'daily')),
+  c('extra', 'extra-headphones', 'Headphones', 'common', '🎧', 'Hops to the beat.', shop(200, 'daily')),
+  c('extra', 'extra-crown', 'Little crown', 'rare', '👑', 'Fit for a fuzzy royal.', shop(350, 'daily')),
+  // ── Fuzzy Shop: seasonal pieces (bought only while the event is on, owned for good) ──
+  c('trail', 'trail-bats', 'Bat trail', 'rare', '🦇', 'A flutter of friendly bats.', season('halloween', 350)),
+  c('extra', 'extra-witchhat', 'Witch hat', 'rare', '🎃', 'Spooky, but still very cute.', season('halloween', 300)),
+  c('trail', 'trail-autumn', 'Autumn leaves', 'rare', '🍂', 'Golden leaves swirl behind you.', season('thanksgiving', 350)),
+  c('extra', 'extra-santahat', 'Holiday hat', 'rare', '🎅', 'Cosy, red and jolly.', season('christmas', 300)),
+  c('jump', 'jump-gifts', 'Gift bounce', 'rare', '🎁', 'Presents pop out when you land.', season('christmas', 400)),
+  c('celebration', 'cele-candles', 'Candle glow', 'rare', '🕯️', 'Warm lights for every nest.', season('hanukkah', 450)),
+  c('celebration', 'cele-lantern', 'Lantern parade', 'rare', '🏮', 'Red lanterns rise into the sky.', season('lunar', 450)),
 ];
 
 export const COSMETIC_BY_ID: Record<string, CosmeticDef> = Object.fromEntries(COSMETICS.map((x) => [x.id, x]));
