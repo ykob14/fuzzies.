@@ -5,7 +5,7 @@
  * rewards, status, the next unlock time, records) and the results screens after a mini-game.
  * Rules live in land/adventures.ts; the mini-games have their own files (land/raceView.ts…).
  */
-import { h, btn, fuzzySvg } from './dom';
+import { h, btn } from './dom';
 import { landIcon } from './landIcons';
 import * as A from '../land/adventures';
 import type { LandState } from '../land/rules';
@@ -128,62 +128,15 @@ export function adventuresBody(s: LandState, now: number, hostNameOf: (id: strin
   return h('div', { class: 'land-adv' }, next, ...cards, records, pool);
 }
 
-const rewardLine = (payout: A.Payout | null, pending: boolean): HTMLElement | null => payout?.practice
-  ? h('p', { class: 'adv-reward practice' }, 'Practice run — this mission’s reward was already collected.')
-  : pending ? h('p', { class: 'adv-reward practice' }, 'You’re offline — your reward will be added when you’re back online.')
-    : payout ? h('p', { class: 'adv-reward' }, landIcon('coin', 22), h('b', null, `+${payout.coins} coins`), h('span', null, `+${payout.xp} XP`), ...(payout.levelUps.length ? [h('span', { class: 'adv-lvl' }, `Level ${payout.levelUps[payout.levelUps.length - 1]}!`)] : [])) : null;
-
 /** a trophy earned or upgraded by this run (see land/trophies.ts) */
 export interface TrophyNote { name: string; metal: string; isNew: boolean; upgraded: boolean; img?: string }
-const trophyLine = (t: TrophyNote | null | undefined): HTMLElement | null => !t || (!t.isNew && !t.upgraded) ? null
-  : h('div', { class: `adv-trophy m-${t.metal.toLowerCase()}` },
-    t.img ? h('img', { src: t.img, alt: '' }) : h('span', { class: 'adv-trophy-cup' }, '🏆'),
-    h('span', null, h('small', null, t.isNew ? 'New trophy!' : 'Trophy upgraded!'), h('b', null, `${t.name} · ${t.metal}`), h('i', null, t.isNew ? 'Place it in your town: Build → Decor' : 'It shines in your town already')));
+
+import { renderRaceResults, renderScoreResults } from './mgResults'; // the look of both results screens lives there (mgResults.ts + land/mgSkin.css)
 
 export interface ResultOpts { adv: A.Adventure; place: number; timeMs: number; order: { name: string; portrait: string; place: number; you: boolean }[]; payout: A.Payout | null; pending: boolean; onAgain?: () => void; onBack: () => void; next?: string; trophy?: TrophyNote | null }
 /** The results screen after a race: the podium, the real finishing order and what you earned. */
-export function resultsScreen(o: ResultOpts): HTMLElement {
-  const fmt = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}.${String(Math.floor((ms % 1000) / 100))}`;
-  const flat = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fuzzySvg(['#ff8fbf', '#c8326e'], 'giggle', 'advyou'));
-  const podium = h('div', { class: 'adv-podium' }, ...[2, 1, 3].map((p) => {
-    const who = o.order.find((x) => x.place === p);
-    return h('div', { class: `adv-step p${p} ${who?.you ? 'you' : ''}` }, who ? h('img', { src: who.portrait || flat, alt: '' }) : h('span', { class: 'adv-empty' }), h('b', null, who ? who.name : '—'), h('div', { class: 'adv-block' }, A.medal(p)));
-  }));
-  const won = o.place === 1;
-  const title = won ? 'You won the race!' : o.place === 2 ? 'Second place — so close!' : o.place === 3 ? 'Third place!' : 'Race finished';
-  return h('div', { class: `adv-results ${won ? 'won' : ''}` },
-    h('div', { class: 'adv-results-card' },
-      h('span', { class: 'adv-kicker' }, `${o.adv.emoji} ${o.adv.name}`),
-      h('h2', null, title),
-      podium,
-      h('ol', { class: 'adv-order' }, ...o.order.sort((a, b) => a.place - b.place).map((x) => h('li', { class: x.you ? 'you' : '' }, h('span', null, A.medal(x.place)), h('b', null, x.you ? `${x.name} (you)` : x.name), h('small', null, A.placeWord(x.place))))),
-      h('p', { class: 'adv-time' }, `Your time ${fmt(o.timeMs)}`),
-      rewardLine(o.payout, o.pending),
-      trophyLine(o.trophy),
-      h('p', { class: 'adv-next' }, o.payout && !o.payout.practice ? `✓ ${o.adv.short} completed. ${o.next ?? ''}` : null),
-      h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), ...(o.onAgain ? [btn('Race again', { kind: 'soft', onClick: o.onAgain })] : []))));
-}
+export function resultsScreen(o: ResultOpts): HTMLElement { return renderRaceResults(o); }
 
 export interface ScoreResultOpts { adv: A.Adventure; place: number; /** a game's own headline (Victory! / Defeat) */ title?: string; score: number; tier: string; stats: { label: string; value: string }[]; hostPortrait?: string; /** a contest against others: the final standings */ standings?: { name: string; score: number; you: boolean; place: number }[]; payout: A.Payout | null; pending: boolean; onAgain?: () => void; onBack: () => void; next?: string; best?: number | null; trophy?: TrophyNote | null }
 /** The results screen for a score-based challenge: the score, the tier (or the contest standings), a few numbers and what you earned. */
-export function scoreResults(o: ScoreResultOpts): HTMLElement {
-  const won = o.place === 1;
-  const contest = !!o.standings?.length;
-  const title = o.title ? o.title : contest
-    ? won ? 'You won the contest!' : o.place === 2 ? 'Second place — so close!' : o.place === 3 ? 'Third place!' : 'Fourth place — next time!'
-    : won ? 'Gold!' : o.place === 2 ? 'Silver!' : o.place === 3 ? 'Bronze!' : 'Time’s up!';
-  const newBest = o.best !== undefined && o.best !== null && o.score >= o.best && o.score > 0;
-  return h('div', { class: `adv-results ${won ? 'won' : ''}` },
-    h('div', { class: 'adv-results-card' },
-      h('span', { class: 'adv-kicker' }, `${o.adv.emoji} ${o.adv.name}`),
-      h('h2', null, title),
-      o.hostPortrait && !contest ? h('div', { class: 'adv-forest-host' }, h('img', { src: o.hostPortrait, alt: '' })) : null,
-      h('div', { class: 'adv-score' }, String(o.score)),
-      h('span', { class: 'adv-tier' }, `${A.medal(o.place)} ${contest ? `${A.placeWord(o.place)} place` : o.tier}${newBest ? ' · new personal best!' : ''}`),
-      contest ? h('ol', { class: 'adv-order adv-standings' }, ...o.standings!.map((x) => h('li', { class: x.you ? 'you' : '' }, h('span', null, A.medal(x.place)), h('b', null, x.you ? `${x.name} (you)` : x.name), h('small', null, `${x.score} pts`)))) : null,
-      h('div', { class: 'land-adv-grid adv-stats' }, ...o.stats.map((x) => h('span', null, h('small', null, x.label), h('b', null, x.value)))),
-      rewardLine(o.payout, o.pending),
-      trophyLine(o.trophy),
-      h('p', { class: 'adv-next' }, o.payout && !o.payout.practice ? `✓ ${o.adv.short} completed. ${o.next ?? ''}` : null),
-      h('div', { class: 'btn-row' }, btn('Back to town', { kind: 'primary', class: 'adv-back', onClick: o.onBack }), ...(o.onAgain ? [btn('Play again', { kind: 'soft', onClick: o.onAgain })] : []))));
-}
+export function scoreResults(o: ScoreResultOpts): HTMLElement { return renderScoreResults(o); }
