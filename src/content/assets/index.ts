@@ -42,6 +42,7 @@ export const COLLECTIONS: Collection[] = [
   { id: 'events', name: 'Parties & community events', blurb: 'Thanksgiving, birthday cakes, trophies, medals, running shoes, bingo, microphones, bunting and food trucks', prefix: 'ev-', cover: 'ev-birthday-cake', load: () => import('./collections/events') },
   { id: 'everyday', name: 'Everyday', blurb: 'Coffee, croissants, pizza, sushi, flowers, guitars, armchairs, cameras, party poppers and more', prefix: 'ed-', cover: 'ed-latte', load: () => import('./collections/everyday') },
   { id: 'icons', name: 'Topic icons', blurb: 'Sports, hobbies, events, business and school icons in your colours', prefix: 'ic-', cover: 'ic-awards', load: () => import('./collections/icons') },
+  { id: 'bizart', name: 'Business & media', blurb: 'Logo marks, olive and eucalyptus sprigs, a water-cycle diagram, a phone mock-up, shop front and more', prefix: 'bz-', cover: 'bz-olive-branch', load: () => import('./collections/bizart') },
 ];
 
 const loaded = new Map<string, AssetDef>();
