@@ -78,6 +78,12 @@ const G: Record<string, string> = {
   train: `<rect x="7" y="5" width="18" height="18" rx="5" fill="currentColor"/><rect x="10" y="9" width="12" height="6.4" rx="2" fill="${CUT}"/><circle cx="12.5" cy="19" r="1.5" fill="${CUT}"/><circle cx="19.5" cy="19" r="1.5" fill="${CUT}"/><path d="M10 28l3-4.5M22 28l-3-4.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>`,
   /** crown (mythic etc.) */
   crown: `<path d="M4.5 22.5 3.4 9.6l7.2 5.6L16 6l5.4 9.2 7.2-5.6-1.1 12.9z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="5.5" y="24" width="21" height="3.4" rx="1.7" fill="currentColor"/>`,
+  /** Pass / Shop additions: one picture per cosmetic slot, a clock */
+  trail: `<path d="M13 5l2.6 7.4L23 15l-7.4 2.6L13 25l-2.6-7.4L3 15l7.4-2.6z" fill="currentColor"/><path d="M24.5 3.5l1.2 3.3 3.3 1.2-3.3 1.2-1.2 3.3-1.2-3.3L20 8l3.3-1.2z" fill="currentColor"/><circle cx="24" cy="23.5" r="2.6" fill="currentColor"/>`,
+  jump: `<path d="M16 3.5l10 11h-6v7.5h-8v-7.5H6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="6.5" y="25" width="19" height="3.8" rx="1.9" fill="currentColor"/>`,
+  celebrate: `<path d="M4.5 28l5.6-16 10.4 10.4z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15.5 7V3.6M21.8 12.4l3.2-1.6M23.2 19.4l3.6.6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="25.5" cy="5.5" r="2" fill="currentColor"/><circle cx="11" cy="5" r="1.8" fill="currentColor"/>`,
+  outfit: `<path d="M16 16L3.5 8v16z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M16 16l12.5-8v16z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="12.2" y="11" width="7.6" height="10" rx="2.8" fill="currentColor" stroke="${CUT}" stroke-width="1.6"/>`,
+  clock: `<circle cx="16" cy="16" r="12.5" fill="currentColor"/><path d="M16 9v7.5l5 3" stroke="${CUT}" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
 };
 
 export type GIcon = keyof typeof G;

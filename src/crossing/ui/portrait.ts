@@ -6,7 +6,9 @@ import { h } from '../../ui/dom';
 import { fuzzyMark } from '../../ui/dom';
 import { friendUrl } from '../../content/friends';
 import { RARITY_COLOR, type CharacterDef } from '../characters';
-import type { CosmeticDef } from '../cosmetics';
+import type { CosmeticDef, CosmeticSlot } from '../cosmetics';
+import { gicon, type GIcon } from './gicons';
+import './gameui.css';
 import './portrait.css';
 
 export function characterPortrait(def: CharacterDef, size: number): HTMLElement {
@@ -14,7 +16,10 @@ export function characterPortrait(def: CharacterDef, size: number): HTMLElement 
     ? h('img', { class: 'fzx-portrait', src: friendUrl(def.friend), alt: '', width: size, height: size, style: `width:${size}px;height:${size}px`, draggable: 'false', loading: 'lazy' })
     : h('span', { class: 'fzx-portrait', style: `width:${size}px;height:${size}px` }, fuzzyMark(size, def.color));
 }
-/** a rounded tile with the style's emoji, ringed in its rarity colour */
+const SLOT_ICON: Record<CosmeticSlot, GIcon> = { trail: 'trail', jump: 'jump', celebration: 'celebrate', extra: 'outfit' };
+/** a picture tile for a style (one picture per kind of style), rimmed in its rarity colour — no emoji */
 export function cosmeticBadge(def: CosmeticDef, size: number): HTMLElement {
-  return h('span', { class: 'fzx-cosbadge', style: `--rar:${RARITY_COLOR[def.rarity]};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.52)}px`, 'aria-hidden': 'true' }, def.icon);
+  const t = h('span', { class: 'fzx-ic soft fzx-cosbadge', style: `--rar:${RARITY_COLOR[def.rarity]};--sz:${size}px`, 'aria-hidden': 'true' });
+  t.append(gicon(SLOT_ICON[def.slot], Math.round(size * 0.58)));
+  return t;
 }
