@@ -643,6 +643,14 @@ export function fellTree(s: LandState, k: number): void {
   list.push(k);
 }
 
+/** Every tree on the next piece of land is cleared: the town grows to the next size, free. */
+export function growLand(s: LandState): boolean {
+  const i = SIZES.indexOf(s.size);
+  if (i < 0 || i >= SIZES.length - 1) return false;
+  s.size = SIZES[i + 1];
+  return true;
+}
+
 export function ensureParking(s: LandState, now = Date.now()): 'placed' | 'stored' | null {
   if (count(s, 'parking') > 0) return null;
   const hall = s.buildings.find((b) => b.item === 'hall');

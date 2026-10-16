@@ -293,12 +293,12 @@ export function treeModel(seed: number, time: { value: number }, scale = 0.55): 
   return g;
 }
 
-/** The forest around the town: instanced trees in the ring between the land you can build on and the coast. */
-export function buildForest(size: number, time: { value: number }, felled: ReadonlySet<number> = new Set()): THREE.Group {
-  const g = new THREE.Group();
+export interface ForestSpot { x: number; z: number; s: number; rot: number; pine: boolean; k: number }
+/** Where the forest's trees stand for a town of `size` (the same every time; `k` is each tree's lasting id). */
+export function forestSpots(size: number): ForestSpot[] {
   const o = (MAP - size) / 2;
   const r = rng(19);
-  const spots: { x: number; z: number; s: number; rot: number; pine: boolean; k: number }[] = [];
+  const spots: ForestSpot[] = [];
   for (let k = 0; k < 900 && spots.length < 190; k++) {
     const x = CENTER + (r() - 0.5) * 44, z = CENTER + (r() - 0.5) * 44;
     if (!onIsland(x, z, 1.4)) continue;
@@ -306,11 +306,23 @@ export function buildForest(size: number, time: { value: number }, felled: Reado
     if (spots.some((p) => Math.hypot(p.x - x, p.z - z) < 1.0)) continue;
     spots.push({ x, z, s: 0.5 + r() * 0.35, rot: r() * 6.28, pine: r() < 0.3, k });
   }
+  return spots;
+}
+/** The trees standing on the next piece of land (clearing them all grows the town); none when the land is as big as it gets. */
+export function ringTrees(size: number, nextSize: number | undefined, felled: ReadonlySet<number>): ForestSpot[] {
+  if (!nextSize) return [];
+  const o = (MAP - nextSize) / 2;
+  return forestSpots(size).filter((p) => !felled.has(p.k) && p.x > o - 0.6 && p.x < o + nextSize + 0.6 && p.z > o - 0.6 && p.z < o + nextSize + 0.6);
+}
+
+/** The forest around the town: instanced trees in the ring between the land you can build on and the coast. */
+export function buildForest(size: number, time: { value: number }, felled: ReadonlySet<number> = new Set()): THREE.Group {
+  const g = new THREE.Group();
   // cleared trees leave their spot empty (the spot number k is the tree's lasting id)
-  for (let i = spots.length - 1; i >= 0; i--) if (felled.has(spots[i].k)) spots.splice(i, 1);
+  const spots = forestSpots(size).filter((p) => !felled.has(p.k));
   const kinds = [broadleafParts(3), broadleafParts(8), pineParts(5)];
   const groups = kinds.map(() => [] as typeof spots);
-  spots.forEach((p, i) => groups[p.pine ? 2 : i % 2].push(p));
+  spots.forEach((p) => groups[p.pine ? 2 : p.k % 2].push(p)); // by id, so a tree keeps its look when its neighbours are cleared
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
   kinds.forEach((kind, ki) => {
     const list = groups[ki];

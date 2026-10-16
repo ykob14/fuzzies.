@@ -43,7 +43,8 @@ export default defineConfig(({ mode }) => {
   const cloud = !!(env.DATABASE_URL || env.POSTGRES_URL || env.VITE_CLOUD === '1') && env.VITE_CLOUD !== '0';
   return {
     base: './',
-    define: { __CLOUD__: JSON.stringify(cloud) },
+    // __BUILD__: when this version was built (shown in Settings → about, so it's easy to tell which version a phone is running)
+    define: { __CLOUD__: JSON.stringify(cloud), __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC') },
     plugins: [devApi(env)],
     build: { outDir: 'dist', target: 'es2022', chunkSizeWarningLimit: 1500 },
   };

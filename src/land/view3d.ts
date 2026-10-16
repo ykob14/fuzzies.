@@ -17,7 +17,7 @@ import * as M from '../game/models3d';
 import * as GT from '../game/textures3d';
 import * as LM from './models';
 import { glbFuzzy, glbReady } from '../game/fuzzyGlb';
-import { MAP, NAMES, bounds, cropProgress, finished, item, footprint, good, population, walkway, type LandState, type Placed } from './rules';
+import { MAP, NAMES, SIZES, bounds, cropProgress, finished, item, footprint, good, population, walkway, type LandState, type Placed } from './rules';
 import { trophyLook } from './trophies';
 
 const PITCH0 = THREE.MathUtils.degToRad(50);
@@ -212,6 +212,11 @@ export class LandView {
 
   /** Trees fill the land you haven't unlocked yet; expanding clears them. */
   private felledN = 0;
+  /** The ids of the trees still standing on the next piece of land (clear them all and the town grows). */
+  ringTrees(): number[] {
+    const next = SIZES[SIZES.indexOf(this.size) + 1];
+    return ENV.ringTrees(this.size, next, new Set(this.state?.felled ?? [])).map((p) => p.k);
+  }
   /** A tree was cleared: rebuild the forest without it, with a puff of leaves where it stood. */
   fellTree(x: number, z: number): void {
     if ((this.state?.felled?.length ?? 0) !== this.felledN) this.buildForest(this.size);

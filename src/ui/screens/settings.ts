@@ -151,7 +151,7 @@ export function settingsScreen(): Screen {
         installPrompt ? btn('Install now', { kind: 'primary', icon: 'download', onClick: async () => { await installPrompt?.prompt(); installPrompt = null; render(); } }) : null),
       h('section', { class: 'card' }, h('h3', null, 'Storage'), h('p', { class: 'muted' }, 'Designs and photos are saved in this browser.'), storage,
         h('div', { class: 'btn-row' }, btn('Ask to keep my data', { kind: 'ghost', size: 'sm', icon: 'lock', onClick: async () => { const ok = await navigator.storage?.persist?.(); toast(ok ? 'Your browser will keep Fuzzies data safe' : 'The browser decides automatically — designs are still saved', ok ? 'good' : 'info'); } }))),
-      h('section', { class: 'card about' }, mascot(44), h('div', null, h('b', null, 'Fuzzies 1.0'), h('small', null, 'Dream it fuzzy. Make it sharp.'),
+      h('section', { class: 'card about' }, mascot(44), h('div', null, h('b', null, 'Fuzzies 1.0'), h('small', null, 'Dream it fuzzy. Make it sharp.'), h('small', { class: 'about-build' }, `Version ${__BUILD__}`),
         walletConnectReady ? h('small', { class: 'about-legal' }, 'Wallet QR connections by WalletConnect. Portions © 2025 Reown, Inc. All Rights Reserved. ', h('a', { class: 'link', href: '/licenses/walletconnect.md', target: '_blank', rel: 'noopener' }, 'Licence')) : null)),
     );
   }

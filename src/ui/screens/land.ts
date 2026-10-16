@@ -314,7 +314,6 @@ export function landScreen(): Screen {
       replantN() ? tool('replant', 'wheat', 'Replant', replantNow, replantN()) : null,
       tool('build', 'build', 'Build', () => openPanel({ kind: 'shop', tab: 'house' })),
       tool('games', 'portal', 'Games', () => (panel?.kind === 'games' ? openPanel(null) : openPanel({ kind: 'games' })), A.setStatus(s, now()).ready ? 1 : 0),
-      E.activeEvents(now()).length ? tool('events', 'festival', E.activeEvents(now())[0].holiday.short, () => openPanel({ kind: 'events', tab: E.activeEvents(now())[0].key }), E.claimable(s, now())) : null,
       tool('orders', 'parcel', 'Orders', () => openPanel({ kind: 'orders' }), ready),
       tool('barn', 'barnBig', 'Barn', () => openPanel({ kind: 'barn' }), 0, h('i', { class: `land-meter ${fill > 0.85 ? 'full' : ''}`, title: `${L.barnUsed(s)} / ${L.barnCap(s.level)}` }, h('b', { style: `width:${fill * 100}%` })))].filter((x) => x !== null) as HTMLElement[]);
     dockTab.classList.toggle('alert', waiting > 0 || ready > 0);
@@ -421,7 +420,7 @@ export function landScreen(): Screen {
     if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Pick one, then choose its spot', landIcon('hammer', 34)), shopBody(panel.tab));
     else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Deliver goods for coins and XP', landIcon('crate', 34)), ordersBody());
     else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', '', landIcon('barn', 34)), barnBody());
-    else if (panel.kind === 'games') sheet.replaceChildren(head('Games', 'Play, win and earn for your town', landIcon('portal', 34)), gamesBody(s, now(), { crossing: () => { openPanel(null); goPlay(s.buildings.find((b) => b.item === 'gate')?.id); }, parking: () => { openPanel(null); openParking(); }, challenges: () => openPanel({ kind: 'adventures' }), collection: (panel) => { openPanel(null); travel(`#/play/${panel}`, 'Off to your Fuzzy Collection…'); } }));
+    else if (panel.kind === 'games') sheet.replaceChildren(head('Games', 'Play, win and earn for your town', landIcon('portal', 34)), gamesBody(s, now(), { crossing: () => { openPanel(null); goPlay(s.buildings.find((b) => b.item === 'gate')?.id); }, parking: () => { openPanel(null); openParking(); }, challenges: () => openPanel({ kind: 'adventures' }), event: E.activeEvents(now())[0] ? { name: E.activeEvents(now())[0].holiday.name, open: () => openPanel({ kind: 'events', tab: E.activeEvents(now())[0].key }) } : null, collection: (panel) => { openPanel(null); travel(`#/play/${panel}`, 'Off to your Fuzzy Collection…'); } }));
     else if (panel.kind === 'adventures') {
       const st = A.setStatus(s, now());
       sheet.replaceChildren(head('Adventures', st.ready ? 'New missions are ready!' : st.allDone ? `All ${st.total} done · next in ${A.countdown(st.unlockIn)}` : `${st.doneCount} of ${st.total} done`, landIcon('compass', 34)), adventuresBody(s, now(), (id) => hostNameOf(id), (adv) => { openPanel(null); startAdventure(adv); }, (adv) => { openPanel(null); findHost(adv); }, (id) => view?.residentInfo(hostIndexOf(id))?.skin[0] ?? null));
@@ -1537,16 +1536,23 @@ export function landScreen(): Screen {
     if (p.kind === 'tree') { void clearTree(p.k, p.x, p.z); return; }
     tapBuilding(p.id);
   }
-  /** Tap a forest tree: clear it for a few coins (a puff of leaves, and it's gone for good). */
+  /** Tap a forest tree: clear it for a few coins. Clearing every tree on the next piece of land grows the town. */
   async function clearTree(k: number, x: number, z: number): Promise<void> {
     openPanel(null);
+    const ring = view?.ringTrees() ?? [];
+    const inRing = ring.includes(k);
     if (s.coins < L.TREE_COST) { toast(`Clearing a tree costs ${L.TREE_COST} coins — fill an order or harvest to earn some.`, 'info'); return; }
-    if (!(await confirmDialog('Clear this tree?', `It costs ${L.TREE_COST} coins. You have ${s.coins.toLocaleString()}.`, 'Clear it', false))) return;
+    const why = inRing
+      ? (ring.length === 1 ? `It costs ${L.TREE_COST} coins. It’s the last tree in the way — your land grows when it’s gone!` : `It costs ${L.TREE_COST} coins. ${ring.length} trees stand on the next piece of land — clear them all and your town grows.`)
+      : `It costs ${L.TREE_COST} coins. (Trees right next to your town make room to grow — clear those first.)`;
+    if (!(await confirmDialog('Clear this tree?', why, 'Clear it', false))) return;
     try { L.fellTree(s, k); } catch (e) { toast((e as Error).message, 'info'); return; }
     try { sfx.build(); } catch { /* sound is optional */ }
-    save(); renderHud();
+    const grew = inRing && ring.length === 1 && L.growLand(s);
+    save();
     view?.fellTree(x, z);
-    toast(`Tree cleared · −${L.TREE_COST} coins`, 'good', 2200);
+    if (grew) toast('Your land grew! More room to build 🎉', 'good', 4000);
+    else toast(inRing ? `Tree cleared · ${ring.length - 1} left before your land grows` : `Tree cleared · −${L.TREE_COST} coins`, 'good', 2600);
   }
 
   // ---------- Fuzzies Adventures: talk to a Fuzzy, today's mission, mini-games ----------
@@ -2086,9 +2092,8 @@ export function landScreen(): Screen {
   // browsers only allow sound after a tap/click: start the music on the first one if it couldn't start yet
   stage.addEventListener('pointerdown', () => { if (!music.playing) setTimeout(() => music.start(), 50); });
   const sideToggle = h('button', { class: 'land-side-toggle', type: 'button' }, landIcon('chevRight', 18));
+  // (music lives in Settings, today's missions in Games and the Missions pill at the top — owner: "they don't need to be there")
   const sideBody = h('div', { class: 'land-side-body' }, ...[
-    musicBtn,
-    round(landIcon('compass', 30), 'Adventures — today’s mission', () => (panel?.kind === 'adventures' ? openPanel(null) : openPanel({ kind: 'adventures' })), 'land-adv-btn'),
     round(landIcon('edit', 30), 'Edit town — move, store & rearrange', () => (selMode ? saveLayout() : enterSelect()), 'land-select'),
     round(landIcon('car', 32), 'Parking Escape — the puzzle game', () => openParking(), 'land-park-btn'),
     isTouch() ? null : h('div', { class: 'land-zoom' },

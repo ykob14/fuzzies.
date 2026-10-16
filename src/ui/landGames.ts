@@ -6,7 +6,7 @@ import type { LandState } from '../land/rules';
 import { accounts } from '../core/account';
 import './landGames.css';
 
-export interface GamesActions { crossing: () => void; parking: () => void; challenges: () => void; collection: (panel: 'locker' | 'pass' | 'shop' | 'leaderboard' | 'missions') => void }
+export interface GamesActions { crossing: () => void; parking: () => void; challenges: () => void; event: { name: string; open: () => void } | null; collection: (panel: 'locker' | 'pass' | 'shop' | 'leaderboard' | 'missions') => void }
 
 export function gamesBody(s: LandState, now: number, go: GamesActions): HTMLElement {
   const st = A.setStatus(s, now);
@@ -32,7 +32,8 @@ export function gamesBody(s: LandState, now: number, go: GamesActions): HTMLElem
     h('span', { class: 'lg-text' }, h('small', null, 'Collect & dress up'), h('b', null, 'Fuzzy Collection'), h('em', null, 'Win new Fuzzies, outfits and trails by playing')),
     h('span', { class: 'lg-go' }, 'Open', landIcon('chevRight', 16)),
     h('span', { class: 'lg-chips' }, chip('Fuzzy Pass', 'pass'), chip('Shop', 'shop'), chip('Missions', 'missions'), chip('Boards', 'leaderboard')));
+  const event = go.event ? card('lg-event', h('span', { class: 'lg-ic' }, landIcon('festival', 56)), 'On now', go.event.name, 'Seasonal shop, challenges and decorations', 'Open', go.event.open) : null;
   return h('div', { class: 'lg-wrap' },
-    daily, crossing, parking, collection,
+    daily, event, crossing, parking, collection,
     h('p', { class: 'lg-note' }, 'Finish games to earn coins, XP and Fuzzies for your town.'));
 }
