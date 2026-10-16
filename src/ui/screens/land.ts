@@ -22,7 +22,8 @@ import { travel } from '../travel';
 import { h, btn, icon, fuzzyMark, toast, confirmDialog } from '../dom';
 import { mascot } from '../mascot';
 import { isTouch } from '../../core/util';
-import { landIcon, type LandIcon } from '../landIcons';
+import { landIcon, goodIcon, type LandIcon } from '../landIcons';
+import './../landSkin.css';
 import { TutorialManager, type Reward } from '../../land/tutorial';
 import { mountTutorial, type TutTarget } from '../landTutorial';
 
@@ -38,6 +39,9 @@ const fmt = (ms: number) => {
   return s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m` : s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
 };
 
+/** a small pill: a picture and a number/word (coins, XP, goods…) */
+const chip = (ic: Node | null, text: string, cls = ''): HTMLElement => h('span', { class: `land-chip ${cls}`.trim() }, ic, text);
+
 export function landScreen(): Screen {
   const a = accounts.current!;
   const s: L.LandState = JSON.parse(JSON.stringify(a.land ?? L.freshLand()));
@@ -48,8 +52,8 @@ export function landScreen(): Screen {
   const oldTrophies = TR.syncTrophies(s); // a trophy for every mini-game already played (towns from before trophies too)
   // Fuzzies Parking Escape: every town gets the parking lot (by the Town Hall, or in Storage when the land is full)
   const lotNew = L.ensureParking(s, now());
-  if (lotNew) setTimeout(() => { save(); toast(lotNew === 'placed' ? '🚗 New in town: Parking Escape! Tap the parking lot (or the car button) to play.' : '🚗 Parking Escape is in your Storage — place it from Edit town, or tap the car button to play.', 'good', 6000); }, 3200);
-  if (oldTrophies.length) setTimeout(() => { save(); toast(`🏆 ${oldTrophies.length === 1 ? 'A trophy' : `${oldTrophies.length} trophies`} for the mini-games you’ve played — place ${oldTrophies.length === 1 ? 'it' : 'them'} from Build → Decor`, 'good', 5000); }, 2500);
+  if (lotNew) setTimeout(() => { save(); toast(lotNew === 'placed' ? 'New in town: Parking Escape! Tap the parking lot (or the car button) to play.' : 'Parking Escape is in your Storage — place it from Edit town, or tap the car button to play.', 'good', 6000); }, 3200);
+  if (oldTrophies.length) setTimeout(() => { save(); toast(`${oldTrophies.length === 1 ? 'A trophy' : `${oldTrophies.length} trophies`} for the mini-games you’ve played — place ${oldTrophies.length === 1 ? 'it' : 'them'} from Build → Decor`, 'good', 5000); }, 2500);
 
   const wrap = h('div', { class: 'land-stage' });
   const overlay = h('div', { class: 'land-overlay', 'aria-hidden': 'true' });
@@ -235,12 +239,13 @@ export function landScreen(): Screen {
     const n = L.levelFuzzies(lv);
     rewards.earn(n, `Fuzzies Land level ${lv}!`);
     sfx.level();
-    const unlocked = [...L.ITEMS.filter((i) => i.level === lv).map((i) => `${i.emoji} ${i.name}`), ...L.GOODS.filter((g) => g.level === lv).map((g) => `${g.emoji} ${g.name}`)];
+    const unlocked: HTMLElement[] = [...L.ITEMS.filter((i) => i.level === lv).map((i) => h('span', null, thumb(i.id, i.emoji), i.name)), ...L.GOODS.filter((g) => g.level === lv).map((g) => h('span', null, goodIcon(g.id, 34), g.name))];
     const card = h('div', { class: 'land-levelup' },
       mascot(70, { sparkles: true, interactive: false }),
-      h('h2', null, `Level ${lv}!`),
-      h('p', { class: 'muted' }, `+${n} Fuzzies and +${50 + lv * 10} coins`),
-      unlocked.length ? h('div', { class: 'land-unlocks' }, h('small', null, 'New to unlock'), h('div', null, ...unlocked.map((u) => h('span', null, u)))) : null,
+      h('small', { class: 'land-levelup-k' }, 'Level up!'),
+      h('h2', null, String(lv)),
+      h('div', { class: 'land-levelup-rew' }, chip(fuzzyMark(20), `+${n}`), chip(landIcon('coin', 20), `+${50 + lv * 10}`)),
+      unlocked.length ? h('div', { class: 'land-unlocks' }, h('small', null, 'New to unlock'), h('div', null, ...unlocked)) : null,
       btn('Yay!', { kind: 'primary', class: 'btn-block', onClick: () => card.remove() }));
     stage.append(card);
   }
@@ -284,7 +289,7 @@ export function landScreen(): Screen {
       h('div', { class: 'land-hud-l' }, backBtn,
         h('div', { class: 'land-lvl', title: `${s.xp} / ${need} XP to level ${s.level + 1}` },
           h('span', { class: 'land-lvl-n', style: `--p:${pct}%` }, h('b', null, String(s.level))),
-          h('div', { class: 'land-lvl-t' }, h('b', null, 'Fuzzies Land'), h('div', { class: 'land-xp' }, h('div', { style: `width:${pct}%` }), h('small', null, `${s.xp} / ${need}`))))),
+          h('div', { class: 'land-lvl-t' }, h('b', null, 'Level'), h('div', { class: 'land-xp' }, h('div', { style: `width:${pct}%` }), h('small', null, `${s.xp} / ${need}`))))),
       daily.el,
       h('div', { class: 'land-hud-r' },
         cap(landIcon('coin', 30), 'coins', s.coins, 'Coins'),
@@ -332,7 +337,7 @@ export function landScreen(): Screen {
     const before = s.stats.harvests;
     const r = L.collectAll(s);
     const harvestsNow = s.stats.harvests - before;
-    if (harvestsNow) { const drop = E.harvested(s, harvestsNow, now()); if (drop) setTimeout(() => toast(`+1 ${drop.event.holiday.short} token 🎟️`, 'good'), 700); }
+    if (harvestsNow) { const drop = E.harvested(s, harvestsNow, now()); if (drop) setTimeout(() => toast(`+1 ${drop.event.holiday.short} token`, 'good'), 700); }
     const parts = Object.entries(r.got).map(([k, n]) => `${L.good(k).emoji}×${n}`);
     if (!parts.length && !r.built.length) { if (r.full) toast('Your barn is full — fill some orders first.', 'info'); return; }
     sfx.collect();
@@ -358,11 +363,11 @@ export function landScreen(): Screen {
     if (mins < 2) return; // only after you've actually been away (the Collect button covers the rest)
     const ago = mins < 2 ? '' : mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
     const card = h('div', { class: 'land-away' },
-      h('div', { class: 'land-away-head' }, mascot(46, { sparkles: false, interactive: false }), h('div', null, h('b', null, 'While you were away…'), ago ? h('small', null, `You were gone ${ago} — your town kept busy!`) : null)),
+      h('div', { class: 'land-away-head' }, mascot(46, { sparkles: false, interactive: false }), h('div', null, h('b', null, 'While you were away…'), ago ? h('small', null, `Gone ${ago} — your town kept busy!`) : null)),
       h('div', { class: 'land-away-list' }, ...[
-        away.crops ? h('span', null, `🌾 ${away.crops} field${away.crops > 1 ? 's' : ''} ready`) : null,
-        away.goods ? h('span', null, `📦 ${away.goods} good${away.goods > 1 ? 's' : ''} made`) : null,
-        away.built ? h('span', null, `🏠 ${away.built} building${away.built > 1 ? 's' : ''} finished`) : null,
+        away.crops ? chip(goodIcon('wheat', 24), `${away.crops} ready`) : null,
+        away.goods ? chip(landIcon('parcel', 24), `${away.goods} made`) : null,
+        away.built ? chip(landIcon('house', 24), `${away.built} built`) : null,
       ].filter((x) => x !== null) as HTMLElement[]),
       h('div', { class: 'btn-row' }, btn('Collect all', { kind: 'primary', icon: 'check', onClick: collectAllNow }), btn('Later', { kind: 'ghost', onClick: () => card.remove() })));
     stage.append(card);
@@ -385,16 +390,16 @@ export function landScreen(): Screen {
     if (!panel) { sheet.hidden = true; return; }
     sheet.hidden = false;
     placeSheet(); // keeps a moved window on the screen
-    const close = btn(null, { icon: 'close', kind: 'plain', size: 'sm', title: 'Close', onClick: () => openPanel(null) });
+    const close = btn(landIcon('close', 18), { kind: 'plain', size: 'sm', title: 'Close', onClick: () => openPanel(null) });
     // the grip strip + title row are the handle you drag the panel by (a real element so touch can't turn it into a scroll)
     const head = (title: string, sub = '', ic?: Node) => h('div', { class: 'land-sheet-top' }, h('div', { class: 'land-sheet-grip', 'aria-hidden': 'true' }), h('div', { class: 'land-sheet-head' }, ic ? h('span', { class: 'land-sheet-ic' }, ic) : null, h('div', null, h('h3', null, title), sub ? h('small', { class: 'muted' }, sub) : null), close));
     sheet.dataset.kind = panel.kind;
-    if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Tap something, then choose where it goes', landIcon('hammer', 34)), shopBody(panel.tab));
-    else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Fuzzies ask for goods — deliver for coins & XP', landIcon('crate', 34)), ordersBody());
-    else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', `${L.barnUsed(s)} / ${L.barnCap(s.level)} spaces used`, landIcon('barn', 34)), barnBody());
+    if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Pick one, then choose its spot', landIcon('hammer', 34)), shopBody(panel.tab));
+    else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Deliver goods for coins and XP', landIcon('crate', 34)), ordersBody());
+    else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', '', landIcon('barn', 34)), barnBody());
     else if (panel.kind === 'adventures') {
       const st = A.setStatus(s, now());
-      sheet.replaceChildren(head('Adventures', st.ready ? 'New missions are ready!' : st.allDone ? `All ${st.total} done · new missions in ${A.countdown(st.unlockIn)}` : `${st.doneCount} of ${st.total} done · three missions every five hours`, landIcon('compass', 34)), adventuresBody(s, now(), (id) => hostNameOf(id), (adv) => { openPanel(null); startAdventure(adv); }, (adv) => { openPanel(null); findHost(adv); }, (id) => view?.residentInfo(hostIndexOf(id))?.skin[0] ?? null));
+      sheet.replaceChildren(head('Adventures', st.ready ? 'New missions are ready!' : st.allDone ? `All ${st.total} done · next in ${A.countdown(st.unlockIn)}` : `${st.doneCount} of ${st.total} done`, landIcon('compass', 34)), adventuresBody(s, now(), (id) => hostNameOf(id), (adv) => { openPanel(null); startAdventure(adv); }, (adv) => { openPanel(null); findHost(adv); }, (id) => view?.residentInfo(hostIndexOf(id))?.skin[0] ?? null));
     }
     else if (panel.kind === 'events') {
       const tab = panel.tab, live = E.activeEvents(now()), ev = live.find((e) => e.key === tab) ?? live[0], mine = tab === 'mine' || !ev;
@@ -423,21 +428,21 @@ export function landScreen(): Screen {
       const card = h('button', { class: `land-card land-chest ${bal < c.fz ? 'off' : ''}`, type: 'button', title: `${c.coins} coins for ${c.fz} Fuzzies` },
         h('span', { class: 'land-card-art land-chest-art' }, ...Array.from({ length: i + 1 }, () => landIcon('coin', 34 + i * 4))),
         h('b', null, ['Coin pouch', 'Coin chest', 'Treasure chest'][i]),
-        h('small', null, `${c.coins.toLocaleString()} coins for your town`),
+        h('small', null, `${c.coins.toLocaleString()} coins`),
         h('span', { class: 'land-price' }, fuzzyMark(16), String(c.fz)));
       card.addEventListener('click', () => {
         if (rewards.balance() < c.fz) { toast(`You need ${c.fz} Fuzzies`, 'info'); void openShop(); return; }
         spendFuzzies(c.fz);
         s.coins += c.coins;
         sfx.coins();
-        toast(`+${c.coins.toLocaleString()} coins for Fuzzies Land 🪙`, 'good');
+        toast(`+${c.coins.toLocaleString()} coins for Fuzzies Land`, 'good');
         save(); renderHud(); renderPanel();
       });
       return card;
     };
     const premium = L.ITEMS.filter((i) => i.currency === 'fuzzies');
     return [
-      h('p', { class: 'land-fz-lead' }, 'Spend your Fuzzies here: coin chests, special decorations — and “Finish now” on anything that’s building.'),
+      h('p', { class: 'land-fz-lead' }, 'Trade Fuzzies for coins and special decorations.'),
       h('div', { class: 'land-shop' }, ...CHESTS.map(chest), ...premium.map((it) => itemCard(it))),
       h('div', { class: 'land-fz-more' }, btn(h('span', { class: 'row' }, fuzzyMark(18), 'Get more Fuzzies'), { kind: 'primary', size: 'sm', onClick: () => void openShop() })),
     ];
@@ -457,11 +462,12 @@ export function landScreen(): Screen {
       return card;
     }
     const card = h('button', { class: `land-card ${why ? 'off' : ''} ${locked ? 'locked' : ''}`, type: 'button', title: why || it.blurb, 'data-item': it.id },
-      h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), locked ? h('span', { class: 'land-card-lock' }, landIcon('lock', 26), h('small', null, `Level ${it.level}`)) : null),
+      h('span', { class: 'land-card-art' }, thumb(it.id, it.emoji), locked ? h('span', { class: 'land-card-lock' }, landIcon('lock', 22)) : null,
+        it.max && !locked ? h('i', { class: 'land-max' }, `${L.count(s, it.id)}/${it.max(s.level)}`) : null),
       h('b', null, it.name),
-      h('small', null, locked ? `Unlocks at level ${it.level}` : it.blurb),
-      h('span', { class: 'land-price' }, it.currency === 'fuzzies' ? fuzzyMark(16) : landIcon('coin', 16), it.cost ? String(it.cost) : 'Free'),
-      it.max && !locked ? h('i', { class: 'land-max' }, `${L.count(s, it.id)}/${it.max(s.level)}`) : null);
+      locked ? null : h('small', null, it.blurb),
+      locked ? h('span', { class: 'land-price lv' }, `Level ${it.level}`)
+        : h('span', { class: 'land-price' }, it.currency === 'fuzzies' ? fuzzyMark(18) : landIcon('coin', 18), it.cost ? String(it.cost) : 'Free'));
     card.addEventListener('click', () => {
       if (why) { toast(why, 'info'); if (it.currency === 'fuzzies' && rewards.balance() < it.cost) void openShop(); return; }
       startPlacing(it.id);
@@ -480,10 +486,10 @@ export function landScreen(): Screen {
     const col = ev.collection;
     const parts: (HTMLElement | null)[] = [tabs];
     parts.push(h('div', { class: 'land-ev-head' },
-      h('div', { class: 'land-ev-tokens', title: 'Event tokens — earned from holiday orders, harvests and challenges' }, landIcon('token', 26), h('b', null, String(E.tokens(s, ev.key))), h('small', null, 'tokens')),
-      h('div', { class: 'land-ev-when' }, h('b', null, `${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left`), h('small', null, `${ev.start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${ev.end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`))));
+      h('div', { class: 'land-ev-tokens', title: 'Event tokens — earned from holiday orders, harvests and challenges' }, landIcon('token', 34), h('b', null, String(E.tokens(s, ev.key))), h('small', null, 'tokens')),
+      h('div', { class: 'land-ev-when' }, landIcon('clock', 22), h('b', null, `${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left`))));
     if (!col) {
-      parts.push(h('p', { class: 'muted land-ev-note' }, `${ev.holiday.name} is here — enjoy the weather in town! New ${ev.holiday.short} decorations are being drawn and will arrive in a future update.`));
+      parts.push(h('p', { class: 'muted land-ev-note' }, `${ev.holiday.name} is here — enjoy the weather! Decorations are coming soon.`));
       return h('div', null, ...parts.filter((x) => x !== null) as HTMLElement[]);
     }
     // challenges
@@ -491,24 +497,24 @@ export function landScreen(): Screen {
     parts.push(h('div', { class: 'land-ev-challenges' }, ...col.challenges.map((c) => {
       const done = E.claimed(s, c.id), can = E.canClaim(s, ev, c);
       const p = Math.min(c.goal, E.progress(s, ev.key, c.kind));
-      const reward = c.reward.item ? h('span', { class: 'land-ev-reward' }, thumb(c.reward.item, '🎁'), h('small', null, E.collectible(c.reward.item)?.name ?? '')) : h('span', { class: 'land-ev-reward' }, c.reward.tokens ? landIcon('token', 18) : landIcon('coin', 18), h('small', null, `+${c.reward.tokens ?? c.reward.coins}`));
-      const b = done ? h('span', { class: 'land-ev-done' }, icon('check', 16), ' Done') : btn(can ? 'Claim' : `${p}/${c.goal}`, { kind: can ? 'primary' : 'ghost', size: 'sm', class: can ? 'land-ev-claim' : '', onClick: () => {
+      const reward = c.reward.item ? h('span', { class: 'land-ev-reward' }, thumb(c.reward.item, ''), h('small', null, E.collectible(c.reward.item)?.name ?? '')) : h('span', { class: 'land-ev-reward chip' }, c.reward.tokens ? landIcon('token', 20) : landIcon('coin', 20), h('small', null, `+${c.reward.tokens ?? c.reward.coins}`));
+      const b = done ? h('span', { class: 'land-ev-done' }, landIcon('check', 18), 'Done') : btn(can ? 'Claim' : `${p}/${c.goal}`, { kind: can ? 'primary' : 'ghost', size: 'sm', class: can ? 'land-ev-claim' : '', onClick: () => {
         if (!can) return;
         try {
           const r = E.claim(s, ev, c);
           sfx.coins(); save();
           const from = sheet.getBoundingClientRect(), sr = stage.getBoundingClientRect();
           if (r.coins) burst('coin', { x: from.left + from.width / 2 - sr.left, y: from.top + 60 - sr.top }, 6);
-          toast(r.item ? `🎉 ${E.collectible(r.item)?.name} is yours — place it from the shop or Build → Decor` : r.tokens ? `+${r.tokens} event tokens` : `+${r.coins} coins`, 'good', 3500);
+          toast(r.item ? `${E.collectible(r.item)?.name} is yours — place it from the shop or Build → Decor` : r.tokens ? `+${r.tokens} event tokens` : `+${r.coins} coins`, 'good', 3500);
           renderPanel();
         } catch (e) { toast((e as Error).message, 'info'); }
       } });
-      return h('div', { class: `land-ev-ch ${done ? 'done' : can ? 'ready' : ''}` }, h('div', null, h('b', null, c.name), h('div', { class: 'progress' }, h('div', { style: `width:${(p / c.goal) * 100}%` }))), reward, b);
+      return h('div', { class: `land-ev-ch ${done ? 'done' : can ? 'ready' : ''}` }, h('div', null, h('b', null, c.name), h('div', { class: 'progress land-bar' }, h('div', { style: `width:${(p / c.goal) * 100}%` }), h('small', null, `${p} / ${c.goal}`))), reward, b);
     })));
     // shop
     parts.push(h('p', { class: 'pnl-label' }, `${col.name} collection`));
     parts.push(h('div', { class: 'land-shop land-ev-shop' }, ...col.items.map((x) => collectibleCard(x, ev))));
-    parts.push(h('p', { class: 'fine' }, 'Everything you collect is yours forever — it stays in My collection and Build → Decor after the event, and moves and stores like any decoration.'));
+    parts.push(h('p', { class: 'fine' }, 'Everything you collect is yours forever.'));
     return h('div', null, ...parts.filter((x) => x !== null) as HTMLElement[]);
   }
   function collectibleCard(x: E.Collectible, ev: E.ActiveEvent): HTMLElement {
@@ -516,12 +522,12 @@ export function landScreen(): Screen {
     const why = E.cantBuyCollectible(s, x.id, rewards.balance(), now());
     const earnOnly = !!x.earn && !x.price.coins && !x.price.fuzzies && !x.price.tokens;
     const soldOut = own >= (x.max ?? 1);
-    const price = soldOut ? h('span', { class: 'land-price owned' }, icon('check', 14), x.max && x.max > 1 ? `Own all ${x.max}` : 'Owned')
-      : earnOnly ? h('span', { class: 'land-price owned' }, landIcon('star', 16), 'Challenge reward')
-      : h('span', { class: 'land-price' }, x.price.fuzzies ? fuzzyMark(16) : x.price.tokens ? landIcon('token', 16) : landIcon('coin', 16), String(x.price.fuzzies ?? x.price.tokens ?? x.price.coins));
+    const price = soldOut ? h('span', { class: 'land-price owned' }, landIcon('check', 16), x.max && x.max > 1 ? `Own all ${x.max}` : 'Owned')
+      : earnOnly ? h('span', { class: 'land-price owned' }, landIcon('star', 16), 'Challenge')
+      : h('span', { class: 'land-price' }, x.price.fuzzies ? fuzzyMark(18) : x.price.tokens ? landIcon('token', 18) : landIcon('coin', 18), String(x.price.fuzzies ?? x.price.tokens ?? x.price.coins));
     const card = h('div', { class: `land-card land-ev-card ${x.rarity} ${why && !own ? 'off' : ''}`, 'data-item': x.id, title: x.blurb },
-      h('span', { class: 'land-card-art' }, thumb(x.id, '🎁'), own ? h('i', { class: 'land-store-n' }, `×${own}`) : null, h('i', { class: `land-ev-rarity ${x.rarity}` }, E.RARITY[x.rarity])),
-      h('b', null, x.name), h('small', null, x.blurb),
+      h('span', { class: 'land-card-art' }, thumb(x.id, ''), own ? h('i', { class: 'land-store-n' }, `×${own}`) : null, h('i', { class: `land-ev-rarity ${x.rarity}` }, E.RARITY[x.rarity])),
+      h('b', null, x.name),
       h('div', { class: 'land-ev-actions' },
         soldOut || earnOnly ? price : btn(price, { kind: why ? 'soft' : 'primary', size: 'sm', title: why || `Buy ${x.name}`, onClick: () => buyCollectible(x, ev) }),
         own ? btn(sp ? `Place${sp > 1 ? ` (${sp})` : ''}` : 'All placed', { kind: 'ghost', size: 'sm', onClick: () => { if (!sp) { toast('Every copy is already in your town.', 'info'); return; } startPlacing(x.id); } }) : null));
@@ -536,7 +542,7 @@ export function landScreen(): Screen {
     } catch (e) { toast((e as Error).message, 'info'); return; }
     sfx.gold();
     save();
-    toast(`${x.name} added to your collection 🎉 — tap Place to put it in your town`, 'good', 3500);
+    toast(`${x.name} added to your collection — tap Place to put it in your town`, 'good', 3500);
     renderPanel();
     void ev;
   }
@@ -544,13 +550,13 @@ export function landScreen(): Screen {
     const groups = E.myCollections(s);
     const total = groups.reduce((a, g) => a + g.ownedCount, 0);
     return h('div', { class: 'land-mycol' },
-      h('p', { class: 'muted' }, total ? `${total} piece${total === 1 ? '' : 's'} collected. Each one is yours forever — place them from here or Build → Decor.` : 'Nothing collected yet. Holiday decorations you buy or earn during events appear here, forever.'),
+      h('p', { class: 'muted' }, total ? `${total} piece${total === 1 ? '' : 's'} collected — yours forever.` : 'Nothing yet. Holiday decorations you earn show up here.'),
       ...groups.map(({ col, ownedCount }) => h('section', { class: 'land-mycol-set' },
         h('div', { class: 'land-mycol-head' }, h('b', null, col.name), h('small', null, `${ownedCount}/${col.items.length}`)),
         h('div', { class: 'land-shop land-ev-shop' }, ...col.items.map((x) => {
           const own = E.owned(s, x.id), sp = E.spare(s, x.id);
           const card = h('button', { class: `land-card land-ev-card ${own ? '' : 'missing'}`, type: 'button', 'data-item': x.id, title: own ? (sp ? `Place (${sp} to place)` : 'All copies are in your town') : `Not collected yet — ${E.RARITY[x.rarity].toLowerCase()} piece from ${col.name}` },
-            h('span', { class: 'land-card-art' }, thumb(x.id, '🎁'), own ? h('i', { class: 'land-store-n' }, `×${own}`) : h('span', { class: 'land-card-lock' }, landIcon('lock', 22))),
+            h('span', { class: 'land-card-art' }, thumb(x.id, ''), own ? h('i', { class: 'land-store-n' }, `×${own}`) : h('span', { class: 'land-card-lock' }, landIcon('lock', 22))),
             h('b', null, x.name), h('small', null, own ? (sp ? `${sp} to place` : 'All placed') : 'Not collected'));
           card.addEventListener('click', () => { if (!own) { toast(`${x.name}: ${E.activeEvents(now()).some((e) => e.collection?.key === col.key) ? 'find it in the event shop' : `comes back with ${E.holiday(col.holiday).short} ${col.year} — this exact piece won’t be sold again, but you keep everything you have`}`, 'info', 4000); return; } if (!sp) { toast('Every copy is already in your town.', 'info'); return; } startPlacing(x.id); });
           return card;
@@ -571,19 +577,19 @@ export function landScreen(): Screen {
     return h('div', { class: 'land-orders' }, ...s.orders.map((o) => {
       const ok = L.canFill(s, o);
       return h('div', { class: `land-order ${ok ? 'ready' : ''}` },
-        h('div', { class: 'land-order-who' }, h('b', null, o.who), h('small', null, ok ? 'Ready to deliver!' : 'is asking for')),
+        h('div', { class: 'land-order-who' }, h('span', { class: 'land-order-av' }, fuzzyMark(34)), h('b', null, o.who), ok ? h('small', { class: 'land-order-tag' }, 'Ready') : null),
         h('div', { class: 'land-order-items' }, ...Object.entries(o.items).map(([k, n]) => {
           const have = s.barn[k] ?? 0;
-          return h('span', { class: have >= n ? 'have' : '' }, `${L.good(k).emoji} ${Math.min(have, n)}/${n}`);
+          return h('span', { class: have >= n ? 'have' : '', title: L.good(k).name }, goodIcon(k, 26), h('b', null, `${Math.min(have, n)}/${n}`));
         })),
-        h('div', { class: 'land-order-reward' }, h('span', null, landIcon('coin', 16), String(o.coins)), h('span', null, landIcon('star', 16), `${o.xp} XP`), o.fuzzies ? h('span', null, fuzzyMark(16), `+${o.fuzzies}`) : null),
+        h('div', { class: 'land-order-reward' }, chip(landIcon('coin', 18), String(o.coins)), chip(landIcon('star', 18), `${o.xp} XP`, 'xp'), o.fuzzies ? chip(fuzzyMark(18), `+${o.fuzzies}`) : null),
         h('div', { class: 'land-order-btns' },
-          btn('Deliver', { kind: ok ? 'primary' : 'soft', size: 'sm', onClick: () => {
+          btn('Deliver', { kind: ok ? 'primary' : 'soft', size: 'sm', class: 'land-deliver', onClick: () => {
             try {
               const g = L.fill(s, o.id);
               const tok = E.orderDelivered(s, o, now());
               E.decorateOrders(s, now());
-              if (tok) setTimeout(() => toast(`+${tok} event token${tok > 1 ? 's' : ''} 🎟️`, 'good'), 600);
+              if (tok) setTimeout(() => toast(`+${tok} event token${tok > 1 ? 's' : ''}`, 'good'), 600);
               sfx.coins();
               const hall = s.buildings.find((b) => b.item === 'hall');
               const card = document.activeElement?.closest('.land-order') as HTMLElement | null;
@@ -591,7 +597,7 @@ export function landScreen(): Screen {
               const from = { x: rr.left + rr.width / 2 - sr.left, y: rr.top + rr.height / 2 - sr.top };
               burst('coin', from, Math.ceil(g.coins! / 6));
               setTimeout(() => burst('star', from, Math.ceil((g.xp ?? 0) / 4)), 180);
-              gain({ ...g, coins: 0, xp: 0, levelUps: g.levelUps }, hall?.id ?? 0, `+${g.coins} 🪙`);
+              gain({ ...g, coins: 0, xp: 0, levelUps: g.levelUps }, hall?.id ?? 0, `+${g.coins}`);
               if (g.xp) setTimeout(() => view?.float(`+${g.xp} XP`, hall?.id ?? 0, 'xp'), 250);
               save(); renderPanel();
               tut.emit('order');
@@ -603,10 +609,12 @@ export function landScreen(): Screen {
 
   function barnBody(): HTMLElement {
     const items = L.GOODS.filter((g) => (s.barn[g.id] ?? 0) > 0);
-    if (!items.length) return h('p', { class: 'muted' }, 'Your barn is empty. Plant some crops on your fields!');
-    return h('div', { class: 'land-barn' }, ...items.map((g) => h('div', { class: 'land-good' },
-      h('span', { class: 'land-good-ic' }, g.emoji), h('b', null, g.name), h('small', null, `× ${s.barn[g.id]}`),
-      btn(`Sell 1 · 🪙${g.sell}`, { kind: 'ghost', size: 'sm', onClick: () => { L.sellGood(s, g.id, 1); sfx.coins(); save(); renderPanel(); tut.emit('sell'); } }))));
+    const used = L.barnUsed(s), cap = L.barnCap(s.level);
+    const meter = h('div', { class: `land-barn-meter progress land-bar ${used / cap > 0.85 ? 'full' : ''}` }, h('div', { style: `width:${Math.min(100, (used / cap) * 100)}%` }), h('small', null, `${used} / ${cap}`));
+    if (!items.length) return h('div', null, meter, h('div', { class: 'land-empty' }, landIcon('barnBig', 52), h('p', null, 'Empty! Plant some crops.')));
+    return h('div', null, meter, h('div', { class: 'land-barn' }, ...items.map((g) => h('div', { class: 'land-good' },
+      h('span', { class: 'land-good-ic' }, goodIcon(g.id, 44), h('i', null, `×${s.barn[g.id]}`)), h('b', null, g.name),
+      btn(h('span', { class: 'row' }, 'Sell', landIcon('coin', 16), String(g.sell)), { kind: 'ghost', size: 'sm', title: `Sell 1 ${g.name}`, onClick: () => { L.sellGood(s, g.id, 1); sfx.coins(); save(); renderPanel(); tut.emit('sell'); } })))));
   }
 
   function rushBtn(b: L.Placed): HTMLElement | null {
@@ -626,7 +634,7 @@ export function landScreen(): Screen {
     const parts: (HTMLElement | null)[] = [];
     if (b.doneAt) {
       const total = (it.build ?? 1) * 1000;
-      parts.push(h('div', { class: 'land-progress' }, h('span', null, '🔨 Under construction'),
+      parts.push(h('div', { class: 'land-progress' }, h('span', { class: 'land-progress-t' }, landIcon('hammer', 22), 'Building…'),
         h('div', { class: 'progress' }, h('div', { style: `width:${L.buildProgress(b) * 100}%`, 'data-bar': String(b.doneAt), 'data-total': String(total) })),
         h('small', b.doneAt > now ? { 'data-end': String(b.doneAt), 'data-suffix': ' left — it keeps building while you’re away' } : null, b.doneAt > now ? `${fmt(b.doneAt - now)} left — it keeps building while you’re away` : 'Ready!')));
       parts.push(b.doneAt > now ? rushBtn(b) : btn('Open it!', { kind: 'primary', onClick: () => tapBuilding(b.id) }));
@@ -635,7 +643,7 @@ export function landScreen(): Screen {
         const g = L.good(b.crop.good);
         const left = g.time * 1000 - (now - b.crop.at);
         const end = b.crop.at + g.time * 1000;
-        parts.push(h('div', { class: 'land-progress' }, h('span', null, `${g.emoji} ${g.name}`),
+        parts.push(h('div', { class: 'land-progress' }, h('span', { class: 'land-progress-t' }, goodIcon(g.id, 24), g.name),
           h('div', { class: 'progress' }, h('div', { style: `width:${L.cropProgress(b) * 100}%`, 'data-bar': String(end), 'data-total': String(g.time * 1000) })),
           h('small', left > 0 ? { 'data-end': String(end), 'data-suffix': ' left' } : null, left > 0 ? `${fmt(left)} left` : 'Ready!')));
         parts.push(left > 0 ? rushBtn(b) : btn('Harvest', { kind: 'primary', onClick: () => tapBuilding(b.id) }));
@@ -652,9 +660,9 @@ export function landScreen(): Screen {
       const q = b.queue ?? [];
       parts.push(h('div', { class: 'land-slots' }, ...Array.from({ length: L.SLOTS }, (_, i) => {
         const e = q[i];
-        if (!e) return h('div', { class: 'land-slot empty' }, h('span', null, '＋'), h('small', null, 'Free'));
+        if (!e) return h('div', { class: 'land-slot empty' }, h('span', { class: 'land-slot-plus' }, '+'), h('small', null, 'Free'));
         const done = e.end <= now;
-        return h('div', { class: `land-slot ${done ? 'done' : ''}` }, h('span', null, L.good(e.good).emoji), h('small', done ? null : { 'data-end': String(e.end) }, done ? 'Ready' : fmt(e.end - now)));
+        return h('div', { class: `land-slot ${done ? 'done' : ''}` }, goodIcon(e.good, 38), h('small', done ? null : { 'data-end': String(e.end) }, done ? 'Ready' : fmt(e.end - now)));
       })));
       if (L.finished(b).length) parts.push(btn('Collect', { kind: 'primary', onClick: () => tapBuilding(b.id) }));
       parts.push(rushBtn(b));
@@ -664,7 +672,7 @@ export function landScreen(): Screen {
         save(); renderPanel();
       }))));
     } else if (it.kind === 'house') {
-      parts.push(h('p', null, `🏡 ${it.pop} Fuzzies live here. More houses → more Fuzzies around town!`));
+      parts.push(h('p', { class: 'land-house' }, chip(landIcon('pop', 22), `${it.pop} Fuzzies live here`)));
     } else if (b.item === 'hall') {
       const i = L.SIZES.indexOf(s.size), e = L.EXPANSION[i];
       parts.push(h('div', { class: 'land-stats' },
@@ -673,16 +681,16 @@ export function landScreen(): Screen {
         h('span', null, h('b', null, String(s.stats.harvests)), h('small', null, 'Harvests')),
         h('span', null, h('b', null, String(s.stats.orders)), h('small', null, 'Orders'))));
       parts.push(e
-        ? btn(`Expand the land · 🪙 ${e.cost.toLocaleString()}${s.level < e.level ? ` (level ${e.level})` : ''}`, { kind: s.level >= e.level && s.coins >= e.cost ? 'primary' : 'soft', onClick: () => {
-            try { L.expand(s); sfx.build(); toast('More room to build! 🌳➡️🏡', 'good'); save(); renderPanel(); } catch (err) { toast((err as Error).message, 'info'); }
+        ? btn(h('span', { class: 'row' }, 'Expand the land', landIcon('coin', 18), e.cost.toLocaleString(), s.level < e.level ? ` · level ${e.level}` : ''), { kind: s.level >= e.level && s.coins >= e.cost ? 'primary' : 'soft', onClick: () => {
+            try { L.expand(s); sfx.build(); toast('More room to build!', 'good'); save(); renderPanel(); } catch (err) { toast((err as Error).message, 'info'); }
           } })
-        : h('p', { class: 'muted' }, 'Your land is as big as it gets. 🏝️'));
+        : h('p', { class: 'muted' }, 'Your land is as big as it gets.'));
     } else if (b.item === 'gate') {
       parts.push(btn('Hop over to Fuzzy Crossing', { kind: 'primary', onClick: () => goPlay(b.id) }));
     }
     const actions: HTMLElement[] = [];
     actions.push(btn(L.walkway(b.item) ? 'Move' : 'Move or turn', { kind: 'ghost', size: 'sm', icon: 'hand', onClick: () => startPlacing(b.item, b.id) }));
-    if (it.sellable) actions.push(btn(`${L.walkway(b.item) ? 'Remove' : 'Sell'}${it.currency === 'coins' && it.cost >= 10 ? ` · 🪙${Math.floor(it.cost / 2)}` : ''}`, { kind: 'ghost', size: 'sm', icon: 'trash', onClick: async () => {
+    if (it.sellable) actions.push(btn(h('span', { class: 'row' }, L.walkway(b.item) ? 'Remove' : 'Sell', ...(it.currency === 'coins' && it.cost >= 10 ? [landIcon('coin', 16), String(Math.floor(it.cost / 2))] : [])), { kind: 'ghost', size: 'sm', icon: 'trash', onClick: async () => {
       if (b.item === 'field' && b.crop && !(await confirmDialog('Sell this field?', 'What’s growing on it will be lost.', 'Sell'))) return;
       const back = L.sell(s, b.id);
       sfx.coins();
@@ -696,12 +704,13 @@ export function landScreen(): Screen {
     const locked = s.level < g.level;
     const inputs = Object.entries(g.inputs ?? {});
     const missing = inputs.some(([k, n]) => (s.barn[k] ?? 0) < n);
-    const cost = g.seed ? `🪙${g.seed}` : '';
-    const card = h('button', { class: `land-recipe ${locked || missing ? 'off' : ''}`, type: 'button', 'data-good': g.id },
-      h('span', { class: 'land-card-ic' }, locked ? '🔒' : g.emoji),
+    const card = h('button', { class: `land-recipe ${locked ? 'locked' : ''} ${locked || missing ? 'off' : ''}`, type: 'button', 'data-good': g.id },
+      h('span', { class: 'land-card-ic' }, locked ? landIcon('lock', 38) : goodIcon(g.id, 46)),
       h('b', null, g.name),
-      h('small', null, locked ? `Level ${g.level}` : inputs.length ? inputs.map(([k, n]) => `${L.good(k).emoji}${s.barn[k] ?? 0}/${n}`).join(' ') : `${cost} · ${fmt(g.time * 1000)}`),
-      !locked && inputs.length ? h('small', { class: 'muted' }, fmt(g.time * 1000)) : null);
+      locked ? h('small', { class: 'land-recipe-need' }, `Level ${g.level}`)
+        : inputs.length ? h('small', { class: 'land-recipe-need' }, ...inputs.map(([k, n]) => h('span', { class: (s.barn[k] ?? 0) >= n ? 'have' : 'short' }, goodIcon(k, 18), `${s.barn[k] ?? 0}/${n}`)))
+        : h('small', { class: 'land-recipe-need' }, h('span', null, landIcon('coin', 16), String(g.seed ?? 0))),
+      locked ? null : h('small', { class: 'land-recipe-time' }, landIcon('clock', 14), fmt(g.time * 1000)));
     card.addEventListener('click', () => {
       try { make(); } catch (e) { toast((e as Error).message, 'info'); }
     });
@@ -726,7 +735,7 @@ export function landScreen(): Screen {
       if (it.kind === 'field' && b.crop && L.cropProgress(b) >= 1) {
         const g = L.harvest(s, id);
         const drop = E.harvested(s, 1, now());
-        if (drop) setTimeout(() => toast(`+1 ${drop.event.holiday.short} token 🎟️`, 'good'), 700);
+        if (drop) setTimeout(() => toast(`+1 ${drop.event.holiday.short} token`, 'good'), 700);
         sfx.collect();
         gain(g, id, `+${g.n} ${L.good(g.good).emoji}`);
         view?.bounce(id); burstGoods(Array(g.n).fill(g.good), id);
@@ -770,9 +779,9 @@ export function landScreen(): Screen {
     const b = id === null ? undefined : s.buildings.find((o) => o.id === id);
     if (!b || placing) { quick.hidden = true; return; }
     quick.replaceChildren(
-      btn('Move', { kind: 'soft', size: 'sm', icon: 'hand', title: 'Move (or press and hold it)', onClick: () => startPlacing(b.item, b.id) }),
-      btn(null, { kind: 'soft', size: 'sm', icon: 'plus', title: 'Edit town (select several, store, rearrange)', onClick: () => enterSelect(b.id) }),
-      ...(canTurn(b.item) ? [btn('Turn', { kind: 'soft', size: 'sm', icon: 'rotate', title: 'Turn (R)', onClick: () => turnInPlace(b.id) })] : []));
+      btn(h('span', { class: 'row' }, landIcon('hand', 20), 'Move'), { kind: 'soft', size: 'sm', title: 'Move (or press and hold it)', onClick: () => startPlacing(b.item, b.id) }),
+      btn(landIcon('select', 22), { kind: 'soft', size: 'sm', title: 'Edit town (select several, store, rearrange)', onClick: () => enterSelect(b.id) }),
+      ...(canTurn(b.item) ? [btn(h('span', { class: 'row' }, landIcon('rotate', 20), 'Turn'), { kind: 'soft', size: 'sm', title: 'Turn (R)', onClick: () => turnInPlace(b.id) })] : []));
     quick.hidden = false;
     const follow = () => {
       const p = view?.screenOf(b.id);
@@ -823,9 +832,9 @@ export function landScreen(): Screen {
     placeBar.hidden = false;
     placeBar.replaceChildren(...[
       h('div', { class: 'land-place-info' }, h('b', null, it.name), placeHint),
-      canTurn(itemId) ? btn(null, { icon: 'rotate', kind: 'soft', title: 'Turn it (R)', onClick: rotatePlacing }) : null,
-      btn(null, { icon: 'close', kind: 'soft', title: 'Cancel (Esc)', onClick: cancelPlacing }),
-      btn(moving !== undefined ? 'Put here' : store !== undefined ? 'Place here' : 'Build here', { kind: 'primary', icon: 'check', title: 'Enter', onClick: confirmPlacing })].filter((x) => x !== null) as HTMLElement[]);
+      canTurn(itemId) ? btn(landIcon('rotate', 22), { kind: 'soft', class: 'land-place-r', title: 'Turn it (R)', onClick: rotatePlacing }) : null,
+      btn(landIcon('close', 22), { kind: 'soft', class: 'land-place-x', title: 'Cancel (Esc)', onClick: cancelPlacing }),
+      btn(h('span', { class: 'row' }, landIcon('check', 20), moving !== undefined ? 'Put here' : store !== undefined ? 'Place here' : 'Build here'), { kind: 'primary', title: 'Enter', onClick: confirmPlacing })].filter((x) => x !== null) as HTMLElement[]);
     updateGhost(); // show what you're carrying straight away (green or red)
   }
 
@@ -912,7 +921,7 @@ export function landScreen(): Screen {
         save();
         tut.emit('placed', { item: p.item });
         const placed = s.buildings[s.buildings.length - 1];
-        if (it.build) toast(`🔨 Building your ${it.name} — ready in ${fmt(it.build * 1000)}. It keeps going while you’re away.`, 'info', 3200);
+        if (it.build) toast(`Building your ${it.name} — ready in ${fmt(it.build * 1000)}. It keeps going while you’re away.`, 'info', 3200);
         else gain(g, placed.id, it.kind === 'house' ? `+${it.pop} 🏡` : undefined);
         // keep building fields, roads and paths in a row without reopening the shop
         if ((it.kind === 'field' || L.walkway(p.item)) && !L.cantBuy(s, p.item, rewards.balance())) {
@@ -1026,9 +1035,10 @@ export function landScreen(): Screen {
     view?.setMulti(selMode ? selIds() : []);
     paintEdit();
   }
+  const LAND_GLYPH: Record<string, LandIcon> = { rotate: 'rotate', trash: 'trash', close: 'close', check: 'check', undo: 'undo', redo: 'redo' };
   const ib = (ic: Parameters<typeof icon>[0], title: string, onClick: (e: MouseEvent) => void, opts: { disabled?: boolean; cls?: string; label?: string; badge?: number; land?: LandIcon } = {}) => {
     const b = h('button', { class: `land-edit-b ${opts.cls ?? ''}`, type: 'button', title, 'aria-label': opts.badge ? `${title} (${opts.badge})` : title },
-      opts.land ? landIcon(opts.land, 24) : icon(ic, 20), opts.label ? h('span', null, opts.label) : null, opts.badge ? h('i', { class: 'land-edit-badge' }, String(opts.badge)) : null);
+      opts.land ? landIcon(opts.land, 26) : LAND_GLYPH[ic as string] ? landIcon(LAND_GLYPH[ic as string], 22) : icon(ic, 20), opts.label ? h('span', null, opts.label) : null, opts.badge ? h('i', { class: 'land-edit-badge' }, String(opts.badge)) : null);
     b.disabled = !!opts.disabled;
     b.addEventListener('click', onClick);
     return b;
@@ -1186,9 +1196,9 @@ export function landScreen(): Screen {
     const note = (ps: L.Placed[]) => { const now = Date.now(); const g = ps.filter((p) => p.crop).length, q = ps.filter((p) => p.queue?.length).length, c = ps.filter((p) => p.doneAt && p.doneAt > now).length; return [g ? `🌱 ${g} growing` : '', q ? `⚙️ ${q} busy` : '', c ? `🔨 ${c} building` : ''].filter(Boolean).join(' · '); };
     drawer.replaceChildren(
       h('div', { class: 'land-store-head' }, h('span', { class: 'land-sheet-ic' }, landIcon('box', 30)),
-        h('div', null, h('h3', null, 'Storage'), h('small', { class: 'muted' }, items.length ? `${plural(items.length, 'piece')} waiting — tap one to place it` : 'Empty — select pieces and tap Store to clear space')),
-        items.length ? btn('Restore all', { kind: 'primary', size: 'sm', icon: 'upload', title: 'Put everything back where it was (or the nearest free spot)', onClick: restoreAllNow }) : null,
-        btn(null, { icon: 'close', kind: 'plain', size: 'sm', title: 'Close', onClick: closeDrawer })),
+        h('div', null, h('h3', null, 'Storage'), h('small', { class: 'muted' }, items.length ? `${plural(items.length, 'piece')} · tap one to place it` : 'Empty')),
+        items.length ? btn(h('span', { class: 'row' }, landIcon('upload', 18), h('span', null, 'Restore all')), { kind: 'primary', size: 'sm', title: 'Put everything back where it was (or the nearest free spot)', onClick: restoreAllNow }) : null,
+        btn(landIcon('close', 18), { kind: 'plain', size: 'sm', title: 'Close', onClick: closeDrawer })),
       ...(tabs.length > 2 ? [h('div', { class: 'land-tabs land-store-tabs', role: 'tablist' }, ...tabs.map((t) => h('button', { class: `land-tab ${t.id === drawerTab ? 'on' : ''}`, type: 'button', role: 'tab', 'data-tab': t.id, 'aria-selected': String(t.id === drawerTab), onclick: () => openDrawer(t.id) }, h('span', null, t.name), h('i', { class: 'land-tab-n' }, String(t.n)))))] : []),
       items.length ? h('div', { class: 'land-store-grid' }, ...[...groups.entries()].map(([itemId, ps]) => {
         const it = L.item(itemId);
@@ -1197,7 +1207,7 @@ export function landScreen(): Screen {
           h('b', null, it.name), h('small', null, note(ps) || (isTouch() ? 'Tap to place' : 'Click to place')));
         card.addEventListener('click', () => placeFromStore(itemId));
         return card;
-      })) : h('div', { class: 'land-store-empty' }, mascot(56, { sparkles: false, interactive: false }), h('p', null, 'Store houses, fields, decor and roads here while you rearrange — they keep everything, even growing crops.')));
+      })) : h('div', { class: 'land-store-empty' }, mascot(56, { sparkles: false, interactive: false }), h('p', null, 'Select pieces and tap Store to tuck them away safely.')));
   }
   // ----- a small cream popover menu above the toolbar (Store…) -----
   let menuEl: HTMLElement | null = null;
@@ -1875,12 +1885,12 @@ export function landScreen(): Screen {
     const short = tut.coinsShort(s.coins);
     if (!short) return;
     s.coins += short;
-    toast(`Pip gave you ${short} coins for this step 🪙`, 'good');
+    toast(`Pip gave you ${short} coins for this step`, 'good');
     save();
   }
   tut.on((ev) => {
     if (ev.type === 'step') tutCoins();
-    if (ev.type === 'finished' && tut.state.status === 'done') { sfx.level(); toast('Tutorial complete — enjoy your town! 🎉', 'good'); }
+    if (ev.type === 'finished' && tut.state.status === 'done') { sfx.level(); toast('Tutorial complete — enjoy your town!', 'good'); }
   });
   let tutUi: { refresh(): void; destroy(): void } | null = null;
   function startTutorial(): void {
