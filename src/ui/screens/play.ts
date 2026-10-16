@@ -129,6 +129,8 @@ export function playScreen(): Screen {
     else if (e.kind === 'home') ev = { kind: 'nest' };
     else if (e.kind === 'level') ev = { kind: 'levelClear' };
     else if (e.kind === 'hop') ev = { kind: 'hop' };
+    else if (e.kind === 'advance') ev = { kind: 'advance' };
+    else if (e.kind === 'train-passed') ev = { kind: 'trainPassed' };
     else if (e.kind === 'death') ev = { kind: 'death', how: e.how === 'time' ? 'time' : e.how };
     if (!ev) return;
     runCoins += store.coinsFor(ev);

@@ -116,6 +116,8 @@ export type CrossingEvent =
   | { kind: 'hop' }
   | { kind: 'death'; how: 'splash' | 'crash' | 'bonk' | 'time' | 'train' | 'other' }
   | { kind: 'levelClear'; world?: number; level?: number; stars?: number; flawless?: boolean }
+  | { kind: 'advance' }            // the Fuzzy reached a row it hadn't reached yet in this life (the same moment the engine adds +10 score in land())
+  | { kind: 'trainPassed' }        // a train passed along a rail row while the Fuzzy was alive and standing on/crossing that row's lane (or had just crossed it) — i.e. 'survived a train crossing'; once per train per life
   | { kind: 'run'; score: number; level: number; rows?: number; mode?: 'classic' | 'world' | 'endless' };
 export const COIN = { pickup: 1, gold: 5, nest: 3, level: 10, runBonusPer100: 2 } as const;
 /** coins / XP a single event is worth (the game uses these too to show the running total) */
