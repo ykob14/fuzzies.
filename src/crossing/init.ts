@@ -5,6 +5,7 @@
 import * as store from './store';
 import { ACHIEVEMENTS, isComplete, rewardCharacter } from './achievements';
 import { applyEvent, claimMission, noteFuzzy, rollMissions, weekKey } from './missions';
+import { initEvents } from './eventsLive';
 import { toast } from '../ui/dom';
 
 let started = false;
@@ -45,6 +46,7 @@ export function initCrossing(): void {
     store.mutate((c) => { applyEvent(c, e); if (e.kind === 'start') noteFuzzy(c, c.equipped.character); }, 'missions');
   });
   grantAchievements();
+  initEvents();
 }
 
 /** claim a finished mission: pays coins + Fuzzy Pass XP (and the all-three bonus) */

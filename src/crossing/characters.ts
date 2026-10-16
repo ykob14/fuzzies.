@@ -144,7 +144,7 @@ export function unlockText(c: CharacterDef): string {
     case 'start': return 'You start with this Fuzzy.';
     case 'pass': return `Reach Fuzzy Pass level ${k.level}.`;
     case 'shop': return k.slot === 'permanent' ? `Buy in the Fuzzy Shop for ${k.price} coins.` : `Appears in the Fuzzy Shop's rotating selection for ${k.price} coins — check back daily and weekly.`;
-    case 'season': return `Complete the ${EVENT_NAME[k.event]} event challenge. It comes back every year, and what you earn is yours forever.`;
+    case 'season': return `Finish all the ${EVENT_NAME[k.event]} challenges. It only opens while the event is on, comes back every year, and what you earn is yours forever.`;
     case 'achievement': return `Achievement: ${ACHIEVEMENT_HINT[k.id] ?? 'complete the achievement'}.`;
     case 'world': return `Clear all 15 levels of ${WORLD_NAME[k.world - 1]} (world ${k.world}).`;
     case 'endless': return `Reach ${k.score} in Endless Crossing.`;
