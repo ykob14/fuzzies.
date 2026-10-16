@@ -75,6 +75,26 @@ async function post(url: string, headers: Record<string, string>, body: unknown)
 
 const base = (env: string | undefined, dflt: string) => clean(env).replace(/\/+$/, '') || dflt;
 
+
+let geminiPick = ''; // the Gemini model that last worked for this server instance
+/** Ask Google which models this key may call and pick the newest plain Flash one that can generate text. */
+async function discoverGemini(): Promise<string> {
+  try {
+    const r = await fetch(`${base(process.env.GEMINI_BASE_URL, 'https://generativelanguage.googleapis.com')}/v1beta/models?pageSize=200`, { headers: { 'x-goog-api-key': clean(process.env.GEMINI_API_KEY) }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return '';
+    const d = (await r.json()) as { models?: { name?: string; supportedGenerationMethods?: string[] }[] };
+    let best = '', bestScore = -1;
+    for (const m of d.models ?? []) {
+      const id = (m.name ?? '').replace(/^models\//, '');
+      const mt = /^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/.exec(id);
+      if (!mt || !(m.supportedGenerationMethods ?? []).includes('generateContent')) continue;
+      const score = parseFloat(mt[1]) * 10 + (mt[2] ? 0 : 5);
+      if (score > bestScore) { best = id; bestScore = score; }
+    }
+    return best;
+  } catch { return ''; }
+}
+
 async function ask(system: string, messages: Turn[]): Promise<string> {
   const which = provider();
   let r: Response;
@@ -82,10 +102,16 @@ async function ask(system: string, messages: Turn[]): Promise<string> {
     r = await post(`${base(process.env.ANTHROPIC_BASE_URL, 'https://api.anthropic.com')}/v1/messages`,
       { 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01' }, { model: aiModel(), max_tokens: 900, temperature: 0.7, system, messages });
   } else if (which === 'gemini') {
-    const model = clean(process.env.GEMINI_MODEL) || 'gemini-2.5-flash';
-    r = await post(`${base(process.env.GEMINI_BASE_URL, 'https://generativelanguage.googleapis.com')}/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    const send = (model: string) => post(`${base(process.env.GEMINI_BASE_URL, 'https://generativelanguage.googleapis.com')}/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       { 'x-goog-api-key': clean(process.env.GEMINI_API_KEY) },
-      { systemInstruction: { parts: [{ text: system }] }, contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: { maxOutputTokens: 900, temperature: 0.7, ...(model.includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {}) } });
+      { systemInstruction: { parts: [{ text: system }] }, contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: { maxOutputTokens: 1500, temperature: 0.7, ...(model.includes('2.5') ? { thinkingConfig: { thinkingBudget: 0 } } : {}) } });
+    let model = clean(process.env.GEMINI_MODEL) || geminiPick || 'gemini-flash-latest';
+    r = await send(model);
+    // Google renames and retires models: if this one is gone (404), ask Google which Flash models this key can use and retry once
+    if (r.status === 404 && !clean(process.env.GEMINI_MODEL)) {
+      const found = await discoverGemini();
+      if (found && found !== model) { geminiPick = found; model = found; r = await send(model); }
+    }
   } else if (which === 'groq') {
     r = await post(`${base(process.env.GROQ_BASE_URL, 'https://api.groq.com/openai')}/v1/chat/completions`,
       { authorization: `Bearer ${clean(process.env.GROQ_API_KEY)}` },
