@@ -7,7 +7,7 @@
  * One renderer for the whole queue, thrown away at the end.
  */
 import * as THREE from 'three';
-import { h, icon } from '../../ui/dom';
+import { h } from '../../ui/dom';
 import { takePending, equipCharacter, equipCosmetic, hasCharacter } from '../store';
 import { CHARACTER_BY_ID, RARITY_COLOR, type CharacterDef, type Rarity } from '../characters';
 import { COSMETIC_BY_ID, SLOT_NAME, type CosmeticDef } from '../cosmetics';
@@ -18,6 +18,8 @@ import { unlockFanfare, whoosh, equipSound, sparkle } from '../audio';
 import { friendUrl } from '../../content/friends';
 import { rarityTag } from './kit';
 import { thumbnail } from './showroom';
+import { gicon, gtile, SLOT_ICON } from './gicons';
+import './gameui.css';
 import type { NavTarget } from '../hub';
 import './celebrate.css';
 
@@ -189,8 +191,8 @@ function modalKey(e: KeyboardEvent, settled: boolean, skip: () => void, finish: 
 // ---------- one character ----------
 function buttons(resolve: (c: Choice) => void, canEquip: boolean, equipLabel = 'Equip Now'): HTMLElement {
   return h('div', { class: 'fzc-btns' },
-    canEquip ? h('button', { class: 'btn btn-primary btn-lg fzc-equip', type: 'button', onclick: (e: Event) => { e.stopPropagation(); resolve('equip'); } }, icon('star', 18), h('span', null, equipLabel)) : null,
-    h('button', { class: 'btn btn-ghost btn-lg fzc-keep', type: 'button', onclick: (e: Event) => { e.stopPropagation(); resolve('keep'); } }, h('span', null, 'Keep going')));
+    canEquip ? h('button', { class: 'fzx-bigbtn fzc-equip', type: 'button', onclick: (e: Event) => { e.stopPropagation(); resolve('equip'); } }, gicon('star', 24), h('span', null, equipLabel)) : null,
+    h('button', { class: 'fzc-keep', type: 'button', onclick: (e: Event) => { e.stopPropagation(); resolve('keep'); } }, h('span', null, 'Keep going')));
 }
 function characterMoment(overlay: HTMLElement, def: CharacterDef, stage: Stage | null): Promise<Choice> {
   return new Promise((resolve) => {
@@ -241,7 +243,7 @@ function cosmeticMoment(overlay: HTMLElement, c: CosmeticDef): Promise<Choice> {
     overlay.classList.remove('settled');
     const finish = (x: Choice) => { removeEventListener('keydown', onKey, true); resolve(x); };
     const card = h('div', { class: 'fzc-card small' },
-      h('div', { class: 'fzc-icon', 'aria-hidden': 'true' }, c.icon, ...Array.from({ length: 8 }, (_, i) => h('i', { class: 'fzc-spark', style: `--a:${i * 45}deg` }))),
+      h('div', { class: 'fzc-icon', 'aria-hidden': 'true' }, gtile(SLOT_ICON[c.slot], 76), ...Array.from({ length: 8 }, (_, i) => h('i', { class: 'fzc-spark', style: `--a:${i * 45}deg` }))),
       h('div', { class: 'fzc-text' },
         h('p', { class: 'fzc-kicker' }, `New ${SLOT_NAME[c.slot].toLowerCase()}!`),
         h('h2', { class: 'fzc-name' }, c.name),

@@ -16,14 +16,13 @@ import { friendUrl } from '../../content/friends';
 import { MOOD_NAME } from '../character3d';
 import { equipSound, lockedSound } from '../audio';
 import type { Showroom } from './showroom';
+import { gicon, gtile, SLOT_ICON } from './gicons';
+import './gameui.css';
 import './locker.css';
 
 type Status = 'all' | 'owned' | 'locked' | 'new';
 type Sort = 'collection' | 'rarity' | 'name' | 'owned';
 const MOODS: Mood[] = ['happy', 'cool', 'sleepy', 'proud', 'silly', 'fierce', 'calm'];
-const JUMP_NAME: Record<string, string> = { bounce: 'Bouncy hop', hop: 'Quick hop', spring: 'Super spring', glide: 'Glide', twirl: 'Twirl jump', bunny: 'Bunny double-hop', stomp: 'Big stomp', float: 'Floaty hop', zoom: 'Zoom jump' };
-const CELE_NAME: Record<string, string> = { spin: 'Happy spin', backflip: 'Backflip', dance: 'Dance', cheer: 'Cheer', salute: 'Salute', bow: 'Bow', flex: 'Power pose', giggle: 'Giggle fit', magic: 'Magic twirl', roar: 'Roar' };
-const FX_NAME: Record<string, string> = { plain: 'Soft fur', gold: 'Golden fur', ghost: 'Ghostly glow', galaxy: 'Starry fur', rainbow: 'Rainbow fur', neon: 'Neon glow', frost: 'Frosty fur', fire: 'Ember glow', prism: 'Prism shine', cosmic: 'Cosmic swirl', aurora: 'Aurora lights', eclipse: 'Eclipse corona', bone: 'Bone white', robot: 'Brushed metal', storm: 'Storm clouds', stripes: 'Stripy fur' };
 const isSecret = (d: CharacterDef) => d.unlock.kind === 'secret';
 const kids = (...xs: (Node | string | null | undefined | false)[]): (Node | string)[] => xs.filter((x): x is Node | string => !!x);
 
@@ -114,15 +113,15 @@ export const open: PanelOpen = async (ctx, focus) => {
   // ---------- the showroom (lazy: three.js is its own download) ----------
   const stageWrap = h('div', { class: 'fzl-stagewrap' });
   const stageFallback = h('div', { class: 'fzl-fallback' });
-  stageWrap.append(stageFallback);
+  stageWrap.append(h('div', { class: 'fzx-rays fzl-rays', 'aria-hidden': 'true' }), stageFallback);
   let room: Showroom | null = null;
   let thumbs: typeof import('./showroom') | null = null;
   const hasGL = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } })();
 
   const stageTop = h('div', { class: 'fzl-stagetop' });
-  const actBtn = (label: string, ic: Parameters<typeof icon>[0], fn: () => void, cls = '') => h('button', { class: `fzl-act ${cls}`, type: 'button', title: label, 'aria-label': label, onclick: fn }, icon(ic, 18), h('span', null, label));
+  const actBtn = (label: string, ic: Parameters<typeof icon>[0], fn: () => void, cls = '') => h('button', { class: `fzx-round fzl-act ${cls}`, type: 'button', title: label, 'aria-label': label, onclick: fn }, icon(ic, 19));
   const moodBtn = actBtn('Mood', 'heart', () => { moodIdx = (moodIdx + 1) % MOODS.length; room?.mood(MOODS[moodIdx]); paintMood(); });
-  const paintMood = () => { const s = moodBtn.querySelector('span'); if (s) s.textContent = MOOD_NAME[MOODS[moodIdx]]; };
+  const paintMood = () => { moodBtn.title = `Mood: ${MOOD_NAME[MOODS[moodIdx]]}`; };
   const actions = h('div', { class: 'fzl-actions', role: 'toolbar', 'aria-label': 'Preview moves' },
     actBtn('Jump', 'up', () => room?.play('jump')),
     actBtn('Celebrate', 'sparkles', () => room?.play('celebrate')),
@@ -132,21 +131,21 @@ export const open: PanelOpen = async (ctx, focus) => {
   stageWrap.append(stageTop, actions);
 
   // ---------- collection header: progress ring + per-rarity bars ----------
-  const ring = h('div', { class: 'fzl-ring' });
-  const bars = h('div', { class: 'fzl-bars' });
-  const head = h('div', { class: 'fzl-progress' }, ring, bars);
-  const rarityChips = h('div', { class: 'fzl-chips', role: 'tablist', 'aria-label': 'Rarity' });
+  const prog = h('div', { class: 'fzx-prog' });
+  const head = h('div', { class: 'fzl-progress' }, gtile('fuzzy', 40), h('div', { class: 'fzl-prog-t' }, h('b', null, 'My Fuzzies'), prog));
+  const raritySel = h('select', { class: 'fzl-sort fzl-rsel', 'aria-label': 'Rarity', onchange: () => { rarity = raritySel.value as Rarity | 'all'; paintGrid(); } },
+    h('option', { value: 'all' }, 'All rarities'), ...RARITIES.map((r) => h('option', { value: r }, RARITY_NAME[r]))) as HTMLSelectElement;
   const statusChips = h('div', { class: 'fzl-chips fzl-chips-s', role: 'tablist', 'aria-label': 'Show' });
   const search = h('input', { class: 'fzl-search', type: 'search', placeholder: 'Search Fuzzies', 'aria-label': 'Search Fuzzies' }) as HTMLInputElement;
   const sortSel = h('select', { class: 'fzl-sort', 'aria-label': 'Sort' },
     h('option', { value: 'collection' }, 'Collection order'), h('option', { value: 'rarity' }, 'Rarity'), h('option', { value: 'owned' }, 'Owned first'), h('option', { value: 'name' }, 'Name')) as HTMLSelectElement;
   const grid = h('div', { class: 'fzl-grid', role: 'listbox', 'aria-label': 'Fuzzies' });
   const empty = h('p', { class: 'fzl-empty', hidden: true }, 'No Fuzzies match — try another filter.');
-  const coll = h('section', { class: 'fzl-coll', 'aria-label': 'Your collection' }, head, rarityChips, h('div', { class: 'fzl-tools' }, statusChips, h('div', { class: 'fzl-tools2' }, search, sortSel)), grid, empty);
+  const coll = h('section', { class: 'fzl-coll fzx-card', 'aria-label': 'Your collection' }, head, h('div', { class: 'fzl-tools' }, statusChips, h('div', { class: 'fzl-tools2' }, search, raritySel, sortSel)), grid, empty);
 
   // ---------- details ----------
-  const details = h('section', { class: 'fzl-details', 'aria-live': 'polite' });
-  const summary = h('div', { class: 'fzl-summary' }); // phones: name + main button under the stage
+  const details = h('section', { class: 'fzl-details fzx-card', 'aria-live': 'polite' });
+  const summary = h('div', { class: 'fzl-summary fzx-card' }); // phones: name + main button under the stage
   const sheet = h('div', { class: 'fzl-sheet', hidden: true, role: 'dialog', 'aria-label': 'Fuzzy details' });
   const sheetBack = h('div', { class: 'fzl-sheet-back', hidden: true, onclick: () => setSheet(false) });
 
@@ -181,7 +180,8 @@ export const open: PanelOpen = async (ctx, focus) => {
     const cached = thumbs?.cachedThumbnail(d, !owned);
     if (cached) pic.append(h('img', { src: cached, alt: '', draggable: 'false' }));
     else {
-      if (d.friend && !secretLocked) pic.append(h('img', { src: friendUrl(d.friend), alt: '', class: 'fzl-flat', draggable: 'false' }));
+      // owned: the friend picture until the 3D one is ready; locked: a round rarity-rimmed silhouette (a blacked-out drawing reads as a blob)
+      if (d.friend && owned) pic.append(h('img', { src: friendUrl(d.friend), alt: '', class: 'fzl-flat', draggable: 'false' }));
       else pic.append(h('span', { class: 'fzl-blob', style: `--c0:${d.color[0]};--c1:${d.color[1]}` }));
       if (hasGL) void loadThumbs().then((m) => m?.thumbnail(d, { locked: !owned }).then((url) => { if (url && pic.isConnected) pic.replaceChildren(h('img', { src: url, alt: '', draggable: 'false' })); }));
     }
@@ -199,8 +199,7 @@ export const open: PanelOpen = async (ctx, focus) => {
     h('span', { class: 'fzl-card-in' },
       portrait(d, owned),
       h('span', { class: 'fzl-cname' }, secret ? '???' : d.name),
-      h('span', { class: 'fzl-cmeta' }, eq ? h('em', { class: 'fzl-eqtag' }, 'Equipped') : owned ? h('span', { class: 'fzl-rname' }, RARITY_NAME[d.rarity]) : h('span', { class: 'fzl-lock' }, icon('lock', 12), d.unlock.kind === 'shop' ? h('span', { class: 'fzl-price' }, coinMark(12), d.unlock.price.toLocaleString()) : shortHint(d)))),
-    h('i', { class: 'fzl-rbar' }));
+      h('span', { class: 'fzl-cmeta' }, eq ? h('em', { class: 'fzl-eqtag' }, 'Equipped') : owned ? '' : d.unlock.kind === 'shop' ? h('span', { class: 'fzl-price' }, coinMark(13), d.unlock.price.toLocaleString()) : h('span', { class: 'fzl-lock' }, gicon('lock', 13), shortHint(d)))));
     if (owned && store.isNew(d.id) && d.id !== 'classic') b.append(newDot());
     return b;
   }
@@ -228,27 +227,18 @@ export const open: PanelOpen = async (ctx, focus) => {
     empty.hidden = xs.length > 0;
   }
   function paintHead(): void {
-    const c = store.save(), n = c.owned.length, total = CHARACTERS.length;
-    const R = 26, C = 2 * Math.PI * R, k = n / total;
-    ring.innerHTML = `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><circle cx="32" cy="32" r="${R}" fill="none" stroke="var(--border)" stroke-width="7"/><circle cx="32" cy="32" r="${R}" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(C * k).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 32 32)"/></svg>`;
-    ring.append(h('span', { class: 'fzl-ring-t' }, h('b', null, String(n)), h('small', null, `/ ${total}`)));
-    ring.setAttribute('aria-label', `${n} of ${total} Fuzzies collected`);
-    bars.replaceChildren(h('p', { class: 'fzl-bars-title' }, h('b', null, `${n} of ${total} Fuzzies`), h('span', null, n === total ? 'Complete collection!' : `${total - n} to find`)),
-      ...RARITIES.map((r) => {
-        const all = CHARACTERS.filter((d) => d.rarity === r), have = all.filter((d) => c.owned.includes(d.id)).length;
-        return h('div', { class: 'fzl-bar', style: `--rar:${RARITY_COLOR[r]}` }, h('span', null, RARITY_NAME[r]), h('i', null, h('i', { style: `width:${Math.round((have / all.length) * 100)}%` })), h('small', null, `${have}/${all.length}`));
-      }));
+    const n = store.save().owned.length, total = CHARACTERS.length;
+    prog.classList.toggle('full', n === total);
+    prog.replaceChildren(h('i', { style: `width:${Math.max(8, Math.round((n / total) * 100))}%` }), h('b', null, `${n} / ${total}`));
+    prog.setAttribute('aria-label', `${n} of ${total} Fuzzies collected`);
   }
   function paintChips(): void {
-    rarityChips.replaceChildren(...(['all', ...RARITIES] as (Rarity | 'all')[]).map((r) => h('button', {
-      class: `fzl-chip ${rarity === r ? 'on' : ''}`, type: 'button', role: 'tab', 'aria-selected': rarity === r ? 'true' : 'false', style: r === 'all' ? '' : `--rar:${RARITY_COLOR[r]}`,
-      onclick: () => { rarity = r; paintChips(); paintGrid(); },
-    }, r === 'all' ? null : h('i', { class: 'fzl-dot' }), r === 'all' ? 'All' : RARITY_NAME[r])));
+    raritySel.value = rarity;
     const newCount = CHARACTERS.filter((d) => store.hasCharacter(d.id) && store.isNew(d.id) && d.id !== 'classic').length;
     statusChips.replaceChildren(...(['all', 'owned', 'locked', 'new'] as Status[]).map((s) => h('button', {
       class: `fzl-chip ${status === s ? 'on' : ''}`, type: 'button', role: 'tab', 'aria-selected': status === s ? 'true' : 'false',
       onclick: () => { status = status === s && s !== 'all' ? 'all' : s; paintChips(); paintGrid(); },
-    }, { all: 'Everyone', owned: 'Owned', locked: 'Locked', new: 'New' }[s], s === 'new' && newCount ? h('b', { class: 'fzl-count' }, String(newCount)) : null)));
+    }, { all: 'All', owned: 'Owned', locked: 'Locked', new: 'New' }[s], s === 'new' && newCount ? h('b', { class: 'fzl-count' }, String(newCount)) : null)));
   }
 
   // ---------- details panel ----------
@@ -267,9 +257,8 @@ export const open: PanelOpen = async (ctx, focus) => {
   }
   function paintDetails(): void {
     const d = selected, owned = store.hasCharacter(d.id), eq = store.save().equipped.character === d.id, secret = isSecret(d) && !owned;
-    const trait = (k: string, v: string) => h('div', { class: 'fzl-trait' }, h('small', null, k), h('b', null, v));
     const mainBtn = owned
-      ? h('button', { class: `btn btn-${eq ? 'soft' : 'primary'} btn-lg btn-block fzl-equip`, type: 'button', disabled: eq, onclick: () => equip(d) }, icon(eq ? 'check' : 'star', 18), h('span', null, eq ? 'Equipped' : 'Equip'))
+      ? h('button', { class: 'fzx-bigbtn fzl-equip', type: 'button', disabled: eq, onclick: () => equip(d) }, gicon(eq ? 'check' : 'star', 24), h('span', null, eq ? 'Equipped' : 'Equip'))
       : null;
     // How to Unlock
     let how: HTMLElement | null = null;
@@ -277,10 +266,9 @@ export const open: PanelOpen = async (ctx, focus) => {
       const t = unlockTarget(d), p = progress(d);
       const avail = t ? panelAvailable(t.panel) : false;
       how = h('div', { class: 'fzl-how', style: `--rar:${RARITY_COLOR[d.rarity]}` },
-        h('p', { class: 'fzl-how-t' }, icon('lock', 16), h('b', null, 'How to Unlock')),
-        h('p', { class: 'fzl-how-x' }, unlockText(d)),
-        p ? h('div', { class: 'fzl-how-p' }, h('i', null, h('i', { style: `width:${Math.round((p.now / Math.max(1, p.need)) * 100)}%` })), h('small', null, p.text)) : null,
-        t ? avail ? h('button', { class: 'btn btn-primary btn-md btn-block fzl-go', type: 'button', onclick: () => go(t) }, h('span', null, t.label), icon('play', 16)) : h('p', { class: 'fzl-soon' }, `${t.label} — coming soon to Fuzzy Crossing.`) : null);
+        h('div', { class: 'fzl-how-t' }, gtile('lock', 34, 'soft'), h('div', null, h('b', null, 'How to Unlock'), h('p', { class: 'fzl-how-x' }, unlockText(d)))),
+        p ? h('div', { class: 'fzx-prog fzl-how-p' }, h('i', { style: `width:${Math.max(8, Math.round((p.now / Math.max(1, p.need)) * 100))}%` }), h('b', null, p.text)) : null,
+        t ? avail ? h('button', { class: 'fzx-bigbtn fzl-go', type: 'button', onclick: () => go(t) }, h('span', null, t.label), gicon('play', 22)) : h('p', { class: 'fzl-soon' }, `${t.label}: coming soon`) : null);
     }
     const chips = (slot: CosmeticSlot) => {
       const eqId = store.save().equipped[slot];
@@ -291,23 +279,22 @@ export const open: PanelOpen = async (ctx, focus) => {
             class: `fzl-cos ${have ? '' : 'locked'} ${on ? 'on' : ''}`, type: 'button', style: `--rar:${RARITY_COLOR[x.rarity]}`,
             title: have ? `${x.name} — ${x.blurb}` : `${x.name} — ${cosmeticHow(x)}`, 'aria-pressed': on ? 'true' : 'false',
             onclick: () => pickCosmetic(x),
-          }, h('span', { class: 'fzl-cos-ic' }, x.icon), h('span', { class: 'fzl-cos-n' }, x.name), have ? null : icon('lock', 11));
+          }, gtile(have ? SLOT_ICON[x.slot] : 'lock', 24, `fzl-cos-ic ${have ? '' : 'grey'}`), h('span', { class: 'fzl-cos-n' }, x.name));
         })));
     };
-    const cosHelp = h('p', { class: 'fzl-cos-help', id: 'fzl-cos-help' }, 'Tap one to try it on. Locked ones show how to get them.');
+    const cosHelp = h('p', { class: 'fzl-cos-help', id: 'fzl-cos-help' });
     details.replaceChildren(...kids(
       h('div', { class: 'fzl-d-head' },
-        h('div', null, h('h2', { class: 'fzl-name' }, secret ? '???' : d.name), h('div', { class: 'fzl-tags' }, rarityTag(d.rarity), eq ? h('span', { class: 'fzl-eqtag big' }, 'Equipped') : null, !owned ? h('span', { class: 'fzl-locktag' }, icon('lock', 12), 'Locked') : null)),
+        h('div', null, h('h2', { class: 'fzl-name' }, secret ? '???' : d.name), h('div', { class: 'fzl-tags' }, rarityTag(d.rarity))),
         h('button', { class: 'fzl-close-sheet', type: 'button', 'aria-label': 'Close details', onclick: () => setSheet(false) }, icon('close', 18))),
       h('p', { class: 'fzl-tagline' }, secret ? 'Nobody knows. Nobody has the courage to ask.' : d.tagline),
-      secret ? null : h('div', { class: 'fzl-traits' }, trait('Personality', d.personality), trait('Jump', JUMP_NAME[d.jump] ?? d.jump), trait('Celebrates with', CELE_NAME[d.celebrate] ?? d.celebrate), trait('Fur', FX_NAME[d.fx] ?? d.fx)),
       mainBtn, how,
-      h('div', { class: 'fzl-cos-wrap' }, h('h3', null, 'Style'), cosHelp, ...SLOTS.map(chips))));
+      owned || secret ? h('div', { class: 'fzl-cos-wrap' }, h('h3', null, 'Style'), ...SLOTS.map(chips), cosHelp) : null));
     // phones: summary bar under the stage
-    summary.replaceChildren(
-      h('div', { class: 'fzl-sum-t' }, h('b', null, secret ? '???' : d.name), h('span', null, rarityTag(d.rarity), owned ? null : h('span', { class: 'fzl-locktag' }, icon('lock', 11), shortHint(d)))),
-      owned ? h('button', { class: `btn btn-${eq ? 'soft' : 'primary'} btn-md`, type: 'button', disabled: eq, onclick: () => equip(d) }, h('span', null, eq ? 'Equipped' : 'Equip')) : h('button', { class: 'btn btn-primary btn-md', type: 'button', onclick: () => setSheet(true) }, h('span', null, 'How to unlock')),
-      h('button', { class: 'btn btn-soft btn-md btn-icon fzl-more', type: 'button', title: 'Details and style', 'aria-label': 'Details and style', onclick: () => setSheet(true) }, icon('more', 18)));
+    summary.replaceChildren(...kids(
+      h('div', { class: 'fzl-sum-t' }, h('b', null, secret ? '???' : d.name), h('span', null, rarityTag(d.rarity))),
+      owned ? h('button', { class: 'fzx-bigbtn fzl-sum-btn', type: 'button', disabled: eq, onclick: () => equip(d) }, gicon(eq ? 'check' : 'star', 20), h('span', null, eq ? 'Equipped' : 'Equip')) : h('button', { class: 'fzx-bigbtn fzl-sum-btn', type: 'button', onclick: () => setSheet(true) }, gicon('lock', 20), h('span', null, 'How to Unlock')),
+      owned ? h('button', { class: 'fzx-round fzl-more', type: 'button', title: 'Style', 'aria-label': 'Style', onclick: () => setSheet(true) }, icon('more', 18)) : null));
     stageTop.replaceChildren(h('span', { class: 'fzl-st-name' }, secret ? '???' : d.name), rarityTag(d.rarity));
     stageWrap.style.setProperty('--rar', RARITY_COLOR[d.rarity]);
     stageWrap.classList.toggle('locked', !owned);

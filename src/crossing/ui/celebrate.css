@@ -1,6 +1,6 @@
 /* Unlock celebration — a dark stage; the rarity colour is only a soft glow + small accents. Buttons use the raspberry brand colour. */
-.fzc { position: fixed; inset: 0; z-index: 95; display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; overflow: hidden;
-  color: #f6f2fb; background: radial-gradient(90% 70% at 50% 42%, color-mix(in srgb, var(--rar, #d6336c) 22%, #1b1822) 0%, #141219 58%, #0e0d12 100%);
+.fzc { --lip: color-mix(in srgb, var(--accent) 68%, #000); position: fixed; inset: 0; z-index: 95; display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; overflow: hidden;
+  color: #f6f2fb; background: radial-gradient(90% 70% at 50% 42%, color-mix(in srgb, var(--rar, #d6336c) 22%, #1c1b20) 0%, #141317 58%, #0e0e10 100%);
   padding: var(--safe-t, 0px) 16px calc(18px + var(--safe-b, 0px)); box-sizing: border-box; animation: fzcIn .25s ease both; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 .fzc.out { opacity: 0; transition: opacity .2s ease; pointer-events: none; }
 @keyframes fzcIn { from { opacity: 0; } to { opacity: 1; } }
@@ -18,9 +18,10 @@
 .fzc-line { margin: 0; max-width: 34ch; font: 500 14.5px/1.4 var(--ui); color: #cfc8dc; }
 .fzc-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; opacity: 0; transform: translateY(10px); pointer-events: none; transition: opacity .3s ease .05s, transform .35s ease .05s; }
 .fzc.settled .fzc-btns { opacity: 1; transform: none; pointer-events: auto; }
-.fzc-btns .btn { min-width: 150px; min-height: 48px; }
-.fzc-btns .fzc-keep { color: #f0eaf7; border-color: rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .06); }
-.fzc-btns .fzc-keep:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.fzc-btns .fzc-equip { min-width: 170px; }
+.fzc-keep { min-width: 150px; min-height: 56px; padding: 0 22px; border-radius: 22px; border: 2px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .07); color: #f2f0f5; font: 700 19px/1 var(--brand); cursor: pointer; box-shadow: 0 5px 0 rgba(0, 0, 0, .45); }
+.fzc-keep:hover { background: rgba(255, 255, 255, .13); color: #fff; }
+.fzc-keep:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, .45); }
 .fzc-btns .fzc-equip:focus-visible, .fzc-btns .fzc-keep:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .fzc-skip { position: absolute; top: calc(14px + var(--safe-t, 0px)); right: 16px; margin: 0; z-index: 1; font: 700 12px/1 var(--ui); color: #b9b1c8; padding: 7px 11px; border-radius: 99px; background: rgba(255, 255, 255, .07); pointer-events: none; }
 
@@ -37,8 +38,8 @@
 /* a cosmetic: a smaller card in the middle */
 .fzc.cos { grid-template-rows: minmax(0, 1fr); align-items: center; }
 .fzc-card.small { grid-row: 1; padding: 22px 20px 20px; border-radius: 24px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); width: min(380px, 100%); }
-.fzc-icon { position: relative; width: 96px; height: 96px; display: grid; place-items: center; font-size: 54px; line-height: 1; border-radius: 28px;
-  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--rar, #d6336c) 40%, #2a2633) 0%, #1e1b26 75%); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rar, #d6336c) 50%, transparent), 0 10px 30px color-mix(in srgb, var(--rar, #d6336c) 30%, transparent);
+.fzc-icon { position: relative; width: 96px; height: 96px; display: grid; place-items: center; border-radius: 30px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rar, #d6336c) 70%, transparent), 0 10px 30px color-mix(in srgb, var(--rar, #d6336c) 30%, transparent);
   animation: fzcPop .55s cubic-bezier(.2, 1.5, .4, 1) both; }
 .fzc-spark { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px; border-radius: 50%; background: color-mix(in srgb, var(--rar, #d6336c) 50%, #fff); opacity: 0;
   animation: fzcSpark .9s ease-out .15s both; }
@@ -46,7 +47,7 @@
 
 @media (max-width: 420px) {
   .fzc-btns { width: 100%; }
-  .fzc-btns .btn { flex: 1 1 140px; min-width: 0; }
+  .fzc-btns > button { flex: 1 1 140px; min-width: 0; }
 }
 :root[data-motion='reduce'] .fzc, :root[data-motion='reduce'] .fzc * { animation: none !important; }
 :root[data-motion='reduce'] .fzc-text, :root[data-motion='reduce'] .fzc-btns { transform: none; transition: opacity .2s ease; }

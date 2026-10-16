@@ -108,3 +108,6 @@ export const METRIC_ICON: Record<string, GIcon> = {
   hops: 'hop', rows: 'road', pickups: 'coin', gold: 'star', nests: 'nest', levels: 'flag', flawless: 'crown', runs: 'runs', score: 'trophy',
   deaths: 'boom', splashes: 'boom', crashes: 'boom', trains: 'train', distinct: 'fuzzy', endlessRows: 'endless', endlessRecord: 'endless',
 };
+
+/** the picture for each cosmetic slot (no emoji in the game screens) */
+export const SLOT_ICON: Record<'trail' | 'jump' | 'celebration' | 'extra', GIcon> = { trail: 'star', jump: 'hop', celebration: 'crown', extra: 'fuzzy' };
