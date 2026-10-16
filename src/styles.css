@@ -3285,3 +3285,16 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
 .ha-peek { animation: haBlob 1.5s ease-in-out infinite; }
 .ha-bubble { animation: haBlob 2s ease-in-out infinite; }
 :root[data-motion='reduce'] .ha-scene * { animation: none !important; }
+
+/* ===== Home: Fuzzy Crossing + Fuzzies Land cards — real pictures of the games, both cards the same ===== */
+.home-play .game-promo, .home-play .land-promo { background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 22px; margin: 0; }
+.home-play .game-promo p, .home-play .land-promo p { color: var(--muted); opacity: 1; max-width: none; }
+.home-play .game-promo .hero-kicker, .home-play .land-promo .hero-kicker { color: var(--accent); }
+.home-play .game-promo h2, .home-play .land-promo h2 { font: 700 30px/1.05 var(--brand); margin-bottom: 8px; color: var(--text); }
+.home-play .game-promo .gp-stats, .home-play .land-promo .gp-stats { color: var(--text); opacity: .9; }
+.gp-art, .lp-art { overflow: hidden; background: #cfe3c4; }
+.gp-art img, .lp-art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 40%; transition: transform .7s var(--ease); }
+.game-promo:hover .gp-art img, .land-promo:hover .lp-art img { transform: scale(1.05); }
+.gp-art::after, .lp-art::after { content: ''; position: absolute; inset: auto 0 0 0; height: 38%; background: linear-gradient(to top, rgba(0,0,0,.16), transparent); pointer-events: none; }
+:root[data-motion='reduce'] .gp-art img, :root[data-motion='reduce'] .lp-art img { transition: none; }
+.gp-art img { object-position: 40% 68%; }
