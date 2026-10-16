@@ -80,7 +80,7 @@ function banner(): HTMLElement {
     <path d="M430 66l-62 8 12 38-12 38 62-6-20-36z" fill="url(#ffc)" stroke="${OUT}" stroke-width="5" stroke-linejoin="round"/>
     <path d="M44 56Q220 8 396 56L396 134Q220 86 44 134Z" fill="url(#ffb)" stroke="${OUT}" stroke-width="5.5" stroke-linejoin="round"/>
     <path d="M52 62Q220 16 388 62L388 78Q220 34 52 78Z" fill="#fff" opacity=".28"/>
-    <text font-family="Fredoka, 'Baloo 2', system-ui, sans-serif" font-weight="700" font-size="41" letter-spacing="1" fill="#fff8ee" stroke="${OUT}" stroke-width="7" stroke-linejoin="round" paint-order="stroke" text-anchor="middle"><textPath href="#ffp" startOffset="50%">HAPPY FRIDAY!</textPath></text>
+    <text font-family="Fredoka, 'Baloo 2', system-ui, sans-serif" font-weight="700" font-size="40" letter-spacing=".5" fill="#fff8ee" stroke="${OUT}" stroke-width="7" stroke-linejoin="round" paint-order="stroke" text-anchor="middle"><textPath href="#ffp" startOffset="50%">FUZZIE FRIDAY!</textPath></text>
     ${star(34, 28, 12)}${star(412, 22, 9, '#ffe08a')}${star(402, 150, 8)}${star(26, 150, 7, '#ffe08a')}${star(224, 14, 7, '#ffe08a')}
   </svg>`;
   return el;
@@ -106,7 +106,7 @@ async function show(day: string, cloudAccount: boolean): Promise<void> {
   const later = h('button', { class: 'ff-later', type: 'button' }, 'Later');
   const card = h('div', { class: 'ff-card fzx-card' }, h('div', { class: 'ff-row' }, gift, lead, prize), claimBtn, later);
 
-  const el = h('div', { class: `fz-friday ${reduce ? 'calm' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Happy Friday! A gift for you' },
+  const el = h('div', { class: `fz-friday ${reduce ? 'calm' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Fuzzie Friday! A gift for you' },
     h('div', { class: 'ff-beams', 'aria-hidden': 'true' }), h('div', { class: 'ff-floor', 'aria-hidden': 'true' }),
     banner(), card);
   document.body.append(el);
@@ -141,7 +141,7 @@ async function show(day: string, cloudAccount: boolean): Promise<void> {
       stage?.party();
       later.remove();
       if (soundOn()) { sfx.boing(); setTimeout(() => sfx.shimmer(), 150); setTimeout(() => sfx.coins(), 650); }
-      lead.replaceChildren(h('b', null, 'Happy Friday!'), h('small', null, 'Added to your Fuzzies'));
+      lead.replaceChildren(h('b', null, 'Fuzzie Friday!'), h('small', null, 'Added to your Fuzzies'));
       const t0 = performance.now();
       const tick = (t: number): void => { const k = Math.min(1, (t - t0) / 1000); amountEl.textContent = '+' + Math.round(amount * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); };
       requestAnimationFrame(tick);
