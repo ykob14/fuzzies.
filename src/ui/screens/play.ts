@@ -619,7 +619,13 @@ export function playScreen(): Screen {
   initCrossing();
   setTimeout(() => { void import('../friday').then((m) => m.maybeShowFriday()); }, 900); // Fridays: the first visit gets the Happy Friday surprise
   if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__play = { showOver: (r: Result) => showOver(r) };
-  requestAnimationFrame(() => { void newGame(); showStart(); });
+  requestAnimationFrame(() => {
+    void newGame(); showStart();
+    // #/play/locker, #/play/pass … : open that screen straight away (Fuzzies Land → Games → Fuzzy Collection)
+    const want = location.hash.replace(/^#\/?/, '').split('?')[0].split('/')[1];
+    const PANELS = ['locker', 'pass', 'shop', 'missions', 'leaderboard', 'worlds', 'endless', 'events'];
+    if (want && PANELS.includes(want)) go({ to: want } as NavTarget);
+  });
 
   return {
     el,

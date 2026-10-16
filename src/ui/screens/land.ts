@@ -375,6 +375,28 @@ export function landScreen(): Screen {
     stage.append(card);
   }
 
+  /** Most of the town is in Storage (e.g. after "Store everything" in Edit town): say so, and put it all back with one tap. */
+  function packedAway(): boolean {
+    const stored = L.storage(s).length;
+    if (stored < 3) return false;
+    const placed = s.buildings.filter((b) => !['hall', 'gate'].includes(b.item) && !L.walkway(b.item)).length;
+    if (placed > stored / 3) return false;
+    document.querySelector('.land-away')?.remove();
+    const card = h('div', { class: 'land-away land-packed' },
+      h('div', { class: 'land-away-head' }, mascot(46, { sparkles: false, interactive: false }), h('div', null, h('b', null, 'Your town is packed away!'), h('small', null, `${plural(stored, 'piece')} are safe in Storage — houses, roads and all.`))),
+      h('div', { class: 'btn-row' },
+        btn('Put everything back', { kind: 'primary', icon: 'check', onClick: () => {
+          card.remove();
+          const r = L.restoreAll(s);
+          if (!r.placed.length) { toast('No room right now — open Edit town → Storage to place things by hand.', 'info'); return; }
+          sfx.build(); save(); view?.sync(s); view?.settle(r.placed.map((p) => p.id));
+          toast(r.left.length ? `Placed ${r.placed.length} · ${plural(r.left.length, 'piece')} didn’t fit — still safe in Storage` : `Your town is back ✓ (${plural(r.placed.length, 'piece')})`, 'good', 3600);
+        } }),
+        btn('Later', { kind: 'ghost', onClick: () => card.remove() })));
+    stage.append(card);
+    return true;
+  }
+
   // ---------- panels ----------
   function openPanel(p: Panel): void {
     if (talk) endTalk();
@@ -399,7 +421,7 @@ export function landScreen(): Screen {
     if (panel.kind === 'shop') sheet.replaceChildren(head('Build', 'Pick one, then choose its spot', landIcon('hammer', 34)), shopBody(panel.tab));
     else if (panel.kind === 'orders') sheet.replaceChildren(head('Orders', 'Deliver goods for coins and XP', landIcon('crate', 34)), ordersBody());
     else if (panel.kind === 'barn') sheet.replaceChildren(head('Barn', '', landIcon('barn', 34)), barnBody());
-    else if (panel.kind === 'games') sheet.replaceChildren(head('Games', 'Play, win and earn for your town', landIcon('portal', 34)), gamesBody(s, now(), { crossing: () => { openPanel(null); goPlay(s.buildings.find((b) => b.item === 'gate')?.id); }, parking: () => { openPanel(null); openParking(); }, challenges: () => openPanel({ kind: 'adventures' }) }));
+    else if (panel.kind === 'games') sheet.replaceChildren(head('Games', 'Play, win and earn for your town', landIcon('portal', 34)), gamesBody(s, now(), { crossing: () => { openPanel(null); goPlay(s.buildings.find((b) => b.item === 'gate')?.id); }, parking: () => { openPanel(null); openParking(); }, challenges: () => openPanel({ kind: 'adventures' }), collection: (panel) => { openPanel(null); travel(`#/play/${panel}`, 'Off to your Fuzzy Collection…'); } }));
     else if (panel.kind === 'adventures') {
       const st = A.setStatus(s, now());
       sheet.replaceChildren(head('Adventures', st.ready ? 'New missions are ready!' : st.allDone ? `All ${st.total} done · next in ${A.countdown(st.unlockIn)}` : `${st.doneCount} of ${st.total} done`, landIcon('compass', 34)), adventuresBody(s, now(), (id) => hostNameOf(id), (adv) => { openPanel(null); startAdventure(adv); }, (adv) => { openPanel(null); findHost(adv); }, (id) => view?.residentInfo(hostIndexOf(id))?.skin[0] ?? null));
@@ -2117,7 +2139,7 @@ export function landScreen(): Screen {
       try { cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null'); if (!cam || !Number.isFinite(cam.x) || !Number.isFinite(cam.z) || !Number.isFinite(cam.d)) cam = null; } catch { cam = null; }
       if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), openShop: (tab: 'decor') => openPanel({ kind: 'shop', tab }), trophies: TR, adv: A, openParking, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, devSet, syncMissions, setStatus: () => A.setStatus(s, now()), talking: () => !!talk, playing: () => playing }; // for tests
       if (a.settings.reduceMotion) view.placeAt(cam); else view.swoopIn(cam);
-      setTimeout(() => { if (alive && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
+      setTimeout(() => { if (alive && !tut.active && !packedAway()) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
       setTimeout(() => { if (alive) startTutorial(); }, a.settings.reduceMotion ? 300 : 2200);
       resumeEditing();

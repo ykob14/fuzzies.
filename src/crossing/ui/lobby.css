@@ -156,3 +156,10 @@
 .fzx-play::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 38px; left: -60px; transform: skewX(-22deg); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent); animation: fzxShine 4.2s ease-in-out 1.2s infinite; pointer-events: none; }
 @keyframes fzxShine { 0% { left: -60px; } 28%, 100% { left: calc(100% + 40px); } }
 :root[data-motion='reduce'] .fzx-lobby > *, :root[data-motion='reduce'] .fzx-play::after { animation: none !important; }
+
+/* the simple lobby (owner: "too complicated"): back to the town, your Fuzzy, Play, Worlds + Endless */
+.fzx-back { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px 0 10px; border-radius: 99px; border: 2px solid var(--card-lip); background: var(--surface); color: var(--text); font: 700 15px/1 var(--brand); cursor: pointer; box-shadow: 0 3px 0 var(--card-lip); -webkit-tap-highlight-color: transparent; }
+.fzx-back:active { transform: translateY(3px); box-shadow: 0 0 0 var(--card-lip); }
+.fzx-back svg { color: var(--accent); }
+.fzx-name.plain { cursor: default; }
+.fzx-lobby .fzx-modes.n2 { grid-template-columns: 1fr 1fr; }
