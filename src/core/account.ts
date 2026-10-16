@@ -5,6 +5,7 @@
  */
 import { uid, todayKey } from './util';
 import { freshLand, migrateLand, type LandState } from '../land/rules';
+import { freshCrossing, migrateCrossing, type CrossingSave } from '../crossing/save';
 
 export interface Avatar { emoji: string; color: string; image?: string }
 
@@ -71,6 +72,8 @@ export interface Account {
   brand: BrandKit;
   /** Fuzzies Land: your town (see land/rules.ts). */
   land: LandState;
+  /** Fuzzy Crossing: coins, Fuzzy Pass, the 50 Fuzzies you own, cosmetics, worlds, missions (see crossing/save.ts). Separate from Land. */
+  crossing: CrossingSave;
   settings: Settings;
 }
 
@@ -135,6 +138,7 @@ function fresh(username: string, name: string, email: string, guest: boolean): A
     topScores: [],
     brand: { colors: [], heading: 'Poppins', body: 'DM Sans' },
     land: freshLand(),
+    crossing: freshCrossing(),
     settings: { theme: 'system', accent: '', sound: true, snap: true, reduceMotion: false, skin: 'classic', gameGfx: 'real', music: true, seasonFx: true, fuzzyLook: 'deluxe', appIcon: { color: 'classic', bg: 'ink' } },
   };
 }
@@ -260,7 +264,7 @@ export const accounts = {
 /** Fill in fields added after an account was first saved. */
 function migrate(a: Account): Account {
   const f = fresh(a.username, a.name, a.email, a.guest);
-  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, missions: { ...f.missions, ...a.missions }, brand: { ...f.brand, ...a.brand }, land: migrateLand(a.land), settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
+  return { ...f, ...a, stats: { ...f.stats, ...a.stats }, daily: { ...f.daily, ...a.daily }, missions: { ...f.missions, ...a.missions }, brand: { ...f.brand, ...a.brand }, land: migrateLand(a.land), crossing: migrateCrossing(a.crossing, a.unlocked, a.settings?.skin), settings: { ...f.settings, ...a.settings }, avatar: { ...f.avatar, ...a.avatar } };
 }
 
 export { fresh as freshAccount, migrate as migrateAccount };

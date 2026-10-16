@@ -6,6 +6,7 @@
  * view3d.ts (realistic 3D) or view2d.ts (classic 2D, also the fallback without WebGL).
  */
 import { sfx } from './sound';
+import type { CharacterDef } from '../crossing/characters';
 
 export const COLS = 11;
 export const ROWS = 13;
@@ -15,7 +16,7 @@ export const HOMES = [1, 3, 5, 7, 9];
 export const OFFSCREEN = 12;
 const LIFE_TIME = 32;
 
-export interface Skin { id: string; name: string; cost: number; colors: [string, string] }
+export interface Skin { id: string; name: string; cost: number; colors: [string, string]; /** the collectible Fuzzy this look belongs to (outfit, fur finish, jump style…) */ character?: CharacterDef }
 export const SKINS: Skin[] = [
   { id: 'classic', name: 'Classic', cost: 0, colors: ['#ff86bb', '#b8235f'] },
   { id: 'mint', name: 'Minty', cost: 15, colors: ['#7dffcf', '#22b5a0'] },

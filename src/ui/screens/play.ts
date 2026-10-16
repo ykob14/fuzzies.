@@ -1,21 +1,29 @@
 /** Fuzzy Crossing screen: start card, HUD, touch controls and the game-over summary. */
 import type { Screen } from '../app';
-import { Crossing, SKINS, type Hud, type Result, type Skin, type View } from '../../game/crossing';
+import { Crossing, SKINS, type Fx, type Hud, type Result, type Skin, type View } from '../../game/crossing';
 import { View2D } from '../../game/view2d';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
-import { unlockDialog } from '../unlock';
 import { track } from '../../core/missions';
 import { mascot } from '../mascot';
 import { travel } from '../travel';
 import { h, btn, icon, fuzzyMark } from '../dom';
 import { isTouch } from '../../core/util';
+import * as store from '../../crossing/store';
+import { equippedCharacter } from '../../crossing/store';
+import { CHARACTERS, character, type CharacterDef } from '../../crossing/characters';
+import { createHub, panelAvailable, type NavTarget } from '../../crossing/hub';
+import { coinMark, rarityTag, newDot } from '../../crossing/ui/kit';
+import { friendUrl } from '../../content/friends';
+import '../../crossing/ui/hub.css';
 
 type Dir = 'up' | 'down' | 'left' | 'right';
 
 export function playScreen(): Screen {
   const a = accounts.current!;
-  const skinOf = (): Skin => SKINS.find((s) => s.id === a.settings.skin && rewards.isUnlocked(`skin-${s.id}`, s.cost)) ?? SKINS[0];
+  /** the equipped collectible Fuzzy as the game's look (colours for the old renderer, the whole character for the new one) */
+  const skinOf = (): Skin => { const c = equippedCharacter(); return { id: c.id, name: c.name, cost: 0, colors: c.color, character: c }; };
+  void SKINS;
 
   const wrap = h('div', { class: 'game-wrap' });
   const overlay = h('div', { class: 'game-overlay' });
@@ -33,7 +41,7 @@ export function playScreen(): Screen {
     h('div', { class: 'hud-item' }, h('small', null, 'Best'), hud.best),
     h('div', { class: 'hud-item' }, h('small', null, 'Level'), hud.level),
     h('div', { class: 'hud-item' }, h('small', null, 'Lives'), hud.lives),
-    h('div', { class: 'hud-item hud-fz' }, fuzzyMark(20), hud.fz),
+    h('div', { class: 'hud-item hud-fz', title: 'Crossing Coins this run' }, coinMark(20), hud.fz),
     h('div', { class: 'hud-actions' }, soundBtn, pauseBtn));
   const timebar = h('div', { class: 'timebar' }, hud.time);
 
@@ -46,12 +54,14 @@ export function playScreen(): Screen {
   const controls = h('div', { class: `dpad-wrap ${isTouch() ? '' : 'desktop'}` }, pad('up', 'up'), pad('left', 'back'), pad('right', 'play'), pad('down', 'down'));
 
   let game: Crossing | null = null;
+  /** coins and XP earned in the game that is being played (shown on the game over card) */
+  let runCoins = 0, runStartCoins = 0, runStartXp = 0, runStartPass = 1;
 
   function setHud(s: Hud): void {
     hud.score.textContent = String(s.score);
     hud.best.textContent = String(s.best);
     hud.level.textContent = String(s.level);
-    hud.fz.textContent = String(s.fuzzies);
+    hud.fz.textContent = String(runCoins);
     hud.lives.textContent = '❤'.repeat(Math.max(0, s.lives)) + '♡'.repeat(Math.max(0, 3 - s.lives));
     hud.time.style.transform = `scaleX(${s.time})`;
     hud.time.classList.toggle('low', s.time < 0.25);
@@ -103,11 +113,40 @@ export function playScreen(): Screen {
       hud: setHud,
       fuzzy: (n) => { rewards.earn(n, 'Fuzzy Crossing', true); track('gameFuzzies', n); },
       over: (r) => showOver(r),
-      event: (e) => { if (e.kind === 'home') track('nest'); if (e.kind === 'level') track('level', e.level); },
+      event: (e) => onGameEvent(e),
     });
+    runCoins = 0;
     setHud({ score: 0, level: 1, lives: 3, fuzzies: 0, time: 1, best: a.stats.bestScore });
     requestAnimationFrame(() => dispatchEvent(new Event('fz:scene-ready'))); // lets the travel transition open up
   }
+
+  /** what happens in the game → the site's missions (as before) and Fuzzy Crossing's own save (coins, Fuzzy Pass XP, achievements) */
+  function onGameEvent(e: Fx): void {
+    if (e.kind === 'home') track('nest');
+    if (e.kind === 'level') track('level', e.level);
+    let ev: store.CrossingEvent | null = null;
+    if (e.kind === 'collect') ev = { kind: 'pickup', gold: e.gold };
+    else if (e.kind === 'home') ev = { kind: 'nest' };
+    else if (e.kind === 'level') ev = { kind: 'levelClear' };
+    else if (e.kind === 'hop') ev = { kind: 'hop' };
+    else if (e.kind === 'death') ev = { kind: 'death', how: e.how === 'time' ? 'time' : e.how };
+    if (!ev) return;
+    runCoins += store.coinsFor(ev);
+    store.report(ev);
+    hud.fz.textContent = String(runCoins);
+  }
+
+  // ---- the hub: Fuzzy Locker, Fuzzy Pass, Fuzzy Shop (and more) open as screens over the board ----
+  let hubOpen = false;
+  let shellEl!: HTMLElement;
+  const hub = createHub({
+    get shell() { return shellEl; },
+    toMenu: () => { if (!game?.started || game.over) showStart(); },
+    equipChanged: () => { void newGame().then(() => { if (!hubOpen) showStart(); }); },
+    play: () => { overlay.hidden = true; void newGame().then(begin); },
+    onOpen: (o) => { hubOpen = o; if (o) overlay.hidden = true; },
+  });
+  const go = (t: NavTarget): void => { if (t.to === 'menu') hub.close(); else void hub.open(t.to, t); };
 
   function gfxPicker(): HTMLElement | null {
     if (!hasWebGL) return null;
@@ -121,37 +160,38 @@ export function playScreen(): Screen {
     return seg;
   }
 
-  function skinPicker(): HTMLElement {
-    const row = h('div', { class: 'skins' });
-    const fill = () => row.replaceChildren(...SKINS.map((s) => {
-      const owned = rewards.isUnlocked(`skin-${s.id}`, s.cost);
-      const on = skinOf().id === s.id;
-      const b = h('button', { type: 'button', class: `skin ${on ? 'on' : ''} ${owned ? '' : 'locked'}`, title: owned ? s.name : `${s.name} · ${s.cost} Fuzzies` }, fuzzyMark(32, s.colors), h('small', null, owned ? s.name : `🔒 ${s.cost}`));
-      b.addEventListener('click', () => {
-        if (!owned) { unlockDialog({ id: `skin-${s.id}`, name: `${s.name} Fuzzy`, cost: s.cost, kind: 'Player look for Fuzzy Crossing', preview: fuzzyMark(90, s.colors) }, () => { accounts.update((x) => (x.settings.skin = s.id)); fill(); newGame(); }); return; }
-        accounts.update((x) => (x.settings.skin = s.id));
-        fill();
-        newGame();
-      });
-      return b;
-    }));
-    fill();
-    return row;
+  /** the little 3D-ish portrait of a Fuzzy for menu cards: the owner's friend picture when there is one, else a coloured Fuzzy */
+  function portrait(c: CharacterDef, size: number): HTMLElement {
+    return c.friend ? h('img', { class: 'fzx-portrait', src: friendUrl(c.friend), alt: '', width: size, height: size }) : h('span', { class: 'fzx-portrait' }, fuzzyMark(size, c.color));
   }
+  const tile = (label: string, sub: Node | string, ic: Node, onClick: () => void, dot = false): HTMLElement => {
+    const b = h('button', { class: 'fzx-tile', type: 'button', onclick: onClick }, h('span', { class: 'fzx-tile-ic' }, ic), h('b', null, label), h('small', null, sub));
+    if (dot) b.append(newDot());
+    return b;
+  };
 
   function showStart(): void {
     overlay.hidden = false;
+    const me = equippedCharacter();
+    const claimable = store.passClaimable().length;
+    const pendingNew = CHARACTERS.some((c) => store.hasCharacter(c.id) && store.isNew(c.id) && c.id !== 'classic');
     const tip = (ic: Node | string, text: string) => h('div', { class: 'how-tip' }, h('span', { class: 'how-ic' }, ic), h('span', null, text));
-    overlay.replaceChildren(h('div', { class: 'go-card start' },
-      h('div', { class: 'go-title' }, mascot(44), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across, grab Fuzzies, fill all 5 nests.'))),
+    const tiles = h('div', { class: 'fzx-tiles' },
+      panelAvailable('locker') ? tile('Locker', `${store.ownedCount()} / ${CHARACTERS.length}`, icon('gift', 22), () => go({ to: 'locker' }), pendingNew) : null,
+      panelAvailable('pass') ? tile('Pass', `Level ${store.passInfo().level}`, icon('trophy', 22), () => go({ to: 'pass' }), claimable > 0) : null,
+      panelAvailable('shop') ? tile('Shop', h('span', { class: 'fzx-amt' }, coinMark(13), String(store.coins())), icon('unlock', 22), () => go({ to: 'shop' })) : null);
+    overlay.replaceChildren(h('div', { class: 'go-card start fzx-menu' },
+      h('div', { class: 'go-title' }, mascot(44), h('div', null, h('h2', null, 'Fuzzy Crossing'), h('p', { class: 'muted' }, 'Hop across, grab coins, fill all 5 nests.')), h('span', { class: 'fzx-coins', title: 'Your Crossing Coins' }, coinMark(18), h('b', null, store.coins().toLocaleString()))),
+      h('button', { class: 'fzx-hero', type: 'button', onclick: () => go({ to: 'locker', id: me.id }), 'aria-label': `Your Fuzzy: ${me.name}. Open the Locker` },
+        portrait(me, 64), h('span', { class: 'fzx-hero-t' }, h('small', null, 'Your Fuzzy'), h('b', null, me.name), h('em', null, me.tagline)), rarityTag(me.rarity)),
+      btn('Start playing', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: begin }),
+      tiles,
       h('div', { class: 'how-grid' },
         tip('🚗', 'Dodge the cars'),
         tip('🪵', 'Ride logs, skip the water'),
-        tip(fuzzyMark(18), 'Fuzzy +1 · golden +5'),
-        tip('🏁', 'Nest +2 · level +5')),
-      h('div', { class: 'start-opts' }, h('p', { class: 'pnl-label' }, 'Your Fuzzy'), skinPicker()),
+        tip(coinMark(18), 'Coin +1 · golden +5'),
+        tip('🏁', 'Nest +3 · level +10')),
       gfxPicker(),
-      btn('Start playing', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: begin }),
       h('button', { class: 'link small land-link', type: 'button', onclick: (e: MouseEvent) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) }, '🏡 Visit your town in Fuzzies Land →'),
       h('p', { class: 'hint center' }, isTouch() ? 'Swipe or tap the board to hop · 3 lives' : 'Arrow keys or WASD to hop · P to pause · 3 lives')));
   }
@@ -174,6 +214,8 @@ export function playScreen(): Screen {
     overlay.hidden = true;
     accounts.update((x) => x.stats.gamesPlayed++);
     track('game');
+    store.report({ kind: 'start', mode: 'classic' });
+    runStartCoins = store.save().coinsEarned; runStartXp = store.save().xp; runStartPass = store.passInfo().level; runCoins = 0;
     (wrap.querySelector('canvas') as HTMLCanvasElement | null)?.focus({ preventScroll: true });
     const go = () => {
       introRunning = false;
@@ -210,7 +252,7 @@ export function playScreen(): Screen {
     return h('div', { class: 'top-scores' },
       h('p', { class: 'pnl-label' }, 'Your top scores'),
       h('ol', null, ...list.map((s, i) => {
-        const sk = SKINS.find((x) => x.id === s.skin) ?? SKINS[0];
+        const sk = { colors: character(s.skin).color };
         return h('li', { class: s.at === highlight ? 'me' : '' },
           h('span', { class: 'ts-rank' }, medal[i] ?? `${i + 1}.`), fuzzyMark(18, sk.colors),
           h('b', null, s.score.toLocaleString()), h('small', null, `Lv ${s.level} · ${new Date(s.at).toLocaleDateString()}`));
@@ -226,6 +268,10 @@ export function playScreen(): Screen {
       if (r.score > 0) x.topScores = [...x.topScores, entry].sort((p, q) => q.score - p.score).slice(0, 10);
     });
     const rank = a.topScores.indexOf(a.topScores.find((s) => s.at === entry.at)!) + 1;
+    store.report({ kind: 'run', score: r.score, level: r.level, mode: 'classic' });
+    const gainedCoins = store.save().coinsEarned - runStartCoins, gainedXp = store.save().xp - runStartXp;
+    const pass = store.passInfo();
+    const levelsUp = pass.level - runStartPass;
     overlay.hidden = false;
     overlay.replaceChildren(h('div', { class: 'go-card' },
       h('h2', null, isBest ? '🏆 New best score!' : 'Game over'),
@@ -233,20 +279,34 @@ export function playScreen(): Screen {
         h('div', null, h('small', null, 'Score'), h('b', null, String(r.score))),
         h('div', null, h('small', null, 'Level'), h('b', null, String(r.level))),
         h('div', null, h('small', null, 'Nests'), h('b', null, String(r.homes)))),
-      h('div', { class: 'go-earned' }, fuzzyMark(36), h('div', null, h('b', null, `+${r.fuzzies} Fuzzies`), h('small', null, `Balance: ${rewards.balance()}`))),
+      h('div', { class: 'go-earned fzx-earned' }, coinMark(36), h('div', null, h('b', null, `+${gainedCoins} coins`), h('small', null, `You have ${store.coins().toLocaleString()} · plus ${r.fuzzies} Fuzzies for the website`))),
+      h('button', { class: 'fzx-passbar', type: 'button', onclick: () => go({ to: 'pass' }) },
+        h('span', null, levelsUp > 0 ? `Fuzzy Pass level ${pass.level}!` : `Fuzzy Pass · level ${pass.level}`), h('small', null, `+${gainedXp} XP`),
+        h('i', { class: 'fzx-passbar-track' }, h('i', { style: `width:${pass.maxed ? 100 : Math.round((pass.into / pass.need) * 100)}%` })),
+        store.passClaimable().length ? h('em', null, `${store.passClaimable().length} reward${store.passClaimable().length > 1 ? 's' : ''} to claim`) : null),
       rank > 0 && !isBest ? h('p', { class: 'hint center' }, `#${rank} in your top 10 scores!`) : null,
       topList(entry.at, 3),
       btn('Play again', { kind: 'primary', size: 'lg', icon: 'play', class: 'btn-block', onClick: () => { void newGame().then(begin); } }),
       h('div', { class: 'btn-row' },
-        btn('Spend Fuzzies', { kind: 'soft', icon: 'gift', onClick: () => (location.hash = '#/rewards') }),
+        btn('Menu', { kind: 'soft', icon: 'home', onClick: () => { void newGame().then(showStart); } }),
         btn('Fuzzies Land', { kind: 'soft', icon: 'town', onClick: (e) => travel('#/land', 'Off to Fuzzies Land…', { x: e.clientX, y: e.clientY }) }),
         btn('Back to designing', { kind: 'ghost', icon: 'brush', onClick: () => (location.hash = '#/home') }))));
+    void celebrateUnlocks();
+  }
+
+  /** every new Fuzzy / cosmetic that was unlocked while playing gets its celebration (character appears in 3D, Equip Now) */
+  async function celebrateUnlocks(): Promise<void> {
+    if (!store.pendingCount()) return;
+    try {
+      const { celebrateAll } = await import('../../crossing/ui/celebrate');
+      await celebrateAll(el, { equipChanged: () => { void newGame(); }, go });
+    } catch (e) { console.error(e); }
   }
 
   // keyboard + swipe
   const keys: Record<string, Dir> = { arrowup: 'up', w: 'up', arrowdown: 'down', s: 'down', arrowleft: 'left', a: 'left', arrowright: 'right', d: 'right' };
   const onKey = (e: KeyboardEvent) => {
-    if (document.querySelector('.modal-backdrop')) return;
+    if (document.querySelector('.modal-backdrop') || hubOpen) return;
     const k = e.key.toLowerCase();
     if (introRunning && !game?.paused) { e.preventDefault(); skipIntro(); return; }
     if (k === 'p' || k === 'escape') { togglePause(); return; }
@@ -272,13 +332,14 @@ export function playScreen(): Screen {
   const onVis = () => { if (document.hidden && game && !game.paused && overlay.hidden) togglePause(); };
   document.addEventListener('visibilitychange', onVis);
 
+  shellEl = h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn), controls, overlay);
   const el = h('div', { class: 'page play' },
     // the start / pause / game-over card covers the whole shell (HUD and arrows too) so it fits on small screens
-    h('div', { class: 'game-shell' }, hudBar, timebar, h('div', { class: 'game-board' }, wrap, skipBtn), controls, overlay));
+    shellEl);
   requestAnimationFrame(() => { void newGame(); showStart(); });
 
   return {
     el,
-    destroy: () => { gen++; game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
+    destroy: () => { gen++; hub.dispose(); game?.destroy(); view?.destroy(); removeEventListener('keydown', onKey); ro.disconnect(); document.removeEventListener('visibilitychange', onVis); },
   };
 }

@@ -24,13 +24,16 @@ export function same(a: J, b: J): boolean {
 }
 
 /** Fields where the bigger number is the truth, not the sum of changes. */
-const MAX_KEYS = new Set(['bestScore', 'bestLevel', 'streak', 'createdAt']);
+const MAX_KEYS = new Set(['bestScore', 'bestLevel', 'streak', 'createdAt', 'best', 'bestCoins']);
+/** Fields where the smaller number wins (a leaderboard placing: 1 is the best). 0 = never. */
+const MIN_KEYS = new Set(['weeklyBest']);
 
 function mergeAt(key: string, base: J, local: J, remote: J): J {
   if (same(local, base)) return remote;
   if (same(remote, base) || same(local, remote)) return local;
   if (typeof local === 'number' && typeof remote === 'number') {
     if (MAX_KEYS.has(key)) return Math.max(local, remote);
+    if (MIN_KEYS.has(key)) return local && remote ? Math.min(local, remote) : Math.max(local, remote);
     return typeof base === 'number' ? Math.max(0, remote + (local - base)) : Math.max(local, remote);
   }
   if (Array.isArray(local) && Array.isArray(remote)) {
@@ -43,6 +46,8 @@ function mergeAt(key: string, base: J, local: J, remote: J): J {
     // a new day resets missions and daily counters: the later day wins as a whole
     if (key === 'missions' && local.day !== remote.day) return String(local.day) > String(remote.day) ? local : remote;
     if (key === 'daily' && local.last !== remote.last) return String(local.last) > String(remote.last) ? local : remote;
+    // Fuzzy Crossing's daily/weekly missions follow the same rule: the later day (week) wins as a whole
+    if (key === 'missions' && local.week !== undefined && local.day === remote.day && local.week !== remote.week) return String(local.week) > String(remote.week) ? local : remote;
     // a town is one connected thing (buildings can't be half-moved): the most recently saved one wins
     if (key === 'land') return Number(local.savedAt ?? 0) >= Number(remote.savedAt ?? 0) ? local : remote;
     const b = isObj(base) ? base : {};

@@ -1,0 +1,13 @@
+/* Fuzzy Crossing shared UI: panel layer, chips, rarity colours. Brand colour stays raspberry; rarities add small accents only. */
+.fzx-layer { position: absolute; inset: 0; z-index: 6; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--surface); border-radius: 16px; overflow: hidden; animation: fzxIn .22s var(--ease, ease-out) both; }
+@keyframes fzxIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
+:root[data-motion='reduce'] .fzx-layer { animation: none; }
+.fzx-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.fzx-back { width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--surface-2); color: var(--text); display: grid; place-items: center; cursor: pointer; }
+.fzx-back:hover { background: var(--hover, var(--surface-2)); }
+.fzx-title { font: 700 18px/1 var(--brand); }
+.fzx-body { position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.fzx-amt { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; }
+.fzx-coin { flex: none; }
+.fzx-rar { display: inline-block; font: 800 10px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 99px; color: #fff; background: var(--rar, #888); }
+.fzx-new { position: absolute; top: 6px; right: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
