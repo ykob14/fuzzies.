@@ -57,7 +57,9 @@ export interface ArcadeOpts {
     /** where rival `i` stands in this scene (default: its own walker, `sim.you` or `sim.pos`/`heading`); null = hidden */
     pose?: (sim: any, i: number, you: Playable) => RivalPose | null;
     /** rival figure size (default 0.27) */
-    size?: number };
+    size?: number;
+    /** dress a rival's figure once it is made (skates, a scarf…) */
+    decorate?: (f: Figure, i: number) => void };
 }
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] => { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e; };
@@ -87,6 +89,8 @@ export interface Arcade {
   onTap: (f: (ndc: { x: number; y: number }, client: { x: number; y: number }) => void) => void;
   /** the town rivals playing this round (null when there are none) — views can draw extras for them (lines, snowballs…) */
   rivals: RivalField<Playable> | null;
+  /** take over the camera: called every frame instead of the fixed-direction follow camera (null = back to the default) */
+  setRig: (f: ((camera: THREE.PerspectiveCamera, dt: number) => void) | null) => void;
 }
 
 export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
@@ -337,6 +341,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     if (!field || !startedFlag) return;
     if (!rivalFigs.length) field.rivals.forEach((r) => {
       const f = figure(r.info.skin, o.rivals!.size ?? 0.27, r.info.outfit ? { kind: r.info.outfit, seed: r.info.index ?? 0 } : undefined);
+      o.rivals!.decorate?.(f, rivalFigs.length);
       const tag = el('div', 'mg-rival-tag'); const pl = el('small', '', ''); const dot = el('i', ''); dot.style.background = r.info.skin[0];
       tag.append(pl, dot, el('b', '', r.info.name)); tags.append(tag);
       rivalFigs.push({ f, tag, pl, last: 0, hop: 0, prev: null });
@@ -370,6 +375,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   };
 
   // ---- the loop ----
+  let rig: ((camera: THREE.PerspectiveCamera, dt: number) => void) | null = null;
   let raf = 0, last = performance.now(), acc = 0;
   const STEP = 1 / 120;
   const run = (step: (dt: number, input: { x: number; z: number }) => void, frame: (dt: number, now: number) => void) => {
@@ -385,8 +391,8 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
       for (let i = sparksArr.length - 1; i >= 0; i--) { const c = sparksArr[i]; c.life += dt; c.v.y -= 3 * dt; c.s.position.addScaledVector(c.v, dt); (c.s.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - c.life / c.max); if (c.life > c.max) { scene.remove(c.s); sparksArr.splice(i, 1); } }
       frame(dt, now);
       paintRivals(dt);
-      camera.position.set(camTarget.x, cam.up, camTarget.z + cam.back);
-      camera.lookAt(camTarget.x, o.camera?.lookY ?? 0.6, camTarget.z + cam.lookDy);
+      if (rig) rig(camera, dt);
+      else { camera.position.set(camTarget.x, cam.up, camTarget.z + cam.back); camera.lookAt(camTarget.x, o.camera?.lookY ?? 0.6, camTarget.z + cam.lookDy); }
       sun.target.position.copy(camTarget);
       sun.position.set(camTarget.x - 14, 22, camTarget.z + 12);
       if (pendingResult && now - finishedAt > (o.outro ?? 1800)) { done = true; const r = pendingResult; destroy(); hooks.onFinish(r); return; }
@@ -410,7 +416,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
   return {
     root, hud, scene, camera, renderer, time, ctl, mobile, real, mats, sun, hemi, sky, ground: groundMesh, camTarget, cam, intro,
     started: () => startedFlag, paused: () => paused, play, tip: (k, t, ms) => tips.say(k, t, ms), banner, flash, float: floatText,
-    setScore, setCount, setTime, setCombo, chips, sparks, puff, figure, walk, run, finish, warn, onAction: (f) => { actionFn = f; }, onTap: (f) => { tapFn = f; }, destroy, start, rivals: field,
+    setScore, setCount, setTime, setCombo, chips, sparks, puff, figure, walk, run, finish, warn, onAction: (f) => { actionFn = f; }, onTap: (f) => { tapFn = f; }, destroy, start, rivals: field, setRig: (f) => { rig = f; },
   };
 }
 

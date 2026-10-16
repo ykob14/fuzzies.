@@ -197,17 +197,16 @@ export const beachBot: Bot<BeachSim> = (s, c) => {
   return t ? toward(s.you.pos, t, c, 0) : { x: 0, z: 0 };
 };
 
-/** Ice Skating: steers through the next gate (a little wide at times) and spins on the straights. */
+/** Ice Skating: leans towards the lit gate (the way a player does — the skater's assist carves it in), now and then spins on a straight. */
 export const skateBot: Bot<SkateSim> = (s, c) => {
-  const w = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
-  const g = s.gate;
-  if (decide(c, 0.6)) c.mem.err = (c.rnd() - 0.5) * c.skill.noise * 0.5;
-  const d = Math.hypot(g.x - s.pos.x, g.z - s.pos.z);
-  const ah = d > 3 ? -1.5 : 1.5;
-  const want = Math.atan2(g.x + g.dir.x * ah - s.pos.x, g.z + g.dir.z * ah - s.pos.z) + ((c.mem.err as number | undefined) ?? 0);
-  const err = w(want - s.heading);
-  if (s.spinning === 0 && d > 5 && s.speed > 3 && Math.abs(err) < 0.15 && c.rnd() > c.skill.miss) s.spin();
-  return { x: clamp(-err * 2.5), z: 0 };
+  if (decide(c, 1.1)) {
+    const a = s.aim();
+    const err = Math.atan2(Math.sin(Math.atan2(a.x - s.pos.x, a.z - s.pos.z) - s.heading), Math.cos(Math.atan2(a.x - s.pos.x, a.z - s.pos.z) - s.heading));
+    const wrong = c.rnd() < c.skill.miss * 0.35;
+    c.mem.lean = Math.abs(err) < 0.12 ? 0 : (wrong ? 1 : -1) * Math.sign(err) * clamp(0.45 + c.skill.speed * 0.55);
+    if (!s.spun && s.spinning === 0 && s.speed > 3 && Math.abs(err) < 0.5 && c.rnd() < 0.55 * (1 - c.skill.miss)) s.spin();
+  }
+  return { x: (c.mem.lean as number | undefined) ?? 0, z: 0 };
 };
 
 /** Island Treasure Hunt: reads the treasure meter like you do — walks the warmer way, wanders when it's cold, digs when it glows. */
@@ -247,6 +246,6 @@ export const BOTS = {
   mining: { play: miningBot, kind: 'input', lazy: { medium: 0.33, easy: 0.5 } },
   snowball: { play: snowballBot, kind: 'none', lazy: { medium: 0.83, easy: 0.68 } },
   beach: { play: beachBot, kind: 'input', lazy: { medium: 0.46, easy: 0.68 } },
-  skate: { play: skateBot, kind: 'input', lazy: { medium: 0.45, easy: 0.62 } },
+  skate: { play: skateBot, kind: 'input', lazy: { medium: 0.55, easy: 0.72 } },
   treasure: { play: treasureBot, kind: 'input', lazy: { medium: 0.88, easy: 0.9 } },
 } satisfies Record<string, RivalBot<any>>;
