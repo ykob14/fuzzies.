@@ -398,7 +398,8 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
   };
   timerRaf = requestAnimationFrame(clock);
   const holdClock = (on: boolean) => { if (!play) return; if (on && !play.pauseAt) play.pauseAt = performance.now(); else if (!on && play.pauseAt) { play.paused += performance.now() - play.pauseAt; play.pauseAt = 0; } };
-  const onVis = () => { if (document.hidden) holdClock(true); else if (pauseEl.hidden && cardEl.hidden) holdClock(false); scene.setRunning(!document.hidden); };
+  // leaving the app mid-level opens the pause sheet (like every other game), so a timed lot never runs on unseen
+  const onVis = () => { if (document.hidden) { holdClock(true); if (play && play.started && !play.done && pauseEl.hidden && settingsEl.hidden && cardEl.hidden && mapEl.hidden) openPause(); } else if (pauseEl.hidden && cardEl.hidden) holdClock(false); scene.setRunning(!document.hidden); };
   document.addEventListener('visibilitychange', onVis);
 
   // ---------- overlays ----------
@@ -425,7 +426,7 @@ export async function runParking(stage: HTMLElement, setup: ParkSetup, hooks: Pa
         big('Restart', 'soft', () => { closeOverlays(); restart(); }, '', 'restart'),
         big('Settings', 'soft', () => openSettings(true), '', 'gear'),
         big('Level map', 'soft', () => { closeOverlays(); showMap(); }, '', 'map'),
-        big('Fuzzies Land', 'soft', () => quit(), '', 'town'))));
+        big('Back to town', 'soft', () => quit(), '', 'town'))));
     pauseEl.hidden = false;
   }
   /** a button: `primary` = the big raspberry one, `soft` = white with a lip, `ghost` = plain words; an optional picture first */

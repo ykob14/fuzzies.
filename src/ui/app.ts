@@ -25,6 +25,7 @@ import { startAchievements } from '../core/missions';
 import { mascot, upgradeMascots } from './mascot';
 import { mountAssistant, toggleAssistant } from './assistant';
 import { assistant } from '../core/assistant';
+import { noteRecent } from '../core/recent';
 
 export interface Screen { el: HTMLElement; destroy?: () => void }
 
@@ -143,6 +144,7 @@ export function route(): void {
   if (name === 'welcome' || name === 'login' || name === 'signup') { location.replace('#/home'); return; }
 
   if (name === 'edit' && arg) {
+    noteRecent('design', arg);
     root().replaceChildren(h('div', { class: 'loading-screen' }, mascot(72), h('p', null, 'Opening your design…')));
     void openEditor(arg).then((s) => {
       if (!s) return;
@@ -156,10 +158,12 @@ export function route(): void {
     home: homeScreen, templates: templatesScreen, projects: projectsScreen, play: playScreen, land: landScreen,
     rewards: rewardsScreen, profile: profileScreen, settings: settingsScreen,
   };
+  if (name === 'land' && arg !== 'parking') noteRecent('land');
+  else if (name === 'play') noteRecent('crossing');
   const make = screens[name] ?? homeScreen;
   current = make();
-  // Fuzzies Land is a full-screen game world: no app sidebar, top bar or tab bar (it has its own back button)
-  if (name === 'land') { root().replaceChildren(current.el); return; }
+  // the games are full-screen worlds: no app sidebar, top bar or tab bar (each has its own way back)
+  if (name === 'land' || name === 'play') { current.el.classList.add('game-full'); root().replaceChildren(current.el); return; }
   root().replaceChildren(shell(screens[name] ? name : 'home', current.el));
   window.scrollTo(0, 0);
   document.getElementById('content')?.scrollTo(0, 0);

@@ -90,7 +90,7 @@ export function pauseCard(o: { restartLabel?: string }): { overlay: HTMLElement;
   const mk = (cls: string, label: string, icon: Name): HTMLButtonElement => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.append(ico(icon, 24)); const s = document.createElement('span'); s.textContent = label; b.append(s); return b; };
   const resume = mk('fzx-bigbtn gs-resume', 'Resume', 'play');
   const restart = mk('gs-soft', o.restartLabel ?? 'Restart', 'restart');
-  const quit = mk('gs-soft', 'Back to town', 'home');
+  const quit = mk('gs-soft', 'Back to town', 'town');
   const row = document.createElement('div'); row.className = 'gs-pause-row'; row.append(restart, quit);
   box.append(peek, title, resume, row);
   overlay.append(box);

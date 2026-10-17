@@ -167,7 +167,7 @@ export function runVacuum(stage: HTMLElement, setup: VacuumSetup, hooks: VacuumH
   const floats = el('div', 'mg-floats');
   hud.append(scoreEl, countEl, timeEl, comboEl, pauseBtn, banner, count, hint, floats);
   const adv = adventure('vacuum')!;
-  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Start cleaning!', onStart: () => start() });
+  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Start cleaning!', onStart: () => start(), onBack: () => quit.click() });
   const { overlay: pauseOverlay, resume, restart, quit } = pauseCard({});
   root.append(canvas, el('div', 'mg-vignette'), hud, intro, pauseOverlay);
   stage.append(root);

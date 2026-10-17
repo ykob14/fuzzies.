@@ -80,7 +80,7 @@ export function runForest(stage: HTMLElement, setup: ForestSetup, hooks: ForestH
   const adv = adventure('forest')!;
   const rivalNames = sim.rivals.map((r) => r.name);
   const against = rivalNames.length ? `You’re up against ${rivalNames.length === 1 ? rivalNames[0] : rivalNames.slice(0, -1).join(', ') + ' and ' + rivalNames[rivalNames.length - 1]} — most points when the sun sets wins.` : undefined;
-  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Let’s chop!', onStart: () => start(), extra: against });
+  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.host, mobile, buttonLabel: 'Let’s chop!', onStart: () => start(), onBack: () => quit.click(), extra: against });
   // the chop meter + button
   const meterWrap = el('div', 'forest-meter'); meterWrap.hidden = true;
   const meterBar = el('div', 'forest-meter-bar'); const sweet = el('i', 'forest-meter-sweet'); const marker = el('b', 'forest-meter-marker');

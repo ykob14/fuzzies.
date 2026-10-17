@@ -3309,3 +3309,156 @@ input[type='search']::-webkit-search-cancel-button:hover { background: var(--acc
   .game-canvas { border-radius: 18px; }
   .game-shell:has(> .game-overlay:not([hidden]) .fzx-lobby) .game-wrap { height: auto; }
 }
+
+/* ===================== Platform pass — stage 1 (2026-10-17): one product, phone-first ===================== */
+/* every edge of the screen: notches and rounded corners on the sides too (landscape phones) */
+:root { --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px); --tap: 44px; }
+
+/* touch screens: inputs at 16px or more, so iPhones never zoom the page when a field gets focus */
+@media (pointer: coarse) {
+  input:not([type='range']):not([type='checkbox']):not([type='radio']):not([type='color']):not(.text-edit), select, textarea:not(.text-edit) { font-size: max(16px, 1em); }
+}
+
+/* small round buttons keep their look but get a full 44 px tap area */
+.land-dock-hide, .land-talk-x, .skip-intro, .hud-actions .btn-sm { position: relative; }
+.land-dock-hide::after, .land-talk-x::after, .hud-actions .btn-sm::after { content: ''; position: absolute; inset: 50% auto auto 50%; width: var(--tap); height: var(--tap); transform: translate(-50%, -50%); border-radius: 50%; }
+.skip-intro { min-height: 40px; padding: 10px 16px; background: rgba(18, 17, 22, .6); }
+.skip-intro:hover { background: rgba(18, 17, 22, .78); }
+
+/* the editor's top bar grows by the notch instead of being squashed by it, and stays clear of side notches */
+.ed-top { height: calc(56px + var(--safe-t)); padding-left: calc(12px + var(--safe-l)); padding-right: calc(12px + var(--safe-r)); }
+@media (max-width: 760px) { .ed-top { height: calc(54px + var(--safe-t)); padding-left: calc(6px + var(--safe-l)); padding-right: calc(6px + var(--safe-r)); } }
+
+/* mini-games: a way back to town before you press Start */
+.mg-intro-back { position: absolute; z-index: 2; left: 10px; top: 10px; display: inline-flex; align-items: center; gap: 6px; height: var(--tap); padding: 0 14px 0 10px; border-radius: 99px;
+  border: 2px solid var(--card-lip, var(--border)); background: var(--surface); color: var(--text); font: 700 14px/1 var(--brand); cursor: pointer; box-shadow: 0 3px 0 var(--card-lip, var(--border)); }
+.mg-intro-back:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-lip, var(--border)); }
+
+/* ---- Fuzzy Crossing is a full-screen game (like Fuzzies Land): no website bars, the board gets every pixel ---- */
+.page.play.game-full { position: fixed; inset: 0; max-width: none; margin: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
+  padding: calc(8px + var(--safe-t)) calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l)); }
+.page.play.game-full .game-shell { flex: 1; min-height: 0; width: 100%; max-width: 760px; margin: 0 auto; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 8px; }
+.page.play.game-full .game-board { min-height: 0; height: 100%; display: grid; place-items: center; }
+.page.play.game-full .game-wrap { height: 100%; width: auto; max-width: 100%; max-height: none; min-height: 0; aspect-ratio: 11 / 13; }
+.page.play.game-full .game-overlay { border-radius: 22px; overflow: auto; }
+.page.play.game-full .game-shell:has(> .game-overlay:not([hidden]) .fzx-lobby) { min-height: 0; }
+.page.play.game-full .game-shell:has(> .game-overlay:not([hidden]) .fzx-lobby) .game-wrap { height: 100%; }
+.page.play.game-full .fzx-lobby { min-height: 100%; }
+.page.play.game-full .hud-actions .btn-sm { width: 40px; height: 40px; }
+@media (max-width: 760px) and (pointer: coarse) {
+  .page.play.game-full { padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l); }
+  .page.play.game-full .game-shell { gap: 6px; padding: 6px 6px 8px; }
+  .page.play.game-full .game-wrap { aspect-ratio: auto; width: 100%; }
+  .page.play.game-full .fzx-lobby { border-radius: 22px; }
+}
+/* landscape phones: the HUD stays one slim row and the board keeps the height */
+@media (max-height: 520px) and (orientation: landscape) {
+  .page.play.game-full .game-hud { padding: 4px 8px; }
+  .page.play.game-full .hud-item small { display: none; }
+  .page.play.game-full .timebar { height: 4px; }
+}
+/* the lobby is its own screen: the HUD and the board wait out of sight behind it, the Fuzzy stays a sensible size */
+.page.play.game-full .game-shell:has(> .game-overlay:not([hidden]) .fzx-lobby) > :not(.game-overlay) { visibility: hidden; }
+.page.play.game-full .game-overlay:has(.fzx-lobby) { display: flex; justify-content: center; }
+.page.play.game-full .fzx-3d { flex: 0 1 auto; width: 100%; height: min(320px, 42dvh); min-height: 160px; margin: auto 0; }
+.page.play.game-full .fzx-3d .fzl-canvas { -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 72%, transparent 100%); mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 72%, transparent 100%); }
+@media (min-width: 761px) { .page.play.game-full .fzx-lobby { height: 100%; min-height: 0; max-width: 460px; } }
+
+/* ---- Home v2: jump back in · games · create · today · what's on · collections ---- */
+.home2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 30px; }
+.home2 > .sec, .home2 .home-sec { margin: 0; }
+.home2 .sec-head { margin-bottom: 12px; align-items: center; }
+.home2 .sec-head h2 { font-size: 21px; letter-spacing: -0.02em; }
+.sec-sub { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 18px 0 10px; }
+.sec-sub h3 { font-size: 15.5px; }
+.sec-sub[hidden] { display: none; }
+
+/* banner: two doors under the search */
+.hb2 { padding-bottom: 28px; }
+.home-doors { display: flex; justify-content: center; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.home-door { display: flex; align-items: center; gap: 12px; min-width: 210px; min-height: 64px; padding: 10px 20px 10px 10px; border: 0; border-radius: 18px; text-align: left;
+  background: rgba(255, 255, 255, .16); color: inherit; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .28); transition: background .18s, transform .18s var(--ease); }
+.home-door:hover { background: rgba(255, 255, 255, .24); transform: translateY(-2px); }
+.home-door:active { transform: translateY(0) scale(.98); }
+.home-door-ic { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--surface); color: var(--accent); box-shadow: 0 6px 14px -6px rgba(17, 15, 24, .4); }
+.home-door b { display: block; font-size: 17px; line-height: 1.2; }
+.home-door small { display: block; font-size: 12.5px; opacity: .85; }
+
+/* jump back in */
+.home-resume { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.home-rtile { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 10px 12px 10px 10px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--text); text-align: left; box-shadow: var(--shadow); transition: transform .18s var(--ease), box-shadow .18s; }
+.home-rtile:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.home-rtile-pic { width: 56px; height: 56px; flex: none; border-radius: 13px; overflow: hidden; background: var(--surface-2); display: grid; place-items: center; }
+.home-rtile-pic img { width: 100%; height: 100%; object-fit: cover; }
+.home-rtile-t { flex: 1; min-width: 0; display: grid; }
+.home-rtile-t b, .home-rtile-t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-rtile-t small { color: var(--muted); font-size: 12.5px; }
+.home-rtile-go { color: var(--muted); }
+
+/* games: three picture cards */
+.home-games { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.home-game { display: flex; flex-direction: column; padding: 0; border: 1px solid var(--border); border-radius: 22px; overflow: hidden; background: var(--surface); color: var(--text); text-align: left; box-shadow: var(--shadow); transition: transform .2s var(--ease), box-shadow .2s; }
+.home-game:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.home-game:active { transform: translateY(0) scale(.99); }
+.home-game-pic { aspect-ratio: 16 / 9; overflow: hidden; background: var(--surface-2); }
+.home-game-pic img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .7s var(--ease); }
+.home-game:hover .home-game-pic img { transform: scale(1.05); }
+.hg-crossing .home-game-pic img { object-position: 40% 68%; }
+.home-game-body { display: flex; align-items: center; gap: 12px; padding: 14px 16px 16px; }
+.home-game-ic { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--accent-soft); }
+.home-game-t { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.home-game-t b { font: 700 18px/1.2 var(--brand); }
+.home-game-t small { color: var(--muted); font-size: 13px; line-height: 1.35; }
+.home-game-stat { flex: none; align-self: flex-start; padding: 4px 10px; border-radius: 99px; background: var(--surface-2); font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; }
+:root[data-motion='reduce'] .home-game-pic img { transition: none; }
+
+/* create: sizes on the page colour, your designs as a small row */
+.hk2 { justify-content: flex-start; margin-top: 0; }
+.hk2 .home-kind { color: var(--text); }
+.home-designs { display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin; }
+.home-dthumb { flex: none; width: 136px; display: grid; gap: 6px; }
+.home-dthumb-pic { display: grid; place-items: center; height: 120px; width: 100%; padding: 10px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; aspect-ratio: auto !important; }
+.home-dthumb-pic img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: var(--shadow-xs); }
+.home-dthumb small { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* today */
+.home2 .daily { margin: 0 0 14px; }
+.home2 .missions { margin-top: 0; }
+
+/* what's on: one card in the event's own colours (seasonal content may be colourful; the chrome stays calm) */
+.home-event { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 20px; color: var(--text);
+  background: color-mix(in srgb, var(--ev-lt) 55%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ev) 35%, var(--border)); transition: transform .18s var(--ease); }
+.home-event:hover { transform: translateY(-2px); }
+.home-event-ic { width: 52px; height: 52px; flex: none; display: grid; place-items: center; border-radius: 16px; font-size: 28px; background: var(--surface); box-shadow: 0 4px 0 color-mix(in srgb, var(--ev) 35%, transparent); }
+.home-event-t { flex: 1; min-width: 0; display: grid; }
+.home-event-t small { font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ev-dk); }
+.home-event-t b { font-size: 16.5px; }
+.home-event-t span { font-size: 13px; color: var(--muted); }
+.home-event-go { display: inline-flex; align-items: center; gap: 2px; flex: none; font-weight: 700; font-size: 14px; color: var(--ev-dk); }
+:root[data-dark='true'] .home-event { background: color-mix(in srgb, var(--ev) 14%, var(--surface)); }
+:root[data-dark='true'] .home-event-t small, :root[data-dark='true'] .home-event-go { color: var(--ev-lt); }
+
+/* collections: three quiet doors */
+.home-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.home-col { display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 12px 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-xs); transition: transform .18s var(--ease), box-shadow .18s; }
+.home-col:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.home-col-ic { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 13px; background: var(--accent-soft); color: var(--accent); }
+.home-col b { display: block; font-size: 15px; }
+.home-col small { display: block; color: var(--muted); font-size: 12.5px; }
+
+@media (max-width: 960px) {
+  .home-resume { grid-template-columns: 1fr; }
+  .home-games { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 2px 16px 10px; scrollbar-width: none; }
+  .home-games::-webkit-scrollbar { display: none; }
+  .home-game { flex: none; width: min(82vw, 340px); scroll-snap-align: start; scroll-margin-left: 16px; }
+  .hk2 { margin: 0 -16px; padding: 0 10px; }
+  .home-cols { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .home2 { gap: 26px; }
+  .home-doors { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .home-door { min-width: 0; padding: 8px 10px 8px 8px; gap: 10px; }
+  .home-door-ic { width: 40px; height: 40px; border-radius: 12px; }
+  .home-door small { display: none; }
+  .home-game-t small { font-size: 12.5px; }
+}

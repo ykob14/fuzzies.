@@ -410,7 +410,7 @@ export function runRace(stage: HTMLElement, setup: RaceSetup, hooks: RaceHooks):
   if (!mobile) touch.classList.add('mouse');
   const { overlay: pauseOverlay, resume, restart, quit } = pauseCard({ restartLabel: 'Restart race' });
   const adv = adventure('boatrace')!;
-  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.rivals[0]?.name ?? 'Pom', mobile, buttonLabel: 'To the start line!', onStart: () => start() });
+  const intro = introCard({ adv, variant: setup.variant ? adv.variants?.[setup.variant] ?? null : null, host: setup.rivals[0]?.name ?? 'Pom', mobile, buttonLabel: 'To the start line!', onStart: () => start(), onBack: () => quit.click() });
   root.append(canvas, el('div', 'mg-vignette'), touch, hud, intro, pauseOverlay); // the HUD's buttons sit above the steering zones
   stage.append(root);
   const unlockPage = lockPage(root); // phones: a drag steers the game, never the page behind it

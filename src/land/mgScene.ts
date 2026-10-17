@@ -132,7 +132,7 @@ export function createArcade(stage: HTMLElement, o: ArcadeOpts): Arcade {
     if (import.meta.env.DEV) (window as unknown as { __rivals: unknown }).__rivals = field; // tests step the rivals by hand
   }
   const variant: Variant | null = setup.variant ? adv.variants?.[setup.variant] ?? null : null;
-  const intro = introCard({ adv, variant, host: setup.host, mobile, buttonLabel: o.buttonLabel ?? 'Let’s go!', onStart: () => start(), extra: o.extra, vs: field?.rivals.map((r) => r.info) });
+  const intro = introCard({ adv, variant, host: setup.host, mobile, buttonLabel: o.buttonLabel ?? 'Let’s go!', onStart: () => start(), onBack: () => quit.click(), extra: o.extra, vs: field?.rivals.map((r) => r.info) });
   const pauseOverlay = el('div', 'race-paused'); pauseOverlay.hidden = true;
   const bigBtn = (cls: string, icon: string, label: string): HTMLButtonElement => { const b = el('button', cls); b.type = 'button'; b.append(mgIcon(icon, 24), el('span', '', label)); return b; };
   const resume = bigBtn('btn btn-primary fzx-bigbtn', 'play', 'Resume');

@@ -46,7 +46,7 @@ export function renderResults(o: ResultsOpts): HTMLElement {
     h('button', { class: 'fzx-play', type: 'button', onclick: o.again }, gicon('play', 26), h('span', null, 'Play again')),
     h('div', { class: 'fzx-rs-sec' },
       h('button', { class: 'fzx-sbtn', type: 'button', onclick: o.menu }, gicon('fuzzy', 18), 'Menu'),
-      h('button', { class: 'fzx-sbtn', type: 'button', onclick: o.toLand }, gicon('town', 18), 'Fuzzies Land')),
+      h('button', { class: 'fzx-sbtn', type: 'button', onclick: o.toLand }, gicon('town', 18), 'Back to town')),
   ];
   void coinMark;
   return h('div', { class: 'fzx-lobby fzx-results' }, ...kids.filter((x): x is HTMLElement => !!x));

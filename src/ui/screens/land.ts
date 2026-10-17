@@ -15,6 +15,7 @@ import { gamesBody } from '../landGames';
 import { GAME_LOADERS } from '../../land/games/index';
 import { api, ApiError, cloudEnabled } from '../../core/api';
 import type { LandView, Pick } from '../../land/view3d';
+import { noteRecent } from '../../core/recent';
 import { accounts } from '../../core/account';
 import { rewards } from '../../core/rewards';
 import { sfx } from '../../game/sound';
@@ -272,7 +273,7 @@ export function landScreen(): Screen {
     }
     return el;
   }
-  const backBtn = h('button', { class: 'land-round land-back', type: 'button', title: 'Back to Fuzzies', 'aria-label': 'Back to Fuzzies' }, landIcon('back', 22));
+  const backBtn = h('button', { class: 'land-round land-back', type: 'button', title: 'Back to Home', 'aria-label': 'Back to Home' }, landIcon('back', 22));
   backBtn.addEventListener('click', () => { location.hash = '#/home'; });
   let hudSig = '';
   function renderHud(): void {
@@ -1796,6 +1797,9 @@ export function landScreen(): Screen {
     if (playing || !view) return;
     playing = true;
     endTalk(); openPanel(null);
+    // the address says where you are (#/land/parking), so a reload or an interruption brings you back to the lot
+    history.replaceState(null, '', '#/land/parking');
+    noteRecent('parking');
     s.parking = PK.migratePark(s.parking);
     save();
     retryParking();
@@ -1805,7 +1809,7 @@ export function landScreen(): Screen {
       return runParking(stage, { mobile: isTouch(), state: s.parking!, coins: () => s.coins, name: accounts.current?.name?.split(' ')[0] || 'You', now }, {
         save: () => save(),
         pay: payParking,
-        exit: () => { renderHud(); backToTown(); },
+        exit: () => { history.replaceState(null, '', '#/land'); renderHud(); backToTown(); },
       });
     }).catch(fail);
   }
@@ -2137,11 +2141,15 @@ export function landScreen(): Screen {
       try { cam = JSON.parse(localStorage.getItem('fz.land.cam') || 'null'); if (!cam || !Number.isFinite(cam.x) || !Number.isFinite(cam.z) || !Number.isFinite(cam.d)) cam = null; } catch { cam = null; }
       if (import.meta.env.DEV) (window as unknown as { __land: unknown }).__land = { view, state: s, tut, tutTarget, fuzzies: () => rewards.balance(), tutRefresh: () => tutUi?.refresh(), sel: () => [...sel], selMode: () => selMode, storage: () => L.storage(s), session: () => session, undo: () => undoStack.length, enter: enterSelect, save: saveLayout, cancel: cancelEditing, events: E, rulesMod: L, acct: accounts, season: () => seasonKey, applySeason, openEvents: (tab: string) => openPanel({ kind: 'events', tab }), openShop: (tab: 'decor') => openPanel({ kind: 'shop', tab }), trophies: TR, adv: A, openParking, talkTo, endTalk, findHost, startAdventure, hostIndex, hostIndexOf, devSet, syncMissions, setStatus: () => A.setStatus(s, now()), talking: () => !!talk, playing: () => playing }; // for tests
       if (a.settings.reduceMotion) view.placeAt(cam); else view.swoopIn(cam);
-      setTimeout(() => { if (alive && !packedAway() && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
+      setTimeout(() => { if (alive && !playing && !packedAway() && !tut.active) welcomeBack(); }, a.settings.reduceMotion ? 300 : 2300);
       // the tutorial (new players, or a replay from Settings → Help) starts once the camera has swooped in
-      setTimeout(() => { if (alive) startTutorial(); }, a.settings.reduceMotion ? 300 : 2200);
+      setTimeout(() => { if (alive && !playing) startTutorial(); }, a.settings.reduceMotion ? 300 : 2200);
       resumeEditing();
       view.start();
+      // deep links: #/land/parking opens Parking Escape (Home's game card, or a reload mid-game), #/land/games the Games panel
+      const want = location.hash.replace(/^#\/?/, '').split('?')[0].split('/')[1];
+      if (want === 'parking') openParking();
+      else if (want === 'games') { history.replaceState(null, '', '#/land'); openPanel({ kind: 'games' }); }
       music.start();
       wrap.classList.remove('loading');
       requestAnimationFrame(() => dispatchEvent(new Event('fz:scene-ready')));

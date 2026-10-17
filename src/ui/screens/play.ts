@@ -455,7 +455,7 @@ export function playScreen(): Screen {
         mode.kind === 'world' ? h('div', { class: 'btn-row' },
           btn('Restart level', { kind: 'soft', icon: 'redo', onClick: () => { const m = mode; if (m.kind === 'world') void startWorld(m.world, m.level); } }),
           btn('Worlds', { kind: 'soft', icon: 'grid', onClick: () => { const m = mode; void newGame().then(() => go(m.kind === 'world' ? { to: 'worlds', world: m.world, level: m.level } : { to: 'worlds' })); } })) : null,
-        btn('Back to designing', { kind: 'ghost', class: 'btn-block', onClick: () => (location.hash = '#/home') })));
+        btn('Back to town', { kind: 'ghost', icon: 'town', class: 'btn-block', onClick: () => travel('#/land', 'Back to Fuzzies Land…') })));
     } else overlay.hidden = true;
   }
 

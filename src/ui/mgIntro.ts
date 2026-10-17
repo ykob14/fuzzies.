@@ -7,11 +7,12 @@
 import { h } from './dom';
 import { friendUrl } from '../content/friends';
 import { mgIcon, gameTile } from '../land/mgIcons';
+import { gicon } from '../crossing/ui/gicons';
 import type { Adventure, Variant } from '../land/adventures';
 import '../crossing/ui/gameui.css';
 import '../land/mgSkin.css';
 
-export interface IntroOpts { adv: Adventure; variant?: Variant | null; host: string; mobile: boolean; buttonLabel: string; onStart: () => void; extra?: string; /** town Fuzzies playing the same round against you */ vs?: { name: string; skin: [string, string] }[] }
+export interface IntroOpts { adv: Adventure; variant?: Variant | null; host: string; mobile: boolean; buttonLabel: string; onStart: () => void; /** leave before starting (back to the town) */ onBack?: () => void; extra?: string; /** town Fuzzies playing the same round against you */ vs?: { name: string; skin: [string, string] }[] }
 
 // ---- faces: the owner's Fuzzy Friends, matched to a colour when we know it ----
 const POOL: Record<string, string[]> = {
@@ -60,6 +61,7 @@ export function introCard(o: IntroOpts): HTMLElement {
       o.extra ? h('p', null, mgIcon('star', 16), h('span', null, o.extra)) : null,
       h('p', { class: 'mg-tip' }, mgIcon('bulb', 16), h('span', null, a.tip))));
   const box = h('div', { class: 'forest-intro-box mg-intro-box' },
+    o.onBack ? h('button', { class: 'mg-intro-back', type: 'button', onclick: o.onBack, 'aria-label': 'Back to town', title: 'Back to town' }, gicon('town', 18), h('span', null, 'Town')) : null,
     h('div', { class: 'mg-stage' },
       h('i', { class: 'mg-rays' }),
       gameTile(a.id, 92, 'mg-hero'),
