@@ -1,10 +1,13 @@
 /**
  * The Fuzzy Crossing lobby — the first thing you see on the Play tab. A game menu, not a settings page:
- * your Fuzzy on a stage, one big Play button and the two other ways to play (Worlds, Endless) — nothing else (owner: "too complicated").
- * Collecting Fuzzies (Locker, Pass, Shop, Boards, missions) lives in Fuzzies Land → Games → Fuzzy Collection, which opens `#/play/<panel>`.
+ * your Fuzzy on a stage, one big Play button, the two other ways to play (Worlds, Endless) and three picture cards for collecting —
+ * Locker, Pass, Shop (owner, 2026-10-17: all three right on the Crossing menu, inside the Crossing tab, separate from Fuzzies Land).
+ * Kept short on purpose (owner, 2026-10-16: the old lobby was "too complicated") — missions, boards and events are reached from those screens.
  * New screens appear here by themselves once their panel exists (`panelAvailable`) — nothing in this file changes per feature.
  */
 import { h, fuzzyMark } from '../../ui/dom';
+import { CHARACTERS } from '../characters';
+import { coinMark, newDot } from './kit';
 import * as store from '../store';
 import { type CharacterDef } from '../characters';
 import { panelAvailable, type NavTarget, type PanelName } from '../hub';
@@ -52,14 +55,17 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
   const helpBtn = h('button', { class: 'fzx-round', type: 'button', 'aria-label': 'How to play', onclick: () => showHelp() }, gicon('help', 22));
   const gearBtn = o.gfx ? h('button', { class: 'fzx-round', type: 'button', 'aria-label': 'Options', onclick: () => showOptions() }, gicon('gear', 22)) : null;
   const streak = accounts.current?.daily.streak ?? 0;
-  const top = h('header', { class: 'fzx-lb-top' }, back, h('span', { class: 'fzx-sp' }), helpBtn, gearBtn);
+  const coinPill = panelAvailable('shop') ? h('button', { class: 'fzx-coinpill', type: 'button', 'aria-label': `${store.coins().toLocaleString()} coins. Open the Fuzzy Shop`, onclick: open('shop') }, coinMark(22), h('b', null, store.coins().toLocaleString())) : null;
+  const top = h('header', { class: 'fzx-lb-top' }, back, h('span', { class: 'fzx-sp' }), helpBtn, gearBtn, coinPill);
 
   // ---- the stage: your Fuzzy ----
   const stage = h('div', { class: 'fzx-stage' },
     h('span', { class: 'fzx-rays', 'aria-hidden': 'true' }),
     h('span', { class: 'fzx-sky', 'aria-hidden': 'true' }, h('i', null), h('i', null), h('i', null)),
     h('div', { class: 'fzx-3d' }, bigPortrait(o.me, 190), h('span', { class: 'fzx-ground', 'aria-hidden': 'true' })),
-    h('div', { class: 'fzx-name plain' }, h('b', null, o.me.name)));
+    panelAvailable('locker')
+      ? h('button', { class: 'fzx-name', type: 'button', onclick: () => o.go({ to: 'locker', id: o.me.id }), 'aria-label': `${o.me.name}. Open the Fuzzy Locker` }, h('b', null, o.me.name))
+      : h('div', { class: 'fzx-name plain' }, h('b', null, o.me.name)));
 
   // ---- Play ----
   const modes: { id: PanelName; ic: ArtName; label: string; sub: string }[] = [
@@ -72,7 +78,26 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
     ? h('div', { class: `fzx-modes n${shownModes.length}` }, ...shownModes.map((m) => h('button', { class: 'fzx-mode', type: 'button', onclick: open(m.id) }, art(m.ic, 40), h('span', { class: 'fzx-mode-t' }, h('b', null, m.label), h('small', null, m.sub)))))
     : null;
 
-  root.append(...[top, stage, playBtn, modeRow].filter((x): x is HTMLElement => !!x));
+  // ---- collecting: Locker · Pass · Shop (one row of picture cards; a dot when something is waiting) ----
+  const pass = store.passInfo();
+  const newFuzzies = CHARACTERS.some((c) => c.id !== 'classic' && store.hasCharacter(c.id) && store.isNew(c.id));
+  const card = (name: PanelName, pic: ArtName, label: string, sub: string, dot: boolean, extra?: Node): HTMLElement | null => {
+    if (!panelAvailable(name)) return null;
+    const b = h('button', { class: `fzx-fc fzx-fc-${name}`, type: 'button', onclick: open(name), 'aria-label': `${label}, ${sub}` },
+      h('span', { class: 'fzx-fc-t' }, h('b', null, label), h('small', null, sub)),
+      h('span', { class: 'fzx-fc-art' }, art(pic, 54), extra ?? null));
+    if (dot) b.append(newDot());
+    return b;
+  };
+  const peek = o.me.friend ? h('img', { class: 'fzx-fc-peek', src: friendUrl(o.me.friend), alt: '', draggable: 'false' }) : h('span', { class: 'fzx-fc-peek' }, fuzzyMark(44, o.me.color));
+  const collect = [
+    card('locker', 'locker', 'Locker', `${store.ownedCount()}/${CHARACTERS.length} Fuzzies`, newFuzzies, peek),
+    card('pass', 'pass', 'Pass', pass.maxed ? 'Complete!' : `Level ${pass.level}`, store.passClaimable().length > 0),
+    card('shop', 'shop', 'Shop', 'New picks daily', false),
+  ].filter((x): x is HTMLElement => !!x);
+  const dock = collect.length ? h('nav', { class: `fzx-cards n${collect.length}`, 'aria-label': 'Collect Fuzzies' }, ...collect) : null;
+
+  root.append(...[top, stage, playBtn, modeRow, dock].filter((x): x is HTMLElement => !!x));
 
   // ---- sheets: how to play / options ----
   function showHelp(): void {
@@ -92,7 +117,7 @@ export function renderLobby(o: LobbyOpts): HTMLElement {
     const el = sheet('Options', body, () => el.remove());
     root.append(el);
   }
-  requestAnimationFrame(() => mountHero(root, stage, o.me, o.touch, { claim: 0, missions: false, streak }));
+  requestAnimationFrame(() => mountHero(root, stage, o.me, o.touch, { claim: store.passClaimable().length, missions: false, streak }));
   return root;
 }
 

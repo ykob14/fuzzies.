@@ -18,7 +18,7 @@ export interface HelpTopic {
 export const APP_FACTS = `Fuzzies ("Dream it fuzzy. Make it sharp.") is a design app for phones and computers with a built-in game, Fuzzy Crossing,
 and a town-builder, Fuzzies Land. Fuzzies (the tokens) are earned by designing, playing and showing up every day, or bought; they unlock
 premium templates, graphics, stickers, app themes and game looks (every font and text style is free). The mascot (a fluffy Fuzzy) lives in the logo.
-Screens: Home (#/home), Templates (#/templates), My designs (#/projects), the editor (#/edit/<id>), Fuzzy Crossing (#/play — open it from Games in Fuzzies Land),
+Screens: Home (#/home), Templates (#/templates), My designs (#/projects), the editor (#/edit/<id>), Fuzzy Crossing (#/play — open it from Games in Fuzzies Land; its menu has the Locker, Pass and Shop),
 Fuzzies Land (#/land), Rewards (#/rewards), Profile (#/profile), Settings (#/settings). On phones the tab bar at the bottom has
 Home, Templates, Create (+), Designs and Land (Fuzzies Land; every game lives inside Fuzzies Land: tap the Games button in the town's toolbar for Fuzzy Crossing, Parking Escape and today's missions; your profile is the picture at the top right, and the blue Fuzzy button next to it opens this helper). On computers the menu is on the left (it folds into icons with the arrow button).
 Quick find: Ctrl/Cmd+K or the search box at the top jumps to any screen, template or design.`;
@@ -109,12 +109,16 @@ one-time badges for milestones (first design, scores, exports, Fuzzies Land leve
   },
   {
     id: 'game', title: 'Fuzzy Crossing (the game)', screens: ['play'],
-    keywords: ['game', 'play', 'fuzzy crossing', 'frogger', 'hop', 'score', 'cars', 'river', 'skin', 'look', '3d', 'classic', '2d', 'controls', 'intro'],
-    body: `Hop your Fuzzy across roads and rivers: arrow keys, WASD, swipes or the on-screen arrows. Reach the nests to score; levels get faster and
-the time of day changes. Points earn Fuzzies and your top 10 scores are kept. The game is realistic 3D; Classic 2D is in the game menu
-(also used automatically when a device has no WebGL). Unlockable looks (skins) change your Fuzzy. The Crossing Gate in Fuzzies Land jumps
-straight into the game and back.`,
-    asks: ['How do I play?', 'How do I switch to the 2D game?', 'How do I change my Fuzzy’s look?'],
+    keywords: ['game', 'play', 'fuzzy crossing', 'frogger', 'hop', 'score', 'cars', 'river', 'skin', 'look', '3d', 'classic', '2d', 'controls', 'intro', 'locker', 'pass', 'shop', 'character', 'unlock', 'outfit', 'collection'],
+    body: `Hop your Fuzzy across roads and rivers: arrow keys or WASD on a computer, tap (hop forward) or swipe on a phone. Reach the nests to score; levels get faster and
+the time of day changes. Points earn Fuzzies and your top 10 scores are kept. The game is realistic 3D; Classic 2D is in the game menu's options
+(also used automatically when a device has no WebGL). The Fuzzy Crossing menu has three cards under Play: **Locker** (all 50 Fuzzies in 3D — drag to turn
+them round, equip one, and every locked one has How to Unlock with a button straight to the right Pass level, Shop item, world or challenge),
+**Pass** (a free 50-level reward track: playing, levels and daily missions give XP; claim Fuzzies, outfits, trails, jump effects and coins) and
+**Shop** (spend coins earned in the game on Fuzzies and styles: daily and weekly picks, always-there items and seasonal collections; the rarest
+Fuzzies are never sold — they're earned by skill). New Fuzzies appear in the Locker straight away with an unlock celebration and Equip Now.
+The Crossing Gate in Fuzzies Land jumps straight into the game and back.`,
+    asks: ['How do I play?', 'How do I unlock new Fuzzies?', 'How do I change my Fuzzy?'],
   },
   {
     id: 'land', title: 'Fuzzies Land basics', screens: ['land'],

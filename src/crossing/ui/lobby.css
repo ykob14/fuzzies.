@@ -163,3 +163,15 @@
 .fzx-back svg { color: var(--accent); }
 .fzx-name.plain { cursor: default; }
 .fzx-lobby .fzx-modes.n2 { grid-template-columns: 1fr 1fr; }
+
+/* ---- collecting row: Locker · Pass · Shop (2026-10-17) ---- */
+.fzx-cards.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.fzx-cards.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fzx-cards.n3 .fzx-fc { min-height: 104px; gap: 6px; }
+.fzx-cards.n3 .fzx-fc-art { width: 62px; height: 52px; }
+.fzx-cards.n3 .fzx-fc-art .fzx-art-w, .fzx-cards.n3 .fzx-fc-art svg { width: 62px; }
+.fzx-cards.n3 .fzx-fc-t b { font-size: 16px; }
+.fzx-cards.n3 .fzx-fc-t small { font-size: 11px; }
+.fzx-fc-pass { --tile: #ffd45a; }
+.fzx-name:not(.plain):hover b { color: var(--accent); }
+@media (max-height: 700px) { .fzx-cards.n3 .fzx-fc { min-height: 88px; } .fzx-cards.n3 .fzx-fc-art { width: 50px; height: 42px; } .fzx-cards.n3 .fzx-fc-art svg { width: 50px; } }
