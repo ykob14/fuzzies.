@@ -163,3 +163,7 @@
 .fzx-back svg { color: var(--accent); }
 .fzx-name.plain { cursor: default; }
 .fzx-lobby .fzx-modes.n2 { grid-template-columns: 1fr 1fr; }
+/* the owner's Fuzzy picture: as it is, a little bigger, tappable */
+.fzx-lb-fuzzy.fzx-hero-pic { width: min(230px, 56vw); height: min(230px, 56vw); cursor: pointer; filter: drop-shadow(0 12px 14px color-mix(in srgb, var(--accent) 22%, transparent)); }
+.fzx-lb-fuzzy.fzx-hero-pic.hop { animation: fzxHop .7s ease-out; }
+@media (max-height: 700px) { .fzx-lb-fuzzy.fzx-hero-pic { width: min(170px, 44vw); height: min(170px, 44vw); } }

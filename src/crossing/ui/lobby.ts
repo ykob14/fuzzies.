@@ -27,8 +27,13 @@ export interface LobbyOpts {
   touch: boolean;
 }
 
+/** the owner's Fuzzy picture (public/art/fuzzy-hero.webp) — never redrawn, re-rendered or swapped */
+const OWNER_FUZZY = '/art/fuzzy-hero.webp';
+
 /** a big picture of a Fuzzy for the stage */
 function bigPortrait(c: CharacterDef, size: number): HTMLElement {
+  // the Classic Fuzzy is the owner's own picture, shown exactly as it is (owner: "do not change the image")
+  if (c.id === 'classic') return h('img', { class: 'fzx-lb-fuzzy fzx-hero-pic', src: OWNER_FUZZY, alt: '', width: size, height: size, draggable: 'false' });
   return c.friend
     ? h('img', { class: 'fzx-lb-fuzzy', src: friendUrl(c.friend), alt: '', width: size, height: size, draggable: 'false' })
     : h('span', { class: 'fzx-lb-fuzzy' }, fuzzyMark(size, c.color));
@@ -126,6 +131,13 @@ function mountHero(root: HTMLElement, stage: HTMLElement, me: CharacterDef, touc
     gone = true; clearInterval(watch); clearInterval(talk); clearTimeout(first); clearTimeout(hold);
     room?.dispose(); room = null;
   }, 800);
+  // the Classic Fuzzy stays the owner's picture (no 3D swap): a tap makes it hop and giggle
+  if (me.id === 'classic') {
+    const pic = box.querySelector<HTMLElement>('.fzx-lb-fuzzy');
+    pic?.addEventListener('animationend', () => pic.classList.remove('hop'));
+    pic?.addEventListener('click', () => { pic.classList.remove('hop'); void pic.offsetWidth; pic.classList.add('hop'); say(REACT[Math.floor(Math.random() * REACT.length)], 2200); });
+    return;
+  }
   const hasGL = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } })();
   if (!hasGL) return;
   void import('./showroom').then(async (m) => {
