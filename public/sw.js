@@ -1,5 +1,5 @@
 // Fuzzies offline support: the app shell and fonts are cached so it opens without a connection.
-const CACHE = 'fuzzies-v5';
+const CACHE = 'fuzzies-v6';
 // your chosen app icon (drawn by the app, see src/core/appicon.ts) — kept across updates
 const ICON_CACHE = 'fuzzies-icon';
 const ICON_FILES = /\/(icon\.svg|icon-192\.png|icon-512\.png|icon-maskable-512\.png|apple-touch-icon\.png)$/;
